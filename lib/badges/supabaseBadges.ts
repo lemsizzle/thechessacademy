@@ -46,6 +46,15 @@ export function toBadgeTier(tier: string | null | undefined): BadgeTier | undefi
   return tier as BadgeTier;
 }
 
+function toSupabaseTier(tier: BadgeTier | undefined, category?: BadgeCategory) {
+  if (category === "Concepts") return "C";
+  if (tier === "Bronze" || tier === "C" || !tier) return "C";
+  if (tier === "Silver" || tier === "B") return "B";
+  if (tier === "Gold" || tier === "A") return "A";
+  if (tier === "Platinum" || tier === "S") return "S";
+  return "C";
+}
+
 function inferTacticTheme(name: string, category: string): TacticTheme | undefined {
   if (category !== "Tactics" && category !== "Checkmates") return undefined;
   const lower = name.toLowerCase();
@@ -71,7 +80,7 @@ export function mapSupabaseBadge(row: SupabaseBadgeRow): Badge {
     description: row.description ?? "",
     category,
     tacticTheme: inferTacticTheme(row.name, category),
-    tier: toBadgeTier(row.tier),
+    tier: category === "Concepts" ? undefined : toBadgeTier(row.tier),
     xpValue: row.xp_value ?? 0,
     unlockRequirement: row.unlock_requirement ?? "Teacher-awarded achievement.",
     visualTheme: row.visual_theme ?? "magical chess academy emblem",
@@ -90,7 +99,7 @@ export function badgeToSupabasePayload(input: BadgeWriteInput) {
     name: input.name?.trim(),
     description: input.description?.trim() ?? "",
     category: input.category,
-    tier: input.category === "Concepts" ? null : input.tier ?? "Bronze",
+    tier: toSupabaseTier(input.tier, input.category),
     xp_value: Number(input.xpValue ?? 0),
     unlock_requirement: input.unlockRequirement?.trim() ?? "",
     visual_theme: input.visualTheme?.trim() ?? "",

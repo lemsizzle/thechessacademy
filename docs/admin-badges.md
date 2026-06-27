@@ -35,6 +35,8 @@ The app maps frontend camelCase fields to Supabase snake_case fields:
 - `generationStatus` -> `generation_status`
 - `generationError` -> `generation_error`
 
+The current Supabase schema stores badge tiers as `C`, `B`, `A`, and `S`. The app displays those as `Bronze`, `Silver`, `Gold`, and `Platinum`. Concept badges are stored with tier `C` only because the existing database column is required, but the app hides the tier for concepts.
+
 ## Testing On Vercel
 
 1. Deploy the latest code to Vercel.
