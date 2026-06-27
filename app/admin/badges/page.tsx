@@ -1,6 +1,20 @@
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { AppShell } from "@/components/AppShell";
+import { createAdminActionToken } from "@/lib/auth/adminSession";
+import { listAdminBadges } from "@/lib/badges/supabaseBadges";
 
-export default function AdminBadgesPage() {
-  return <AppShell title="Manage Badges" subtitle="Create badges and test mock AI badge art generation." variant="admin"><AdminPanel mode="badges" /></AppShell>;
+export default async function AdminBadgesPage() {
+  let badges = undefined;
+  try {
+    badges = await listAdminBadges();
+  } catch {
+    badges = undefined;
+  }
+  const adminActionToken = await createAdminActionToken();
+
+  return (
+    <AppShell title="Manage Badges" subtitle="Create badges and test mock AI badge art generation." variant="admin">
+      <AdminPanel mode="badges" initialBadges={badges} adminActionToken={adminActionToken} />
+    </AppShell>
+  );
 }

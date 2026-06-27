@@ -114,16 +114,18 @@ export function AdminPanel({
   requestedStudent,
   initialStudents,
   deleteStudentAction,
-  adminActionToken
+  adminActionToken,
+  initialBadges
 }: {
   mode?: AdminMode;
   requestedStudent?: string;
   initialStudents?: Student[];
+  initialBadges?: Badge[];
   deleteStudentAction?: DeleteStudentAction;
   adminActionToken?: string;
 }) {
   const [students, setStudents] = useState<Student[]>(initialStudents ?? seedStudents);
-  const [badges, setBadges] = useState<Badge[]>(seedBadges);
+  const [badges, setBadges] = useState<Badge[]>(initialBadges ?? seedBadges);
   const [quests, setQuests] = useState<Quest[]>(seedQuests);
   const [tacticProgress, setTacticProgress] = useState<StudentTacticProgress[]>(seedTacticProgress);
   const [lichessConnections, setLichessConnections] = useState<LichessConnection[]>(seedLichessConnections);
@@ -136,8 +138,8 @@ export function AdminPanel({
   const [classDrafts, setClassDrafts] = useState<ClassGroup[]>(seedClassGroups);
   const [selectedStudent, setSelectedStudent] = useState(initialStudents?.[0]?.id ?? seedStudents[0]?.id ?? "");
   const [selectedClassGroup, setSelectedClassGroup] = useState(ALL_CLASSES);
-  const [selectedBadge, setSelectedBadge] = useState(seedBadges[0]?.id ?? "");
-  const [badgeDraft, setBadgeDraft] = useState<Badge>(seedBadges[0]);
+  const [selectedBadge, setSelectedBadge] = useState(initialBadges?.[0]?.id ?? seedBadges[0]?.id ?? "");
+  const [badgeDraft, setBadgeDraft] = useState<Badge>(initialBadges?.[0] ?? seedBadges[0]);
   const [selectedQuest, setSelectedQuest] = useState(seedQuests[0]?.id ?? "");
   const [questDraft, setQuestDraft] = useState<Quest>(seedQuests[0]);
   const [badgeToAward, setBadgeToAward] = useState(seedBadges[0]?.id ?? "");
@@ -153,6 +155,7 @@ export function AdminPanel({
   const [outschoolStudentName, setOutschoolStudentName] = useState("New Outschool Student");
   const [log, setLog] = useState<string[]>(["Admin mock workspace ready."]);
   const [loaded, setLoaded] = useState(false);
+  const [badgeSaving, setBadgeSaving] = useState(false);
 
   useEffect(() => {
     const parsed = readAdminStore();
@@ -164,7 +167,13 @@ export function AdminPanel({
       setStudents(parsed.students);
       setSelectedStudent(parsed.students[0]?.id ?? "");
     }
-    if (parsed.badges) {
+    if (initialBadges) {
+      setBadges(initialBadges);
+      setSelectedBadge(initialBadges[0]?.id ?? "");
+      if (initialBadges[0]) setBadgeDraft(initialBadges[0]);
+      setBadgeToAward(initialBadges[0]?.id ?? "");
+      setLog((items) => [`Loaded ${initialBadges.length} badge${initialBadges.length === 1 ? "" : "s"} from Supabase.`, ...items].slice(0, 10));
+    } else if (parsed.badges) {
       const mergedBadges = mergeSeedBadges(parsed.badges);
       setBadges(mergedBadges);
       setSelectedBadge(mergedBadges[0]?.id ?? "");
@@ -191,7 +200,7 @@ export function AdminPanel({
     }
     if (parsed.log) setLog(parsed.log);
     setLoaded(true);
-  }, [initialStudents]);
+  }, [initialBadges, initialStudents]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -556,20 +565,83 @@ export function AdminPanel({
     setBadgeDraft((badge) => ({ ...badge, ...patch }));
   }
 
-  function addBadge() {
-    const badge = emptyBadge(badges.length);
-    setBadges((items) => [badge, ...items]);
-    setSelectedBadge(badge.id);
-    setBadgeDraft(badge);
-    setBadgeToAward(badge.id);
-    pushLog(`Created ${badge.name}.`);
+  async function writeBadgeToSupabase(method: "POST" | "PATCH", badge: Badge) {
+    const url = method === "POST" ? "/api/admin/badges" : `/api/admin/badges/${encodeURIComponent(badge.id)}`;
+    const response = await fetch(url, {
+      method,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+      },
+      body: JSON.stringify(badge)
+    });
+    const data = await response.json().catch(() => ({})) as { badge?: Badge; error?: string };
+    if (!response.ok || !data.badge) throw new Error(data.error ?? "Could not save badge to Supabase.");
+    return data.badge;
   }
 
-  function saveBadge() {
+  async function addBadge() {
+    const draft = emptyBadge(badges.length);
+    setBadgeSaving(true);
+    try {
+      const badge = await writeBadgeToSupabase("POST", draft);
+      setBadges((items) => [badge, ...items]);
+      setSelectedBadge(badge.id);
+      setBadgeDraft(badge);
+      setBadgeToAward(badge.id);
+      pushLog(`Created Supabase badge ${badge.name}.`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not create badge.");
+    } finally {
+      setBadgeSaving(false);
+    }
+  }
+
+  async function saveBadge() {
     if (!currentBadge) return;
-    setBadges((items) => items.map((badge) => badge.id === currentBadge.id ? { ...badgeDraft, id: currentBadge.id } : badge));
-    setBadgeToAward(currentBadge.id);
-    pushLog(`Saved badge ${badgeDraft.name}.`);
+    setBadgeSaving(true);
+    try {
+      const savedBadge = await writeBadgeToSupabase("PATCH", { ...badgeDraft, id: currentBadge.id });
+      setBadges((items) => items.map((badge) => badge.id === currentBadge.id ? savedBadge : badge));
+      setBadgeDraft(savedBadge);
+      setBadgeToAward(savedBadge.id);
+      pushLog(`Saved Supabase badge ${savedBadge.name}.`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not save badge.");
+    } finally {
+      setBadgeSaving(false);
+    }
+  }
+
+  async function deleteBadge() {
+    if (!currentBadge) return;
+    if (!window.confirm(`Delete badge ${currentBadge.name}? If students have earned it, related student_badges rows may be removed by the database cascade.`)) return;
+    setBadgeSaving(true);
+    try {
+      const response = await fetch(`/api/admin/badges/${encodeURIComponent(currentBadge.id)}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+        }
+      });
+      const data = await response.json().catch(() => ({})) as { error?: string; assignedCount?: number };
+      if (!response.ok) throw new Error(data.error ?? "Could not delete badge.");
+      const remaining = badges.filter((badge) => badge.id !== currentBadge.id);
+      setBadges(remaining);
+      setSelectedBadge(remaining[0]?.id ?? "");
+      if (remaining[0]) setBadgeDraft(remaining[0]);
+      if (data.assignedCount) {
+        pushLog(`Deleted ${currentBadge.name}. It had ${data.assignedCount} earned assignment${data.assignedCount === 1 ? "" : "s"}.`);
+      } else {
+        pushLog(`Deleted Supabase badge ${currentBadge.name}.`);
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not delete badge.");
+    } finally {
+      setBadgeSaving(false);
+    }
   }
 
   function updateQuestDraft(patch: Partial<Quest>) {
@@ -1033,14 +1105,15 @@ export function AdminPanel({
     </Card>
   );
 
-  const badgeEditor = currentBadge && (
+  const badgeEditor = (
     <div className="space-y-4">
       <Card className="p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-black text-white">Badge Editor</h2>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={addBadge}>Create Badge</Button>
-            <Button variant="secondary" onClick={saveBadge}>Save Badge</Button>
+            <Button onClick={addBadge} disabled={badgeSaving}>{badgeSaving ? "Saving..." : "Create Badge"}</Button>
+            <Button variant="secondary" onClick={saveBadge} disabled={badgeSaving || !currentBadge}>{badgeSaving ? "Saving..." : "Save Badge"}</Button>
+            <Button variant="ghost" onClick={deleteBadge} disabled={badgeSaving || !currentBadge}>Delete Badge</Button>
           </div>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
@@ -1159,17 +1232,25 @@ export function AdminPanel({
           </label>
         </div>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-slate-400">Badge edits and prompt changes stay as a draft until you press Save Badge.</p>
+          <p className="text-xs text-slate-400">Badge edits save to Supabase when you press Save Badge. Prompt text is still local until a future prompt column is added.</p>
           <Button variant="ghost" onClick={() => updateBadgeDraft({ imagePrompt: buildDefaultBadgeImagePrompt(badgeDraft) })}>Reset Prompt</Button>
         </div>
       </Card>
       <BadgeGeneratorPanel
         badge={badgeDraft}
-        onSave={(imageUrl) => {
+        onSave={async (imageUrl) => {
           const updated = { ...badgeDraft, finalImageUrl: imageUrl, artImageUrl: imageUrl, generationStatus: "selected" as const };
-          setBadgeDraft(updated);
-          setBadges((items) => items.map((badge) => badge.id === currentBadge.id ? updated : badge));
-          pushLog(`Saved generated art for ${updated.name}.`);
+          setBadgeSaving(true);
+          try {
+            const savedBadge = currentBadge ? await writeBadgeToSupabase("PATCH", { ...updated, id: currentBadge.id }) : updated;
+            setBadgeDraft(savedBadge);
+            setBadges((items) => items.map((badge) => badge.id === currentBadge?.id ? savedBadge : badge));
+            pushLog(`Saved generated art for ${savedBadge.name}.`);
+          } catch (error) {
+            window.alert(error instanceof Error ? error.message : "Could not save generated art.");
+          } finally {
+            setBadgeSaving(false);
+          }
         }}
       />
     </div>

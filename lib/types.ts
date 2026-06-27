@@ -53,6 +53,7 @@ export type Badge = {
   artImageUrl: string | null;
   finalImageUrl: string | null;
   generationStatus: GenerationStatus;
+  generationError?: string;
   isActive?: boolean;
   isLegacy?: boolean;
   createdAt?: string;
