@@ -259,8 +259,25 @@ export function AdminPanel({ mode = "overview", requestedStudent }: { mode?: Adm
     pushLog(`Added ${student.name}.`);
   }
 
-  function deleteStudent() {
-    if (!currentStudent || !window.confirm(`Delete ${currentStudent.name}? This removes the student from local mock storage.`)) return;
+  async function deleteStudent() {
+    if (!currentStudent || !window.confirm(`Delete ${currentStudent.name}? This removes the student from Supabase and the local admin view.`)) return;
+    try {
+      const response = await fetch(`/api/admin/students/${encodeURIComponent(currentStudent.id)}`, {
+        method: "DELETE",
+        credentials: "same-origin"
+      });
+      const data = await response.json().catch(() => ({})) as { error?: string; deleted?: boolean; skipped?: boolean; mode?: string };
+      if (!response.ok) {
+        window.alert(data.error ?? "Could not delete student from Supabase.");
+        return;
+      }
+      if (data.skipped) pushLog(`Skipped Supabase delete for local-only student id ${currentStudent.id}.`);
+      if (data.mode === "local-only") pushLog("Supabase is not configured, so only local data was updated.");
+    } catch {
+      window.alert("Could not reach the student delete route.");
+      return;
+    }
+
     const remaining = students.filter((student) => student.id !== currentStudent.id);
     setStudents(remaining);
     setSelectedStudent(remaining[0]?.id ?? "");
@@ -754,7 +771,7 @@ export function AdminPanel({ mode = "overview", requestedStudent }: { mode?: Adm
           <p className="text-sm font-bold text-red-100">Delete {currentStudent.name}</p>
           <Button variant="ghost" onClick={deleteStudent}>Delete Student</Button>
         </div>
-        <p className="mt-2 text-xs text-red-100/75">Click Delete Student and confirm in the popup. Reset Mock Data can restore the original seed students.</p>
+        <p className="mt-2 text-xs text-red-100/75">Click Delete Student and confirm in the popup. Supabase students are removed from the database; local-only mock students are removed from this browser.</p>
       </div>
       <div className="mt-5 rounded-lg border border-amber-300/20 bg-amber-300/10 p-4">
         <h3 className="font-black text-white">Student XP</h3>

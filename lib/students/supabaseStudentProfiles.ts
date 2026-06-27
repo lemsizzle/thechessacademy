@@ -47,6 +47,10 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+export function isSupabaseStudentId(value: string) {
+  return isUuid(value);
+}
+
 export async function findSupabaseStudentById(studentId: string): Promise<StudentProfileLookup> {
   const supabase = getSupabaseServerReadClient() ?? getSupabaseServiceClient();
   if (!supabase) {
@@ -162,4 +166,25 @@ export async function createSupabaseStudentForLichess(
 
   if (error) throw new Error(error.message);
   return toStudent(data as SupabaseStudentRow);
+}
+
+export async function deleteSupabaseStudentById(studentId: string) {
+  if (!isSupabaseServiceConfigured()) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required to delete students from Supabase.");
+  }
+
+  if (!isSupabaseStudentId(studentId)) {
+    return { deleted: false, skipped: true };
+  }
+
+  const supabase = getSupabaseServiceClient();
+  if (!supabase) throw new Error("Supabase service role is not configured.");
+
+  const { error } = await supabase
+    .from("students")
+    .delete()
+    .eq("id", studentId);
+
+  if (error) throw new Error(error.message);
+  return { deleted: true, skipped: false };
 }
