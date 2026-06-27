@@ -75,5 +75,5 @@ export function getNavigationGroups(variant: NavVariant): NavGroup[] {
 export function getTopNavActions(variant: NavVariant): NavLink[] {
   if (variant === "admin") return [{ href: "/app", label: "View Portal" }, { href: "/api/admin/logout", label: "Log Out" }];
   if (variant === "student") return [];
-  return [{ href: "/login", label: "Log In" }];
+  return [{ href: "/api/auth/lichess/start", label: "Log in with Lichess" }];
 }

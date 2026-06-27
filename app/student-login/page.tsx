@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function StudentLoginPage() {
-  redirect("/login?mode=student");
+  redirect("/api/auth/lichess/start");
 }

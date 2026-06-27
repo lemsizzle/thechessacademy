@@ -18,8 +18,8 @@ export function PublicPortalWelcome() {
               <Button href="https://lichess.org/signup" target="_blank" rel="noopener noreferrer" variant="primary">
                 Create Lichess Account
               </Button>
-              <Button href="/login" variant="secondary">
-                Log In To Quest Board
+              <Button href="/api/auth/lichess/start" variant="secondary">
+                Log in with Lichess
               </Button>
             </div>
           </div>

@@ -323,6 +323,9 @@ export type StudentLichessAccount = {
   peakBlitzRating?: number;
   peakRapidRating?: number;
   peakPuzzleRating?: number;
+  baselineBlitzRating?: number;
+  baselineRapidRating?: number;
+  baselinePuzzleRating?: number;
   baselineBlitzGames?: number;
   baselineRapidGames?: number;
   baselinePuzzleGames?: number;

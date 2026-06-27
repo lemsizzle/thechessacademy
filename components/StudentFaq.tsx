@@ -33,23 +33,29 @@ const faqs = [
 
 export function StudentFaq() {
   return (
-    <Card className="p-4">
-      <div>
-        <p className="text-xs font-black uppercase text-cyan-100">Resources FAQ</p>
-        <h2 className="mt-1 font-black text-white">How To Progress</h2>
-      </div>
-      <div className="mt-4 space-y-2">
-        {faqs.map((faq) => (
-          <details key={faq.question} className="group rounded-md border border-white/10 bg-black/20">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-sm font-black text-white">
-              {faq.question}
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-cyan-100 group-open:hidden">+</span>
-              <span className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-cyan-100 group-open:flex">-</span>
-            </summary>
-            <p className="border-t border-white/10 px-3 py-3 text-sm text-slate-300">{faq.answer}</p>
-          </details>
-        ))}
-      </div>
+    <Card className="overflow-hidden p-0">
+      <details className="group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4">
+          <span>
+            <span className="block text-xs font-black uppercase text-cyan-100">Resources FAQ</span>
+            <span className="mt-1 block font-black text-white">How To Use The Quest Board</span>
+          </span>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-cyan-100 group-open:hidden">+</span>
+          <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-cyan-100 group-open:flex">-</span>
+        </summary>
+        <div className="space-y-2 border-t border-white/10 p-4">
+          {faqs.map((faq) => (
+            <details key={faq.question} className="group/item rounded-md border border-white/10 bg-black/20">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-sm font-black text-white">
+                {faq.question}
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-cyan-100 group-open/item:hidden">+</span>
+                <span className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-cyan-100 group-open/item:flex">-</span>
+              </summary>
+              <p className="border-t border-white/10 px-3 py-3 text-sm text-slate-300">{faq.answer}</p>
+            </details>
+          ))}
+        </div>
+      </details>
     </Card>
   );
 }
