@@ -29,6 +29,7 @@ export function StudentDashboard() {
   const [arenaPoints, setArenaPoints] = useState({ totalPoints: 0, tournamentsPlayed: 0 });
   const [loaded, setLoaded] = useState(false);
   const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const allowLocalMockSession = process.env.NODE_ENV !== "production" && !supabaseBackedApp;
 
   useEffect(() => {
     let cancelled = false;
@@ -43,7 +44,7 @@ export function StudentDashboard() {
       } catch {
         user = null;
       }
-      user = user ?? getCurrentStudentUser();
+      user = user ?? (allowLocalMockSession ? getCurrentStudentUser() : null);
 
       let supabaseStudent: Student | undefined;
       if (user) {
@@ -60,7 +61,7 @@ export function StudentDashboard() {
           }
           supabaseStudent = profileData.student ?? undefined;
         } catch {
-          if (supabaseBackedApp) {
+          if (!allowLocalMockSession) {
             window.location.href = "/";
             return;
           }
@@ -72,7 +73,7 @@ export function StudentDashboard() {
       const students = store.students ?? seedStudents;
       const accounts = store.studentLichessAccounts ?? seedAccounts;
       const account = accounts.find((item) => item.studentId === user?.studentId || item.lichessUsername.toLowerCase() === user?.lichessUsername?.toLowerCase());
-      const current = supabaseStudent ?? (!supabaseBackedApp ? students.find((item) => item.id === user?.studentId) : undefined) ?? (!supabaseBackedApp && user ? {
+      const current = supabaseStudent ?? (allowLocalMockSession ? students.find((item) => item.id === user?.studentId) : undefined) ?? (allowLocalMockSession && user ? {
         id: user.studentId,
         slug: user.lichessUsername ?? user.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         lichessUsername: user.lichessUsername,

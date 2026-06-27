@@ -15,10 +15,11 @@ export function StudentProfilePrivateLoader() {
   const [student, setStudent] = useState<Student | undefined>();
   const [account, setAccount] = useState<StudentLichessAccount | undefined>();
   const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const allowLocalMockSession = process.env.NODE_ENV !== "production" && !supabaseBackedApp;
 
   useEffect(() => {
     async function loadProfile() {
-      const user = getCurrentStudentUser();
+      const user = allowLocalMockSession ? getCurrentStudentUser() : null;
       let current: Student | undefined;
 
       try {
@@ -30,14 +31,14 @@ export function StudentProfilePrivateLoader() {
         }
         current = data.student ?? undefined;
       } catch {
-        if (supabaseBackedApp) {
+        if (!allowLocalMockSession) {
           window.location.href = "/";
           return;
         }
       }
 
       const store = readAdminStore();
-      current = current ?? (!supabaseBackedApp ? (store.students ?? seedStudents).find((item) => item.id === user?.studentId) : undefined);
+      current = current ?? (allowLocalMockSession ? (store.students ?? seedStudents).find((item) => item.id === user?.studentId) : undefined);
       setStudent(current);
       setAccount((store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === current?.id || item.lichessUsername.toLowerCase() === user?.lichessUsername?.toLowerCase()));
     }

@@ -1,7 +1,7 @@
 import { rememberKnownLichessStudent } from "@/lib/auth/knownLichessStudents";
 import { readStudentSession, setStudentSessionCookie } from "@/lib/auth/session";
 import { createSupabaseStudentForLichess } from "@/lib/students/supabaseStudentProfiles";
-import { isSupabaseReadConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
+import { isSupabaseProjectConfigured, isSupabaseReadConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import type { Student } from "@/lib/types";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
   let student: Student;
   try {
-    if (isSupabaseReadConfigured() && !isSupabaseServiceConfigured()) {
+    if ((process.env.NODE_ENV === "production" || isSupabaseProjectConfigured() || isSupabaseReadConfigured()) && !isSupabaseServiceConfigured()) {
       return NextResponse.json({ error: "Supabase is connected for reading, but SUPABASE_SERVICE_ROLE_KEY is required to create new student profiles." }, { status: 500 });
     }
 
@@ -67,6 +67,8 @@ export async function POST(request: Request) {
     redirectTo: "/student/profile"
   });
   setStudentSessionCookie(response, updatedSession);
-  rememberKnownLichessStudent(response, cookieStore, student, session.lichessUserId, session.lichessUsername);
+  if (process.env.NODE_ENV !== "production" && !isSupabaseProjectConfigured()) {
+    rememberKnownLichessStudent(response, cookieStore, student, session.lichessUserId, session.lichessUsername);
+  }
   return response;
 }

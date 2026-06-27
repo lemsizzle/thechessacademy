@@ -68,7 +68,9 @@ export async function GET(request: Request) {
 
     const profile = await fetchAuthenticatedLichessAccount(token.access_token);
     const supabaseLookup = await findSupabaseStudentByLichess(profile.id, profile.username);
-    const knownStudent = supabaseLookup.configured ? null : findKnownLichessStudent(cookieStore, profile.id, profile.username);
+    const knownStudent = process.env.NODE_ENV !== "production" && !supabaseLookup.configured
+      ? findKnownLichessStudent(cookieStore, profile.id, profile.username)
+      : null;
     const linkedStudent = supabaseLookup.student ?? (supabaseLookup.configured ? null : findStudentByLichess(profile.id, profile.username));
     const studentId = linkedStudent?.id ?? knownStudent?.studentId ?? (studentFromContext || `pending-${profile.id}`);
     const onboardingCompleted = Boolean(linkedStudent || knownStudent);

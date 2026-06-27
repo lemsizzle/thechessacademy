@@ -1,5 +1,6 @@
 import { createStudentSession, readStudentSession, sessionToStudentUser, setStudentSessionCookie } from "@/lib/auth/session";
 import { findSupabaseStudentById, findSupabaseStudentByLichess } from "@/lib/students/supabaseStudentProfiles";
+import { isSupabaseProjectConfigured } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -27,6 +28,15 @@ export async function GET() {
     }, { status: linked.student ? 200 : 200 });
     setStudentSessionCookie(response, repairedSession);
     return response;
+  }
+
+  if (process.env.NODE_ENV === "production" || isSupabaseProjectConfigured()) {
+    return NextResponse.json({
+      user: null,
+      session: { studentId: session.studentId, onboardingCompleted: false },
+      studentExists: false,
+      error: "Student profiles require Supabase in production."
+    }, { status: 503 });
   }
 
   return NextResponse.json({ user: sessionToStudentUser(session), session: { studentId: session.studentId, onboardingCompleted: session.onboardingCompleted } });

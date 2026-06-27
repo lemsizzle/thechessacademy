@@ -57,3 +57,7 @@ export function rememberKnownLichessStudent(response: NextResponse, cookieStore:
     maxAge: 60 * 60 * 24 * 365
   });
 }
+
+export function clearKnownLichessStudents(response: NextResponse) {
+  response.cookies.delete(KNOWN_LICHESS_STUDENTS_COOKIE);
+}
