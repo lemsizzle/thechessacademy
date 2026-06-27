@@ -10,6 +10,7 @@ type RawGame = {
   speed?: string;
   status?: string;
   turns?: number;
+  moves?: string;
   winner?: "white" | "black";
   players?: {
     white?: { user?: { id?: string; name?: string } };
@@ -23,6 +24,12 @@ function normalizeUsername(value?: string) {
   return value?.toLowerCase() ?? "";
 }
 
+function countFullMoves(game: RawGame) {
+  if (game.moves?.trim()) return Math.ceil(game.moves.trim().split(/\s+/).length / 2);
+  if (typeof game.turns === "number") return Math.ceil(game.turns / 2);
+  return 0;
+}
+
 export async function fetchStudentGamesForWindow(username: string, start: Date, end: Date, perfType: LichessGamePerfType = "rapid") {
   const params = new URLSearchParams({
     since: String(start.getTime()),
@@ -30,7 +37,7 @@ export async function fetchStudentGamesForWindow(username: string, start: Date, 
     rated: "true",
     perfType,
     max: "100",
-    moves: "false",
+    moves: "true",
     pgnInJson: "false"
   });
   const response = await fetch(`https://lichess.org/api/games/user/${encodeURIComponent(username)}?${params}`, {
@@ -43,6 +50,7 @@ export async function fetchStudentGamesForWindow(username: string, start: Date, 
     const white = normalizeUsername(game.players?.white?.user?.name ?? game.players?.white?.user?.id);
     const black = normalizeUsername(game.players?.black?.user?.name ?? game.players?.black?.user?.id);
     const studentColor = white === safeUsername ? "white" : black === safeUsername ? "black" : undefined;
+    const moveCount = countFullMoves(game);
     return {
       id: game.id ?? crypto.randomUUID(),
       playedAt: new Date(game.lastMoveAt ?? game.createdAt ?? Date.now()).toISOString(),
@@ -50,6 +58,7 @@ export async function fetchStudentGamesForWindow(username: string, start: Date, 
       rated: game.rated === true,
       finished: !["aborted", "created", "started"].includes(game.status ?? ""),
       turns: game.turns ?? 0,
+      moveCount,
       won: Boolean(studentColor && game.winner === studentColor)
     };
   });
@@ -63,6 +72,7 @@ export function createMockStudentGamesForWindow(start: Date, perfType: LichessGa
     rated: true,
     finished: true,
     turns: 20 + index,
+    moveCount: Math.ceil((20 + index) / 2),
     won: index < 6
   }));
 }

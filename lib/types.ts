@@ -195,6 +195,7 @@ export type LichessQuestGame = {
   rated: boolean;
   finished: boolean;
   turns: number;
+  moveCount: number;
   won: boolean;
 };
 

@@ -2,7 +2,7 @@ import type { LichessQuestGame, LichessQuestProgress, Quest } from "@/lib/types"
 import type { QuestWindow } from "@/lib/quests/timeWindows";
 
 export function evaluateLichessGameQuest(studentId: string, quest: Quest, window: QuestWindow, games: LichessQuestGame[], mode: "connected" | "mock"): LichessQuestProgress {
-  const valid = games.filter((game) => game.rated && game.finished && game.turns >= 10);
+  const valid = games.filter((game) => game.rated && game.finished && (game.moveCount || Math.ceil(game.turns / 2)) >= 10);
   const isWinQuest = quest.conditionType === "rated_win_count" || quest.conditionType === "rapid_win_count" || quest.conditionType === "blitz_win_count";
   const relevant = isWinQuest ? valid.filter((game) => game.won) : valid;
   const requiredValue = quest.requiredCount ?? 1;
