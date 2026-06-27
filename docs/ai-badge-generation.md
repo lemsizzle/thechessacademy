@@ -18,13 +18,13 @@ Rules implemented in the app design:
 2. Client calls the protected server route `POST /api/admin/badges/generate-art`.
 3. Server checks teacher authentication.
 4. Server builds the prompt with `buildBadgeImagePrompt`.
-5. Server returns mock art by default, or calls OpenAI image generation when `OPENAI_BADGE_IMAGE_MODE=openai`.
-6. Server uploads generated images to Supabase Storage.
-7. Server writes a `badge_generation_jobs` record.
+5. Server calls OpenAI image generation when `OPENAI_API_KEY` is configured.
+6. Server uploads generated images to the public Supabase Storage bucket `badge-art`.
+7. Server can later write a `badge_generation_jobs` record.
 8. Admin selects the preferred option.
 9. Server saves `badges.final_image_url`.
 
-The current implementation has the protected route and mock fallback in place. Supabase Storage upload and job records are still future work.
+The current implementation has the protected route, OpenAI call, Supabase Storage upload, and mock fallback for `OPENAI_BADGE_IMAGE_MODE=mock`. Job records are still future work.
 
 ## Prompt Guidance
 

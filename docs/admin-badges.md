@@ -55,17 +55,24 @@ The badge editor uses a protected server route:
 POST /api/admin/badges/generate-art
 ```
 
-By default, this returns mock badge art options so the workflow is safe and testable without an OpenAI key.
+By default, this uses OpenAI image generation when `OPENAI_API_KEY` is configured. The route uploads generated images to the public Supabase Storage bucket named `badge-art`, then saves the selected public image URL on the badge.
 
-To enable live OpenAI image generation later, add:
+Add:
 
 ```txt
 OPENAI_API_KEY=your_server_side_openai_key
-OPENAI_BADGE_IMAGE_MODE=openai
 OPENAI_IMAGE_MODEL=gpt-image-1
 ```
 
 `OPENAI_API_KEY` must stay server-side. Do not add `NEXT_PUBLIC_` to it.
+
+For local testing only, set:
+
+```txt
+OPENAI_BADGE_IMAGE_MODE=mock
+```
+
+When `OPENAI_BADGE_IMAGE_MODE=mock`, the route returns mock badge SVG options instead of calling OpenAI.
 
 ## Delete Behavior
 
