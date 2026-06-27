@@ -1,5 +1,6 @@
 export const ADMIN_SESSION_COOKIE = "quest_board_admin_session";
 const ADMIN_SESSION_PREFIX = "quest-board-admin-v1";
+const ADMIN_ACTION_PREFIX = "quest-board-admin-action-v1";
 
 export function getAdminPassword() {
   return process.env.ADMIN_PASSWORD?.trim() || (process.env.NODE_ENV === "production" ? "" : "academy");
@@ -21,5 +22,15 @@ export async function createAdminSessionValue(secret = getAdminSessionSecret()) 
 
 export async function isValidAdminSession(value?: string | null) {
   const expected = await createAdminSessionValue();
+  return Boolean(value && expected && value === expected);
+}
+
+export async function createAdminActionToken(secret = getAdminSessionSecret()) {
+  if (!secret) return "";
+  return `${ADMIN_ACTION_PREFIX}.${await sha256Hex(`${ADMIN_ACTION_PREFIX}:${secret}`)}`;
+}
+
+export async function isValidAdminActionToken(value?: string | null) {
+  const expected = await createAdminActionToken();
   return Boolean(value && expected && value === expected);
 }

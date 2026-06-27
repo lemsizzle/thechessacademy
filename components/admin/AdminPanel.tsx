@@ -24,7 +24,7 @@ import type { ArenaTournamentResult, Badge, BadgeCategory, BadgeTier, ClassGroup
 import { useEffect, useMemo, useState } from "react";
 
 type AdminMode = "overview" | "students" | "classes" | "badges" | "xp" | "quests" | "activity" | "resources";
-type DeleteStudentAction = (input: { id: string; slug?: string; lichessUsername?: string }) => Promise<{ ok: boolean; error?: string; deleted?: boolean; skipped?: boolean; count?: number; mode?: "local-only" }>;
+type DeleteStudentAction = (input: { id: string; slug?: string; lichessUsername?: string; actionToken?: string }) => Promise<{ ok: boolean; error?: string; deleted?: boolean; skipped?: boolean; count?: number; mode?: "local-only" }>;
 const badgeCategories: BadgeCategory[] = ["Tactics", "Concepts", "Checkmates", "Openings", "Endgames", "Tournament", "Sportsmanship", "Creativity", "Boss Achievements"];
 const badgeTiers: BadgeTier[] = ["Bronze", "Silver", "Gold", "Platinum"];
 const questTypes: QuestType[] = ["weekly", "boss"];
@@ -113,12 +113,14 @@ export function AdminPanel({
   mode = "overview",
   requestedStudent,
   initialStudents,
-  deleteStudentAction
+  deleteStudentAction,
+  adminActionToken
 }: {
   mode?: AdminMode;
   requestedStudent?: string;
   initialStudents?: Student[];
   deleteStudentAction?: DeleteStudentAction;
+  adminActionToken?: string;
 }) {
   const [students, setStudents] = useState<Student[]>(initialStudents ?? seedStudents);
   const [badges, setBadges] = useState<Badge[]>(seedBadges);
@@ -281,7 +283,8 @@ export function AdminPanel({
         ? await deleteStudentAction({
           id: currentStudent.id,
           slug: currentStudent.slug,
-          lichessUsername: currentStudent.lichessUsername
+          lichessUsername: currentStudent.lichessUsername,
+          actionToken: adminActionToken
         })
         : await fetch(`/api/admin/students/${encodeURIComponent(currentStudent.id)}?${new URLSearchParams({
           slug: currentStudent.slug ?? "",

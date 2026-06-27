@@ -1,6 +1,6 @@
 "use server";
 
-import { ADMIN_SESSION_COOKIE, isValidAdminSession } from "@/lib/auth/adminSession";
+import { ADMIN_SESSION_COOKIE, isValidAdminActionToken, isValidAdminSession } from "@/lib/auth/adminSession";
 import { deleteSupabaseStudentById } from "@/lib/students/supabaseStudentProfiles";
 import { isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
@@ -9,6 +9,7 @@ export type DeleteAdminStudentInput = {
   id: string;
   slug?: string;
   lichessUsername?: string;
+  actionToken?: string;
 };
 
 export type DeleteAdminStudentResult = {
@@ -22,7 +23,8 @@ export type DeleteAdminStudentResult = {
 
 export async function deleteAdminStudent(input: DeleteAdminStudentInput): Promise<DeleteAdminStudentResult> {
   const cookieStore = await cookies();
-  const authenticated = await isValidAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
+  const authenticated = await isValidAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE)?.value)
+    || await isValidAdminActionToken(input.actionToken);
   if (!authenticated) return { ok: false, error: "Teacher log in required." };
 
   if (!input.id) return { ok: false, error: "Missing student id." };
