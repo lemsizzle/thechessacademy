@@ -24,6 +24,7 @@ import type { ArenaTournamentResult, Badge, BadgeCategory, BadgeTier, ClassGroup
 import { useEffect, useMemo, useState } from "react";
 
 type AdminMode = "overview" | "students" | "classes" | "badges" | "xp" | "quests" | "activity" | "resources";
+type DeleteStudentAction = (input: { id: string; slug?: string; lichessUsername?: string }) => Promise<{ ok: boolean; error?: string; deleted?: boolean; skipped?: boolean; count?: number; mode?: "local-only" }>;
 const badgeCategories: BadgeCategory[] = ["Tactics", "Concepts", "Checkmates", "Openings", "Endgames", "Tournament", "Sportsmanship", "Creativity", "Boss Achievements"];
 const badgeTiers: BadgeTier[] = ["Bronze", "Silver", "Gold", "Platinum"];
 const questTypes: QuestType[] = ["weekly", "boss"];
@@ -108,8 +109,18 @@ function normalizeQuests(quests: Quest[]) {
   }));
 }
 
-export function AdminPanel({ mode = "overview", requestedStudent }: { mode?: AdminMode; requestedStudent?: string }) {
-  const [students, setStudents] = useState<Student[]>(seedStudents);
+export function AdminPanel({
+  mode = "overview",
+  requestedStudent,
+  initialStudents,
+  deleteStudentAction
+}: {
+  mode?: AdminMode;
+  requestedStudent?: string;
+  initialStudents?: Student[];
+  deleteStudentAction?: DeleteStudentAction;
+}) {
+  const [students, setStudents] = useState<Student[]>(initialStudents ?? seedStudents);
   const [badges, setBadges] = useState<Badge[]>(seedBadges);
   const [quests, setQuests] = useState<Quest[]>(seedQuests);
   const [tacticProgress, setTacticProgress] = useState<StudentTacticProgress[]>(seedTacticProgress);
@@ -121,7 +132,7 @@ export function AdminPanel({ mode = "overview", requestedStudent }: { mode?: Adm
   const [lichessSyncLogs, setLichessSyncLogs] = useState<LichessSyncLog[]>(seedLichessSyncLogs);
   const [outschoolGroups, setOutschoolGroups] = useState<ClassGroup[]>(seedClassGroups);
   const [classDrafts, setClassDrafts] = useState<ClassGroup[]>(seedClassGroups);
-  const [selectedStudent, setSelectedStudent] = useState(seedStudents[0]?.id ?? "");
+  const [selectedStudent, setSelectedStudent] = useState(initialStudents?.[0]?.id ?? seedStudents[0]?.id ?? "");
   const [selectedClassGroup, setSelectedClassGroup] = useState(ALL_CLASSES);
   const [selectedBadge, setSelectedBadge] = useState(seedBadges[0]?.id ?? "");
   const [badgeDraft, setBadgeDraft] = useState<Badge>(seedBadges[0]);
@@ -143,7 +154,11 @@ export function AdminPanel({ mode = "overview", requestedStudent }: { mode?: Adm
 
   useEffect(() => {
     const parsed = readAdminStore();
-    if (parsed.students) {
+    if (initialStudents) {
+      setStudents(initialStudents);
+      setSelectedStudent(initialStudents[0]?.id ?? "");
+      setLog((items) => [`Loaded ${initialStudents.length} student${initialStudents.length === 1 ? "" : "s"} from Supabase.`, ...items].slice(0, 10));
+    } else if (parsed.students) {
       setStudents(parsed.students);
       setSelectedStudent(parsed.students[0]?.id ?? "");
     }
@@ -174,33 +189,7 @@ export function AdminPanel({ mode = "overview", requestedStudent }: { mode?: Adm
     }
     if (parsed.log) setLog(parsed.log);
     setLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadSupabaseStudents() {
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return;
-      try {
-        const response = await fetch("/api/admin/students", { cache: "no-store", credentials: "same-origin" });
-        const data = await response.json() as { students?: Student[]; error?: string };
-        if (cancelled || !response.ok || !data.students?.length) {
-          if (data?.error) pushLog(`Supabase student load failed: ${data.error}`);
-          return;
-        }
-        setStudents(data.students);
-        setSelectedStudent((current) => data.students?.some((student) => student.id === current) ? current : data.students?.[0]?.id ?? "");
-        pushLog(`Loaded ${data.students.length} student${data.students.length === 1 ? "" : "s"} from Supabase.`);
-      } catch {
-        if (!cancelled) pushLog("Supabase student load failed.");
-      }
-    }
-
-    void loadSupabaseStudents();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [initialStudents]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -288,16 +277,20 @@ export function AdminPanel({ mode = "overview", requestedStudent }: { mode?: Adm
   async function deleteStudent() {
     if (!currentStudent || !window.confirm(`Delete ${currentStudent.name}? This removes the student from Supabase and the local admin view.`)) return;
     try {
-      const params = new URLSearchParams();
-      if (currentStudent.slug) params.set("slug", currentStudent.slug);
-      if (currentStudent.lichessUsername) params.set("lichessUsername", currentStudent.lichessUsername);
-      const suffix = params.toString() ? `?${params.toString()}` : "";
-      const response = await fetch(`/api/admin/students/${encodeURIComponent(currentStudent.id)}${suffix}`, {
-        method: "DELETE",
-        credentials: "same-origin"
-      });
-      const data = await response.json().catch(() => ({})) as { error?: string; deleted?: boolean; skipped?: boolean; mode?: string; count?: number };
-      if (!response.ok) {
+      const data = deleteStudentAction
+        ? await deleteStudentAction({
+          id: currentStudent.id,
+          slug: currentStudent.slug,
+          lichessUsername: currentStudent.lichessUsername
+        })
+        : await fetch(`/api/admin/students/${encodeURIComponent(currentStudent.id)}?${new URLSearchParams({
+          slug: currentStudent.slug ?? "",
+          lichessUsername: currentStudent.lichessUsername ?? ""
+        }).toString()}`, {
+          method: "DELETE",
+          credentials: "include"
+        }).then((response) => response.json().then((body) => ({ ...body, ok: response.ok })));
+      if (!data.ok) {
         window.alert(data.error ?? "Could not delete student from Supabase.");
         return;
       }
