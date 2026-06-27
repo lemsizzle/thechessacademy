@@ -63,6 +63,7 @@ export async function GET(request: Request) {
   const mockUsername = url.searchParams.get("mock")?.trim().replace(/[^a-zA-Z0-9_-]/g, "") ?? "";
   const student = cleanToken(url.searchParams.get("student"));
   const returnTo = safeReturnTo(url.searchParams.get("returnTo"));
+  const retry = url.searchParams.get("retry") === "1" ? "1" : "";
 
   if (mockUsername) {
     return createMockLogin(request, mockUsername);
@@ -90,6 +91,6 @@ export async function GET(request: Request) {
   authUrl.searchParams.set("code_challenge", challenge);
 
   const response = NextResponse.redirect(authUrl);
-  setLichessOAuthCookies(response, state, verifier, { redirectUri, student, returnTo });
+  setLichessOAuthCookies(response, state, verifier, { redirectUri, student, returnTo, retry });
   return response;
 }

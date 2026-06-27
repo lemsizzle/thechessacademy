@@ -19,14 +19,28 @@ export async function GET(request: Request) {
   const expectedState = cookieStore.get(LICHESS_OAUTH_STATE_COOKIE)?.value;
   const verifier = cookieStore.get(LICHESS_PKCE_COOKIE)?.value;
   const contextRaw = cookieStore.get(LICHESS_OAUTH_CONTEXT_COOKIE)?.value;
-  const context = contextRaw ? JSON.parse(contextRaw) as { redirectUri?: string; returnTo?: string; student?: string } : {};
+  const context = contextRaw ? JSON.parse(contextRaw) as { redirectUri?: string; returnTo?: string; student?: string; retry?: string } : {};
   const safeReturnTo = context.returnTo?.startsWith("/") && !context.returnTo.startsWith("//") ? context.returnTo : "";
   const studentFromContext = context.student?.replace(/[^a-zA-Z0-9_-]/g, "") ?? "";
+  const alreadyRetried = context.retry === "1";
 
-  if (!code || !state || !expectedState || state !== expectedState || !verifier) {
+  function getErrorRedirect() {
+    if (!alreadyRetried) {
+      const retryTarget = new URL("/api/auth/lichess/start", url.origin);
+      retryTarget.searchParams.set("retry", "1");
+      if (safeReturnTo) retryTarget.searchParams.set("returnTo", safeReturnTo);
+      if (studentFromContext) retryTarget.searchParams.set("student", studentFromContext);
+      return retryTarget;
+    }
+
     const target = safeReturnTo ? new URL(safeReturnTo, url.origin) : new URL("/login?mode=student", url.origin);
     target.searchParams.set("lichess", "error");
     if (studentFromContext) target.searchParams.set("student", studentFromContext);
+    return target;
+  }
+
+  if (!code || !state || !expectedState || state !== expectedState || !verifier) {
+    const target = getErrorRedirect();
     const response = NextResponse.redirect(target);
     clearLichessOAuthCookies(response);
     return response;
@@ -84,9 +98,7 @@ export async function GET(request: Request) {
     clearLichessOAuthCookies(response);
     return response;
   } catch {
-    const target = safeReturnTo ? new URL(safeReturnTo, url.origin) : new URL("/login?mode=student", url.origin);
-    target.searchParams.set("lichess", "error");
-    if (studentFromContext) target.searchParams.set("student", studentFromContext);
+    const target = getErrorRedirect();
     const response = NextResponse.redirect(target);
     clearLichessOAuthCookies(response);
     return response;
