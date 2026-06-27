@@ -61,7 +61,7 @@ export function StudentDashboard() {
           supabaseStudent = profileData.student ?? undefined;
         } catch {
           if (supabaseBackedApp) {
-            window.location.href = "/login";
+            window.location.href = "/";
             return;
           }
         }

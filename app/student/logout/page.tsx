@@ -7,7 +7,7 @@ export default function StudentLogoutPage() {
   useEffect(() => {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => {
       clearCurrentStudentUser();
-      window.location.href = "/login";
+      window.location.href = "/";
     });
   }, []);
 

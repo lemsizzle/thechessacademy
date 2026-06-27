@@ -14,6 +14,7 @@ import type { Student, StudentLichessAccount } from "@/lib/types";
 export function StudentProfilePrivateLoader() {
   const [student, setStudent] = useState<Student | undefined>();
   const [account, setAccount] = useState<StudentLichessAccount | undefined>();
+  const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
   useEffect(() => {
     async function loadProfile() {
@@ -29,11 +30,14 @@ export function StudentProfilePrivateLoader() {
         }
         current = data.student ?? undefined;
       } catch {
-        // Keep local mock fallback below.
+        if (supabaseBackedApp) {
+          window.location.href = "/";
+          return;
+        }
       }
 
       const store = readAdminStore();
-      current = current ?? (store.students ?? seedStudents).find((item) => item.id === user?.studentId);
+      current = current ?? (!supabaseBackedApp ? (store.students ?? seedStudents).find((item) => item.id === user?.studentId) : undefined);
       setStudent(current);
       setAccount((store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === current?.id || item.lichessUsername.toLowerCase() === user?.lichessUsername?.toLowerCase()));
     }

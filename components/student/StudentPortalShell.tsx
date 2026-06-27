@@ -49,13 +49,13 @@ export function StudentPortalShell({ children, title, subtitle }: { children: Re
         }
         if (supabaseBackedApp) {
           clearCurrentStudentUser();
-          window.location.href = "/login";
+          window.location.href = "/";
           return;
         }
       } catch {
         if (supabaseBackedApp) {
           clearCurrentStudentUser();
-          window.location.href = "/login";
+          window.location.href = "/";
           return;
         }
       }
@@ -73,7 +73,7 @@ export function StudentPortalShell({ children, title, subtitle }: { children: Re
         return;
       }
 
-      window.location.href = "/login";
+      window.location.href = "/";
     }
 
     loadSession();
@@ -86,7 +86,7 @@ export function StudentPortalShell({ children, title, subtitle }: { children: Re
     fetch("/api/auth/logout", { method: "POST" }).finally(() => {
       if (user) window.sessionStorage.removeItem(`quest-board-auto-lichess-sync:${user.studentId}`);
       clearCurrentStudentUser();
-      window.location.href = "/login";
+      window.location.href = "/";
     });
   }
 

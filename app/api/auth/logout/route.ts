@@ -13,7 +13,7 @@ export async function POST() {
 }
 
 export async function GET(request: Request) {
-  const response = NextResponse.redirect(new URL("/login", request.url));
+  const response = NextResponse.redirect(new URL("/", request.url));
   clearStudentSessionCookie(response);
   response.cookies.delete(LICHESS_TOKEN_COOKIE);
   response.cookies.delete("lichess_access_token");
