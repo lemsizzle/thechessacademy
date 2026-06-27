@@ -1,8 +1,8 @@
 import { Card } from "@/components/Card";
-import { badges } from "@/data/badges";
-import type { Quest } from "@/lib/types";
+import { badges as mockBadges } from "@/data/badges";
+import type { Badge, Quest } from "@/lib/types";
 
-export function QuestCard({ quest }: { quest: Quest }) {
+export function QuestCard({ quest, badges = mockBadges }: { quest: Quest; badges?: Badge[] }) {
   const badge = badges.find((item) => item.id === quest.badgeRewardId);
   const status = quest.status.replace("-", " ");
   const isLive = quest.isLive === true && quest.status !== "completed";

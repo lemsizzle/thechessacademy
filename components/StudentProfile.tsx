@@ -10,13 +10,13 @@ import { StudentTournamentSummary } from "@/components/tournaments/StudentTourna
 import { StudentLichessQuestSummary } from "@/components/quests/StudentLichessQuestSummary";
 import { XpBar } from "@/components/XpBar";
 import { allBadges } from "@/data/badges";
-import { xpEvents } from "@/data/xpEvents";
+import { xpEvents as seedXpEvents } from "@/data/xpEvents";
 import { getTacticProgressCount } from "@/lib/lichess";
 import { findStudentLichessAccount, getStudentXpWithLichess } from "@/lib/lichessXp";
 import { hasAdminSession, readAdminStore } from "@/lib/mockStorage";
 import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
 import { useMockAdminState } from "@/lib/useMockAdminState";
-import type { Student } from "@/lib/types";
+import type { Badge, Quest, Student, XpEvent } from "@/lib/types";
 import { useEffect, useState, type ReactNode } from "react";
 
 function QuestLogSection({
@@ -53,13 +53,28 @@ function QuestLogSection({
   );
 }
 
-export function StudentProfile({ student, showAdminControls = true, profileBasePath = "/app/students" }: { student: Student; showAdminControls?: boolean; profileBasePath?: string }) {
-  const { quests, studentLichessAccounts } = useMockAdminState();
+export function StudentProfile({
+  student,
+  showAdminControls = true,
+  profileBasePath = "/app/students",
+  badges = allBadges,
+  xpEvents = seedXpEvents,
+  quests: initialQuests
+}: {
+  student: Student;
+  showAdminControls?: boolean;
+  profileBasePath?: string;
+  badges?: Badge[];
+  xpEvents?: XpEvent[];
+  quests?: Quest[];
+}) {
+  const { quests: adminQuests, studentLichessAccounts } = useMockAdminState();
+  const quests = initialQuests ?? adminQuests;
   const [isAdmin, setIsAdmin] = useState(false);
-  const [localXpEvents, setLocalXpEvents] = useState(() => [] as typeof xpEvents);
+  const [localXpEvents, setLocalXpEvents] = useState<XpEvent[]>([]);
   const lichessAccount = findStudentLichessAccount(student, studentLichessAccounts);
   const xp = getStudentXpWithLichess(student, lichessAccount);
-  const earned = allBadges.filter((badge) => student.badgeIds.includes(badge.id));
+  const earned = badges.filter((badge) => student.badgeIds.includes(badge.id));
   const events = [...localXpEvents, ...xpEvents].filter((event) => event.studentId === student.id);
   const nextBadge = getClosestNextTacticBadge(student.id);
   const completedQuests = quests.filter((quest) => student.completedQuestIds?.includes(quest.id));

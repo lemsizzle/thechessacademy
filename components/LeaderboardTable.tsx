@@ -54,21 +54,25 @@ export function LeaderboardTable({
   students,
   tacticProgress,
   lichessAccounts,
+  xpEvents: initialXpEvents,
+  badges = allBadges,
   profileBasePath = "/app/students"
 }: {
   students: Student[];
   tacticProgress: StudentTacticProgress[];
   lichessAccounts: StudentLichessAccount[];
+  xpEvents?: XpEvent[];
+  badges?: typeof allBadges;
   profileBasePath?: string;
 }) {
   const [classGroup, setClassGroup] = useState("All");
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
   const [focus, setFocus] = useState<Focus>("Overall XP");
-  const [recentXpEvents, setRecentXpEvents] = useState<XpEvent[]>(xpEvents);
+  const [recentXpEvents, setRecentXpEvents] = useState<XpEvent[]>(initialXpEvents ?? xpEvents);
 
   useEffect(() => {
-    setRecentXpEvents([...(readAdminStore().tournamentXpEvents ?? []), ...xpEvents]);
-  }, []);
+    setRecentXpEvents([...(readAdminStore().tournamentXpEvents ?? []), ...(initialXpEvents ?? xpEvents)]);
+  }, [initialXpEvents]);
   const groups = ["All", ...Array.from(new Set(students.map((student) => student.classGroup)))];
   const ranked = useMemo(() => {
     const filtered = classGroup === "All" ? students : students.filter((student) => student.classGroup === classGroup);
@@ -144,7 +148,7 @@ export function LeaderboardTable({
           </thead>
           <tbody className="divide-y divide-white/10">
             {ranked.map((student) => {
-              const latestBadge = allBadges.find((badge) => student.badgeIds.includes(badge.id));
+              const latestBadge = badges.find((badge) => student.badgeIds.includes(badge.id));
               const level = getLevelFromXp(student.effectiveXp);
               return (
                 <tr key={student.id} className="hover:bg-white/[0.03]">

@@ -6,14 +6,27 @@ import { EmptyState } from "@/components/EmptyState";
 import { StudentProfile } from "@/components/StudentProfile";
 import { hasAdminSession } from "@/lib/mockStorage";
 import { hasParentStudentProfileAccess } from "@/lib/publicStudentAccess";
+import type { Badge, Quest, Student, XpEvent } from "@/lib/types";
 import { useMockAdminState } from "@/lib/useMockAdminState";
 import { useEffect, useState } from "react";
 
-export function StudentProfileBoard({ slug }: { slug: string }) {
+export function StudentProfileBoard({
+  slug,
+  initialStudent,
+  badges,
+  xpEvents,
+  quests
+}: {
+  slug: string;
+  initialStudent?: Student | null;
+  badges?: Badge[];
+  xpEvents?: XpEvent[];
+  quests?: Quest[];
+}) {
   const { students, loaded } = useMockAdminState();
   const [accessChecked, setAccessChecked] = useState(false);
   const [canViewProfile, setCanViewProfile] = useState(false);
-  const student = students.find((item) => item.slug === slug);
+  const student = initialStudent ?? students.find((item) => item.slug === slug);
 
   useEffect(() => {
     setCanViewProfile(hasAdminSession() || hasParentStudentProfileAccess(slug));
@@ -43,5 +56,5 @@ export function StudentProfileBoard({ slug }: { slug: string }) {
     );
   }
 
-  return <StudentProfile student={student} />;
+  return <StudentProfile student={student} badges={badges} xpEvents={xpEvents} quests={quests} />;
 }

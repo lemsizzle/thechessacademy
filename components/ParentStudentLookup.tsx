@@ -3,6 +3,7 @@
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { grantParentStudentProfileAccess } from "@/lib/publicStudentAccess";
+import type { Student } from "@/lib/types";
 import { useMockAdminState } from "@/lib/useMockAdminState";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -11,15 +12,15 @@ function normalizeUsername(value: string) {
   return value.trim().replace(/^@/, "").toLowerCase();
 }
 
-export function ParentStudentLookup() {
+export function ParentStudentLookup({ initialStudents }: { initialStudents?: Student[] }) {
   const router = useRouter();
   const { students, loaded } = useMockAdminState();
   const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
 
   const searchableStudents = useMemo(() => (
-    students.filter((student) => student.isActive !== false)
-  ), [students]);
+    (initialStudents ?? students).filter((student) => student.isActive !== false)
+  ), [initialStudents, students]);
 
   function openStudentProfile(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,7 +62,7 @@ export function ParentStudentLookup() {
           }}
           placeholder="Lichess username or profile slug"
         />
-        <Button type="submit" variant="secondary" disabled={!loaded}>
+        <Button type="submit" variant="secondary" disabled={!loaded && !initialStudents?.length}>
           View Student
         </Button>
       </form>

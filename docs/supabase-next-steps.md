@@ -1,7 +1,7 @@
 # Supabase Next Steps
 
-1. Review and run `docs/supabase-migration-latest.sql`.
-2. Add Row Level Security policies.
+1. Run `docs/supabase-schema.sql`, then run `docs/supabase-seed.sql`.
+2. Review the starter Row Level Security policies before connecting live app writes.
 3. Keep public read access limited to safe student progress data.
 4. Restrict all admin mutations to authenticated teacher accounts.
 5. Create a Supabase Storage bucket for badge art.

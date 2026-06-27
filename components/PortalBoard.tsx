@@ -10,12 +10,14 @@ import { StudentCard } from "@/components/StudentCard";
 import { activity } from "@/data/activity";
 import { findStudentLichessAccount } from "@/lib/lichessXp";
 import { hasAdminSession } from "@/lib/mockStorage";
+import type { ActivityEvent, Student } from "@/lib/types";
 import { useMockAdminState } from "@/lib/useMockAdminState";
 import { useEffect, useMemo, useState } from "react";
 
-export function PortalBoard() {
-  const { students, classGroups, studentLichessAccounts } = useMockAdminState();
+export function PortalBoard({ initialStudents, initialActivity }: { initialStudents?: Student[]; initialActivity?: ActivityEvent[] }) {
+  const { students: adminStudents, classGroups, studentLichessAccounts } = useMockAdminState();
   const [isAdmin, setIsAdmin] = useState(false);
+  const students = isAdmin ? adminStudents : initialStudents ?? adminStudents;
   const groupNames = useMemo(() => (
     Array.from(new Set(students.map((student) => student.classGroup).filter(Boolean)))
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))
@@ -72,7 +74,7 @@ export function PortalBoard() {
             </>
           ) : (
             <div className="space-y-4">
-              <ParentStudentLookup />
+              <ParentStudentLookup initialStudents={initialStudents} />
               <Card className="p-4">
                 <p className="text-xs font-black uppercase text-cyan-100">Student privacy</p>
                 <h2 className="mt-1 font-black text-white">Profiles Open One At A Time</h2>
@@ -93,7 +95,7 @@ export function PortalBoard() {
               <Button href="https://lichess.org/team/outschool-battleground" target="_blank" rel="noopener noreferrer" variant="ghost">Open Team</Button>
             </div>
           </Card>
-          <ActivityFeed events={activity.slice(0, 3)} />
+          <ActivityFeed events={(initialActivity ?? activity).slice(0, 3)} />
         </div>
       </div>
     </div>
