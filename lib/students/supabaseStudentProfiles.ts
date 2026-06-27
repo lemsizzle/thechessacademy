@@ -1,4 +1,4 @@
-import { getSupabaseServiceClient, isSupabaseServiceConfigured } from "@/lib/supabase/server";
+import { getSupabaseServerReadClient, getSupabaseServiceClient, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import type { Student, StudentSession } from "@/lib/types";
 
 type SupabaseStudentRow = {
@@ -48,7 +48,7 @@ function isUuid(value: string) {
 }
 
 export async function findSupabaseStudentById(studentId: string): Promise<StudentProfileLookup> {
-  const supabase = getSupabaseServiceClient();
+  const supabase = getSupabaseServerReadClient() ?? getSupabaseServiceClient();
   if (!supabase) return { configured: false, student: null };
   if (!isUuid(studentId)) return { configured: true, student: null };
 
@@ -64,7 +64,7 @@ export async function findSupabaseStudentById(studentId: string): Promise<Studen
 }
 
 export async function findSupabaseStudentByLichess(lichessId: string, lichessUsername: string): Promise<StudentProfileLookup> {
-  const supabase = getSupabaseServiceClient();
+  const supabase = getSupabaseServerReadClient() ?? getSupabaseServiceClient();
   if (!supabase) return { configured: false, student: null };
 
   const cleanId = lichessId.trim();
@@ -98,7 +98,7 @@ export async function findSupabaseStudentByLichess(lichessId: string, lichessUse
 }
 
 async function createUniqueSlug(baseValue: string) {
-  const supabase = getSupabaseServiceClient();
+  const supabase = getSupabaseServerReadClient() ?? getSupabaseServiceClient();
   if (!supabase) return slugifyStudent(baseValue);
 
   const base = slugifyStudent(baseValue);

@@ -1,7 +1,7 @@
 import { rememberKnownLichessStudent } from "@/lib/auth/knownLichessStudents";
 import { readStudentSession, setStudentSessionCookie } from "@/lib/auth/session";
 import { createSupabaseStudentForLichess } from "@/lib/students/supabaseStudentProfiles";
-import { isSupabaseServiceConfigured } from "@/lib/supabase/server";
+import { isSupabaseReadConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import type { Student } from "@/lib/types";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -20,6 +20,10 @@ export async function POST(request: Request) {
 
   let student: Student;
   try {
+    if (isSupabaseReadConfigured() && !isSupabaseServiceConfigured()) {
+      return NextResponse.json({ error: "Supabase is connected for reading, but SUPABASE_SERVICE_ROLE_KEY is required to create new student profiles." }, { status: 500 });
+    }
+
     student = isSupabaseServiceConfigured()
       ? await createSupabaseStudentForLichess(session, { displayName, classGroup })
       : {

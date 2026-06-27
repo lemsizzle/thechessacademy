@@ -13,6 +13,7 @@ export function StudentPortalShell({ children, title, subtitle }: { children: Re
   const [user, setUser] = useState<StudentUser | null>(null);
   const [checked, setChecked] = useState(false);
   const pathname = usePathname();
+  const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
   async function syncLichessForLogin(studentUser: StudentUser) {
     if (studentUser.onboardingCompleted === false) return;
@@ -46,8 +47,17 @@ export function StudentPortalShell({ children, title, subtitle }: { children: Re
           void syncLichessForLogin(data.user);
           return;
         }
+        if (supabaseBackedApp) {
+          clearCurrentStudentUser();
+          window.location.href = "/login";
+          return;
+        }
       } catch {
-        // Fall back to the local mock session below.
+        if (supabaseBackedApp) {
+          clearCurrentStudentUser();
+          window.location.href = "/login";
+          return;
+        }
       }
 
       const current = getCurrentStudentUser();

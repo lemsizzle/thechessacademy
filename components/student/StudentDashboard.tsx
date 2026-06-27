@@ -28,6 +28,7 @@ export function StudentDashboard() {
   const [scoreSubmissions, setScoreSubmissions] = useState<StudentScoreSubmission[]>([]);
   const [arenaPoints, setArenaPoints] = useState({ totalPoints: 0, tournamentsPlayed: 0 });
   const [loaded, setLoaded] = useState(false);
+  const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,7 +60,10 @@ export function StudentDashboard() {
           }
           supabaseStudent = profileData.student ?? undefined;
         } catch {
-          // Keep the local fallback below for offline/mock development.
+          if (supabaseBackedApp) {
+            window.location.href = "/login";
+            return;
+          }
         }
       }
 
@@ -68,7 +72,7 @@ export function StudentDashboard() {
       const students = store.students ?? seedStudents;
       const accounts = store.studentLichessAccounts ?? seedAccounts;
       const account = accounts.find((item) => item.studentId === user?.studentId || item.lichessUsername.toLowerCase() === user?.lichessUsername?.toLowerCase());
-      const current = supabaseStudent ?? students.find((item) => item.id === user?.studentId) ?? (user ? {
+      const current = supabaseStudent ?? (!supabaseBackedApp ? students.find((item) => item.id === user?.studentId) : undefined) ?? (!supabaseBackedApp && user ? {
         id: user.studentId,
         slug: user.lichessUsername ?? user.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         lichessUsername: user.lichessUsername,
