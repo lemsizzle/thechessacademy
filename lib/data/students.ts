@@ -12,6 +12,7 @@ type StudentRow = {
   total_xp: number | null;
   level: number | null;
   is_active: boolean | null;
+  lichess_username?: string | null;
 };
 
 type StudentBadgeRow = {
@@ -37,7 +38,7 @@ function mapStudent(row: StudentRow, badgeIds: string[], completedQuestIds: stri
   return {
     id: row.id,
     slug: row.public_slug,
-    lichessUsername: row.public_slug,
+    lichessUsername: row.lichess_username ?? row.public_slug,
     name: row.display_name,
     avatar: row.avatar_url ?? avatarFromName(row.display_name),
     classGroup: row.class_group ?? "Unassigned",
@@ -77,7 +78,7 @@ export async function getStudentsResult(): Promise<DataResult<Student[]>> {
 
   const { data, error } = await supabase
     .from("students")
-    .select("id,display_name,public_slug,avatar_url,class_group,total_xp,level,is_active")
+    .select("id,display_name,public_slug,avatar_url,class_group,total_xp,level,is_active,lichess_username")
     .eq("is_active", true)
     .order("total_xp", { ascending: false });
 
@@ -95,7 +96,7 @@ export async function getStudentBySlug(slug: string) {
 
   const { data, error } = await supabase
     .from("students")
-    .select("id,display_name,public_slug,avatar_url,class_group,total_xp,level,is_active")
+    .select("id,display_name,public_slug,avatar_url,class_group,total_xp,level,is_active,lichess_username")
     .eq("is_active", true)
     .eq("public_slug", slug)
     .maybeSingle();

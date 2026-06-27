@@ -59,28 +59,6 @@ export function StudentOnboardingForm() {
       .then((response) => response.json())
       .then((data: { user?: StudentUser }) => {
         if (!data.user) return;
-        const store = readAdminStore();
-        const existing = (store.students ?? seedStudents).find((student) => (
-          student.id === data.user?.studentId ||
-          student.lichessUsername?.toLowerCase() === data.user?.lichessUsername?.toLowerCase()
-        ));
-        if (existing?.onboardingCompleted !== false && existing) {
-          fetch("/api/student/onboarding", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ displayName: existing.name, classGroup: existing.classGroup })
-          })
-            .then((response) => response.json())
-            .then((result: { user?: StudentUser }) => {
-              if (result.user) setCurrentStudentUserRecord(result.user);
-              window.location.href = "/student";
-            })
-            .catch(() => {
-              setUser(data.user ?? null);
-              setDisplayName(data.user?.name ?? "");
-            });
-          return;
-        }
         setUser(data.user);
         setDisplayName(data.user.name);
       })
@@ -99,7 +77,7 @@ export function StudentOnboardingForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ displayName, classGroup })
     });
-    const data = await response.json() as { user?: StudentUser; error?: string };
+    const data = await response.json() as { user?: StudentUser; student?: Student; redirectTo?: string; error?: string };
     if (!response.ok || !data.user) {
       setMessage(data.error ?? "Could not complete onboarding.");
       return;
@@ -109,8 +87,8 @@ export function StudentOnboardingForm() {
     const students = store.students ?? seedStudents;
     const accounts = store.studentLichessAccounts ?? seedAccounts;
     const username = user.lichessUsername ?? displayName;
-    const nextStudent: Student = {
-      id: user.studentId,
+    const nextStudent: Student = data.student ?? {
+      id: data.user.studentId,
       slug: slugify(username),
       lichessUsername: username,
       name: displayName.trim(),
@@ -133,7 +111,7 @@ export function StudentOnboardingForm() {
 
     updateAdminStore({ students: nextStudents, studentLichessAccounts: nextAccounts });
     setCurrentStudentUserRecord(data.user);
-    window.location.href = "/student";
+    window.location.href = data.redirectTo ?? "/student/profile";
   }
 
   return (

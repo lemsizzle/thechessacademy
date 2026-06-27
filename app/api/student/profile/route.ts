@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const session = readStudentSession(await cookies());
-  if (!session) return NextResponse.json({ user: null }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Student log in required." }, { status: 401 });
 
   const byId = session.onboardingCompleted ? await findSupabaseStudentById(session.studentId) : { configured: false, student: null };
   const linked = byId.student ? byId : await findSupabaseStudentByLichess(session.lichessUserId, session.lichessUsername);
@@ -22,12 +22,17 @@ export async function GET() {
     });
     const response = NextResponse.json({
       user: sessionToStudentUser(repairedSession),
-      session: { studentId: repairedSession.studentId, onboardingCompleted: repairedSession.onboardingCompleted },
-      studentExists: Boolean(linked.student)
-    }, { status: linked.student ? 200 : 200 });
+      student: linked.student,
+      needsOnboarding: !linked.student,
+      error: linked.error
+    });
     setStudentSessionCookie(response, repairedSession);
     return response;
   }
 
-  return NextResponse.json({ user: sessionToStudentUser(session), session: { studentId: session.studentId, onboardingCompleted: session.onboardingCompleted } });
+  return NextResponse.json({
+    user: sessionToStudentUser(session),
+    student: null,
+    needsOnboarding: !session.onboardingCompleted
+  });
 }

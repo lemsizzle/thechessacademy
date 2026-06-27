@@ -44,12 +44,31 @@ export function StudentDashboard() {
       }
       user = user ?? getCurrentStudentUser();
 
+      let supabaseStudent: Student | undefined;
+      if (user) {
+        try {
+          const profileResponse = await fetch("/api/student/profile", { cache: "no-store" });
+          const profileData = await profileResponse.json() as { student?: Student | null; needsOnboarding?: boolean; user?: StudentUser };
+          if (profileData.user) {
+            user = profileData.user;
+            setCurrentStudentUserRecord(profileData.user);
+          }
+          if (profileData.needsOnboarding) {
+            window.location.href = "/student/onboarding";
+            return;
+          }
+          supabaseStudent = profileData.student ?? undefined;
+        } catch {
+          // Keep the local fallback below for offline/mock development.
+        }
+      }
+
       if (cancelled) return;
       const store = readAdminStore();
       const students = store.students ?? seedStudents;
       const accounts = store.studentLichessAccounts ?? seedAccounts;
       const account = accounts.find((item) => item.studentId === user?.studentId || item.lichessUsername.toLowerCase() === user?.lichessUsername?.toLowerCase());
-      const current = students.find((item) => item.id === user?.studentId) ?? (user ? {
+      const current = supabaseStudent ?? students.find((item) => item.id === user?.studentId) ?? (user ? {
         id: user.studentId,
         slug: user.lichessUsername ?? user.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         lichessUsername: user.lichessUsername,

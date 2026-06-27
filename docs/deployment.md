@@ -108,6 +108,8 @@ The app currently renders and edits mock data locally. To make classroom edits p
 6. Move local admin mutations from browser storage into server routes or server actions.
 7. Move generated badge images into Supabase Storage.
 
+Student onboarding writes new rows to Supabase, so `SUPABASE_SERVICE_ROLE_KEY` must be configured in Vercel. Also run `docs/supabase-add-lichess-fields.sql` once so students can be linked by Lichess account.
+
 ## 5. Test Public Student Pages
 
 Public pages that should work without logging in:

@@ -5,6 +5,7 @@ import { createStudentSession, setStudentSessionCookie } from "@/lib/auth/sessio
 import { createMockLichessProfile } from "@/lib/lichess/fetchAccount";
 import { encryptLichessToken } from "@/lib/lichess/tokenCrypto";
 import { findStudentByLichess } from "@/lib/students/findStudentByLichess";
+import { findSupabaseStudentByLichess } from "@/lib/students/supabaseStudentProfiles";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -15,19 +16,22 @@ async function createMockLogin(request: Request, username: string) {
   const returnTo = safeReturnTo(url.searchParams.get("returnTo"));
   const student = cleanToken(url.searchParams.get("student"));
   const profile = createMockLichessProfile(username);
-  const knownStudent = findKnownLichessStudent(await cookies(), profile.id, profile.username);
-  const linkedStudent = findStudentByLichess(profile.id, profile.username);
-  const studentId = knownStudent?.studentId ?? linkedStudent?.id ?? student ?? `lichess-${profile.id}`;
+  const cookieStore = await cookies();
+  const supabaseLookup = await findSupabaseStudentByLichess(profile.id, profile.username);
+  const knownStudent = supabaseLookup.configured ? null : findKnownLichessStudent(cookieStore, profile.id, profile.username);
+  const linkedStudent = supabaseLookup.student ?? (supabaseLookup.configured ? null : findStudentByLichess(profile.id, profile.username));
+  const studentId = linkedStudent?.id ?? knownStudent?.studentId ?? student ?? `pending-${profile.id}`;
+  const onboardingCompleted = Boolean(linkedStudent || knownStudent);
   const target = returnTo
     ? withLichessStatus(new URL(returnTo, url.origin), "mock", student)
-    : new URL(knownStudent || linkedStudent ? "/student" : "/student/onboarding", url.origin);
+    : new URL(onboardingCompleted ? "/student" : "/student/onboarding", url.origin);
   const response = NextResponse.redirect(target);
   setStudentSessionCookie(response, createStudentSession({
     studentId,
     name: knownStudent?.name ?? linkedStudent?.name ?? profile.username,
     lichessUserId: profile.id,
     lichessUsername: profile.username,
-    onboardingCompleted: Boolean(knownStudent || linkedStudent)
+    onboardingCompleted
   }));
   response.cookies.set(LICHESS_TOKEN_COOKIE, encryptLichessToken(`mock-token-${profile.id}`), {
     httpOnly: true,

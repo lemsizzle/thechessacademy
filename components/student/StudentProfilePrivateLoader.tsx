@@ -16,11 +16,29 @@ export function StudentProfilePrivateLoader() {
   const [account, setAccount] = useState<StudentLichessAccount | undefined>();
 
   useEffect(() => {
-    const user = getCurrentStudentUser();
-    const store = readAdminStore();
-    const current = (store.students ?? seedStudents).find((item) => item.id === user?.studentId);
-    setStudent(current);
-    setAccount((store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === current?.id));
+    async function loadProfile() {
+      const user = getCurrentStudentUser();
+      let current: Student | undefined;
+
+      try {
+        const response = await fetch("/api/student/profile", { cache: "no-store" });
+        const data = await response.json() as { student?: Student | null; needsOnboarding?: boolean };
+        if (data.needsOnboarding) {
+          window.location.href = "/student/onboarding";
+          return;
+        }
+        current = data.student ?? undefined;
+      } catch {
+        // Keep local mock fallback below.
+      }
+
+      const store = readAdminStore();
+      current = current ?? (store.students ?? seedStudents).find((item) => item.id === user?.studentId);
+      setStudent(current);
+      setAccount((store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === current?.id || item.lichessUsername.toLowerCase() === user?.lichessUsername?.toLowerCase()));
+    }
+
+    void loadProfile();
   }, []);
 
   if (!student) return <Card className="p-4 text-sm text-slate-300">No student record found.</Card>;

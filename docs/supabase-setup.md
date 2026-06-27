@@ -153,6 +153,23 @@ Never put these in client-side code, public pages, screenshots, or GitHub:
 
 Only variables starting with `NEXT_PUBLIC_` are meant to be visible in the browser.
 
+## 11. Add Lichess Identity Fields
+
+Student Lichess login and onboarding need two columns on `students`:
+
+- `lichess_id`
+- `lichess_username`
+
+If your project was created before these columns existed, run:
+
+```text
+docs/supabase-add-lichess-fields.sql
+```
+
+This migration is safe to run after your original schema. It does not delete data.
+
+When an admin deletes a student, future Lichess login for that same account is treated as a missing profile and the student can complete onboarding again.
+
 ## What Happens Next
 
 The database is ready after you run the schema and seed files. The app is still mock-data-first. The next development step is to replace local mock reads/writes with Supabase calls gradually:

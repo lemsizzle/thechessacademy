@@ -15,13 +15,13 @@ Use this checklist for Vercel Production environment variables.
 | `LICHESS_OAUTH_SCOPES` | `puzzle:read team:read` | Private server env | Lichess OAuth authorization screen |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://your-project.supabase.co` | Public | Public Supabase reads |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `your-anon-key` | Public | Public Supabase reads |
+| `SUPABASE_SERVICE_ROLE_KEY` | `your-service-role-key` | Private | Student onboarding profile creation |
 
 ## Optional Variables
 
 | Name | Example value | Public or private | Used by |
 | --- | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `your-publishable-key` | Public | Future Supabase client option |
-| `SUPABASE_SERVICE_ROLE_KEY` | `your-service-role-key` | Private | Future server-side admin writes |
 | `OPENAI_API_KEY` | `sk-...` | Private | Future AI badge generation |
 | `LICHESS_CLIENT_SECRET` | empty for public PKCE apps | Private | Optional Lichess confidential-client token exchange |
 | `LICHESS_TEAM_ID` | `outschool-battleground` | Private server env | Lichess team tournament sync |
@@ -116,3 +116,23 @@ You can also test in a private/incognito window.
 8. Open `/login?mode=student`.
 9. Click **Log in with Lichess**.
 10. Confirm Lichess shows the live domain and callback uses `/api/auth/lichess/callback`.
+
+## Student Onboarding After Deleting A Student
+
+If you delete a student row from Supabase, the next Lichess login for that same account should go back to onboarding. The app checks Supabase after every Lichess login and ignores stale browser cookies if the Supabase student row no longer exists.
+
+Run this migration once if your `students` table does not have Lichess identity columns yet:
+
+```text
+docs/supabase-add-lichess-fields.sql
+```
+
+Then test:
+
+1. Delete the student row in Supabase.
+2. Clear cookies for the deployed domain or use a private/incognito window.
+3. Log in with Lichess.
+4. Confirm the app opens `/student/onboarding`.
+5. Complete profile setup.
+6. Confirm a new `students` row exists with `lichess_id` and `lichess_username`.
+7. Open `/api/student/debug-session` and confirm `studentExistsByLichess` is `true`.

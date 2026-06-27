@@ -5,6 +5,7 @@ import { createStudentSession, setStudentSessionCookie } from "@/lib/auth/sessio
 import { fetchAuthenticatedLichessAccount } from "@/lib/lichess/fetchAccount";
 import { encryptLichessToken } from "@/lib/lichess/tokenCrypto";
 import { findStudentByLichess } from "@/lib/students/findStudentByLichess";
+import { findSupabaseStudentByLichess } from "@/lib/students/supabaseStudentProfiles";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -52,12 +53,14 @@ export async function GET(request: Request) {
     if (!token.access_token) throw new Error("Missing access token");
 
     const profile = await fetchAuthenticatedLichessAccount(token.access_token);
-    const knownStudent = findKnownLichessStudent(cookieStore, profile.id, profile.username);
-    const linkedStudent = findStudentByLichess(profile.id, profile.username);
-    const studentId = knownStudent?.studentId ?? linkedStudent?.id ?? (studentFromContext || `lichess-${profile.id}`);
+    const supabaseLookup = await findSupabaseStudentByLichess(profile.id, profile.username);
+    const knownStudent = supabaseLookup.configured ? null : findKnownLichessStudent(cookieStore, profile.id, profile.username);
+    const linkedStudent = supabaseLookup.student ?? (supabaseLookup.configured ? null : findStudentByLichess(profile.id, profile.username));
+    const studentId = linkedStudent?.id ?? knownStudent?.studentId ?? (studentFromContext || `pending-${profile.id}`);
+    const onboardingCompleted = Boolean(linkedStudent || knownStudent);
     const target = safeReturnTo
       ? new URL(safeReturnTo, url.origin)
-      : new URL(knownStudent || linkedStudent ? "/student" : "/student/onboarding", url.origin);
+      : new URL(onboardingCompleted ? "/student" : "/student/onboarding", url.origin);
     if (safeReturnTo) {
       target.searchParams.set("lichess", "connected");
       if (studentFromContext) target.searchParams.set("student", studentFromContext);
@@ -69,7 +72,7 @@ export async function GET(request: Request) {
       name: knownStudent?.name ?? linkedStudent?.name ?? profile.username,
       lichessUserId: profile.id,
       lichessUsername: profile.username,
-      onboardingCompleted: Boolean(knownStudent || linkedStudent)
+      onboardingCompleted
     }));
     response.cookies.set(LICHESS_TOKEN_COOKIE, encryptLichessToken(token.access_token), {
       httpOnly: true,
