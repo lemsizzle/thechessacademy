@@ -76,6 +76,16 @@ LICHESS_TEAM_TOURNAMENT_MAX=50
 LICHESS_QUEST_TIMEZONE=America/Vancouver
 ```
 
+The active Lichess student OAuth callback route is:
+
+```text
+https://your-vercel-domain.vercel.app/api/auth/lichess/callback
+```
+
+Use that exact path in Lichess. Do not use a localhost callback URL in Vercel. If `LICHESS_REDIRECT_URI` is omitted, the app builds the callback from `NEXT_PUBLIC_APP_URL`, so make sure `NEXT_PUBLIC_APP_URL` is your live Vercel URL.
+
+Lichess puzzle sync needs `puzzle:read`. Team Arena/tournament reads use `team:read`. Blitz/rapid ratings and public game reads do not need extra OAuth scopes in this app.
+
 Server-only secrets must not use the `NEXT_PUBLIC_` prefix. Keep these server-only:
 
 - `ADMIN_PASSWORD`
@@ -134,6 +144,7 @@ Then test:
 3. Enter the `ADMIN_PASSWORD` value configured in Vercel.
 4. Confirm `/admin` opens.
 5. Open `/admin/students` directly and confirm it stays accessible after login.
+6. If login accepts the password but returns to `/admin-login`, confirm `ADMIN_PASSWORD` is set in Vercel Production and redeploy.
 
 ## 7. Share Links
 

@@ -7,7 +7,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/session", { cache: "no-store" })
+    fetch("/api/admin/session", { cache: "no-store", credentials: "same-origin" })
       .then((response) => response.json() as Promise<{ authenticated?: boolean }>)
       .then((data) => {
         if (data.authenticated) {

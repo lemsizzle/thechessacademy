@@ -1,12 +1,14 @@
 import { LICHESS_TOKEN_COOKIE } from "@/lib/auth/roles";
 import { findKnownLichessStudent } from "@/lib/auth/knownLichessStudents";
-import { buildPkceChallenge, createPkceVerifier, getLichessClientId, getLichessOAuthScopeParam, getLichessRedirectUri, setLichessOAuthCookies } from "@/lib/auth/lichessOAuth";
+import { buildPkceChallenge, createPkceVerifier, getLichessClientId, getLichessOAuthScopeParam, getLichessRedirectUri, getMissingLichessOAuthConfig, hasLichessOAuthConfig, setLichessOAuthCookies } from "@/lib/auth/lichessOAuth";
 import { createStudentSession, setStudentSessionCookie } from "@/lib/auth/session";
 import { createMockLichessProfile } from "@/lib/lichess/fetchAccount";
 import { encryptLichessToken } from "@/lib/lichess/tokenCrypto";
 import { findStudentByLichess } from "@/lib/students/findStudentByLichess";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
 
 async function createMockLogin(request: Request, username: string) {
   const url = new URL(request.url);
@@ -60,6 +62,14 @@ export async function GET(request: Request) {
 
   if (mockUsername) {
     return createMockLogin(request, mockUsername);
+  }
+
+  if (process.env.NODE_ENV === "production" && !hasLichessOAuthConfig()) {
+    const target = new URL("/login", url.origin);
+    target.searchParams.set("mode", "student");
+    target.searchParams.set("lichess", "missing-config");
+    target.searchParams.set("missing", getMissingLichessOAuthConfig(url.origin).join(","));
+    return NextResponse.redirect(target);
   }
 
   const state = crypto.randomUUID();

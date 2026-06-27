@@ -1,21 +1,19 @@
-import { getLichessClientId, getLichessOAuthScopes, getLichessRedirectUri, hasLichessOAuthConfig } from "@/lib/auth/lichessOAuth";
+import { getLichessClientId, getLichessOAuthScopes, getLichessRedirectUri, getMissingLichessOAuthConfig, hasLichessOAuthConfig } from "@/lib/auth/lichessOAuth";
 import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const clientId = process.env.LICHESS_CLIENT_ID?.trim() ?? "";
+  const missing = getMissingLichessOAuthConfig(url.origin);
   const configured = hasLichessOAuthConfig();
 
   return NextResponse.json({
     configured,
-    willOpenLichess: true,
+    willOpenLichess: configured,
     clientId: getLichessClientId(),
     callbackUrl: getLichessRedirectUri(url.origin),
     scopes: getLichessOAuthScopes(),
-    missing: [
-      clientId ? "" : "LICHESS_CLIENT_ID",
-      process.env.LICHESS_REDIRECT_URI ? "" : "LICHESS_REDIRECT_URI",
-      process.env.LICHESS_ENCRYPTION_SECRET ? "" : "LICHESS_ENCRYPTION_SECRET"
-    ].filter(Boolean)
+    missing
   });
 }

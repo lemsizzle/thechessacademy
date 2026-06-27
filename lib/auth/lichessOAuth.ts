@@ -8,7 +8,7 @@ function base64Url(bytes: Uint8Array) {
 export function hasLichessOAuthConfig() {
   const clientId = process.env.LICHESS_CLIENT_ID?.trim();
   if (!clientId || clientId === "chess-academy-quest-board" || clientId === "change-me") return false;
-  if (process.env.NODE_ENV !== "production" && !process.env.LICHESS_REDIRECT_URI) return false;
+  if (process.env.NODE_ENV === "production" && !process.env.LICHESS_ENCRYPTION_SECRET) return false;
   return true;
 }
 
@@ -53,6 +53,55 @@ export function clearLichessOAuthCookies(response: NextResponse) {
   response.cookies.delete(LICHESS_OAUTH_CONTEXT_COOKIE);
 }
 
+function isLocalhostUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.hostname === "localhost" || url.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+function getAppOrigin(fallbackOrigin: string) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!appUrl) return fallbackOrigin;
+
+  try {
+    return new URL(appUrl).origin;
+  } catch {
+    return fallbackOrigin;
+  }
+}
+
 export function getLichessRedirectUri(origin: string) {
-  return process.env.LICHESS_REDIRECT_URI || `${origin}/api/auth/lichess/callback`;
+  const configured = process.env.LICHESS_REDIRECT_URI?.trim();
+  if (configured && (process.env.NODE_ENV !== "production" || !isLocalhostUrl(configured))) {
+    return configured;
+  }
+
+  return `${getAppOrigin(origin)}/api/auth/lichess/callback`;
+}
+
+export function getMissingLichessOAuthConfig(origin: string) {
+  const missing: string[] = [];
+  const clientId = process.env.LICHESS_CLIENT_ID?.trim();
+  const redirectUri = getLichessRedirectUri(origin);
+
+  if (!clientId || clientId === "chess-academy-quest-board" || clientId === "change-me") {
+    missing.push("LICHESS_CLIENT_ID");
+  }
+
+  if (process.env.NODE_ENV === "production" && !process.env.NEXT_PUBLIC_APP_URL?.trim() && !process.env.LICHESS_REDIRECT_URI?.trim()) {
+    missing.push("NEXT_PUBLIC_APP_URL or LICHESS_REDIRECT_URI");
+  }
+
+  if (process.env.NODE_ENV === "production" && !process.env.LICHESS_ENCRYPTION_SECRET?.trim()) {
+    missing.push("LICHESS_ENCRYPTION_SECRET");
+  }
+
+  if (process.env.NODE_ENV === "production" && isLocalhostUrl(redirectUri)) {
+    missing.push("production LICHESS_REDIRECT_URI must not be localhost");
+  }
+
+  return missing;
 }

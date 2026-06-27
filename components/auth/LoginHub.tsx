@@ -20,12 +20,20 @@ export function LoginHub({ initialMode = "student" }: { initialMode?: LoginMode 
     try {
       const response = await fetch("/api/admin/login", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password })
       });
       if (response.ok) {
-        window.localStorage.setItem("quest-board-admin", "true");
-        window.location.href = "/admin";
+        const session = await fetch("/api/admin/session", { cache: "no-store", credentials: "same-origin" })
+          .then((sessionResponse) => sessionResponse.json() as Promise<{ authenticated?: boolean }>)
+          .catch(() => ({ authenticated: false }));
+        if (session.authenticated) {
+          window.localStorage.setItem("quest-board-admin", "true");
+          window.location.href = "/admin";
+          return;
+        }
+        setMessage("Teacher password was accepted, but the secure session cookie was not saved. Check Vercel domain and cookie settings.");
         return;
       }
       const data = await response.json().catch(() => ({})) as { error?: string };
