@@ -1,0 +1,55 @@
+import { Card } from "@/components/Card";
+
+const faqs = [
+  {
+    question: "How do I use the Quest Board?",
+    answer: "Find your class, click your player card, and open your profile to see your level, XP bar, quests, badges, Lichess ratings, and recent progress."
+  },
+  {
+    question: "How do I gain XP?",
+    answer: "XP comes from teacher awards, completed quests, approved badges, submitted puzzle scores, and Lichess activity after your first login."
+  },
+  {
+    question: "How does Lichess XP work?",
+    answer: "Ratings earn milestone XP for each full 100 points above 800: 15 XP for established Blitz or Rapid, and 10 XP for Puzzle. The highest earned rating is kept, so XP never drops after a rating loss. Provisional Blitz and Rapid do not count. After first login, each rated game adds 2 XP and each puzzle adds 1 XP."
+  },
+  {
+    question: "How do I earn badges?",
+    answer: "Badges are earned by showing chess skills such as tactics, checkmates, endgames, sportsmanship, tournament effort, and special boss achievements."
+  },
+  {
+    question: "How do Lichess quests work?",
+    answer: "Live Lichess quests track approved activity windows such as rated rapid games, puzzle practice, and Arena scores. Sync your quest progress from the student quest page. Completed conditions go to your teacher for approval before XP or badges are awarded."
+  },
+  {
+    question: "How do I submit work?",
+    answer: "Use the student portal to submit games for review or puzzle scores. Your teacher reviews submissions before XP or badge progress is awarded."
+  },
+  {
+    question: "How do I join tournaments?",
+    answer: "Log in to Lichess, open the Chess Academy team page, click join, and enter the team code: good game. After you are on the team, return to the tournaments page and join an upcoming event."
+  }
+];
+
+export function StudentFaq() {
+  return (
+    <Card className="p-4">
+      <div>
+        <p className="text-xs font-black uppercase text-cyan-100">Resources FAQ</p>
+        <h2 className="mt-1 font-black text-white">How To Progress</h2>
+      </div>
+      <div className="mt-4 space-y-2">
+        {faqs.map((faq) => (
+          <details key={faq.question} className="group rounded-md border border-white/10 bg-black/20">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-sm font-black text-white">
+              {faq.question}
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-cyan-100 group-open:hidden">+</span>
+              <span className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-cyan-100 group-open:flex">-</span>
+            </summary>
+            <p className="border-t border-white/10 px-3 py-3 text-sm text-slate-300">{faq.answer}</p>
+          </details>
+        ))}
+      </div>
+    </Card>
+  );
+}

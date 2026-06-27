@@ -1,0 +1,17 @@
+.env
+.env.local
+.env.*.local
+
+node_modules/
+.next/
+out/
+
+.npm-cache/
+*.tsbuildinfo
+*.log
+*.pid
+
+.agents/
+.codex/
+.vercel/
+.gitrepo/

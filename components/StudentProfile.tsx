@@ -1,0 +1,173 @@
+"use client";
+
+import { BadgeCard } from "@/components/BadgeCard";
+import { Button } from "@/components/Button";
+import { Card } from "@/components/Card";
+import { LichessStudentConnectPanel } from "@/components/LichessStudentConnectPanel";
+import { LichessRatingsSummary } from "@/components/lichess/LichessRatingsSummary";
+import { StudentCallingCard } from "@/components/StudentCallingCard";
+import { StudentTournamentSummary } from "@/components/tournaments/StudentTournamentSummary";
+import { StudentLichessQuestSummary } from "@/components/quests/StudentLichessQuestSummary";
+import { XpBar } from "@/components/XpBar";
+import { allBadges } from "@/data/badges";
+import { xpEvents } from "@/data/xpEvents";
+import { getTacticProgressCount } from "@/lib/lichess";
+import { findStudentLichessAccount, getStudentXpWithLichess } from "@/lib/lichessXp";
+import { hasAdminSession, readAdminStore } from "@/lib/mockStorage";
+import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
+import { useMockAdminState } from "@/lib/useMockAdminState";
+import type { Student } from "@/lib/types";
+import { useEffect, useState, type ReactNode } from "react";
+
+function QuestLogSection({
+  title,
+  summary,
+  defaultOpen = false,
+  children
+}: {
+  title: string;
+  summary: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-white/10 bg-slate-950/58 backdrop-blur">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition hover:bg-white/[0.04] active:translate-y-px active:bg-white/[0.07]"
+      >
+        <span>
+          <span className="block font-black text-white">{title}</span>
+          <span className="mt-1 block text-xs font-bold text-slate-400">{summary}</span>
+        </span>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-lg font-black text-cyan-100">
+          {open ? "−" : "+"}
+        </span>
+      </button>
+      {open && <div className="border-t border-white/10 p-4">{children}</div>}
+    </div>
+  );
+}
+
+export function StudentProfile({ student, showAdminControls = true, profileBasePath = "/app/students" }: { student: Student; showAdminControls?: boolean; profileBasePath?: string }) {
+  const { quests, studentLichessAccounts } = useMockAdminState();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [localXpEvents, setLocalXpEvents] = useState(() => [] as typeof xpEvents);
+  const lichessAccount = findStudentLichessAccount(student, studentLichessAccounts);
+  const xp = getStudentXpWithLichess(student, lichessAccount);
+  const earned = allBadges.filter((badge) => student.badgeIds.includes(badge.id));
+  const events = [...localXpEvents, ...xpEvents].filter((event) => event.studentId === student.id);
+  const nextBadge = getClosestNextTacticBadge(student.id);
+  const completedQuests = quests.filter((quest) => student.completedQuestIds?.includes(quest.id));
+  const visibleQuests = quests.filter((quest) => quest.isLive || student.completedQuestIds?.includes(quest.id));
+
+  useEffect(() => {
+    setIsAdmin(hasAdminSession());
+    const store = readAdminStore();
+    setLocalXpEvents([...(store.questXpEvents ?? []), ...(store.tournamentXpEvents ?? [])]);
+  }, []);
+
+  return (
+    <div className="space-y-5">
+      <Card className="p-5">
+        <div className="flex flex-col gap-5">
+          <StudentCallingCard name={student.name} classGroup={student.classGroup} lichessUsername={student.lichessUsername ?? student.slug} xp={xp.totalXp} size="hero" />
+          <div className="flex-1">
+            {showAdminControls && isAdmin && (
+              <div className="mt-3">
+                <Button href={`/admin/students?student=${encodeURIComponent(student.slug)}`} variant="secondary">Manage Student</Button>
+              </div>
+            )}
+            <div className="mt-4 max-w-2xl">
+              <XpBar xp={xp.totalXp} />
+              {xp.lichessXp > 0 && (
+                <p className="mt-2 text-xs font-bold text-cyan-100">
+                  Base {xp.baseXp.toLocaleString()} XP + {xp.lichessXp.toLocaleString()} Lichess XP
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+        <p className="mt-5 rounded-lg border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-50">{student.encouragement}</p>
+      </Card>
+
+      <div className="space-y-3">
+        <QuestLogSection title="Next Goal" summary={nextBadge ? `${nextBadge.badge.name} is closest` : "No next badge target yet"} defaultOpen>
+          {nextBadge ? (
+            <div>
+              <p className="text-sm font-bold text-amber-100">{nextBadge.badge.name}</p>
+              <p className="mt-1 text-sm text-slate-300">
+                {getTacticProgressCount(nextBadge.progress)} / {nextBadge.badge.requiredPuzzleCount} {nextBadge.badge.tacticTheme?.toLowerCase()} tactics counted
+              </p>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-amber-200 to-fuchsia-300"
+                  style={{ width: `${Math.min(100, Math.round((getTacticProgressCount(nextBadge.progress) / (nextBadge.badge.requiredPuzzleCount ?? 1)) * 100))}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-300">Solve tactic puzzles to reveal the next badge target.</p>
+          )}
+        </QuestLogSection>
+
+        <QuestLogSection title="Class Quests" summary={`${completedQuests.length} completed - ${visibleQuests.length} visible`}>
+          <div className="grid gap-3 md:grid-cols-2">
+            {visibleQuests.map((quest) => {
+              const completed = student.completedQuestIds?.includes(quest.id) ?? false;
+              return (
+                <div key={quest.id} className={`rounded-md border p-3 ${completed ? "border-emerald-300/25 bg-emerald-300/10" : "border-cyan-300/20 bg-cyan-300/10"}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-bold text-white">{quest.title}</p>
+                    <span className="rounded bg-white/10 px-2 py-1 text-[11px] font-black uppercase text-slate-200">{completed ? "Done" : "Live"}</span>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-300">{quest.description}</p>
+                  <p className="mt-2 text-xs font-bold text-amber-100">{quest.xpReward} XP</p>
+                </div>
+              );
+            })}
+            {visibleQuests.length === 0 && <p className="text-sm text-slate-300">No live or completed quests yet.</p>}
+          </div>
+        </QuestLogSection>
+
+        <QuestLogSection title="Lichess" summary="Ratings, puzzle sync, and teacher review">
+          <div className="space-y-4">
+            <LichessStudentConnectPanel student={student} profileBasePath={profileBasePath} />
+            <LichessRatingsSummary student={student} compact profileBasePath={profileBasePath} />
+            <StudentTournamentSummary student={student} />
+            <StudentLichessQuestSummary student={student} />
+            <Button href="/student/submit" variant="secondary">Submit Games And Scores</Button>
+          </div>
+        </QuestLogSection>
+
+        <QuestLogSection title="Earned Badges" summary={`${earned.length} earned`}>
+          {earned.length ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {earned.map((badge) => <BadgeCard key={badge.id} badge={badge} earned statusText={badge.isLegacy ? "Legacy earned" : "Earned"} />)}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-300">No earned badges yet. Solve tactic puzzles to unlock the first Bronze badge.</p>
+          )}
+        </QuestLogSection>
+
+        <QuestLogSection title="Recent Achievements" summary={earned.length ? earned.slice(0, 2).map((badge) => badge.name).join(", ") : "No achievements yet"}>
+          <div className="space-y-3 text-sm text-slate-300">
+            {earned.slice(0, 4).map((badge) => <p key={badge.id}>Earned {badge.name}</p>)}
+            {earned.length === 0 && <p>No achievements yet.</p>}
+          </div>
+        </QuestLogSection>
+
+        <QuestLogSection title="XP History" summary={`${events.length} recent event${events.length === 1 ? "" : "s"}`}>
+          <div className="space-y-3 text-sm text-slate-300">
+            {events.map((event) => <p key={event.id}>+{event.amount} XP - {event.reason}</p>)}
+            {events.length === 0 && <p>No recent XP events yet.</p>}
+          </div>
+        </QuestLogSection>
+      </div>
+    </div>
+  );
+}
