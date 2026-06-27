@@ -1116,46 +1116,21 @@ export function AdminPanel({
             <Button variant="ghost" onClick={deleteBadge} disabled={badgeSaving || !currentBadge}>Delete Badge</Button>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr]">
+          <label className="grid gap-1 text-xs font-bold text-slate-300">Choose Badge
+            <select className={fieldClass()} value={selectedBadge} onChange={(event) => setSelectedBadge(event.target.value)}>
+              {filteredBadges.map((badge) => <option key={badge.id} value={badge.id}>{badge.name}</option>)}
+              {!filteredBadges.some((badge) => badge.id === selectedBadge) && currentBadge && <option value={currentBadge.id}>{currentBadge.name}</option>}
+            </select>
+          </label>
           <label className="grid gap-1 text-xs font-bold text-slate-300">Category Filter
             <select className={fieldClass()} value={badgeCategoryFilter} onChange={(event) => setBadgeCategoryFilter(event.target.value as "All" | BadgeCategory)}>
               <option>All</option>
               {badgeCategories.map((category) => <option key={category}>{category}</option>)}
             </select>
           </label>
-          <label className="grid gap-1 text-xs font-bold text-slate-300">Tactic Filter
-            <select className={fieldClass()} value={badgeThemeFilter} onChange={(event) => setBadgeThemeFilter(event.target.value as "All" | TacticTheme)}>
-              <option>All</option>
-              {tacticThemes.map((theme) => <option key={theme}>{theme}</option>)}
-            </select>
-          </label>
-          <label className="grid gap-1 text-xs font-bold text-slate-300">Concept Filter
-            <select className={fieldClass()} value={badgeConceptFilter} onChange={(event) => setBadgeConceptFilter(event.target.value as "All" | ConceptTheme)}>
-              <option>All</option>
-              {conceptThemes.map((theme) => <option key={theme}>{theme}</option>)}
-            </select>
-          </label>
-          <label className="flex items-end gap-2 pb-2 text-xs font-bold text-slate-300">
-            <input type="checkbox" checked={showLegacyBadges} onChange={(event) => setShowLegacyBadges(event.target.checked)} className="h-4 w-4 accent-cyan-300" />
-            Show legacy
-          </label>
-        </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <label className="grid gap-1 text-xs font-bold text-slate-300">Tier Filter
-            <select className={fieldClass()} value={badgeTierFilter} onChange={(event) => setBadgeTierFilter(event.target.value as "All" | BadgeTier)}>
-              <option>All</option>
-              {badgeTiers.map((tier) => <option key={tier}>{tier}</option>)}
-              {(["C", "B", "A", "S"] as BadgeTier[]).map((tier) => <option key={tier}>{tier}</option>)}
-            </select>
-          </label>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <label className="grid gap-1 text-xs font-bold text-slate-300 md:col-span-2">Choose Badge
-            <select className={fieldClass()} value={selectedBadge} onChange={(event) => setSelectedBadge(event.target.value)}>
-              {filteredBadges.map((badge) => <option key={badge.id} value={badge.id}>{badge.name}{badge.isLegacy ? " (legacy)" : ""}</option>)}
-              {!filteredBadges.some((badge) => badge.id === selectedBadge) && currentBadge && <option value={currentBadge.id}>{currentBadge.name}</option>}
-            </select>
-          </label>
           <label className="grid gap-1 text-xs font-bold text-slate-300">Name
             <input className={fieldClass()} value={badgeDraft.name} onChange={(event) => updateBadgeDraft({ name: event.target.value })} />
           </label>
@@ -1213,31 +1188,25 @@ export function AdminPanel({
           <label className="grid gap-1 text-xs font-bold text-slate-300">Visual Theme
             <input className={fieldClass()} value={badgeDraft.visualTheme} onChange={(event) => updateBadgeDraft({ visualTheme: event.target.value })} />
           </label>
-          <div className="grid gap-2 rounded-lg border border-white/10 bg-white/5 p-3 text-xs font-bold text-slate-300">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={badgeDraft.isActive !== false} onChange={(event) => updateBadgeDraft({ isActive: event.target.checked })} className="h-4 w-4 accent-cyan-300" />
-              Active
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={badgeDraft.isLegacy === true} onChange={(event) => updateBadgeDraft({ isLegacy: event.target.checked })} className="h-4 w-4 accent-cyan-300" />
-              Legacy
-            </label>
-          </div>
-          <label className="grid gap-1 text-xs font-bold text-slate-300 md:col-span-2">Image Generation Prompt
+        </div>
+        <details className="mt-4 rounded-lg border border-white/10 bg-black/20 p-3">
+          <summary className="cursor-pointer text-xs font-black uppercase text-slate-300">Advanced Art Prompt</summary>
+          <label className="mt-3 grid gap-1 text-xs font-bold text-slate-300">Prompt
             <textarea
-              className={fieldClass("min-h-40 font-mono text-xs leading-relaxed")}
+              className={fieldClass("min-h-36 font-mono text-xs leading-relaxed")}
               value={badgeDraft.imagePrompt ?? buildDefaultBadgeImagePrompt(badgeDraft)}
               onChange={(event) => updateBadgeDraft({ imagePrompt: event.target.value })}
             />
           </label>
-        </div>
-        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-slate-400">Badge edits save to Supabase when you press Save Badge. Prompt text is still local until a future prompt column is added.</p>
-          <Button variant="ghost" onClick={() => updateBadgeDraft({ imagePrompt: buildDefaultBadgeImagePrompt(badgeDraft) })}>Reset Prompt</Button>
-        </div>
+          <div className="mt-3 flex justify-end">
+            <Button variant="ghost" onClick={() => updateBadgeDraft({ imagePrompt: buildDefaultBadgeImagePrompt(badgeDraft) })}>Reset Prompt</Button>
+          </div>
+        </details>
+        <p className="mt-3 text-xs text-slate-400">Save Badge writes the details to Supabase. Generate Badge Art uses this draft prompt through a protected server route.</p>
       </Card>
       <BadgeGeneratorPanel
         badge={badgeDraft}
+        adminActionToken={adminActionToken}
         onSave={async (imageUrl) => {
           const updated = { ...badgeDraft, finalImageUrl: imageUrl, artImageUrl: imageUrl, generationStatus: "selected" as const };
           setBadgeSaving(true);

@@ -47,6 +47,26 @@ The current Supabase schema stores badge tiers as `C`, `B`, `A`, and `S`. The ap
 6. Open Supabase Table Editor and check the `badges` table.
 7. Open `/app/badges` and confirm the badge appears publicly.
 
+## Badge Art Generation
+
+The badge editor uses a protected server route:
+
+```txt
+POST /api/admin/badges/generate-art
+```
+
+By default, this returns mock badge art options so the workflow is safe and testable without an OpenAI key.
+
+To enable live OpenAI image generation later, add:
+
+```txt
+OPENAI_API_KEY=your_server_side_openai_key
+OPENAI_BADGE_IMAGE_MODE=openai
+OPENAI_IMAGE_MODEL=gpt-image-1
+```
+
+`OPENAI_API_KEY` must stay server-side. Do not add `NEXT_PUBLIC_` to it.
+
 ## Delete Behavior
 
 Deleting a badge removes it from the `badges` table. If students have earned that badge, the existing database foreign key cascade may also remove related `student_badges` rows. The app shows a warning before deleting.
