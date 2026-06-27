@@ -145,8 +145,10 @@ Then test:
 2. Choose **Teacher**.
 3. Enter the `ADMIN_PASSWORD` value configured in Vercel.
 4. Confirm `/admin` opens.
-5. Open `/admin/students` directly and confirm it stays accessible after login.
-6. If login accepts the password but returns to `/admin-login`, confirm `ADMIN_PASSWORD` is set in Vercel Production and redeploy.
+5. Open `/api/admin/debug-session` and confirm `adminCookieExists` and `verificationPassed` are both `true`.
+6. Open `/admin/students` directly and confirm it stays accessible after login.
+7. Click `/admin/badges`, `/admin/xp`, `/admin/quests`, and `/admin/activity`.
+8. If login accepts the password but returns to `/admin-login`, clear cookies for the deployed domain, confirm `ADMIN_PASSWORD` and `ADMIN_SESSION_SECRET` are set in Vercel Production, and redeploy.
 
 ## 7. Share Links
 

@@ -68,7 +68,41 @@ It is set with:
 - `path: "/"`
 - a 7-day max age
 
-The `proxy.ts` file quickly checks that the cookie exists. The `/admin` layout performs the real server-side signature validation with `ADMIN_SESSION_SECRET`, falling back to `ADMIN_PASSWORD` if no separate secret is set.
+The `/admin` layout performs the real server-side signature validation with `ADMIN_SESSION_SECRET`, falling back to `ADMIN_PASSWORD` if no separate secret is set. Admin auth is intentionally not checked in edge middleware/proxy, because the server layout is more reliable for cookie validation on Vercel navigation requests.
+
+## Debug Admin Session
+
+After logging in as admin, open:
+
+```text
+/api/admin/debug-session
+```
+
+It should show:
+
+```json
+{
+  "adminCookieExists": true,
+  "verificationPassed": true,
+  "adminPasswordExists": true,
+  "adminSessionSecretExists": true
+}
+```
+
+It never returns secret values.
+
+## Clear Cookies And Retest
+
+If you changed `ADMIN_SESSION_SECRET` or `ADMIN_PASSWORD`, clear the old browser cookie before testing:
+
+1. Open the deployed site in the browser.
+2. Open browser developer tools.
+3. Go to Application or Storage.
+4. Clear cookies for the Vercel/custom domain.
+5. Reload `/admin-login`.
+6. Log in again.
+
+You can also test in a private/incognito window.
 
 ## Quick Production Test
 
@@ -76,7 +110,9 @@ The `proxy.ts` file quickly checks that the cookie exists. The `/admin` layout p
 2. Redeploy the latest commit.
 3. Open `/admin-login`.
 4. Log in as Teacher.
-5. Open `/admin/students` directly in the address bar.
-6. Open `/login?mode=student`.
-7. Click **Log in with Lichess**.
-8. Confirm Lichess shows the live domain and callback uses `/api/auth/lichess/callback`.
+5. Open `/api/admin/debug-session` and confirm the admin cookie exists and verification passed.
+6. Open `/admin/students` directly in the address bar.
+7. Click admin sidebar links: Students, Badges, Quests, XP, Activity.
+8. Open `/login?mode=student`.
+9. Click **Log in with Lichess**.
+10. Confirm Lichess shows the live domain and callback uses `/api/auth/lichess/callback`.
