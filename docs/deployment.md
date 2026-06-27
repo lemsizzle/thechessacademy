@@ -38,6 +38,7 @@ Required for teacher/admin protection:
 
 ```bash
 ADMIN_PASSWORD=replace_with_a_strong_teacher_password
+ADMIN_SESSION_SECRET=replace_with_a_different_long_random_secret
 ```
 
 Recommended app URL:
@@ -89,6 +90,7 @@ Lichess puzzle sync needs `puzzle:read`. Team Arena/tournament reads use `team:r
 Server-only secrets must not use the `NEXT_PUBLIC_` prefix. Keep these server-only:
 
 - `ADMIN_PASSWORD`
+- `ADMIN_SESSION_SECRET`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY`
 - `LICHESS_CLIENT_SECRET`

@@ -1,4 +1,4 @@
-import { ADMIN_SESSION_COOKIE, isValidAdminSession } from "@/lib/auth/adminSession";
+import { ADMIN_SESSION_COOKIE } from "@/lib/auth/adminSession";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
@@ -9,8 +9,8 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-    const allowed = await isValidAdminSession(request.cookies.get(ADMIN_SESSION_COOKIE)?.value);
-    if (!allowed) {
+    const hasSessionCookie = Boolean(request.cookies.get(ADMIN_SESSION_COOKIE)?.value);
+    if (!hasSessionCookie) {
       const target = new URL("/admin-login", request.url);
       target.searchParams.set("from", `${pathname}${request.nextUrl.search}`);
       return NextResponse.redirect(target);

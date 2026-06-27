@@ -7,6 +7,7 @@ Use this checklist for Vercel Production environment variables.
 | Name | Example value | Public or private | Used by |
 | --- | --- | --- | --- |
 | `ADMIN_PASSWORD` | `a-long-teacher-password` | Private | `/api/admin/login`, `/api/admin/session`, `/admin` route protection |
+| `ADMIN_SESSION_SECRET` | `a-different-long-random-secret` | Private | Stable admin session cookie signing across Vercel functions |
 | `NEXT_PUBLIC_APP_URL` | `https://your-vercel-domain.vercel.app` | Public | Lichess callback URL building, logout redirects |
 | `LICHESS_CLIENT_ID` | `the-chess-academy-quest-board` | Private server env | Lichess OAuth authorization and token exchange |
 | `LICHESS_REDIRECT_URI` | `https://your-vercel-domain.vercel.app/api/auth/lichess/callback` | Private server env | Lichess OAuth authorization and token exchange |
@@ -67,7 +68,7 @@ It is set with:
 - `path: "/"`
 - a 7-day max age
 
-The `/admin` layout and `proxy.ts` both check the same cookie.
+The `proxy.ts` file quickly checks that the cookie exists. The `/admin` layout performs the real server-side signature validation with `ADMIN_SESSION_SECRET`, falling back to `ADMIN_PASSWORD` if no separate secret is set.
 
 ## Quick Production Test
 

@@ -1,6 +1,5 @@
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
-import { AdminGate } from "@/components/admin/AdminGate";
 import { StudentPublicRedirect } from "@/components/student/StudentPublicRedirect";
 import type { NavVariant } from "@/components/navigation";
 import type { ReactNode } from "react";
@@ -17,7 +16,7 @@ export function AppShell({ children, title, subtitle, variant = "public" }: { ch
               <h1 className="text-2xl font-black text-white sm:text-3xl">{title}</h1>
               {subtitle && <p className="mt-2 max-w-3xl text-sm text-slate-400 sm:text-base">{subtitle}</p>}
             </div>
-            {variant === "admin" ? <AdminGate>{children}</AdminGate> : children}
+            {children}
             {variant === "public" && <StudentPublicRedirect />}
           </main>
         </div>
