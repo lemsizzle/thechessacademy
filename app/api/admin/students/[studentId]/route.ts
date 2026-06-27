@@ -27,7 +27,11 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
   }
 
   try {
-    const result = await deleteSupabaseStudentById(studentId);
+    const requestUrl = new URL(_request.url);
+    const result = await deleteSupabaseStudentById(studentId, {
+      slug: requestUrl.searchParams.get("slug") ?? undefined,
+      lichessUsername: requestUrl.searchParams.get("lichessUsername") ?? undefined
+    });
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not delete student from Supabase.";

@@ -177,6 +177,32 @@ export function AdminPanel({ mode = "overview", requestedStudent }: { mode?: Adm
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadSupabaseStudents() {
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return;
+      try {
+        const response = await fetch("/api/admin/students", { cache: "no-store", credentials: "same-origin" });
+        const data = await response.json() as { students?: Student[]; error?: string };
+        if (cancelled || !response.ok || !data.students?.length) {
+          if (data?.error) pushLog(`Supabase student load failed: ${data.error}`);
+          return;
+        }
+        setStudents(data.students);
+        setSelectedStudent((current) => data.students?.some((student) => student.id === current) ? current : data.students?.[0]?.id ?? "");
+        pushLog(`Loaded ${data.students.length} student${data.students.length === 1 ? "" : "s"} from Supabase.`);
+      } catch {
+        if (!cancelled) pushLog("Supabase student load failed.");
+      }
+    }
+
+    void loadSupabaseStudents();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!loaded) return;
     updateAdminStore({ students, badges, quests, classGroups: outschoolGroups, studentTacticProgress: tacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, pendingAwards, lichessSyncLogs, log });
   }, [badges, loaded, log, outschoolGroups, quests, students, tacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, pendingAwards, lichessSyncLogs]);
@@ -262,16 +288,24 @@ export function AdminPanel({ mode = "overview", requestedStudent }: { mode?: Adm
   async function deleteStudent() {
     if (!currentStudent || !window.confirm(`Delete ${currentStudent.name}? This removes the student from Supabase and the local admin view.`)) return;
     try {
-      const response = await fetch(`/api/admin/students/${encodeURIComponent(currentStudent.id)}`, {
+      const params = new URLSearchParams();
+      if (currentStudent.slug) params.set("slug", currentStudent.slug);
+      if (currentStudent.lichessUsername) params.set("lichessUsername", currentStudent.lichessUsername);
+      const suffix = params.toString() ? `?${params.toString()}` : "";
+      const response = await fetch(`/api/admin/students/${encodeURIComponent(currentStudent.id)}${suffix}`, {
         method: "DELETE",
         credentials: "same-origin"
       });
-      const data = await response.json().catch(() => ({})) as { error?: string; deleted?: boolean; skipped?: boolean; mode?: string };
+      const data = await response.json().catch(() => ({})) as { error?: string; deleted?: boolean; skipped?: boolean; mode?: string; count?: number };
       if (!response.ok) {
         window.alert(data.error ?? "Could not delete student from Supabase.");
         return;
       }
-      if (data.skipped) pushLog(`Skipped Supabase delete for local-only student id ${currentStudent.id}.`);
+      if (data.skipped) {
+        window.alert("No matching Supabase student row was found for this student. The local admin view will still remove it.");
+        pushLog(`No matching Supabase row found for ${currentStudent.name}.`);
+      }
+      if (data.deleted) pushLog(`Deleted ${data.count ?? 1} Supabase row${(data.count ?? 1) === 1 ? "" : "s"} for ${currentStudent.name}.`);
       if (data.mode === "local-only") pushLog("Supabase is not configured, so only local data was updated.");
     } catch {
       window.alert("Could not reach the student delete route.");

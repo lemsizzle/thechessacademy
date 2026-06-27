@@ -71,6 +71,24 @@ export async function findSupabaseStudentById(studentId: string): Promise<Studen
   return { configured: true, student: data ? toStudent(data as SupabaseStudentRow) : null };
 }
 
+export async function listSupabaseStudents(): Promise<StudentProfileLookup & { students: Student[] }> {
+  const supabase = getSupabaseServerReadClient() ?? getSupabaseServiceClient();
+  if (!supabase) {
+    return isSupabaseProjectConfigured()
+      ? { configured: true, student: null, students: [], error: "Supabase URL is set, but no Supabase read or service key is configured." }
+      : { configured: false, student: null, students: [] };
+  }
+
+  const { data, error } = await supabase
+    .from("students")
+    .select(studentSelect)
+    .eq("is_active", true)
+    .order("display_name", { ascending: true });
+
+  if (error) return { configured: true, student: null, students: [], error: error.message };
+  return { configured: true, student: null, students: ((data ?? []) as SupabaseStudentRow[]).map(toStudent) };
+}
+
 export async function findSupabaseStudentByLichess(lichessId: string, lichessUsername: string): Promise<StudentProfileLookup> {
   const supabase = getSupabaseServerReadClient() ?? getSupabaseServiceClient();
   if (!supabase) {
@@ -168,12 +186,37 @@ export async function createSupabaseStudentForLichess(
   return toStudent(data as SupabaseStudentRow);
 }
 
-export async function deleteSupabaseStudentById(studentId: string) {
+async function findSupabaseStudentIdsForDelete(identifier: string, slug?: string, lichessUsername?: string) {
+  const supabase = getSupabaseServiceClient();
+  if (!supabase) throw new Error("Supabase service role is not configured.");
+
+  if (isSupabaseStudentId(identifier)) return [identifier];
+
+  const candidates = Array.from(new Set([identifier, slug, lichessUsername].map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
+  const ids = new Set<string>();
+
+  for (const candidate of candidates) {
+    const [bySlug, byUsername] = await Promise.all([
+      supabase.from("students").select("id").eq("public_slug", candidate),
+      supabase.from("students").select("id").ilike("lichess_username", candidate)
+    ]);
+
+    if (bySlug.error) throw new Error(bySlug.error.message);
+    if (byUsername.error) throw new Error(byUsername.error.message);
+    for (const row of (bySlug.data ?? []) as Array<{ id: string }>) ids.add(row.id);
+    for (const row of (byUsername.data ?? []) as Array<{ id: string }>) ids.add(row.id);
+  }
+
+  return [...ids];
+}
+
+export async function deleteSupabaseStudentById(studentId: string, options: { slug?: string; lichessUsername?: string } = {}) {
   if (!isSupabaseServiceConfigured()) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is required to delete students from Supabase.");
   }
 
-  if (!isSupabaseStudentId(studentId)) {
+  const ids = await findSupabaseStudentIdsForDelete(studentId, options.slug, options.lichessUsername);
+  if (!ids.length) {
     return { deleted: false, skipped: true };
   }
 
@@ -183,8 +226,8 @@ export async function deleteSupabaseStudentById(studentId: string) {
   const { error } = await supabase
     .from("students")
     .delete()
-    .eq("id", studentId);
+    .in("id", ids);
 
   if (error) throw new Error(error.message);
-  return { deleted: true, skipped: false };
+  return { deleted: true, skipped: false, count: ids.length };
 }
