@@ -7,48 +7,11 @@ import { studentLichessAccounts as seedAccounts } from "@/data/lichessSync";
 import { students as seedStudents } from "@/data/students";
 import { setCurrentStudentUserRecord } from "@/lib/auth/getCurrentUser";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
-import type { Student, StudentLichessAccount, StudentUser } from "@/lib/types";
+import type { Student, StudentUser } from "@/lib/types";
 import { useEffect, useState } from "react";
 
 function slugify(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || `student-${Date.now()}`;
-}
-
-function createAccount(studentId: string, username: string): StudentLichessAccount {
-  const today = new Date().toISOString().slice(0, 10);
-  const seed = username.length;
-  return {
-    id: `lichess-account-${studentId}`,
-    studentId,
-    lichessUserId: username.toLowerCase(),
-    lichessUsername: username,
-    lichessProfileUrl: `https://lichess.org/@/${username}`,
-    blitzRating: 1000 + seed * 23,
-    blitzGames: 40 + seed,
-    blitzRatingChange: 8,
-    blitzRatingDeviation: 72,
-    blitzProvisional: false,
-    rapidRating: 1080 + seed * 21,
-    rapidGames: 25 + seed,
-    rapidRatingChange: 12,
-    rapidRatingDeviation: 80,
-    rapidProvisional: false,
-    puzzleRating: 1200 + seed * 17,
-    puzzleGames: 80 + seed,
-    baselineBlitzRating: 1000 + seed * 23,
-    baselineRapidRating: 1080 + seed * 21,
-    baselinePuzzleRating: 1200 + seed * 17,
-    baselineBlitzGames: 40 + seed,
-    baselineRapidGames: 25 + seed,
-    baselinePuzzleGames: 80 + seed,
-    activityBaselineSetAt: today,
-    linkedAt: today,
-    lastRatingSyncAt: today,
-    lastPuzzleSyncAt: today,
-    syncStatus: "mock",
-    createdAt: today,
-    updatedAt: today
-  };
 }
 
 export function StudentOnboardingForm() {
@@ -108,9 +71,12 @@ export function StudentOnboardingForm() {
     const nextStudents = students.some((student) => student.id === nextStudent.id)
       ? students.map((student) => student.id === nextStudent.id ? { ...student, ...nextStudent } : student)
       : [nextStudent, ...students];
-    const nextAccounts = accounts.some((account) => account.studentId === nextStudent.id)
-      ? accounts
-      : [createAccount(nextStudent.id, username), ...accounts];
+    const usernameKey = username.toLowerCase();
+    const nextAccounts = accounts.filter((account) => (
+      account.studentId !== nextStudent.id
+      && account.lichessUsername.toLowerCase() !== usernameKey
+      && account.lichessUserId.toLowerCase() !== usernameKey
+    ));
 
     updateAdminStore({ students: nextStudents, studentLichessAccounts: nextAccounts });
     setCurrentStudentUserRecord(data.user);

@@ -40,7 +40,7 @@ export function StudentProfilePrivateLoader() {
       const store = readAdminStore();
       current = current ?? (allowLocalMockSession ? (store.students ?? seedStudents).find((item) => item.id === user?.studentId) : undefined);
       setStudent(current);
-      setAccount((store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === current?.id || item.lichessUsername.toLowerCase() === user?.lichessUsername?.toLowerCase()));
+      setAccount((store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === current?.id));
     }
 
     void loadProfile();

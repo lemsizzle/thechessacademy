@@ -9,6 +9,8 @@ import { quests as seedQuests } from "@/data/quests";
 import { students as seedStudents } from "@/data/students";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { approveQuestAward } from "@/lib/quests/approveQuestAward";
+import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
+import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
 import type { LichessActivitySnapshot, LichessQuestProgress, PendingQuestAward, PendingQuestAwardStatus, QuestCompletionEvent, Student } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
@@ -60,7 +62,7 @@ export function AdminLichessQuestAwardsTable() {
           quests,
           existingAwards: store.pendingQuestAwards ?? [],
           completionEvents: store.questCompletionEvents ?? [],
-          timeZone: "America/Vancouver"
+          timeZone: DEFAULT_QUEST_TIMEZONE
         })
       });
       const data = await response.json() as QuestEvaluationResponse;
@@ -68,6 +70,8 @@ export function AdminLichessQuestAwardsTable() {
       const newAwards = data.evaluations.flatMap((evaluation) => evaluation.newAwards);
       const autoApprovedAwards = data.evaluations.flatMap((evaluation) => evaluation.autoApprovedAwards ?? []);
       const autoCompletions = data.evaluations.flatMap((evaluation) => evaluation.autoCompletions ?? []);
+      const evaluatedProgress = data.evaluations.flatMap((evaluation) => evaluation.progress ?? []);
+      const mergedQuestProgress = mergeQuestProgress(store.lichessQuestProgress ?? [], evaluatedProgress, quests);
       const nextAwards = [...newAwards, ...(store.pendingQuestAwards ?? [])];
       const badges = store.badges ?? seedBadges;
       const today = new Date().toISOString().slice(0, 10);
@@ -86,7 +90,7 @@ export function AdminLichessQuestAwardsTable() {
         questCompletionEvents: [...autoCompletions, ...(store.questCompletionEvents ?? [])],
         questXpEvents: [...autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today })), ...(store.questXpEvents ?? [])],
         questActivityEvents: [...autoApprovedAwards.map((award) => ({ id: `activity-${award.id}`, title: "Lichess quest auto-completed", detail: `${award.title} awarded ${award.xpAmount} XP.`, createdAt: today })), ...(store.questActivityEvents ?? [])],
-        lichessQuestProgress: data.evaluations.flatMap((evaluation) => evaluation.progress ?? []),
+        lichessQuestProgress: mergedQuestProgress,
         lichessActivitySnapshots: data.evaluations.flatMap((evaluation) => evaluation.snapshots ?? [])
       });
       setAwards(nextAwards);

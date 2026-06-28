@@ -27,7 +27,7 @@ export function evaluateQuestRules(input: EvaluationInput) {
     }
     if (quest.source === "lichess_puzzles") {
       const window = input.windowsByQuest?.[quest.id] ?? getQuestWindow(quest.timeWindow, input.timeZone);
-      return [evaluateLichessPuzzleQuest(input.studentId, quest, window, input.puzzlesByQuest[quest.id] ?? [], input.modeByQuest[quest.id] ?? "mock")];
+      return [evaluateLichessPuzzleQuest(input.studentId, quest, window, input.puzzlesByQuest[quest.id] ?? [], input.modeByQuest[quest.id] ?? "mock", input.fetchErrorsByQuest?.[quest.id])];
     }
     if (quest.source === "lichess_tournaments") {
       return input.arenaResults

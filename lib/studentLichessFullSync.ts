@@ -8,6 +8,8 @@ import { studentTacticProgress as seedProgress } from "@/data/studentTacticProgr
 import { getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/getCurrentUser";
 import { createPendingAwardsFromProgress, mergeTacticProgress } from "@/lib/lichess";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
+import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
+import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
 import { saveStudentLichessAccount } from "@/lib/studentLichessAccountStore";
 import type { LichessActivitySnapshot, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingQuestAward, QuestCompletionEvent, StudentLichessAccount, TacticTheme, StudentUser } from "@/lib/types";
 
@@ -133,7 +135,7 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
       arenaResults: (store.arenaTournamentResults ?? []).filter((result) => result.studentId === user.studentId),
       existingAwards: store.pendingQuestAwards ?? [],
       completionEvents: store.questCompletionEvents ?? [],
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Vancouver"
+      timeZone: DEFAULT_QUEST_TIMEZONE
     })
   });
   const data = await response.json() as QuestEvaluationResponse;
@@ -153,8 +155,10 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
     }), student);
   });
 
+  const mergedQuestProgress = mergeQuestProgress(store.lichessQuestProgress ?? [], data.progress, rules);
+
   updateAdminStore({
-    lichessQuestProgress: [...data.progress, ...(store.lichessQuestProgress ?? []).filter((item) => item.studentId !== user.studentId)],
+    lichessQuestProgress: mergedQuestProgress,
     pendingQuestAwards: [...data.newAwards, ...(store.pendingQuestAwards ?? [])],
     questCompletionEvents: [...autoCompletions, ...(store.questCompletionEvents ?? [])],
     questXpEvents: [...autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today })), ...(store.questXpEvents ?? [])],

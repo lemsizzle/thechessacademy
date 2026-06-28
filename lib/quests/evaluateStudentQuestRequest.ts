@@ -97,9 +97,12 @@ export async function evaluateStudentQuestRequest(
         puzzleCache.set(cacheKey, puzzles);
         puzzlesByQuest[quest.id] = puzzles;
         modeByQuest[quest.id] = "connected";
-      } catch {
-        puzzlesByQuest[quest.id] = createMockStudentPuzzleActivityForWindow(window.start, window.end);
-        modeByQuest[quest.id] = "mock";
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Lichess puzzle activity could not be fetched.";
+        const canUseMockFallback = input.account?.syncStatus === "mock" || token?.startsWith("mock-token-");
+        puzzlesByQuest[quest.id] = canUseMockFallback ? createMockStudentPuzzleActivityForWindow(window.start, window.end) : [];
+        modeByQuest[quest.id] = canUseMockFallback ? "mock" : "connected";
+        if (!canUseMockFallback) fetchErrorsByQuest[quest.id] = message;
       }
       snapshots.push({
         id: `quest-snapshot-${input.studentId}-${quest.id}-${window.start.toISOString()}`,
@@ -107,7 +110,7 @@ export async function evaluateStudentQuestRequest(
         source: quest.source,
         periodStart: window.start.toISOString(),
         periodEnd: window.end.toISOString(),
-        data: { puzzles: puzzlesByQuest[quest.id] },
+        data: { puzzles: puzzlesByQuest[quest.id], error: fetchErrorsByQuest[quest.id] },
         mode: modeByQuest[quest.id],
         createdAt: new Date().toISOString()
       });

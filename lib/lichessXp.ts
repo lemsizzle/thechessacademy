@@ -36,29 +36,30 @@ export function withLichessActivityBaseline(account: StudentLichessAccount, prev
   const currentBlitzRating = account.blitzProvisional ? undefined : account.blitzRating ?? undefined;
   const currentRapidRating = account.rapidProvisional ? undefined : account.rapidRating ?? undefined;
   const currentPuzzleRating = account.puzzleRating ?? undefined;
+  const previousBaseline = previous?.syncStatus === "mock" && account.syncStatus === "connected" ? undefined : previous;
 
   return {
     ...account,
-    linkedAt: previous?.linkedAt ?? account.linkedAt,
-    baselineBlitzGames: previous?.baselineBlitzGames ?? previous?.blitzGames ?? account.blitzGames,
-    baselineRapidGames: previous?.baselineRapidGames ?? previous?.rapidGames ?? account.rapidGames,
-    baselinePuzzleGames: previous?.baselinePuzzleGames ?? previous?.puzzleGames ?? account.puzzleGames ?? 0,
-    baselineBlitzRating: previous?.baselineBlitzRating ?? previous?.peakBlitzRating ?? highestRating(previous?.blitzProvisional ? undefined : previous?.blitzRating, currentBlitzRating),
-    baselineRapidRating: previous?.baselineRapidRating ?? previous?.peakRapidRating ?? highestRating(previous?.rapidProvisional ? undefined : previous?.rapidRating, currentRapidRating),
-    baselinePuzzleRating: previous?.baselinePuzzleRating ?? previous?.peakPuzzleRating ?? highestRating(previous?.puzzleRating, currentPuzzleRating),
+    linkedAt: previousBaseline?.linkedAt ?? account.linkedAt,
+    baselineBlitzGames: previousBaseline?.baselineBlitzGames ?? previousBaseline?.blitzGames ?? account.blitzGames,
+    baselineRapidGames: previousBaseline?.baselineRapidGames ?? previousBaseline?.rapidGames ?? account.rapidGames,
+    baselinePuzzleGames: previousBaseline?.baselinePuzzleGames ?? previousBaseline?.puzzleGames ?? account.puzzleGames ?? 0,
+    baselineBlitzRating: previousBaseline?.baselineBlitzRating ?? previousBaseline?.peakBlitzRating ?? highestRating(previousBaseline?.blitzProvisional ? undefined : previousBaseline?.blitzRating, currentBlitzRating),
+    baselineRapidRating: previousBaseline?.baselineRapidRating ?? previousBaseline?.peakRapidRating ?? highestRating(previousBaseline?.rapidProvisional ? undefined : previousBaseline?.rapidRating, currentRapidRating),
+    baselinePuzzleRating: previousBaseline?.baselinePuzzleRating ?? previousBaseline?.peakPuzzleRating ?? highestRating(previousBaseline?.puzzleRating, currentPuzzleRating),
     peakBlitzRating: highestRating(
-      previous?.peakBlitzRating,
-      previous?.blitzProvisional ? undefined : previous?.blitzRating,
+      previousBaseline?.peakBlitzRating,
+      previousBaseline?.blitzProvisional ? undefined : previousBaseline?.blitzRating,
       currentBlitzRating
     ),
     peakRapidRating: highestRating(
-      previous?.peakRapidRating,
-      previous?.rapidProvisional ? undefined : previous?.rapidRating,
+      previousBaseline?.peakRapidRating,
+      previousBaseline?.rapidProvisional ? undefined : previousBaseline?.rapidRating,
       currentRapidRating
     ),
-    peakPuzzleRating: highestRating(previous?.peakPuzzleRating, previous?.puzzleRating, currentPuzzleRating),
-    activityBaselineSetAt: previous?.activityBaselineSetAt ?? previous?.linkedAt ?? account.linkedAt,
-    createdAt: previous?.createdAt ?? account.createdAt
+    peakPuzzleRating: highestRating(previousBaseline?.peakPuzzleRating, previousBaseline?.puzzleRating, currentPuzzleRating),
+    activityBaselineSetAt: previousBaseline?.activityBaselineSetAt ?? previousBaseline?.linkedAt ?? account.linkedAt,
+    createdAt: previousBaseline?.createdAt ?? account.createdAt
   };
 }
 
@@ -111,9 +112,5 @@ export function getStudentXpWithLichess(student: Student, account?: StudentLiche
 }
 
 export function findStudentLichessAccount(student: Student, accounts: StudentLichessAccount[]) {
-  return accounts.find((account) => (
-    account.studentId === student.id ||
-    account.lichessUsername.toLowerCase() === student.lichessUsername?.toLowerCase() ||
-    account.lichessUsername.toLowerCase() === student.slug.toLowerCase()
-  ));
+  return accounts.find((account) => account.studentId === student.id);
 }

@@ -1,6 +1,7 @@
 import type { QuestTimeWindow } from "@/lib/types";
 
 export const DEFAULT_QUEST_TIMEZONE = "America/Vancouver";
+export const QUEST_WEEK_START_DAY = "Monday";
 
 export type QuestWindow = {
   start: Date;
