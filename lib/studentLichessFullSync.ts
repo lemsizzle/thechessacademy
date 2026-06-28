@@ -133,7 +133,7 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
       arenaResults: (store.arenaTournamentResults ?? []).filter((result) => result.studentId === user.studentId),
       existingAwards: store.pendingQuestAwards ?? [],
       completionEvents: store.questCompletionEvents ?? [],
-      timeZone: "America/Vancouver"
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Vancouver"
     })
   });
   const data = await response.json() as QuestEvaluationResponse;

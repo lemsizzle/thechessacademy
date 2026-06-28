@@ -14,6 +14,7 @@ type EvaluationInput = {
   account?: StudentLichessAccount;
   modeByQuest: Record<string, "connected" | "mock">;
   windowsByQuest?: Record<string, QuestWindow>;
+  fetchErrorsByQuest?: Record<string, string>;
   timeZone?: string;
 };
 
@@ -22,7 +23,7 @@ export function evaluateQuestRules(input: EvaluationInput) {
     if (quest.isActive === false || !quest.source || !quest.conditionType) return [];
     if (quest.source === "lichess_games") {
       const window = input.windowsByQuest?.[quest.id] ?? getQuestWindow(quest.timeWindow, input.timeZone);
-      return [evaluateLichessGameQuest(input.studentId, quest, window, input.gamesByQuest[quest.id] ?? [], input.modeByQuest[quest.id] ?? "mock")];
+      return [evaluateLichessGameQuest(input.studentId, quest, window, input.gamesByQuest[quest.id] ?? [], input.modeByQuest[quest.id] ?? "mock", input.fetchErrorsByQuest?.[quest.id])];
     }
     if (quest.source === "lichess_puzzles") {
       const window = input.windowsByQuest?.[quest.id] ?? getQuestWindow(quest.timeWindow, input.timeZone);

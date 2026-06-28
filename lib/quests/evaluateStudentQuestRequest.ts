@@ -26,8 +26,8 @@ function getPerfTypesForQuest(quest: Quest): LichessGamePerfType[] {
   return ["rapid"];
 }
 
-async function fetchGamesForPerfTypes(username: string, start: Date, end: Date, perfTypes: LichessGamePerfType[]) {
-  const results = await Promise.allSettled(perfTypes.map((perfType) => fetchStudentGamesForWindow(username, start, end, perfType)));
+async function fetchGamesForPerfTypes(username: string, start: Date, end: Date, perfTypes: LichessGamePerfType[], accessToken?: string | null) {
+  const results = await Promise.allSettled(perfTypes.map((perfType) => fetchStudentGamesForWindow(username, start, end, perfType, accessToken)));
   const games = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
   if (!games.length && results.some((result) => result.status === "rejected")) throw new Error("No Lichess game activity could be fetched.");
   return Array.from(new Map(games.map((game) => [game.id, game])).values());
@@ -41,6 +41,7 @@ export async function evaluateStudentQuestRequest(
   const gamesByQuest: Record<string, Awaited<ReturnType<typeof fetchStudentGamesForWindow>>> = {};
   const puzzlesByQuest: Record<string, Awaited<ReturnType<typeof fetchStudentPuzzleActivityForWindow>>> = {};
   const modeByQuest: Record<string, "connected" | "mock"> = {};
+  const fetchErrorsByQuest: Record<string, string> = {};
   const snapshots: LichessActivitySnapshot[] = [];
   const windowsByQuest: Record<string, ReturnType<typeof getQuestWindow>> = {};
   const encryptedToken = cookieStore.get(LICHESS_TOKEN_COOKIE)?.value;
@@ -59,13 +60,16 @@ export async function evaluateStudentQuestRequest(
       const perfTypes = getPerfTypesForQuest(quest);
       const cacheKey = `${perfTypes.join("-")}-${window.start.toISOString()}-${window.end.toISOString()}`;
       try {
-        const games = gameCache.get(cacheKey) ?? await fetchGamesForPerfTypes(input.username, window.start, window.end, perfTypes);
+        const games = gameCache.get(cacheKey) ?? await fetchGamesForPerfTypes(input.username, window.start, window.end, perfTypes, token);
         gameCache.set(cacheKey, games);
         gamesByQuest[quest.id] = games;
         modeByQuest[quest.id] = "connected";
-      } catch {
-        gamesByQuest[quest.id] = perfTypes.flatMap((perfType) => createMockStudentGamesForWindow(window.start, perfType));
-        modeByQuest[quest.id] = "mock";
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Lichess game activity could not be fetched.";
+        const canUseMockFallback = input.account?.syncStatus === "mock" || token?.startsWith("mock-token-");
+        gamesByQuest[quest.id] = canUseMockFallback ? perfTypes.flatMap((perfType) => createMockStudentGamesForWindow(window.start, perfType)) : [];
+        modeByQuest[quest.id] = canUseMockFallback ? "mock" : "connected";
+        if (!canUseMockFallback) fetchErrorsByQuest[quest.id] = message;
       }
       snapshots.push({
         id: `quest-snapshot-${input.studentId}-${quest.id}-${window.start.toISOString()}`,
@@ -73,7 +77,7 @@ export async function evaluateStudentQuestRequest(
         source: quest.source,
         periodStart: window.start.toISOString(),
         periodEnd: window.end.toISOString(),
-        data: { games: gamesByQuest[quest.id] },
+        data: { games: gamesByQuest[quest.id], error: fetchErrorsByQuest[quest.id] },
         mode: modeByQuest[quest.id],
         createdAt: new Date().toISOString()
       });
@@ -119,6 +123,7 @@ export async function evaluateStudentQuestRequest(
     account: input.account,
     modeByQuest,
     windowsByQuest,
+    fetchErrorsByQuest,
     timeZone: input.timeZone
   });
   const generatedAwards = createPendingQuestAwards(

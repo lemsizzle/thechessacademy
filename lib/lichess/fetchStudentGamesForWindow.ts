@@ -11,6 +11,7 @@ type RawGame = {
   status?: string;
   turns?: number;
   moves?: string;
+  pgn?: string;
   winner?: "white" | "black";
   players?: {
     white?: { user?: { id?: string; name?: string } };
@@ -24,24 +25,43 @@ function normalizeUsername(value?: string) {
   return value?.toLowerCase() ?? "";
 }
 
+function countMovesFromPgn(pgn?: string) {
+  if (!pgn?.trim()) return 0;
+  const body = pgn
+    .replace(/\[[^\]]+\]\s*/g, " ")
+    .replace(/\{[^}]*\}/g, " ")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\d+\.(\.\.)?/g, " ")
+    .replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g, " ")
+    .trim();
+  if (!body) return 0;
+  return Math.ceil(body.split(/\s+/).filter(Boolean).length / 2);
+}
+
 function countFullMoves(game: RawGame) {
   if (game.moves?.trim()) return Math.ceil(game.moves.trim().split(/\s+/).length / 2);
+  const pgnMoves = countMovesFromPgn(game.pgn);
+  if (pgnMoves > 0) return pgnMoves;
   if (typeof game.turns === "number") return Math.ceil(game.turns / 2);
   return 0;
 }
 
-export async function fetchStudentGamesForWindow(username: string, start: Date, end: Date, perfType: LichessGamePerfType = "rapid") {
+export async function fetchStudentGamesForWindow(username: string, start: Date, end: Date, perfType: LichessGamePerfType = "rapid", accessToken?: string | null) {
+  const requestEnd = new Date(Math.min(end.getTime(), Date.now() + 2 * 60_000));
   const params = new URLSearchParams({
     since: String(start.getTime()),
-    until: String(end.getTime()),
+    until: String(requestEnd.getTime()),
     rated: "true",
     perfType,
-    max: "100",
+    max: "300",
     moves: "true",
-    pgnInJson: "false"
+    pgnInJson: "true"
   });
   const response = await fetch(`https://lichess.org/api/games/user/${encodeURIComponent(username)}?${params}`, {
-    headers: { Accept: "application/x-ndjson" },
+    headers: {
+      Accept: "application/x-ndjson",
+      ...(accessToken && !accessToken.startsWith("mock-token-") ? { Authorization: `Bearer ${accessToken}` } : {})
+    },
     cache: "no-store"
   });
   if (!response.ok) throw new Error(`Lichess game activity failed with ${response.status}.`);

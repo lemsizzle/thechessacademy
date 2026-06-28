@@ -15,17 +15,19 @@ export function StudentPortalShell({ children, title, subtitle }: { children: Re
   const pathname = usePathname();
   const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const allowLocalMockSession = process.env.NODE_ENV !== "production" && !supabaseBackedApp;
+  const autoSyncCooldownMs = 2 * 60 * 1000;
 
   async function syncLichessForLogin(studentUser: StudentUser) {
     if (studentUser.onboardingCompleted === false) return;
     const syncKey = `quest-board-auto-lichess-sync:${studentUser.studentId}`;
-    if (window.sessionStorage.getItem(syncKey) === "done") return;
-    window.sessionStorage.setItem(syncKey, "done");
+    const lastSyncedAt = Number(window.sessionStorage.getItem(syncKey) ?? 0);
+    if (Number.isFinite(lastSyncedAt) && Date.now() - lastSyncedAt < autoSyncCooldownMs) return;
+    window.sessionStorage.setItem(syncKey, String(Date.now()));
 
     try {
       await syncStudentLichessEverything();
     } catch {
-      window.sessionStorage.removeItem(syncKey);
+      window.sessionStorage.setItem(syncKey, String(Date.now() - autoSyncCooldownMs + 30_000));
     }
   }
 
@@ -88,6 +90,19 @@ export function StudentPortalShell({ children, title, subtitle }: { children: Re
       cancelled = true;
     };
   }, [pathname]);
+
+  useEffect(() => {
+    if (!user) return;
+    function syncWhenVisible() {
+      if (document.visibilityState === "visible") void syncLichessForLogin(user as StudentUser);
+    }
+    window.addEventListener("focus", syncWhenVisible);
+    document.addEventListener("visibilitychange", syncWhenVisible);
+    return () => {
+      window.removeEventListener("focus", syncWhenVisible);
+      document.removeEventListener("visibilitychange", syncWhenVisible);
+    };
+  }, [user?.studentId]);
 
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => {
