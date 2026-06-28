@@ -14,6 +14,7 @@ export const questConditions: Array<{ value: QuestConditionType; label: string; 
   { value: "rapid_win_count", label: "Win rated rapid games", source: "lichess_games", countLabel: "Rapid Wins" },
   { value: "rapid_games_played_count", label: "Play rated rapid games", source: "lichess_games", countLabel: "Rapid Games" },
   { value: "blitz_win_count", label: "Win rated blitz games", source: "lichess_games", countLabel: "Blitz Wins" },
+  { value: "blitz_games_played_count", label: "Play rated blitz games", source: "lichess_games", countLabel: "Blitz Games" },
   { value: "puzzle_solved_count", label: "Solve puzzles", source: "lichess_puzzles", countLabel: "Solved Puzzles" },
   { value: "puzzle_attempted_count", label: "Attempt puzzles", source: "lichess_puzzles", countLabel: "Attempted Puzzles" },
   { value: "puzzle_accuracy_threshold", label: "Puzzle accuracy streak", source: "lichess_puzzles", countLabel: "Puzzle Attempts" },

@@ -20,7 +20,7 @@ type EvaluateRequest = {
 };
 
 function getPerfTypesForQuest(quest: Quest): LichessGamePerfType[] {
-  if (quest.conditionType === "blitz_win_count") return ["blitz"];
+  if (quest.conditionType === "blitz_win_count" || quest.conditionType === "blitz_games_played_count") return ["blitz"];
   if (quest.conditionType === "rapid_win_count" || quest.conditionType === "rapid_games_played_count") return ["rapid"];
   if (quest.conditionType === "rated_win_count" || quest.conditionType === "rated_games_played_count") return ["bullet", "blitz", "rapid", "classical", "correspondence"];
   return ["rapid"];

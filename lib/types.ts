@@ -152,6 +152,7 @@ export type QuestConditionType =
   | "rapid_win_count"
   | "rapid_games_played_count"
   | "blitz_win_count"
+  | "blitz_games_played_count"
   | "puzzle_solved_count"
   | "puzzle_attempted_count"
   | "puzzle_accuracy_threshold"

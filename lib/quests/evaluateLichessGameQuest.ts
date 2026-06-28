@@ -15,7 +15,7 @@ export function evaluateLichessGameQuest(
   const isWinQuest = quest.conditionType === "rated_win_count" || quest.conditionType === "rapid_win_count" || quest.conditionType === "blitz_win_count";
   const relevant = isWinQuest ? valid.filter((game) => game.won) : valid;
   const requiredValue = quest.requiredCount ?? 1;
-  const label = quest.conditionType === "blitz_win_count"
+  const label = quest.conditionType === "blitz_win_count" || quest.conditionType === "blitz_games_played_count"
     ? "rated blitz games"
     : quest.conditionType === "rapid_win_count" || quest.conditionType === "rapid_games_played_count"
       ? "rated rapid games"

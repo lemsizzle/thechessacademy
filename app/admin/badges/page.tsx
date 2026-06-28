@@ -13,7 +13,7 @@ export default async function AdminBadgesPage() {
   const adminActionToken = await createAdminActionToken();
 
   return (
-    <AppShell title="Manage Badges" subtitle="Create badges and test mock AI badge art generation." variant="admin">
+    <AppShell title="Manage Badges" subtitle="Create, edit, delete, and generate badge art from one focused workspace." variant="admin">
       <AdminPanel mode="badges" initialBadges={badges} adminActionToken={adminActionToken} />
     </AppShell>
   );

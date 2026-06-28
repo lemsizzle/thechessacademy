@@ -664,7 +664,7 @@ export function AdminPanel({
     }));
   }
 
-  function applyQuestPreset(preset: "rated-win" | "ten-puzzles") {
+  function applyQuestPreset(preset: "rated-win" | "blitz-play" | "ten-puzzles") {
     if (preset === "rated-win") {
       setQuestDraft((quest) => ({
         ...quest,
@@ -682,6 +682,27 @@ export function AdminPanel({
         isActive: true,
         isRepeatable: true,
         cooldownDays: 1
+      }));
+      return;
+    }
+
+    if (preset === "blitz-play") {
+      setQuestDraft((quest) => ({
+        ...quest,
+        title: quest.title.startsWith("New Quest") ? "Play 5 Blitz Games" : quest.title,
+        description: "Play 5 rated blitz games after logging in. Games under 10 moves do not count.",
+        source: "lichess_games",
+        conditionType: "blitz_games_played_count",
+        category: "Lichess",
+        status: "in-progress",
+        isLive: true,
+        timeWindow: "weekly",
+        requiredCount: 5,
+        xpReward: quest.xpReward || 100,
+        approvalRequired: true,
+        isActive: true,
+        isRepeatable: true,
+        cooldownDays: 7
       }));
       return;
     }
@@ -1116,21 +1137,30 @@ export function AdminPanel({
             <Button variant="ghost" onClick={deleteBadge} disabled={badgeSaving || !currentBadge}>Delete Badge</Button>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr]">
-          <label className="grid gap-1 text-xs font-bold text-slate-300">Choose Badge
-            <select className={fieldClass()} value={selectedBadge} onChange={(event) => setSelectedBadge(event.target.value)}>
-              {filteredBadges.map((badge) => <option key={badge.id} value={badge.id}>{badge.name}</option>)}
-              {!filteredBadges.some((badge) => badge.id === selectedBadge) && currentBadge && <option value={currentBadge.id}>{currentBadge.name}</option>}
-            </select>
-          </label>
-          <label className="grid gap-1 text-xs font-bold text-slate-300">Category Filter
-            <select className={fieldClass()} value={badgeCategoryFilter} onChange={(event) => setBadgeCategoryFilter(event.target.value as "All" | BadgeCategory)}>
-              <option>All</option>
-              {badgeCategories.map((category) => <option key={category}>{category}</option>)}
-            </select>
-          </label>
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[280px_1fr]">
+          <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+            <label className="grid gap-1 text-xs font-bold text-slate-300">Category
+              <select className={fieldClass()} value={badgeCategoryFilter} onChange={(event) => setBadgeCategoryFilter(event.target.value as "All" | BadgeCategory)}>
+                <option>All</option>
+                {badgeCategories.map((category) => <option key={category}>{category}</option>)}
+              </select>
+            </label>
+            <div className="mt-3 max-h-[420px] space-y-2 overflow-y-auto pr-1">
+              {filteredBadges.map((badge) => (
+                <button
+                  key={badge.id}
+                  type="button"
+                  onClick={() => setSelectedBadge(badge.id)}
+                  className={`w-full rounded-md border p-3 text-left transition ${badge.id === selectedBadge ? "border-cyan-300/50 bg-cyan-300/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
+                >
+                  <p className="font-bold text-white">{badge.name}</p>
+                  <p className="mt-1 text-xs text-slate-400">{badge.category}{badge.tier ? ` - ${badge.tier}` : ""} - {badge.xpValue} XP</p>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+            <div className="grid gap-3 md:grid-cols-2">
           <label className="grid gap-1 text-xs font-bold text-slate-300">Name
             <input className={fieldClass()} value={badgeDraft.name} onChange={(event) => updateBadgeDraft({ name: event.target.value })} />
           </label>
@@ -1188,6 +1218,8 @@ export function AdminPanel({
           <label className="grid gap-1 text-xs font-bold text-slate-300">Visual Theme
             <input className={fieldClass()} value={badgeDraft.visualTheme} onChange={(event) => updateBadgeDraft({ visualTheme: event.target.value })} />
           </label>
+            </div>
+          </div>
         </div>
         <details className="mt-4 rounded-lg border border-white/10 bg-black/20 p-3">
           <summary className="cursor-pointer text-xs font-black uppercase text-slate-300">Advanced Art Prompt</summary>
@@ -1235,7 +1267,7 @@ export function AdminPanel({
       </div>
       <div className="mt-4">
         <h3 className="text-xs font-black uppercase tracking-wide text-slate-400">All Quests</h3>
-        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <div className="mt-3 grid max-h-[420px] gap-2 overflow-y-auto pr-1 lg:grid-cols-2">
           {quests.map((quest) => {
             const isSelected = quest.id === selectedQuest;
             const rewardBadge = badges.find((badge) => badge.id === quest.badgeRewardId);
@@ -1303,10 +1335,14 @@ export function AdminPanel({
           </select>
           <span className="text-[11px] font-normal text-slate-500">{questSources.find((source) => source.value === (questDraft.source ?? "manual"))?.description}</span>
         </label>
-        <div className="grid gap-2 rounded-md border border-white/10 bg-white/5 p-3 text-xs font-bold text-slate-300">
-          <p className="uppercase text-slate-400">Lichess Quick Goals</p>
+        <div className="grid gap-2 rounded-md border border-cyan-300/15 bg-cyan-300/[0.06] p-3 text-xs font-bold text-slate-300 md:col-span-2">
+          <div>
+            <p className="uppercase text-cyan-100">Quick Lichess Goals</p>
+            <p className="mt-1 font-normal text-slate-400">Pick one, then adjust the count or XP if needed.</p>
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => applyQuestPreset("rated-win")}>Win 1 Rated Game</Button>
+            <Button variant="secondary" onClick={() => applyQuestPreset("blitz-play")}>Play Blitz Games</Button>
             <Button variant="secondary" onClick={() => applyQuestPreset("ten-puzzles")}>Solve 10 Puzzles</Button>
           </div>
         </div>
