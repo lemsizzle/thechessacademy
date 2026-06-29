@@ -109,6 +109,33 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
     }
   }
 
+  const studentId = getCurrentStudentUser()?.studentId ?? "";
+  const activeQuests = quests.filter((quest) => getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now)));
+  const availableQuests = quests.filter((quest) => !getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now)));
+
+  const renderQuestCard = (quest: Quest) => {
+    const attempt = getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now));
+    const completion = attempt
+      ? newestByDate(completions.filter((item) => item.questId === quest.id && item.sourcePeriodStart === attempt.startedAt && item.sourcePeriodEnd === attempt.expiresAt), (item) => item.completedAt)
+      : undefined;
+    const award = attempt
+      ? newestByDate(awards.filter((item) => item.questId === quest.id && item.sourcePeriodStart === attempt.startedAt && item.sourcePeriodEnd === attempt.expiresAt), (item) => item.createdAt)
+      : undefined;
+
+    return (
+      <LichessQuestProgressCard
+        key={quest.id}
+        quest={quest}
+        progress={getDisplayProgress(quest.id, progress, completion, attempt)}
+        award={award}
+        completion={completion}
+        attempt={attempt}
+        now={now}
+        onStart={() => startQuest(quest)}
+      />
+    );
+  };
+
   return (
     <div className="space-y-5">
       <Card className="p-4">
@@ -117,29 +144,35 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
           <div className="flex gap-2"><Button onClick={evaluate} disabled={syncing} variant="secondary">{syncing ? "Syncing..." : "Sync Lichess"}</Button>{!detailed && <Button href="/student/lichess-progress" variant="ghost">Details</Button>}</div>
         </div>
       </Card>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {quests.map((quest) => {
-          const attempt = getActiveQuestAttempt(attempts, getCurrentStudentUser()?.studentId ?? "", quest.id, new Date(now));
-          const completion = attempt
-            ? newestByDate(completions.filter((item) => item.questId === quest.id && item.sourcePeriodStart === attempt.startedAt && item.sourcePeriodEnd === attempt.expiresAt), (item) => item.completedAt)
-            : undefined;
-          const award = attempt
-            ? newestByDate(awards.filter((item) => item.questId === quest.id && item.sourcePeriodStart === attempt.startedAt && item.sourcePeriodEnd === attempt.expiresAt), (item) => item.createdAt)
-            : undefined;
-          return (
-            <LichessQuestProgressCard
-              key={quest.id}
-              quest={quest}
-              progress={getDisplayProgress(quest.id, progress, completion, attempt)}
-              award={award}
-              completion={completion}
-              attempt={attempt}
-              now={now}
-              onStart={() => startQuest(quest)}
-            />
-          );
-        })}
-      </div>
+      {activeQuests.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-black text-white">Started Quests</h2>
+              <p className="mt-1 text-sm text-slate-400">These timers are already running. Finish them before the countdown ends.</p>
+            </div>
+            <span className="rounded bg-cyan-300/15 px-2 py-1 text-xs font-black text-cyan-100">{activeQuests.length} active</span>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {activeQuests.map(renderQuestCard)}
+          </div>
+        </section>
+      )}
+      <section>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-black text-white">Available Quests</h2>
+            <p className="mt-1 text-sm text-slate-400">Pick a quest and press Start when you are ready to begin its timer.</p>
+          </div>
+          <span className="rounded bg-white/10 px-2 py-1 text-xs font-black text-slate-200">{availableQuests.length} ready</span>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {availableQuests.map(renderQuestCard)}
+        </div>
+        {availableQuests.length === 0 && activeQuests.length === 0 && (
+          <Card className="p-4 text-sm text-slate-300">No live Lichess quests are available right now.</Card>
+        )}
+      </section>
     </div>
   );
 }

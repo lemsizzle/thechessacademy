@@ -21,7 +21,8 @@ import { createPendingAwardsFromProgress, getTacticProgressCount, mergeTacticPro
 import { getStudentXpWithLichess, withLichessActivityBaseline } from "@/lib/lichessXp";
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
 import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, questSources, questTacticThemes, questTimeWindows } from "@/lib/quests/questOptions";
-import type { ArenaTournamentResult, Badge, BadgeCategory, BadgeTier, ClassGroup, ConceptTheme, GameReviewSubmission, LichessConnection, LichessSyncLog, PendingAward, Quest, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, Student, StudentLichessAccount, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
+import { formatCountdown, isQuestAttemptActive } from "@/lib/quests/questAttempts";
+import type { ArenaTournamentResult, Badge, BadgeCategory, BadgeTier, ClassGroup, ConceptTheme, GameReviewSubmission, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, Quest, QuestCompletionEvent, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, Student, StudentLichessAccount, StudentQuestAttempt, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
 type AdminMode = "overview" | "students" | "classes" | "badges" | "xp" | "quests" | "activity" | "resources";
@@ -110,6 +111,10 @@ function normalizeQuests(quests: Quest[]) {
   }));
 }
 
+function newestByDate<T>(items: T[], getDate: (item: T) => string | undefined) {
+  return [...items].sort((a, b) => (getDate(b) ?? "").localeCompare(getDate(a) ?? ""))[0];
+}
+
 export function AdminPanel({
   mode = "overview",
   requestedStudent,
@@ -135,6 +140,10 @@ export function AdminPanel({
   const [gameReviewSubmissions, setGameReviewSubmissions] = useState<GameReviewSubmission[]>(seedGameReviewSubmissions);
   const [pendingAwards, setPendingAwards] = useState<PendingAward[]>(seedPendingAwards);
   const [lichessSyncLogs, setLichessSyncLogs] = useState<LichessSyncLog[]>(seedLichessSyncLogs);
+  const [lichessQuestProgress, setLichessQuestProgress] = useState<LichessQuestProgress[]>([]);
+  const [studentQuestAttempts, setStudentQuestAttempts] = useState<StudentQuestAttempt[]>([]);
+  const [pendingQuestAwards, setPendingQuestAwards] = useState<PendingQuestAward[]>([]);
+  const [questCompletionEvents, setQuestCompletionEvents] = useState<QuestCompletionEvent[]>([]);
   const [outschoolGroups, setOutschoolGroups] = useState<ClassGroup[]>(seedClassGroups);
   const [classDrafts, setClassDrafts] = useState<ClassGroup[]>(seedClassGroups);
   const [selectedStudent, setSelectedStudent] = useState(initialStudents?.[0]?.id ?? seedStudents[0]?.id ?? "");
@@ -194,6 +203,10 @@ export function AdminPanel({
     if (parsed.gameReviewSubmissions) setGameReviewSubmissions(parsed.gameReviewSubmissions);
     if (parsed.pendingAwards) setPendingAwards(parsed.pendingAwards);
     if (parsed.lichessSyncLogs) setLichessSyncLogs(parsed.lichessSyncLogs);
+    if (parsed.lichessQuestProgress) setLichessQuestProgress(parsed.lichessQuestProgress);
+    if (parsed.studentQuestAttempts) setStudentQuestAttempts(parsed.studentQuestAttempts);
+    if (parsed.pendingQuestAwards) setPendingQuestAwards(parsed.pendingQuestAwards);
+    if (parsed.questCompletionEvents) setQuestCompletionEvents(parsed.questCompletionEvents);
     if (parsed.classGroups) {
       setOutschoolGroups(parsed.classGroups);
       setClassDrafts(parsed.classGroups);
@@ -205,8 +218,8 @@ export function AdminPanel({
 
   useEffect(() => {
     if (!loaded) return;
-    updateAdminStore({ students, badges, quests, classGroups: outschoolGroups, studentTacticProgress: tacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, pendingAwards, lichessSyncLogs, log });
-  }, [badges, loaded, log, outschoolGroups, quests, students, tacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, pendingAwards, lichessSyncLogs]);
+    updateAdminStore({ students, badges, quests, classGroups: outschoolGroups, studentTacticProgress: tacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, pendingAwards, lichessSyncLogs, lichessQuestProgress, studentQuestAttempts, pendingQuestAwards, questCompletionEvents, log });
+  }, [badges, loaded, log, outschoolGroups, quests, students, tacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, pendingAwards, lichessSyncLogs, lichessQuestProgress, studentQuestAttempts, pendingQuestAwards, questCompletionEvents]);
 
   useEffect(() => {
     if (!requestedStudent || !students.length) return;
@@ -237,6 +250,11 @@ export function AdminPanel({
   const currentStudentXp = currentStudent ? getStudentXpWithLichess(currentStudent, currentStudentLichessAccount) : undefined;
   const currentStudentPendingAwards = pendingAwards.filter((award) => award.studentId === currentStudent?.id && award.status === "pending");
   const currentStudentLichessPuzzleTotal = currentStudentLichessProgress.reduce((total, item) => total + getTacticProgressCount(item), 0);
+  const currentStudentQuestAttempts = studentQuestAttempts.filter((item) => item.studentId === currentStudent?.id);
+  const currentStudentQuestProgress = lichessQuestProgress.filter((item) => item.studentId === currentStudent?.id);
+  const currentStudentQuestAwards = pendingQuestAwards.filter((item) => item.studentId === currentStudent?.id);
+  const currentStudentQuestCompletions = questCompletionEvents.filter((item) => item.studentId === currentStudent?.id);
+  const trackedLichessQuests = quests.filter((quest) => quest.source?.startsWith("lichess_") && quest.isActive !== false);
 
   useEffect(() => {
     if (currentQuest) setQuestDraft({ ...currentQuest });
@@ -805,6 +823,10 @@ export function AdminPanel({
     setGameReviewSubmissions(seedGameReviewSubmissions);
     setPendingAwards(seedPendingAwards);
     setLichessSyncLogs(seedLichessSyncLogs);
+    setLichessQuestProgress([]);
+    setStudentQuestAttempts([]);
+    setPendingQuestAwards([]);
+    setQuestCompletionEvents([]);
     setOutschoolGroups(seedClassGroups);
     setClassDrafts(seedClassGroups);
     setSelectedStudent(seedStudents[0]?.id ?? "");
@@ -980,6 +1002,76 @@ export function AdminPanel({
           <p className="mt-2 text-sm text-slate-300">Use Add Student to create a new student directly inside {selectedClassGroup}.</p>
         </div>
       )}
+    </Card>
+  );
+
+  const studentQuestProgressPanel = currentStudent && (
+    <Card className="p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="font-black text-white">Quest Progress</h2>
+          <p className="mt-1 text-sm text-slate-400">Live synced quest attempts for {currentStudent.name}. Students must press Start before progress counts.</p>
+        </div>
+        <span className="rounded bg-fuchsia-300/10 px-2 py-1 text-xs font-black text-fuchsia-100">
+          {currentStudentQuestAttempts.filter((attempt) => isQuestAttemptActive(attempt)).length} active
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        {trackedLichessQuests.map((quest) => {
+          const attemptsForQuest = currentStudentQuestAttempts.filter((attempt) => attempt.questId === quest.id);
+          const latestAttempt = newestByDate(attemptsForQuest, (attempt) => attempt.startedAt);
+          const attemptIsActive = latestAttempt ? isQuestAttemptActive(latestAttempt) : false;
+          const progressForQuest = currentStudentQuestProgress.filter((item) => (
+            item.questId === quest.id
+            && (!latestAttempt || (item.sourcePeriodStart === latestAttempt.startedAt && item.sourcePeriodEnd === latestAttempt.expiresAt))
+          ));
+          const latestProgress = newestByDate(progressForQuest, (item) => item.updatedAt);
+          const completion = newestByDate(currentStudentQuestCompletions.filter((item) => (
+            item.questId === quest.id
+            && (!latestAttempt || (item.sourcePeriodStart === latestAttempt.startedAt && item.sourcePeriodEnd === latestAttempt.expiresAt))
+          )), (item) => item.completedAt);
+          const pendingAward = newestByDate(currentStudentQuestAwards.filter((item) => (
+            item.questId === quest.id
+            && (!latestAttempt || (item.sourcePeriodStart === latestAttempt.startedAt && item.sourcePeriodEnd === latestAttempt.expiresAt))
+            && item.status === "pending"
+          )), (item) => item.createdAt);
+          const required = Math.max(1, latestProgress?.requiredValue ?? quest.requiredCount ?? quest.requiredScore ?? 1);
+          const current = completion ? required : latestAttempt ? Math.min(required, latestProgress?.currentValue ?? 0) : 0;
+          const percent = Math.min(100, Math.round((current / required) * 100));
+          const status = completion ? "Completed" : pendingAward ? "Pending approval" : attemptIsActive ? "Active" : latestAttempt ? "Expired" : "Not started";
+          const statusClass = completion
+            ? "bg-emerald-300/15 text-emerald-100"
+            : pendingAward
+              ? "bg-amber-300/15 text-amber-100"
+              : attemptIsActive
+                ? "bg-cyan-300/15 text-cyan-100"
+                : "bg-white/10 text-slate-300";
+
+          return (
+            <div key={quest.id} className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-black text-white">{quest.title}</p>
+                  <p className="mt-1 text-xs text-slate-400">{getQuestConditionLabel(quest.conditionType)} - {required} required</p>
+                </div>
+                <span className={`shrink-0 rounded px-2 py-1 text-[11px] font-black ${statusClass}`}>{status}</span>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-950">
+                <div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-fuchsia-300" style={{ width: `${percent}%` }} />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+                <span className="font-black text-cyan-100">{current} / {required}</span>
+                {latestAttempt && <span>{attemptIsActive ? `${formatCountdown(new Date(latestAttempt.expiresAt).getTime() - Date.now())} left` : `Ended ${new Date(latestAttempt.expiresAt).toLocaleDateString()}`}</span>}
+                {!latestAttempt && <span>Waiting for student to start</span>}
+              </div>
+              {latestProgress?.evidence && <p className="mt-2 text-xs text-slate-500">{latestProgress.evidence}</p>}
+            </div>
+          );
+        })}
+        {trackedLichessQuests.length === 0 && (
+          <p className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-slate-300">No Lichess-tracked quests are active yet.</p>
+        )}
+      </div>
     </Card>
   );
 
@@ -1476,7 +1568,7 @@ export function AdminPanel({
   );
 
   if (mode === "activity") return <ActivityFeed events={activity} />;
-  if (mode === "students") return <div className="space-y-5">{studentEditor}{lichessSyncPanel}{localTools}{logPanel}</div>;
+  if (mode === "students") return <div className="space-y-5">{studentEditor}{studentQuestProgressPanel}{lichessSyncPanel}{localTools}{logPanel}</div>;
   if (mode === "classes") return <div className="space-y-5">{outschoolPanel}{localTools}{logPanel}</div>;
   if (mode === "badges") return <div className="space-y-5">{badgeEditor}{localTools}{logPanel}</div>;
   if (mode === "xp") return <div className="space-y-5">{xpEditor}{localTools}{logPanel}</div>;
@@ -1486,6 +1578,7 @@ export function AdminPanel({
     <div className="space-y-5">
       <div className="grid gap-5 xl:grid-cols-2">
         {studentEditor}
+        {studentQuestProgressPanel}
         {outschoolPanel}
         {xpEditor}
         {badgeEditor}
