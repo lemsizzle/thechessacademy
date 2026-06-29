@@ -8,6 +8,7 @@ export type AdminStoreState = {
   badges?: Badge[];
   quests?: Quest[];
   classGroups?: ClassGroup[];
+  xpEvents?: XpEvent[];
   resources?: Resource[];
   manualTournaments?: Tournament[];
   importedTournaments?: Tournament[];

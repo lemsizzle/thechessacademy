@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/Button";
+import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import type { Badge, Quest, Student } from "@/lib/types";
 import { useMemo, useState } from "react";
 
@@ -63,6 +64,15 @@ export function SubmissionRewardsPanel({
       };
     });
     onStudentsChange(nextStudents);
+    updateAdminStore({
+      questXpEvents: [{
+        id: `quest-xp-${quest.id}-${student.id}-${Date.now()}`,
+        studentId: student.id,
+        amount: quest.xpReward,
+        reason: quest.title,
+        createdAt: new Date().toISOString()
+      }, ...(readAdminStore().questXpEvents ?? [])]
+    });
     setMessage(`Marked ${quest.title} complete for ${student.name}.`);
   }
 

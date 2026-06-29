@@ -14,7 +14,7 @@ import { students as seedStudents } from "@/data/students";
 import { createPendingAwardsFromProgress } from "@/lib/lichess";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { reviewScoreSubmission } from "@/lib/submissions/reviewScoreSubmission";
-import type { Badge, PendingAward, Quest, Student, StudentScoreSubmission, StudentTacticProgress, SubmissionReviewAction, SubmissionStatus, TacticTheme } from "@/lib/types";
+import type { Badge, PendingAward, Quest, Student, StudentScoreSubmission, StudentTacticProgress, SubmissionReviewAction, SubmissionStatus, TacticTheme, XpEvent } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
 const tacticThemes: Array<"All" | TacticTheme> = ["All", "Fork", "Pin", "Skewer", "Discovered Attack", "Double Attack", "Deflection", "Decoy", "Removing the Defender", "Back Rank Mate", "Mate in One"];
@@ -77,10 +77,18 @@ export function AdminScoreSubmissionsTable() {
       return;
     }
     const nextStudents = students.map((student) => student.id === submission.studentId ? { ...student, totalXp: student.totalXp + xp } : student);
+    const xpEvent: XpEvent | undefined = xp > 0 ? {
+      id: `score-xp-${submission.id}-${Date.now()}`,
+      studentId: submission.studentId,
+      amount: xp,
+      reason: `Approved score: ${submission.challengeName}`,
+      createdAt: new Date().toISOString()
+    } : undefined;
     const nextProgress = addProgress(progress, submission.studentId, submission.tacticTheme, progressAmount);
     const student = nextStudents.find((item) => item.id === submission.studentId);
     const newAwards = student ? createPendingAwardsFromProgress(student, nextProgress, pendingAwards) : [];
     save(nextSubmissions, nextStudents, nextProgress, [...newAwards, ...pendingAwards]);
+    if (xpEvent) updateAdminStore({ xpEvents: [xpEvent, ...(readAdminStore().xpEvents ?? [])] });
   }
 
   const filtered = useMemo(() => submissions.filter((item) => (

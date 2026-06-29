@@ -69,32 +69,39 @@ export function StudentProfile({
   quests?: Quest[];
 }) {
   const { quests: adminQuests, studentLichessAccounts } = useMockAdminState();
+  const [localStudents, setLocalStudents] = useState<Student[]>([]);
+  const effectiveStudent = localStudents.find((item) => (
+    item.id === student.id ||
+    item.slug === student.slug ||
+    (student.lichessUsername && item.lichessUsername?.toLowerCase() === student.lichessUsername.toLowerCase())
+  )) ?? student;
   const quests = initialQuests ?? adminQuests;
   const [isAdmin, setIsAdmin] = useState(false);
   const [localXpEvents, setLocalXpEvents] = useState<XpEvent[]>([]);
-  const lichessAccount = findStudentLichessAccount(student, studentLichessAccounts);
-  const xp = getStudentXpWithLichess(student, lichessAccount);
-  const earned = badges.filter((badge) => student.badgeIds.includes(badge.id));
-  const events = [...localXpEvents, ...xpEvents].filter((event) => event.studentId === student.id);
-  const nextBadge = getClosestNextTacticBadge(student.id);
-  const completedQuests = quests.filter((quest) => student.completedQuestIds?.includes(quest.id));
-  const visibleQuests = quests.filter((quest) => quest.isLive || student.completedQuestIds?.includes(quest.id));
+  const lichessAccount = findStudentLichessAccount(effectiveStudent, studentLichessAccounts);
+  const xp = getStudentXpWithLichess(effectiveStudent, lichessAccount);
+  const earned = badges.filter((badge) => effectiveStudent.badgeIds.includes(badge.id));
+  const events = [...localXpEvents, ...xpEvents].filter((event) => event.studentId === effectiveStudent.id);
+  const nextBadge = getClosestNextTacticBadge(effectiveStudent.id);
+  const completedQuests = quests.filter((quest) => effectiveStudent.completedQuestIds?.includes(quest.id));
+  const visibleQuests = quests.filter((quest) => quest.isLive || effectiveStudent.completedQuestIds?.includes(quest.id));
 
   useEffect(() => {
     setIsAdmin(hasAdminSession());
     const store = readAdminStore();
-    setLocalXpEvents([...(store.questXpEvents ?? []), ...(store.tournamentXpEvents ?? [])]);
+    setLocalStudents(store.students ?? []);
+    setLocalXpEvents([...(store.xpEvents ?? []), ...(store.questXpEvents ?? []), ...(store.tournamentXpEvents ?? [])]);
   }, []);
 
   return (
     <div className="space-y-5">
       <Card className="p-5">
         <div className="flex flex-col gap-5">
-          <StudentCallingCard name={student.name} classGroup={student.classGroup} lichessUsername={student.lichessUsername ?? student.slug} xp={xp.totalXp} size="hero" />
+          <StudentCallingCard name={effectiveStudent.name} classGroup={effectiveStudent.classGroup} lichessUsername={effectiveStudent.lichessUsername ?? effectiveStudent.slug} xp={xp.totalXp} size="hero" />
           <div className="flex-1">
             {showAdminControls && isAdmin && (
               <div className="mt-3">
-                <Button href={`/admin/students?student=${encodeURIComponent(student.slug)}`} variant="secondary">Manage Student</Button>
+                <Button href={`/admin/students?student=${encodeURIComponent(effectiveStudent.slug)}`} variant="secondary">Manage Student</Button>
               </div>
             )}
             <div className="mt-4 max-w-2xl">
@@ -107,7 +114,7 @@ export function StudentProfile({
             </div>
           </div>
         </div>
-        <p className="mt-5 rounded-lg border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-50">{student.encouragement}</p>
+        <p className="mt-5 rounded-lg border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-50">{effectiveStudent.encouragement}</p>
       </Card>
 
       <div className="space-y-3">
@@ -133,7 +140,7 @@ export function StudentProfile({
         <QuestLogSection title="Class Quests" summary={`${completedQuests.length} completed - ${visibleQuests.length} visible`}>
           <div className="grid gap-3 md:grid-cols-2">
             {visibleQuests.map((quest) => {
-              const completed = student.completedQuestIds?.includes(quest.id) ?? false;
+              const completed = effectiveStudent.completedQuestIds?.includes(quest.id) ?? false;
               return (
                 <div key={quest.id} className={`rounded-md border p-3 ${completed ? "border-emerald-300/25 bg-emerald-300/10" : "border-cyan-300/20 bg-cyan-300/10"}`}>
                   <div className="flex items-center justify-between gap-3">
@@ -151,10 +158,10 @@ export function StudentProfile({
 
         <QuestLogSection title="Lichess" summary="Ratings, puzzle sync, and teacher review">
           <div className="space-y-4">
-            <LichessStudentConnectPanel student={student} profileBasePath={profileBasePath} />
-            <LichessRatingsSummary student={student} compact profileBasePath={profileBasePath} />
-            <StudentTournamentSummary student={student} />
-            <StudentLichessQuestSummary student={student} />
+            <LichessStudentConnectPanel student={effectiveStudent} profileBasePath={profileBasePath} />
+            <LichessRatingsSummary student={effectiveStudent} compact profileBasePath={profileBasePath} />
+            <StudentTournamentSummary student={effectiveStudent} />
+            <StudentLichessQuestSummary student={effectiveStudent} />
             <Button href="/student/submit" variant="secondary">Submit Games And Scores</Button>
           </div>
         </QuestLogSection>
@@ -178,7 +185,7 @@ export function StudentProfile({
 
         <QuestLogSection title="XP History" summary={`${events.length} recent event${events.length === 1 ? "" : "s"}`}>
           <div className="space-y-3 text-sm text-slate-300">
-            {events.map((event) => <p key={event.id}>+{event.amount} XP - {event.reason}</p>)}
+            {events.map((event) => <p key={event.id}>{event.amount >= 0 ? "+" : ""}{event.amount} XP - {event.reason}</p>)}
             {events.length === 0 && <p>No recent XP events yet.</p>}
           </div>
         </QuestLogSection>

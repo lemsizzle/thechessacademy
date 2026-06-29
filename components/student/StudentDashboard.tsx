@@ -73,7 +73,12 @@ export function StudentDashboard() {
       const students = store.students ?? seedStudents;
       const accounts = store.studentLichessAccounts ?? seedAccounts;
       const account = accounts.find((item) => item.studentId === user?.studentId);
-      const current = supabaseStudent ?? (allowLocalMockSession ? students.find((item) => item.id === user?.studentId) : undefined) ?? (allowLocalMockSession && user ? {
+      const localStudent = (store.students ?? []).find((item) => (
+        item.id === user?.studentId ||
+        item.slug === supabaseStudent?.slug ||
+        (supabaseStudent?.lichessUsername && item.lichessUsername?.toLowerCase() === supabaseStudent.lichessUsername.toLowerCase())
+      ));
+      const current = localStudent ?? supabaseStudent ?? (allowLocalMockSession ? students.find((item) => item.id === user?.studentId) : undefined) ?? (allowLocalMockSession && user ? {
         id: user.studentId,
         slug: user.lichessUsername ?? user.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         lichessUsername: user.lichessUsername,
