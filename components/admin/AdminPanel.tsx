@@ -15,6 +15,7 @@ import { students as seedStudents } from "@/data/students";
 import { mockArenaTournamentResults } from "@/data/tournamentResults";
 import { ADMIN_STORE_KEY, readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { buildDefaultBadgeImagePrompt } from "@/lib/badges";
+import { persistStudentXpChange } from "@/lib/adminXpClient";
 import { ALL_CLASSES, getClassGroupNames, getClassRoster, getClassStudentCount } from "@/lib/classes";
 import { createPendingAwardsFromProgress, getTacticProgressCount, mergeTacticProgress } from "@/lib/lichess";
 import { getStudentXpWithLichess, withLichessActivityBaseline } from "@/lib/lichessXp";
@@ -414,23 +415,40 @@ export function AdminPanel({
     pushLog(`Imported mock Outschool registration for ${student.name} into ${group.name}.`);
   }
 
-  function changeXp(multiplier: 1 | -1) {
+  async function recordXpChange(student: Student, amount: number, reason: string) {
+    const fallbackEvent: XpEvent = {
+      id: `local-xp-${Date.now()}`,
+      studentId: student.id,
+      amount,
+      reason,
+      createdAt: new Date().toISOString()
+    };
+    try {
+      const result = await persistStudentXpChange(student, amount, reason);
+      if (result.student) {
+        setStudents((items) => items.map((item) => item.id === student.id ? { ...item, totalXp: result.student!.totalXp } : item));
+      }
+      const event = result.event ?? fallbackEvent;
+      updateAdminStore({ xpEvents: [event, ...(readAdminStore().xpEvents ?? [])] });
+      if (result.mode === "local-only" || result.skipped) {
+        setStudents((items) => items.map((item) => item.id === student.id ? { ...item, totalXp: Math.max(0, item.totalXp + amount) } : item));
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not save XP.");
+      throw error;
+    }
+  }
+
+  async function changeXp(multiplier: 1 | -1) {
     if (!currentStudent) return;
     const amount = Math.max(0, Number(xpAmount) || 0);
     const signedAmount = amount * multiplier;
-    const xpEvent: XpEvent = {
-      id: `teacher-xp-${Date.now()}`,
-      studentId: currentStudent.id,
-      amount: signedAmount,
-      reason: xpReason || (multiplier > 0 ? "Teacher XP award" : "Teacher XP adjustment"),
-      createdAt: new Date().toISOString()
-    };
-    setStudents((items) => items.map((student) => student.id === currentStudent.id ? { ...student, totalXp: Math.max(0, student.totalXp + amount * multiplier) } : student));
-    updateAdminStore({ xpEvents: [xpEvent, ...(readAdminStore().xpEvents ?? [])] });
+    if (!signedAmount) return;
+    await recordXpChange(currentStudent, signedAmount, xpReason || (multiplier > 0 ? "Teacher XP award" : "Teacher XP adjustment"));
     pushLog(`${multiplier > 0 ? "Added" : "Subtracted"} ${amount} XP for ${currentStudent.name}: ${xpReason}.`);
   }
 
-  function awardBadge() {
+  async function awardBadge() {
     if (!currentStudent) return;
     const badge = badges.find((item) => item.id === badgeToAward);
     if (!badge) return;
@@ -438,20 +456,11 @@ export function AdminPanel({
       pushLog(`${currentStudent.name} already has ${badge.name}.`);
       return;
     }
+    await recordXpChange(currentStudent, badge.xpValue, `Badge awarded: ${badge.name}`);
     setStudents((items) => items.map((student) => student.id === currentStudent.id ? {
       ...student,
-      totalXp: student.totalXp + badge.xpValue,
       badgeIds: [...student.badgeIds, badge.id]
     } : student));
-    updateAdminStore({
-      xpEvents: [{
-        id: `badge-xp-${badge.id}-${currentStudent.id}-${Date.now()}`,
-        studentId: currentStudent.id,
-        amount: badge.xpValue,
-        reason: `Badge awarded: ${badge.name}`,
-        createdAt: new Date().toISOString()
-      }, ...(readAdminStore().xpEvents ?? [])]
-    });
     pushLog(`Awarded ${badge.name} to ${currentStudent.name} and added ${badge.xpValue} XP.`);
   }
 
@@ -530,28 +539,17 @@ export function AdminPanel({
     pushLog(`Reset onboarding for ${currentStudent.name}.`);
   }
 
-  function approvePendingAward(awardId: string) {
+  async function approvePendingAward(awardId: string) {
     const award = pendingAwards.find((item) => item.id === awardId);
     if (!award) return;
     const student = students.find((item) => item.id === award.studentId);
     if (!student) return;
     const alreadyHasBadge = student.badgeIds.includes(award.badgeId);
+    if (!alreadyHasBadge) await recordXpChange(student, award.xpValue, `Badge awarded: ${award.badgeName}`);
     setStudents((items) => items.map((item) => item.id === award.studentId ? {
       ...item,
-      badgeIds: alreadyHasBadge ? item.badgeIds : [...item.badgeIds, award.badgeId],
-      totalXp: alreadyHasBadge ? item.totalXp : item.totalXp + award.xpValue
+      badgeIds: alreadyHasBadge ? item.badgeIds : [...item.badgeIds, award.badgeId]
     } : item));
-    if (!alreadyHasBadge) {
-      updateAdminStore({
-        xpEvents: [{
-          id: `badge-xp-${award.id}-${Date.now()}`,
-          studentId: student.id,
-          amount: award.xpValue,
-          reason: `Badge awarded: ${award.badgeName}`,
-          createdAt: new Date().toISOString()
-        }, ...(readAdminStore().xpEvents ?? [])]
-      });
-    }
     setPendingAwards((items) => items.map((item) => item.id === awardId ? { ...item, status: "approved" } : item));
     pushSyncLog(`${alreadyHasBadge ? "Skipped duplicate" : "Approved"} ${award.badgeName} for ${student.name}.`, "info", student.id);
   }
@@ -562,29 +560,18 @@ export function AdminPanel({
     if (award) pushSyncLog(`Rejected ${award.badgeName}.`, "warning", award.studentId);
   }
 
-  function markStudentQuestComplete(questId: string) {
+  async function markStudentQuestComplete(questId: string) {
     if (!currentStudent) return;
     const quest = quests.find((item) => item.id === questId);
     if (!quest) return;
 
     const alreadyCompleted = currentStudent.completedQuestIds?.includes(quest.id) ?? false;
+    if (!alreadyCompleted) await recordXpChange(currentStudent, quest.xpReward, quest.title);
     setStudents((items) => items.map((student) => student.id === currentStudent.id ? {
       ...student,
       completedQuestIds: Array.from(new Set([...(student.completedQuestIds ?? []), quest.id])),
-      totalXp: student.completedQuestIds?.includes(quest.id) ? student.totalXp : student.totalXp + quest.xpReward,
       badgeIds: quest.badgeRewardId ? Array.from(new Set([...student.badgeIds, quest.badgeRewardId])) : student.badgeIds
     } : student));
-    if (!alreadyCompleted) {
-      updateAdminStore({
-        questXpEvents: [{
-          id: `quest-xp-${quest.id}-${currentStudent.id}-${Date.now()}`,
-          studentId: currentStudent.id,
-          amount: quest.xpReward,
-          reason: quest.title,
-          createdAt: new Date().toISOString()
-        }, ...(readAdminStore().questXpEvents ?? [])]
-      });
-    }
     pushLog(`Marked ${quest.title} complete for ${currentStudent.name}.`);
   }
 

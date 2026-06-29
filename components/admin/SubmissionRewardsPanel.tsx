@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/Button";
+import { persistStudentXpChange } from "@/lib/adminXpClient";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import type { Badge, Quest, Student } from "@/lib/types";
 import { useMemo, useState } from "react";
@@ -42,7 +43,7 @@ export function SubmissionRewardsPanel({
     setMessage(`Awarded ${badge.name} to ${student.name}.`);
   }
 
-  function markQuestComplete() {
+  async function markQuestComplete() {
     if (!student) return;
     const quest = quests.find((item) => item.id === questId);
     if (!quest) {
@@ -54,25 +55,33 @@ export function SubmissionRewardsPanel({
       setMessage(`${student.name} already completed ${quest.title}.`);
       return;
     }
+    let savedTotalXp = student.totalXp + quest.xpReward;
+    try {
+      const result = await persistStudentXpChange(student, quest.xpReward, quest.title);
+      savedTotalXp = result.student?.totalXp ?? savedTotalXp;
+      updateAdminStore({
+        xpEvents: [result.event ?? {
+          id: `quest-xp-${quest.id}-${student.id}-${Date.now()}`,
+          studentId: student.id,
+          amount: quest.xpReward,
+          reason: quest.title,
+          createdAt: new Date().toISOString()
+        }, ...(readAdminStore().xpEvents ?? [])]
+      });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save quest XP.");
+      return;
+    }
     const nextStudents = students.map((item) => {
       if (item.id !== student.id) return item;
       return {
         ...item,
         completedQuestIds: [...(item.completedQuestIds ?? []), quest.id],
-        totalXp: item.totalXp + quest.xpReward,
+        totalXp: savedTotalXp,
         badgeIds: quest.badgeRewardId ? Array.from(new Set([...item.badgeIds, quest.badgeRewardId])) : item.badgeIds
       };
     });
     onStudentsChange(nextStudents);
-    updateAdminStore({
-      questXpEvents: [{
-        id: `quest-xp-${quest.id}-${student.id}-${Date.now()}`,
-        studentId: student.id,
-        amount: quest.xpReward,
-        reason: quest.title,
-        createdAt: new Date().toISOString()
-      }, ...(readAdminStore().questXpEvents ?? [])]
-    });
     setMessage(`Marked ${quest.title} complete for ${student.name}.`);
   }
 

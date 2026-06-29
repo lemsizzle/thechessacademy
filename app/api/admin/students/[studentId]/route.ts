@@ -1,5 +1,5 @@
 import { ADMIN_SESSION_COOKIE, isValidAdminSession } from "@/lib/auth/adminSession";
-import { deleteSupabaseStudentById } from "@/lib/students/supabaseStudentProfiles";
+import { addSupabaseStudentXp, deleteSupabaseStudentById } from "@/lib/students/supabaseStudentProfiles";
 import { isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -10,9 +10,13 @@ type RouteContext = {
   params: Promise<{ studentId: string }>;
 };
 
-export async function DELETE(_request: Request, { params }: RouteContext) {
+async function requireAdmin() {
   const cookieStore = await cookies();
-  const authenticated = await isValidAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
+  return isValidAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
+}
+
+export async function DELETE(_request: Request, { params }: RouteContext) {
+  const authenticated = await requireAdmin();
   if (!authenticated) return NextResponse.json({ error: "Teacher log in required." }, { status: 401 });
 
   const { studentId } = await params;
@@ -35,6 +39,47 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not delete student from Supabase.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request, { params }: RouteContext) {
+  const authenticated = await requireAdmin();
+  if (!authenticated) return NextResponse.json({ error: "Teacher log in required." }, { status: 401 });
+
+  const { studentId } = await params;
+  if (!studentId) return NextResponse.json({ error: "Missing student id." }, { status: 400 });
+
+  const body = await request.json().catch(() => ({})) as {
+    xpAmount?: number;
+    reason?: string;
+    slug?: string;
+    lichessUsername?: string;
+  };
+  const xpAmount = Number(body.xpAmount ?? 0);
+  const reason = body.reason?.trim() || "Teacher XP adjustment";
+  if (!Number.isFinite(xpAmount) || xpAmount === 0) {
+    return NextResponse.json({ error: "XP amount must be a non-zero number." }, { status: 400 });
+  }
+
+  if (!isSupabaseProjectConfigured()) {
+    return NextResponse.json({ ok: true, updated: false, mode: "local-only" });
+  }
+
+  if (!isSupabaseServiceConfigured()) {
+    return NextResponse.json({ error: "SUPABASE_SERVICE_ROLE_KEY is required to save XP to Supabase." }, { status: 500 });
+  }
+
+  try {
+    const result = await addSupabaseStudentXp(studentId, {
+      amount: xpAmount,
+      reason,
+      slug: body.slug,
+      lichessUsername: body.lichessUsername
+    });
+    return NextResponse.json({ ok: true, ...result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not save XP to Supabase.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

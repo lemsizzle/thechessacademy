@@ -7,11 +7,12 @@ import { badges as seedBadges } from "@/data/badges";
 import { studentLichessAccounts as seedAccounts } from "@/data/lichessSync";
 import { quests as seedQuests } from "@/data/quests";
 import { students as seedStudents } from "@/data/students";
+import { persistStudentXpChange } from "@/lib/adminXpClient";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { approveQuestAward } from "@/lib/quests/approveQuestAward";
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
 import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
-import type { LichessActivitySnapshot, LichessQuestProgress, PendingQuestAward, PendingQuestAwardStatus, QuestCompletionEvent, Student } from "@/lib/types";
+import type { LichessActivitySnapshot, LichessQuestProgress, PendingQuestAward, PendingQuestAwardStatus, QuestCompletionEvent, Student, XpEvent } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
 type QuestEvaluationResponse = {
@@ -41,6 +42,36 @@ export function AdminLichessQuestAwardsTable() {
   }, []);
 
   const visible = useMemo(() => awards.filter((award) => status === "all" || award.status === status), [awards, status]);
+
+  async function persistQuestAwardXp(award: PendingQuestAward, sourceStudents = students) {
+    const student = sourceStudents.find((item) => item.id === award.studentId);
+    if (!student) return undefined;
+    const result = await persistStudentXpChange(student, award.xpAmount, award.title);
+    return {
+      studentId: student.id,
+      totalXp: result.student?.totalXp ?? student.totalXp + award.xpAmount,
+      event: result.event ?? {
+        id: `xp-${award.id}-${Date.now()}`,
+        studentId: award.studentId,
+        amount: award.xpAmount,
+        reason: award.title,
+        createdAt: new Date().toISOString()
+      } satisfies XpEvent
+    };
+  }
+
+  async function persistQuestAwardsXp(awardsToPersist: PendingQuestAward[], sourceStudents = students) {
+    const results: Array<NonNullable<Awaited<ReturnType<typeof persistQuestAwardXp>>>> = [];
+    let rollingStudents = sourceStudents;
+    for (const award of awardsToPersist) {
+      const result = await persistQuestAwardXp(award, rollingStudents);
+      if (result) {
+        results.push(result);
+        rollingStudents = rollingStudents.map((student) => student.id === result.studentId ? { ...student, totalXp: result.totalXp } : student);
+      }
+    }
+    return results;
+  }
 
   async function evaluateAll() {
     setEvaluating(true);
@@ -74,12 +105,14 @@ export function AdminLichessQuestAwardsTable() {
       const mergedQuestProgress = mergeQuestProgress(store.lichessQuestProgress ?? [], evaluatedProgress, quests);
       const nextAwards = [...newAwards, ...(store.pendingQuestAwards ?? [])];
       const badges = store.badges ?? seedBadges;
+      const persistedXp = await persistQuestAwardsXp(autoApprovedAwards, nextStudents);
+      const xpByStudent = new Map(persistedXp.map((item) => [item.studentId, item.totalXp]));
       const today = new Date().toISOString().slice(0, 10);
       const updatedStudents = nextStudents.map((student) => {
         const studentAwards = autoApprovedAwards.filter((award) => award.studentId === student.id);
         return studentAwards.reduce((next, award) => ({
           ...next,
-          totalXp: next.totalXp + award.xpAmount,
+          totalXp: xpByStudent.get(next.id) ?? next.totalXp + award.xpAmount,
           badgeIds: award.badgeId && badges.some((badge) => badge.id === award.badgeId) ? Array.from(new Set([...next.badgeIds, award.badgeId])) : next.badgeIds,
           completedQuestIds: Array.from(new Set([...(next.completedQuestIds ?? []), award.questId]))
         }), student);
@@ -88,6 +121,7 @@ export function AdminLichessQuestAwardsTable() {
         pendingQuestAwards: nextAwards,
         students: updatedStudents,
         questCompletionEvents: [...autoCompletions, ...(store.questCompletionEvents ?? [])],
+        xpEvents: [...persistedXp.map((item) => item.event), ...(store.xpEvents ?? [])],
         questXpEvents: [...autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today })), ...(store.questXpEvents ?? [])],
         questActivityEvents: [...autoApprovedAwards.map((award) => ({ id: `activity-${award.id}`, title: "Lichess quest auto-completed", detail: `${award.title} awarded ${award.xpAmount} XP.`, createdAt: today })), ...(store.questActivityEvents ?? [])],
         lichessQuestProgress: mergedQuestProgress,
@@ -117,10 +151,11 @@ export function AdminLichessQuestAwardsTable() {
     }
     const store = readAdminStore();
     const badges = store.badges ?? seedBadges;
+    const persistedXp = await persistQuestAwardXp(award);
     const nextAwards = awards.map((item) => item.id === award.id ? data.award! : item);
     const nextStudents = students.map((student) => student.id === award.studentId ? {
       ...student,
-      totalXp: student.totalXp + award.xpAmount,
+      totalXp: persistedXp?.totalXp ?? student.totalXp + award.xpAmount,
       badgeIds: award.badgeId && badges.some((badge) => badge.id === award.badgeId) ? Array.from(new Set([...student.badgeIds, award.badgeId])) : student.badgeIds,
       completedQuestIds: Array.from(new Set([...(student.completedQuestIds ?? []), award.questId]))
     } : student);
@@ -129,6 +164,7 @@ export function AdminLichessQuestAwardsTable() {
       pendingQuestAwards: nextAwards,
       students: nextStudents,
       questCompletionEvents: [data.completion, ...(store.questCompletionEvents ?? [])],
+      xpEvents: persistedXp ? [persistedXp.event, ...(store.xpEvents ?? [])] : store.xpEvents,
       questXpEvents: [{ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today }, ...(store.questXpEvents ?? [])],
       questActivityEvents: [{ id: `activity-${award.id}`, title: "Lichess quest approved", detail: `${award.title} awarded ${award.xpAmount} XP.`, createdAt: today }, ...(store.questActivityEvents ?? [])]
     });
@@ -158,12 +194,14 @@ export function AdminLichessQuestAwardsTable() {
     const approvedById = new Map(approved.map((item) => [item.award.id, item]));
     const store = readAdminStore();
     const badges = store.badges ?? seedBadges;
+    const persistedXp = await persistQuestAwardsXp(approved.map((item) => item.award));
+    const xpByStudent = new Map(persistedXp.map((item) => [item.studentId, item.totalXp]));
     const nextAwards = awards.map((award) => approvedById.get(award.id)?.award ?? award);
     const nextStudents = students.map((student) => {
       const studentAwards = approved.filter((item) => item.award.studentId === student.id);
       return studentAwards.reduce((next, item) => ({
         ...next,
-        totalXp: next.totalXp + item.award.xpAmount,
+        totalXp: xpByStudent.get(next.id) ?? next.totalXp + item.award.xpAmount,
         badgeIds: item.award.badgeId && badges.some((badge) => badge.id === item.award.badgeId) ? Array.from(new Set([...next.badgeIds, item.award.badgeId])) : next.badgeIds,
         completedQuestIds: Array.from(new Set([...(next.completedQuestIds ?? []), item.award.questId]))
       }), student);
@@ -173,6 +211,7 @@ export function AdminLichessQuestAwardsTable() {
       pendingQuestAwards: nextAwards,
       students: nextStudents,
       questCompletionEvents: [...approved.map((item) => item.completion), ...(store.questCompletionEvents ?? [])],
+      xpEvents: [...persistedXp.map((item) => item.event), ...(store.xpEvents ?? [])],
       questXpEvents: [...approved.map((item) => ({ id: `xp-${item.award.id}`, studentId: item.award.studentId, amount: item.award.xpAmount, reason: item.award.title, createdAt: today })), ...(store.questXpEvents ?? [])],
       questActivityEvents: [...approved.map((item) => ({ id: `activity-${item.award.id}`, title: "Lichess quest approved", detail: `${item.award.title} awarded ${item.award.xpAmount} XP.`, createdAt: today })), ...(store.questActivityEvents ?? [])]
     });

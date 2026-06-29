@@ -12,6 +12,7 @@ import { studentScoreSubmissions as seedSubmissions } from "@/data/studentSubmis
 import { studentTacticProgress as seedProgress } from "@/data/studentTacticProgress";
 import { students as seedStudents } from "@/data/students";
 import { createPendingAwardsFromProgress } from "@/lib/lichess";
+import { persistStudentXpChange } from "@/lib/adminXpClient";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { reviewScoreSubmission } from "@/lib/submissions/reviewScoreSubmission";
 import type { Badge, PendingAward, Quest, Student, StudentScoreSubmission, StudentTacticProgress, SubmissionReviewAction, SubmissionStatus, TacticTheme, XpEvent } from "@/lib/types";
@@ -67,7 +68,7 @@ export function AdminScoreSubmissionsTable() {
     save(submissions, nextStudents);
   }
 
-  function review(submission: StudentScoreSubmission, action: SubmissionReviewAction) {
+  async function review(submission: StudentScoreSubmission, action: SubmissionReviewAction) {
     const wasAlreadyApproved = submission.status === "approved";
     const xp = Math.max(0, xpAwards[submission.id] ?? 0);
     const progressAmount = Math.max(0, progressAwards[submission.id] ?? 0);
@@ -76,14 +77,23 @@ export function AdminScoreSubmissionsTable() {
       save(nextSubmissions);
       return;
     }
-    const nextStudents = students.map((student) => student.id === submission.studentId ? { ...student, totalXp: student.totalXp + xp } : student);
-    const xpEvent: XpEvent | undefined = xp > 0 ? {
-      id: `score-xp-${submission.id}-${Date.now()}`,
-      studentId: submission.studentId,
-      amount: xp,
-      reason: `Approved score: ${submission.challengeName}`,
-      createdAt: new Date().toISOString()
-    } : undefined;
+    const currentStudent = students.find((student) => student.id === submission.studentId);
+    let savedTotalXp = currentStudent?.totalXp ?? 0;
+    const xpReason = `Approved score: ${submission.challengeName}`;
+    const xpEvent: XpEvent | undefined = xp > 0 && currentStudent ? await persistStudentXpChange(currentStudent, xp, xpReason).then((result) => {
+      savedTotalXp = result.student?.totalXp ?? currentStudent.totalXp + xp;
+      return result.event ?? {
+        id: `score-xp-${submission.id}-${Date.now()}`,
+        studentId: submission.studentId,
+        amount: xp,
+        reason: xpReason,
+        createdAt: new Date().toISOString()
+      };
+    }).catch((error) => {
+      window.alert(error instanceof Error ? error.message : "Could not save XP.");
+      throw error;
+    }) : undefined;
+    const nextStudents = students.map((student) => student.id === submission.studentId ? { ...student, totalXp: savedTotalXp } : student);
     const nextProgress = addProgress(progress, submission.studentId, submission.tacticTheme, progressAmount);
     const student = nextStudents.find((item) => item.id === submission.studentId);
     const newAwards = student ? createPendingAwardsFromProgress(student, nextProgress, pendingAwards) : [];

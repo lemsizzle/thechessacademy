@@ -186,7 +186,7 @@ export async function createSupabaseStudentForLichess(
   return toStudent(data as SupabaseStudentRow);
 }
 
-async function findSupabaseStudentIdsForDelete(identifier: string, slug?: string, lichessUsername?: string) {
+async function findSupabaseStudentIds(identifier: string, slug?: string, lichessUsername?: string) {
   const supabase = getSupabaseServiceClient();
   if (!supabase) throw new Error("Supabase service role is not configured.");
 
@@ -215,7 +215,7 @@ export async function deleteSupabaseStudentById(studentId: string, options: { sl
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is required to delete students from Supabase.");
   }
 
-  const ids = await findSupabaseStudentIdsForDelete(studentId, options.slug, options.lichessUsername);
+  const ids = await findSupabaseStudentIds(studentId, options.slug, options.lichessUsername);
   if (!ids.length) {
     return { deleted: false, skipped: true };
   }
@@ -230,4 +230,65 @@ export async function deleteSupabaseStudentById(studentId: string, options: { sl
 
   if (error) throw new Error(error.message);
   return { deleted: true, skipped: false, count: ids.length };
+}
+
+export async function addSupabaseStudentXp(
+  studentId: string,
+  input: { amount: number; reason: string; slug?: string; lichessUsername?: string }
+) {
+  if (!isSupabaseServiceConfigured()) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required to update student XP in Supabase.");
+  }
+
+  const ids = await findSupabaseStudentIds(studentId, input.slug, input.lichessUsername);
+  if (!ids.length) return { updated: false, skipped: true };
+
+  const supabase = getSupabaseServiceClient();
+  if (!supabase) throw new Error("Supabase service role is not configured.");
+
+  const studentIdToUpdate = ids[0];
+  const { data: current, error: currentError } = await supabase
+    .from("students")
+    .select("id,total_xp")
+    .eq("id", studentIdToUpdate)
+    .single();
+
+  if (currentError) throw new Error(currentError.message);
+
+  const currentXp = Number((current as { total_xp?: number | null }).total_xp ?? 0);
+  const nextXp = Math.max(0, currentXp + input.amount);
+
+  const { data: updated, error: updateError } = await supabase
+    .from("students")
+    .update({ total_xp: nextXp })
+    .eq("id", studentIdToUpdate)
+    .select(studentSelect)
+    .single();
+
+  if (updateError) throw new Error(updateError.message);
+
+  const { data: event, error: eventError } = await supabase
+    .from("xp_events")
+    .insert({
+      student_id: studentIdToUpdate,
+      amount: input.amount,
+      reason: input.reason
+    })
+    .select("id,student_id,amount,reason,created_at")
+    .single();
+
+  if (eventError) throw new Error(eventError.message);
+
+  return {
+    updated: true,
+    skipped: false,
+    student: toStudent(updated as SupabaseStudentRow),
+    event: {
+      id: (event as { id: string }).id,
+      studentId: (event as { student_id: string }).student_id,
+      amount: (event as { amount: number }).amount,
+      reason: (event as { reason: string }).reason,
+      createdAt: (event as { created_at: string }).created_at
+    }
+  };
 }
