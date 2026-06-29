@@ -5,8 +5,9 @@ import { createMockStudentPuzzleActivityForWindow, fetchStudentPuzzleActivityFor
 import { approveQuestAward } from "@/lib/quests/approveQuestAward";
 import { createPendingQuestAwards } from "@/lib/quests/createPendingQuestAward";
 import { evaluateQuestRules } from "@/lib/quests/evaluateQuestRules";
+import { getActiveQuestAttempt, getAttemptQuestWindow } from "@/lib/quests/questAttempts";
 import { getQuestWindow } from "@/lib/quests/timeWindows";
-import type { ArenaTournamentResult, LichessActivitySnapshot, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount } from "@/lib/types";
+import type { ArenaTournamentResult, LichessActivitySnapshot, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt } from "@/lib/types";
 
 type EvaluateRequest = {
   studentId: string;
@@ -16,6 +17,7 @@ type EvaluateRequest = {
   account?: StudentLichessAccount;
   existingAwards?: PendingQuestAward[];
   completionEvents?: QuestCompletionEvent[];
+  questAttempts?: StudentQuestAttempt[];
   timeZone?: string;
 };
 
@@ -50,8 +52,11 @@ export async function evaluateStudentQuestRequest(
   const puzzleCache = new Map<string, Awaited<ReturnType<typeof fetchStudentPuzzleActivityForWindow>>>();
 
   for (const quest of input.quests.filter((item) => item.isActive !== false && item.source?.startsWith("lichess_"))) {
+    const attempt = getActiveQuestAttempt(input.questAttempts ?? [], input.studentId, quest.id);
+    if (!attempt && quest.timeWindow !== "all_time" && quest.timeWindow !== "tournament") continue;
+
     if (quest.source === "lichess_games") {
-      const baseWindow = getQuestWindow(quest.timeWindow, input.timeZone);
+      const baseWindow = attempt ? getAttemptQuestWindow(attempt) : getQuestWindow(quest.timeWindow, input.timeZone);
       const baseline = input.account ? new Date(input.account.activityBaselineSetAt ?? input.account.linkedAt) : undefined;
       const window = baseline && baseline > baseWindow.start
         ? { ...baseWindow, start: baseline, label: `${baseline.toISOString().slice(0, 10)} to ${baseWindow.end.toISOString().slice(0, 10)}` }
@@ -84,7 +89,7 @@ export async function evaluateStudentQuestRequest(
     }
 
     if (quest.source === "lichess_puzzles") {
-      const baseWindow = getQuestWindow(quest.timeWindow, input.timeZone);
+      const baseWindow = attempt ? getAttemptQuestWindow(attempt) : getQuestWindow(quest.timeWindow, input.timeZone);
       const baseline = input.account ? new Date(input.account.activityBaselineSetAt ?? input.account.linkedAt) : undefined;
       const window = baseline && baseline > baseWindow.start
         ? { ...baseWindow, start: baseline, label: `${baseline.toISOString().slice(0, 10)} to ${baseWindow.end.toISOString().slice(0, 10)}` }

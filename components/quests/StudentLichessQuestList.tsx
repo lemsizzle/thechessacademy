@@ -5,17 +5,21 @@ import { Card } from "@/components/Card";
 import { LichessQuestProgressCard } from "@/components/quests/LichessQuestProgressCard";
 import { quests as seedQuests } from "@/data/quests";
 import { getCurrentStudentUser } from "@/lib/auth/getCurrentUser";
-import { readAdminStore } from "@/lib/mockStorage";
+import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
+import { createStudentQuestAttempt, getActiveQuestAttempt, isQuestAttemptActive } from "@/lib/quests/questAttempts";
 import { STUDENT_LICHESS_FULL_SYNC_EVENT, syncStudentLichessEverything } from "@/lib/studentLichessFullSync";
-import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent } from "@/lib/types";
+import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent, StudentQuestAttempt } from "@/lib/types";
 import { useEffect, useState } from "react";
 
 function newestByDate<T>(items: T[], getDate: (item: T) => string) {
   return [...items].sort((a, b) => getDate(b).localeCompare(getDate(a)))[0];
 }
 
-function getDisplayProgress(questId: string, progress: LichessQuestProgress[], completion?: QuestCompletionEvent) {
-  const questProgress = progress.filter((item) => item.questId === questId);
+function getDisplayProgress(questId: string, progress: LichessQuestProgress[], completion?: QuestCompletionEvent, attempt?: StudentQuestAttempt) {
+  const questProgress = progress.filter((item) => (
+    item.questId === questId
+    && (!attempt || (item.sourcePeriodStart === attempt.startedAt && item.sourcePeriodEnd === attempt.expiresAt))
+  ));
   if (completion) {
     const matchingPeriod = questProgress.find((item) => (
       item.sourcePeriodStart === completion.sourcePeriodStart
@@ -33,6 +37,8 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
   const [progress, setProgress] = useState<LichessQuestProgress[]>([]);
   const [awards, setAwards] = useState<PendingQuestAward[]>([]);
   const [completions, setCompletions] = useState<QuestCompletionEvent[]>([]);
+  const [attempts, setAttempts] = useState<StudentQuestAttempt[]>([]);
+  const [now, setNow] = useState(Date.now());
   const [message, setMessage] = useState("Use one Lichess sync to refresh ratings, games, puzzles, quests, and badge checks.");
   const [syncing, setSyncing] = useState(false);
 
@@ -43,6 +49,7 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
     const studentProgress = (store.lichessQuestProgress ?? []).filter((item) => item.studentId === studentId);
     const studentAwards = (store.pendingQuestAwards ?? []).filter((item) => item.studentId === studentId);
     const studentCompletions = (store.questCompletionEvents ?? []).filter((item) => item.studentId === studentId);
+    const studentAttempts = (store.studentQuestAttempts ?? []).filter((item) => item.studentId === studentId);
     const visibleQuestIds = new Set([
       ...studentProgress.filter((item) => item.completed).map((item) => item.questId),
       ...studentAwards.map((item) => item.questId),
@@ -57,6 +64,7 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
     setProgress(studentProgress);
     setAwards(studentAwards);
     setCompletions(studentCompletions);
+    setAttempts(studentAttempts);
   }
 
   useEffect(() => {
@@ -64,6 +72,30 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
     window.addEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, load);
     return () => window.removeEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, load);
   }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  function startQuest(quest: Quest) {
+    const user = getCurrentStudentUser();
+    if (!user) return;
+    const store = readAdminStore();
+    const previousAttempts = store.studentQuestAttempts ?? [];
+    const attempt = createStudentQuestAttempt(user.studentId, quest);
+    const nextAttempts = [
+      attempt,
+      ...previousAttempts.map((item) => (
+        item.studentId === user.studentId && item.questId === quest.id && isQuestAttemptActive(item)
+          ? { ...item, status: "expired" as const }
+          : item
+      ))
+    ];
+    updateAdminStore({ studentQuestAttempts: nextAttempts });
+    setMessage(`${quest.title} started. Your countdown is running.`);
+    load();
+  }
   async function evaluate() {
     setSyncing(true);
     try {
@@ -87,14 +119,23 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
       </Card>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {quests.map((quest) => {
-          const completion = newestByDate(completions.filter((item) => item.questId === quest.id), (item) => item.completedAt);
+          const attempt = getActiveQuestAttempt(attempts, getCurrentStudentUser()?.studentId ?? "", quest.id, new Date(now));
+          const completion = attempt
+            ? newestByDate(completions.filter((item) => item.questId === quest.id && item.sourcePeriodStart === attempt.startedAt && item.sourcePeriodEnd === attempt.expiresAt), (item) => item.completedAt)
+            : undefined;
+          const award = attempt
+            ? newestByDate(awards.filter((item) => item.questId === quest.id && item.sourcePeriodStart === attempt.startedAt && item.sourcePeriodEnd === attempt.expiresAt), (item) => item.createdAt)
+            : undefined;
           return (
             <LichessQuestProgressCard
               key={quest.id}
               quest={quest}
-              progress={getDisplayProgress(quest.id, progress, completion)}
-              award={newestByDate(awards.filter((item) => item.questId === quest.id), (item) => item.createdAt)}
+              progress={getDisplayProgress(quest.id, progress, completion, attempt)}
+              award={award}
               completion={completion}
+              attempt={attempt}
+              now={now}
+              onStart={() => startQuest(quest)}
             />
           );
         })}

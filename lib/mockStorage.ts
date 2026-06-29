@@ -1,4 +1,4 @@
-import type { ActivityEvent, ArenaTournamentResult, Badge, ClassGroup, GameAnalysisRequest, GameReviewSubmission, GameTacticFinding, LichessActivitySnapshot, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, PendingTournamentAward, Quest, QuestCompletionEvent, Resource, Student, StudentGameSubmission, StudentLichessAccount, StudentScoreSubmission, StudentTacticProgress, Tournament, XpEvent } from "@/lib/types";
+import type { ActivityEvent, ArenaTournamentResult, Badge, ClassGroup, GameAnalysisRequest, GameReviewSubmission, GameTacticFinding, LichessActivitySnapshot, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, PendingTournamentAward, Quest, QuestCompletionEvent, Resource, Student, StudentGameSubmission, StudentLichessAccount, StudentQuestAttempt, StudentScoreSubmission, StudentTacticProgress, Tournament, XpEvent } from "@/lib/types";
 
 export const ADMIN_STORE_KEY = "quest-board-admin-state-v1";
 export const ADMIN_SESSION_KEY = "quest-board-admin";
@@ -17,6 +17,7 @@ export type AdminStoreState = {
   tournamentXpEvents?: XpEvent[];
   tournamentActivityEvents?: ActivityEvent[];
   lichessQuestProgress?: LichessQuestProgress[];
+  studentQuestAttempts?: StudentQuestAttempt[];
   pendingQuestAwards?: PendingQuestAward[];
   questCompletionEvents?: QuestCompletionEvent[];
   lichessActivitySnapshots?: LichessActivitySnapshot[];

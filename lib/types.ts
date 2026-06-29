@@ -256,6 +256,18 @@ export type QuestCompletionEvent = {
   evidence: string;
 };
 
+export type StudentQuestAttemptStatus = "active" | "expired" | "completed";
+
+export type StudentQuestAttempt = {
+  id: string;
+  studentId: string;
+  questId: string;
+  startedAt: string;
+  expiresAt: string;
+  status: StudentQuestAttemptStatus;
+  createdAt: string;
+};
+
 export type LichessActivitySnapshot = {
   id: string;
   studentId: string;

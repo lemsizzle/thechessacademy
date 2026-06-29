@@ -135,6 +135,7 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
       arenaResults: (store.arenaTournamentResults ?? []).filter((result) => result.studentId === user.studentId),
       existingAwards: store.pendingQuestAwards ?? [],
       completionEvents: store.questCompletionEvents ?? [],
+      questAttempts: (store.studentQuestAttempts ?? []).filter((attempt) => attempt.studentId === user.studentId),
       timeZone: DEFAULT_QUEST_TIMEZONE
     })
   });

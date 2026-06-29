@@ -1,6 +1,6 @@
 import { evaluateStudentQuestRequest } from "@/lib/quests/evaluateStudentQuestRequest";
 import { readStudentSession } from "@/lib/auth/session";
-import type { ArenaTournamentResult, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount } from "@/lib/types";
+import type { ArenaTournamentResult, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt } from "@/lib/types";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -13,6 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
     account?: StudentLichessAccount;
     existingAwards?: PendingQuestAward[];
     completionEvents?: QuestCompletionEvent[];
+    questAttempts?: StudentQuestAttempt[];
     timeZone?: string;
   };
   if (!body.username || !body.quests) return NextResponse.json({ error: "Student username and quest rules are required." }, { status: 400 });
@@ -26,6 +27,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
     account: body.account,
     existingAwards: body.existingAwards,
     completionEvents: body.completionEvents,
+    questAttempts: body.questAttempts,
     timeZone: body.timeZone
   }, cookieStore, { allowPuzzleToken: session?.studentId === studentId });
   return NextResponse.json(result);
