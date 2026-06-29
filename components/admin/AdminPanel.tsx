@@ -424,7 +424,7 @@ export function AdminPanel({
       createdAt: new Date().toISOString()
     };
     try {
-      const result = await persistStudentXpChange(student, amount, reason);
+      const result = await persistStudentXpChange(student, amount, reason, adminActionToken);
       if (result.student) {
         setStudents((items) => items.map((item) => item.id === student.id ? { ...item, totalXp: result.student!.totalXp } : item));
       }

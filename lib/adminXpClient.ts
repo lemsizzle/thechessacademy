@@ -11,11 +11,14 @@ type PersistXpResult = {
   error?: string;
 };
 
-export async function persistStudentXpChange(student: Student, xpAmount: number, reason: string) {
+export async function persistStudentXpChange(student: Student, xpAmount: number, reason: string, adminActionToken?: string) {
   const response = await fetch(`/api/admin/students/${encodeURIComponent(student.id)}`, {
     method: "PATCH",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+    },
     body: JSON.stringify({
       xpAmount,
       reason,

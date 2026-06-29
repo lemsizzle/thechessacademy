@@ -1,4 +1,4 @@
-import { ADMIN_SESSION_COOKIE, isValidAdminSession } from "@/lib/auth/adminSession";
+import { ADMIN_SESSION_COOKIE, isValidAdminActionToken, isValidAdminSession } from "@/lib/auth/adminSession";
 import { addSupabaseStudentXp, deleteSupabaseStudentById } from "@/lib/students/supabaseStudentProfiles";
 import { isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
@@ -10,13 +10,15 @@ type RouteContext = {
   params: Promise<{ studentId: string }>;
 };
 
-async function requireAdmin() {
+async function requireAdmin(request: Request) {
   const cookieStore = await cookies();
-  return isValidAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
+  const actionToken = request.headers.get("x-admin-action-token");
+  return await isValidAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE)?.value)
+    || await isValidAdminActionToken(actionToken);
 }
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
-  const authenticated = await requireAdmin();
+  const authenticated = await requireAdmin(_request);
   if (!authenticated) return NextResponse.json({ error: "Teacher log in required." }, { status: 401 });
 
   const { studentId } = await params;
@@ -44,7 +46,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
-  const authenticated = await requireAdmin();
+  const authenticated = await requireAdmin(request);
   if (!authenticated) return NextResponse.json({ error: "Teacher log in required." }, { status: 401 });
 
   const { studentId } = await params;
