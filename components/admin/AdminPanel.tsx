@@ -22,11 +22,23 @@ import { getStudentXpWithLichess, withLichessActivityBaseline } from "@/lib/lich
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
 import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, questSources, questTacticThemes, questTimeWindows } from "@/lib/quests/questOptions";
 import { formatCountdown, isQuestAttemptActive } from "@/lib/quests/questAttempts";
+import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
+import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
 import type { ArenaTournamentResult, Badge, BadgeCategory, BadgeTier, ClassGroup, ConceptTheme, GameReviewSubmission, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, Quest, QuestCompletionEvent, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, Student, StudentLichessAccount, StudentQuestAttempt, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
 type AdminMode = "overview" | "students" | "classes" | "badges" | "xp" | "quests" | "activity" | "resources";
 type DeleteStudentAction = (input: { id: string; slug?: string; lichessUsername?: string; actionToken?: string }) => Promise<{ ok: boolean; error?: string; deleted?: boolean; skipped?: boolean; count?: number; mode?: "local-only" }>;
+type QuestEvaluationResponse = {
+  evaluations?: Array<{
+    studentId: string;
+    progress?: LichessQuestProgress[];
+    newAwards?: PendingQuestAward[];
+    autoApprovedAwards?: PendingQuestAward[];
+    autoCompletions?: QuestCompletionEvent[];
+  }>;
+  error?: string;
+};
 const badgeCategories: BadgeCategory[] = ["Tactics", "Concepts", "Checkmates", "Openings", "Endgames", "Tournament", "Sportsmanship", "Creativity", "Boss Achievements"];
 const badgeTiers: BadgeTier[] = ["Bronze", "Silver", "Gold", "Platinum"];
 const questTypes: QuestType[] = ["weekly", "boss"];
@@ -166,6 +178,7 @@ export function AdminPanel({
   const [log, setLog] = useState<string[]>(["Admin mock workspace ready."]);
   const [loaded, setLoaded] = useState(false);
   const [badgeSaving, setBadgeSaving] = useState(false);
+  const [syncingAllLichess, setSyncingAllLichess] = useState(false);
 
   useEffect(() => {
     const parsed = readAdminStore();
@@ -539,6 +552,130 @@ export function AdminPanel({
       pushLog(message);
     } catch {
       pushSyncLog("Lichess sync failed. Mock data is still available for manual testing.", "error", currentStudent.id);
+    }
+  }
+
+  async function syncAllLichessProgress() {
+    const studentsToSync = students.filter((student) => (student.lichessUsername || student.slug)?.trim());
+    if (!studentsToSync.length) {
+      window.alert("No students have Lichess usernames yet.");
+      return;
+    }
+
+    setSyncingAllLichess(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      let nextAccounts = [...studentLichessAccounts];
+      const nextConnections: LichessConnection[] = [];
+      let ratingSyncCount = 0;
+
+      for (const student of studentsToSync) {
+        const username = cleanLichessUsername(student.lichessUsername || student.slug);
+        if (!username) continue;
+        try {
+          const response = await fetch("/api/lichess/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, studentId: student.id, includePuzzles: false })
+          });
+          const result = await response.json() as {
+            mode?: "mock" | "connected";
+            ratings?: StudentLichessAccount;
+            message?: string;
+          };
+          if (!response.ok || !result.ratings) continue;
+
+          const previousAccount = nextAccounts.find((item) => item.studentId === student.id);
+          const nextAccount = withLichessActivityBaseline({ ...result.ratings, studentId: student.id, lastGameSyncAt: today }, previousAccount);
+          nextAccounts = [
+            nextAccount,
+            ...nextAccounts.filter((item) => (
+              item.studentId !== student.id
+              && item.lichessUsername.toLowerCase() !== nextAccount.lichessUsername.toLowerCase()
+              && item.lichessUserId.toLowerCase() !== nextAccount.lichessUserId.toLowerCase()
+            ))
+          ];
+          nextConnections.push({
+            studentId: student.id,
+            lichessUsername: username,
+            connectedAt: lichessConnections.find((item) => item.studentId === student.id)?.connectedAt ?? today,
+            lastSyncedAt: today,
+            status: result.mode ?? "connected"
+          });
+          ratingSyncCount += 1;
+        } catch {
+          pushSyncLog(`Could not sync ${student.name}.`, "warning", student.id);
+        }
+      }
+
+      setStudentLichessAccounts(nextAccounts);
+      setLichessConnections((items) => [
+        ...nextConnections,
+        ...items.filter((item) => !nextConnections.some((next) => next.studentId === item.studentId))
+      ]);
+
+      const lichessQuestRules = quests.filter((quest) => quest.isActive !== false && quest.source?.startsWith("lichess_"));
+      const evaluationResponse = await fetch("/api/lichess/quests/evaluate/all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          students: studentsToSync.map((student) => ({
+            studentId: student.id,
+            username: cleanLichessUsername(student.lichessUsername || student.slug),
+            account: nextAccounts.find((account) => account.studentId === student.id),
+            arenaResults: arenaTournamentResults.filter((result) => result.studentId === student.id)
+          })),
+          quests: lichessQuestRules,
+          existingAwards: pendingQuestAwards,
+          completionEvents: questCompletionEvents,
+          questAttempts: studentQuestAttempts,
+          timeZone: DEFAULT_QUEST_TIMEZONE
+        })
+      });
+      const evaluationData = await evaluationResponse.json() as QuestEvaluationResponse;
+      if (!evaluationResponse.ok || !evaluationData.evaluations) {
+        throw new Error(evaluationData.error ?? "Could not evaluate synced quests.");
+      }
+
+      const incomingProgress = evaluationData.evaluations.flatMap((evaluation) => evaluation.progress ?? []);
+      const newAwards = evaluationData.evaluations.flatMap((evaluation) => evaluation.newAwards ?? []);
+      const autoApprovedAwards = evaluationData.evaluations.flatMap((evaluation) => evaluation.autoApprovedAwards ?? []);
+      const autoCompletions = evaluationData.evaluations.flatMap((evaluation) => evaluation.autoCompletions ?? []);
+      const mergedProgress = mergeQuestProgress(lichessQuestProgress, incomingProgress, lichessQuestRules);
+      const badgeById = new Map(badges.map((badge) => [badge.id, badge]));
+      const nextStudents = students.map((student) => {
+        const awardsForStudent = autoApprovedAwards.filter((award) => award.studentId === student.id);
+        if (!awardsForStudent.length) return student;
+        return awardsForStudent.reduce((next, award) => ({
+          ...next,
+          totalXp: next.totalXp + award.xpAmount,
+          badgeIds: award.badgeId && badgeById.has(award.badgeId) ? Array.from(new Set([...next.badgeIds, award.badgeId])) : next.badgeIds,
+          completedQuestIds: Array.from(new Set([...(next.completedQuestIds ?? []), award.questId]))
+        }), student);
+      });
+
+      setStudents(nextStudents);
+      setLichessQuestProgress(mergedProgress);
+      setPendingQuestAwards((items) => [...newAwards, ...items]);
+      setQuestCompletionEvents((items) => [...autoCompletions, ...items]);
+      updateAdminStore({
+        students: nextStudents,
+        studentLichessAccounts: nextAccounts,
+        lichessQuestProgress: mergedProgress,
+        pendingQuestAwards: [...newAwards, ...pendingQuestAwards],
+        questCompletionEvents: [...autoCompletions, ...questCompletionEvents],
+        questXpEvents: [...autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today })), ...(readAdminStore().questXpEvents ?? [])]
+      });
+
+      const message = `Synced ${ratingSyncCount} Lichess profile${ratingSyncCount === 1 ? "" : "s"} and checked ${incomingProgress.length} quest progress record${incomingProgress.length === 1 ? "" : "s"}. ${newAwards.length} sent for approval, ${autoCompletions.length} auto-completed.`;
+      pushSyncLog(message, "info");
+      pushLog(message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not sync all Lichess progress.";
+      window.alert(message);
+      pushSyncLog(message, "error");
+    } finally {
+      setSyncingAllLichess(false);
     }
   }
 
@@ -1011,10 +1148,16 @@ export function AdminPanel({
         <div>
           <h2 className="font-black text-white">Quest Progress</h2>
           <p className="mt-1 text-sm text-slate-400">Live synced quest attempts for {currentStudent.name}. Students must press Start before progress counts.</p>
+          <p className="mt-1 text-xs text-slate-500">Sync All refreshes public rated-game and rating data for everyone. Puzzle quests update from each student's authorized Lichess sync.</p>
         </div>
-        <span className="rounded bg-fuchsia-300/10 px-2 py-1 text-xs font-black text-fuchsia-100">
-          {currentStudentQuestAttempts.filter((attempt) => isQuestAttemptActive(attempt)).length} active
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded bg-fuchsia-300/10 px-2 py-1 text-xs font-black text-fuchsia-100">
+            {currentStudentQuestAttempts.filter((attempt) => isQuestAttemptActive(attempt)).length} active
+          </span>
+          <Button variant="secondary" onClick={syncAllLichessProgress} disabled={syncingAllLichess}>
+            {syncingAllLichess ? "Syncing..." : "Sync All Lichess"}
+          </Button>
+        </div>
       </div>
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {trackedLichessQuests.map((quest) => {
