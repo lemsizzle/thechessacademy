@@ -54,11 +54,14 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
     try {
       const response = await fetch("/api/quest-progress", { cache: "no-store", credentials: "include" });
       const data = await response.json() as {
+        configured?: boolean;
+        error?: string;
         attempts?: StudentQuestAttempt[];
         progress?: LichessQuestProgress[];
         completions?: QuestCompletionEvent[];
       };
       if (!response.ok) return;
+      if (!data.configured || data.error) return;
       const store = readAdminStore();
       const otherAttempts = (store.studentQuestAttempts ?? []).filter((item) => item.studentId !== studentId);
       const otherProgress = (store.lichessQuestProgress ?? []).filter((item) => item.studentId !== studentId);
@@ -128,6 +131,7 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
       ))
     ];
     updateAdminStore({ studentQuestAttempts: nextAttempts });
+    setAttempts(nextAttempts.filter((item) => item.studentId === user.studentId));
     void fetch("/api/quest-progress", {
       method: "POST",
       credentials: "include",
@@ -135,7 +139,6 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
       body: JSON.stringify({ attempts: [attempt] })
     });
     setMessage(`${quest.title} started. Your countdown is running.`);
-    load();
   }
   async function evaluate() {
     setSyncing(true);
