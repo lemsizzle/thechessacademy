@@ -127,6 +127,40 @@ function newestByDate<T>(items: T[], getDate: (item: T) => string | undefined) {
   return [...items].sort((a, b) => (getDate(b) ?? "").localeCompare(getDate(a) ?? ""))[0];
 }
 
+function periodMatchesAttempt(period: { sourcePeriodStart: string; sourcePeriodEnd: string }, attempt: StudentQuestAttempt) {
+  return period.sourcePeriodStart === attempt.startedAt && period.sourcePeriodEnd === attempt.expiresAt;
+}
+
+function findAttemptForPeriod(attempts: StudentQuestAttempt[], period?: { sourcePeriodStart: string; sourcePeriodEnd: string }) {
+  if (!period) return undefined;
+  return attempts.find((attempt) => periodMatchesAttempt(period, attempt));
+}
+
+function createPendingBadgeAwardsFromProgress(student: Student, progress: StudentTacticProgress[], existingPendingAwards: PendingAward[], badgeSource: Badge[]) {
+  return progress.flatMap((item) => {
+    if (item.studentId !== student.id) return [];
+    return badgeSource
+      .filter((badge) => (
+        badge.tacticTheme === item.tacticTheme &&
+        (badge.requiredPuzzleCount ?? Number.POSITIVE_INFINITY) <= getTacticProgressCount(item) &&
+        !student.badgeIds.includes(badge.id) &&
+        !existingPendingAwards.some((award) => award.studentId === student.id && award.badgeId === badge.id && award.status !== "rejected")
+      ))
+      .map((badge): PendingAward => ({
+        id: `pending-lichess-${student.id}-${badge.id}`,
+        studentId: student.id,
+        source: "lichess",
+        tacticTheme: item.tacticTheme,
+        badgeId: badge.id,
+        badgeName: badge.name,
+        xpValue: badge.xpValue,
+        puzzlesSolved: getTacticProgressCount(item),
+        status: "pending",
+        createdAt: new Date().toISOString().slice(0, 10)
+      }));
+  });
+}
+
 export function AdminPanel({
   mode = "overview",
   requestedStudent,
@@ -556,6 +590,7 @@ export function AdminPanel({
   }
 
   async function syncAllLichessProgress() {
+    const selectedStudentBeforeSync = selectedStudent;
     const studentsToSync = students.filter((student) => (student.lichessUsername || student.slug)?.trim());
     if (!studentsToSync.length) {
       window.alert("No students have Lichess usernames yet.");
@@ -653,21 +688,31 @@ export function AdminPanel({
           completedQuestIds: Array.from(new Set([...(next.completedQuestIds ?? []), award.questId]))
         }), student);
       });
+      const pendingAwardsWithQuestChanges = pendingAwards;
+      const badgeAwardsFromSavedProgress = nextStudents.flatMap((student) => (
+        createPendingBadgeAwardsFromProgress(student, tacticProgress, pendingAwardsWithQuestChanges, badges)
+      ));
+      const nextPendingAwards = [...badgeAwardsFromSavedProgress, ...pendingAwardsWithQuestChanges];
+      const nextPendingQuestAwards = [...newAwards, ...pendingQuestAwards];
+      const nextQuestCompletionEvents = [...autoCompletions, ...questCompletionEvents];
 
       setStudents(nextStudents);
       setLichessQuestProgress(mergedProgress);
-      setPendingQuestAwards((items) => [...newAwards, ...items]);
-      setQuestCompletionEvents((items) => [...autoCompletions, ...items]);
+      setPendingAwards(nextPendingAwards);
+      setPendingQuestAwards(nextPendingQuestAwards);
+      setQuestCompletionEvents(nextQuestCompletionEvents);
+      setSelectedStudent(nextStudents.some((student) => student.id === selectedStudentBeforeSync) ? selectedStudentBeforeSync : nextStudents[0]?.id ?? "");
       updateAdminStore({
         students: nextStudents,
         studentLichessAccounts: nextAccounts,
         lichessQuestProgress: mergedProgress,
-        pendingQuestAwards: [...newAwards, ...pendingQuestAwards],
-        questCompletionEvents: [...autoCompletions, ...questCompletionEvents],
+        pendingAwards: nextPendingAwards,
+        pendingQuestAwards: nextPendingQuestAwards,
+        questCompletionEvents: nextQuestCompletionEvents,
         questXpEvents: [...autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today })), ...(readAdminStore().questXpEvents ?? [])]
       });
 
-      const message = `Synced ${ratingSyncCount} Lichess profile${ratingSyncCount === 1 ? "" : "s"} and checked ${incomingProgress.length} quest progress record${incomingProgress.length === 1 ? "" : "s"}. ${newAwards.length} sent for approval, ${autoCompletions.length} auto-completed.`;
+      const message = `Synced ${ratingSyncCount} Lichess profile${ratingSyncCount === 1 ? "" : "s"} and checked ${incomingProgress.length} quest progress record${incomingProgress.length === 1 ? "" : "s"}. ${newAwards.length} quest award${newAwards.length === 1 ? "" : "s"} and ${badgeAwardsFromSavedProgress.length} badge award${badgeAwardsFromSavedProgress.length === 1 ? "" : "s"} sent for approval, ${autoCompletions.length} auto-completed.`;
       pushSyncLog(message, "info");
       pushLog(message);
     } catch (error) {
@@ -984,6 +1029,21 @@ export function AdminPanel({
     setLog(["Admin mock workspace reset to seed data."]);
   }
 
+  const studentSyncAllPanel = (
+    <Card className="border-cyan-300/20 bg-cyan-300/[0.06] p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="font-black text-white">Sync All Student Progress</h2>
+          <p className="mt-1 text-sm text-slate-400">Refresh Lichess profile stats, active quest progress, auto-completed quests, and pending badge awards for the roster.</p>
+          <p className="mt-1 text-xs text-slate-500">Rated-game quests use public Lichess games. Puzzle quest details update when each student syncs with their own authorized Lichess login.</p>
+        </div>
+        <Button variant="secondary" onClick={syncAllLichessProgress} disabled={syncingAllLichess}>
+          {syncingAllLichess ? "Syncing All..." : "Sync All Lichess"}
+        </Button>
+      </div>
+    </Card>
+  );
+
   const studentEditor = (
     <Card className="p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1148,21 +1208,23 @@ export function AdminPanel({
         <div>
           <h2 className="font-black text-white">Quest Progress</h2>
           <p className="mt-1 text-sm text-slate-400">Live synced quest attempts for {currentStudent.name}. Students must press Start before progress counts.</p>
-          <p className="mt-1 text-xs text-slate-500">Sync All refreshes public rated-game and rating data for everyone. Puzzle quests update from each student's authorized Lichess sync.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded bg-fuchsia-300/10 px-2 py-1 text-xs font-black text-fuchsia-100">
-            {currentStudentQuestAttempts.filter((attempt) => isQuestAttemptActive(attempt)).length} active
-          </span>
-          <Button variant="secondary" onClick={syncAllLichessProgress} disabled={syncingAllLichess}>
-            {syncingAllLichess ? "Syncing..." : "Sync All Lichess"}
-          </Button>
-        </div>
+        <span className="rounded bg-fuchsia-300/10 px-2 py-1 text-xs font-black text-fuchsia-100">
+          {currentStudentQuestAttempts.filter((attempt) => isQuestAttemptActive(attempt)).length} active
+        </span>
       </div>
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {trackedLichessQuests.map((quest) => {
           const attemptsForQuest = currentStudentQuestAttempts.filter((attempt) => attempt.questId === quest.id);
-          const latestAttempt = newestByDate(attemptsForQuest, (attempt) => attempt.startedAt);
+          const activeAttempt = newestByDate(attemptsForQuest.filter((attempt) => isQuestAttemptActive(attempt)), (attempt) => attempt.startedAt);
+          const latestCompletionForQuest = newestByDate(currentStudentQuestCompletions.filter((item) => item.questId === quest.id), (item) => item.completedAt);
+          const latestPendingAwardForQuest = newestByDate(currentStudentQuestAwards.filter((item) => item.questId === quest.id && item.status === "pending"), (item) => item.createdAt);
+          const latestProgressForQuest = newestByDate(currentStudentQuestProgress.filter((item) => item.questId === quest.id), (item) => item.updatedAt);
+          const latestAttempt = activeAttempt
+            ?? findAttemptForPeriod(attemptsForQuest, latestCompletionForQuest)
+            ?? findAttemptForPeriod(attemptsForQuest, latestPendingAwardForQuest)
+            ?? findAttemptForPeriod(attemptsForQuest, latestProgressForQuest)
+            ?? newestByDate(attemptsForQuest, (attempt) => attempt.startedAt);
           const attemptIsActive = latestAttempt ? isQuestAttemptActive(latestAttempt) : false;
           const progressForQuest = currentStudentQuestProgress.filter((item) => (
             item.questId === quest.id
@@ -1179,16 +1241,18 @@ export function AdminPanel({
             && item.status === "pending"
           )), (item) => item.createdAt);
           const required = Math.max(1, latestProgress?.requiredValue ?? quest.requiredCount ?? quest.requiredScore ?? 1);
-          const current = completion ? required : latestAttempt ? Math.min(required, latestProgress?.currentValue ?? 0) : 0;
+          const current = completion ? required : latestProgress ? Math.min(required, latestProgress.currentValue) : 0;
           const percent = Math.min(100, Math.round((current / required) * 100));
-          const status = completion ? "Completed" : pendingAward ? "Pending approval" : attemptIsActive ? "Active" : latestAttempt ? "Expired" : "Not started";
+          const status = completion ? "Completed" : pendingAward ? "Pending approval" : latestProgress?.completed ? "Ready for review" : attemptIsActive ? "Active" : latestAttempt ? "Expired" : "Not started";
           const statusClass = completion
             ? "bg-emerald-300/15 text-emerald-100"
             : pendingAward
               ? "bg-amber-300/15 text-amber-100"
-              : attemptIsActive
-                ? "bg-cyan-300/15 text-cyan-100"
-                : "bg-white/10 text-slate-300";
+              : latestProgress?.completed
+                ? "bg-violet-300/15 text-violet-100"
+                : attemptIsActive
+                  ? "bg-cyan-300/15 text-cyan-100"
+                  : "bg-white/10 text-slate-300";
 
           return (
             <div key={quest.id} className="rounded-lg border border-white/10 bg-black/20 p-3">
@@ -1205,7 +1269,8 @@ export function AdminPanel({
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
                 <span className="font-black text-cyan-100">{current} / {required}</span>
                 {latestAttempt && <span>{attemptIsActive ? `${formatCountdown(new Date(latestAttempt.expiresAt).getTime() - Date.now())} left` : `Ended ${new Date(latestAttempt.expiresAt).toLocaleDateString()}`}</span>}
-                {!latestAttempt && <span>Waiting for student to start</span>}
+                {!latestAttempt && latestProgress && <span>Last synced {new Date(latestProgress.updatedAt).toLocaleDateString()}</span>}
+                {!latestAttempt && !latestProgress && <span>Waiting for student to start</span>}
               </div>
               {latestProgress?.evidence && <p className="mt-2 text-xs text-slate-500">{latestProgress.evidence}</p>}
             </div>
@@ -1711,7 +1776,7 @@ export function AdminPanel({
   );
 
   if (mode === "activity") return <ActivityFeed events={activity} />;
-  if (mode === "students") return <div className="space-y-5">{studentEditor}{studentQuestProgressPanel}{lichessSyncPanel}{localTools}{logPanel}</div>;
+  if (mode === "students") return <div className="space-y-5">{studentSyncAllPanel}{studentEditor}{studentQuestProgressPanel}{lichessSyncPanel}{localTools}{logPanel}</div>;
   if (mode === "classes") return <div className="space-y-5">{outschoolPanel}{localTools}{logPanel}</div>;
   if (mode === "badges") return <div className="space-y-5">{badgeEditor}{localTools}{logPanel}</div>;
   if (mode === "xp") return <div className="space-y-5">{xpEditor}{localTools}{logPanel}</div>;
@@ -1720,6 +1785,7 @@ export function AdminPanel({
   return (
     <div className="space-y-5">
       <div className="grid gap-5 xl:grid-cols-2">
+        {studentSyncAllPanel}
         {studentEditor}
         {studentQuestProgressPanel}
         {outschoolPanel}
