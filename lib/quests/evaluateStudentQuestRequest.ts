@@ -43,7 +43,7 @@ async function fetchGamesForPerfTypes(username: string, start: Date, end: Date, 
 export async function evaluateStudentQuestRequest(
   input: EvaluateRequest,
   cookieStore: { get: (name: string) => { value: string } | undefined },
-  { allowPuzzleToken = false } = {}
+  { allowPuzzleToken = false, skipPuzzleQuestsWithoutToken = false } = {}
 ) {
   const gamesByQuest: Record<string, Awaited<ReturnType<typeof fetchStudentGamesForWindow>>> = {};
   const puzzlesByQuest: Record<string, Awaited<ReturnType<typeof fetchStudentPuzzleActivityForWindow>>> = {};
@@ -55,6 +55,7 @@ export async function evaluateStudentQuestRequest(
   const token = allowPuzzleToken && encryptedToken ? decryptLichessToken(encryptedToken) : null;
   const gameCache = new Map<string, Awaited<ReturnType<typeof fetchStudentGamesForWindow>>>();
   const puzzleCache = new Map<string, Awaited<ReturnType<typeof fetchStudentPuzzleActivityForWindow>>>();
+  const evaluatedQuestIds = new Set<string>();
 
   for (const quest of input.quests.filter((item) => item.isActive !== false && item.source?.startsWith("lichess_"))) {
     const attempt = getActiveQuestAttempt(input.questAttempts ?? [], input.studentId, quest.id);
@@ -69,6 +70,7 @@ export async function evaluateStudentQuestRequest(
       windowsByQuest[quest.id] = window;
       const perfTypes = getPerfTypesForQuest(quest);
       const cacheKey = `${perfTypes.join("-")}-${window.start.toISOString()}-${window.end.toISOString()}`;
+      evaluatedQuestIds.add(quest.id);
       try {
         const games = gameCache.get(cacheKey) ?? await fetchGamesForPerfTypes(input.username, window.start, window.end, perfTypes, token);
         gameCache.set(cacheKey, games);
@@ -101,6 +103,21 @@ export async function evaluateStudentQuestRequest(
         : baseWindow;
       windowsByQuest[quest.id] = window;
       const cacheKey = `${window.start.toISOString()}-${window.end.toISOString()}`;
+      const canUseMockFallback = input.account?.syncStatus === "mock" || token?.startsWith("mock-token-");
+      if (!token && skipPuzzleQuestsWithoutToken && !canUseMockFallback) {
+        snapshots.push({
+          id: `quest-snapshot-${input.studentId}-${quest.id}-${window.start.toISOString()}`,
+          studentId: input.studentId,
+          source: quest.source,
+          periodStart: window.start.toISOString(),
+          periodEnd: window.end.toISOString(),
+          data: { puzzles: [], error: "Puzzle activity requires the student's Lichess login token." },
+          mode: "connected",
+          createdAt: new Date().toISOString()
+        });
+        continue;
+      }
+      evaluatedQuestIds.add(quest.id);
       try {
         if (!token || token.startsWith("mock-token-")) throw new Error("No real puzzle token.");
         const puzzles = puzzleCache.get(cacheKey) ?? await fetchStudentPuzzleActivityForWindow(token, window.start, window.end);
@@ -109,7 +126,6 @@ export async function evaluateStudentQuestRequest(
         modeByQuest[quest.id] = "connected";
       } catch (error) {
         const message = error instanceof Error ? error.message : "Lichess puzzle activity could not be fetched.";
-        const canUseMockFallback = input.account?.syncStatus === "mock" || token?.startsWith("mock-token-");
         puzzlesByQuest[quest.id] = canUseMockFallback ? createMockStudentPuzzleActivityForWindow(window.start, window.end) : [];
         modeByQuest[quest.id] = canUseMockFallback ? "mock" : "connected";
         if (!canUseMockFallback) fetchErrorsByQuest[quest.id] = message;
@@ -125,11 +141,16 @@ export async function evaluateStudentQuestRequest(
         createdAt: new Date().toISOString()
       });
     }
+
+    if (quest.source === "lichess_tournaments") {
+      evaluatedQuestIds.add(quest.id);
+    }
   }
 
+  const evaluatedQuests = input.quests.filter((quest) => evaluatedQuestIds.has(quest.id));
   const progress = evaluateQuestRules({
     studentId: input.studentId,
-    quests: input.quests,
+    quests: evaluatedQuests,
     gamesByQuest,
     puzzlesByQuest,
     arenaResults: input.arenaResults ?? [],
@@ -141,7 +162,7 @@ export async function evaluateStudentQuestRequest(
   });
   const generatedAwards = createPendingQuestAwards(
     input.studentId,
-    input.quests,
+    evaluatedQuests,
     progress,
     input.existingAwards ?? [],
     input.completionEvents ?? []

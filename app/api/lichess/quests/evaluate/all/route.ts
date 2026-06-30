@@ -35,7 +35,7 @@ export async function POST(request: Request) {
         completionEvents: body.completionEvents,
         questAttempts: (body.questAttempts ?? []).filter((attempt) => attempt.studentId === student.studentId),
         timeZone: body.timeZone
-      }, cookieStore))
+      }, cookieStore, { skipPuzzleQuestsWithoutToken: true }))
     });
   }
   return NextResponse.json({ evaluations });
