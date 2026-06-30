@@ -31,7 +31,12 @@ function getPerfTypesForQuest(quest: Quest): LichessGamePerfType[] {
 async function fetchGamesForPerfTypes(username: string, start: Date, end: Date, perfTypes: LichessGamePerfType[], accessToken?: string | null) {
   const results = await Promise.allSettled(perfTypes.map((perfType) => fetchStudentGamesForWindow(username, start, end, perfType, accessToken)));
   const games = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
-  if (!games.length && results.some((result) => result.status === "rejected")) throw new Error("No Lichess game activity could be fetched.");
+  if (!games.length && results.some((result) => result.status === "rejected")) {
+    const errors = results
+      .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+      .map((result) => result.reason instanceof Error ? result.reason.message : "Unknown Lichess error.");
+    throw new Error(errors[0] ?? "No Lichess game activity could be fetched.");
+  }
   return Array.from(new Map(games.map((game) => [game.id, game])).values());
 }
 

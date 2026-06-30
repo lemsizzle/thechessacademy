@@ -46,9 +46,43 @@ function countFullMoves(game: RawGame) {
   return 0;
 }
 
+async function fetchRawGames(username: string, params: URLSearchParams, accessToken?: string | null) {
+  const response = await fetch(`https://lichess.org/api/games/user/${encodeURIComponent(username)}?${params}`, {
+    headers: {
+      Accept: "application/x-ndjson",
+      ...(accessToken && !accessToken.startsWith("mock-token-") ? { Authorization: `Bearer ${accessToken}` } : {})
+    },
+    cache: "no-store"
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    const cleanDetail = detail.trim().slice(0, 160);
+    throw new Error(`Lichess game activity failed with ${response.status}${cleanDetail ? `: ${cleanDetail}` : ""}.`);
+  }
+  return parseNdjson<RawGame>(await response.text());
+}
+
+function mapGame(game: RawGame, username: string, fallbackPerfType: LichessGamePerfType): LichessQuestGame {
+  const safeUsername = normalizeUsername(username);
+  const white = normalizeUsername(game.players?.white?.user?.name ?? game.players?.white?.user?.id);
+  const black = normalizeUsername(game.players?.black?.user?.name ?? game.players?.black?.user?.id);
+  const studentColor = white === safeUsername ? "white" : black === safeUsername ? "black" : undefined;
+  const moveCount = countFullMoves(game);
+  return {
+    id: game.id ?? crypto.randomUUID(),
+    playedAt: new Date(game.lastMoveAt ?? game.createdAt ?? Date.now()).toISOString(),
+    perfType: game.perf ?? game.speed ?? fallbackPerfType,
+    rated: game.rated === true,
+    finished: !["aborted", "created", "started"].includes(game.status ?? ""),
+    turns: game.turns ?? 0,
+    moveCount,
+    won: Boolean(studentColor && game.winner === studentColor)
+  };
+}
+
 export async function fetchStudentGamesForWindow(username: string, start: Date, end: Date, perfType: LichessGamePerfType = "rapid", accessToken?: string | null) {
   const requestEnd = new Date(Math.min(end.getTime(), Date.now() + 2 * 60_000));
-  const params = new URLSearchParams({
+  const narrowParams = new URLSearchParams({
     since: String(start.getTime()),
     until: String(requestEnd.getTime()),
     rated: "true",
@@ -57,31 +91,25 @@ export async function fetchStudentGamesForWindow(username: string, start: Date, 
     moves: "true",
     pgnInJson: "true"
   });
-  const response = await fetch(`https://lichess.org/api/games/user/${encodeURIComponent(username)}?${params}`, {
-    headers: {
-      Accept: "application/x-ndjson",
-      ...(accessToken && !accessToken.startsWith("mock-token-") ? { Authorization: `Bearer ${accessToken}` } : {})
-    },
-    cache: "no-store"
+  const broadParams = new URLSearchParams({
+    since: String(start.getTime()),
+    until: String(requestEnd.getTime()),
+    max: "300",
+    moves: "true",
+    pgnInJson: "true"
   });
-  if (!response.ok) throw new Error(`Lichess game activity failed with ${response.status}.`);
-  const safeUsername = normalizeUsername(username);
-  return parseNdjson<RawGame>(await response.text()).map((game): LichessQuestGame => {
-    const white = normalizeUsername(game.players?.white?.user?.name ?? game.players?.white?.user?.id);
-    const black = normalizeUsername(game.players?.black?.user?.name ?? game.players?.black?.user?.id);
-    const studentColor = white === safeUsername ? "white" : black === safeUsername ? "black" : undefined;
-    const moveCount = countFullMoves(game);
-    return {
-      id: game.id ?? crypto.randomUUID(),
-      playedAt: new Date(game.lastMoveAt ?? game.createdAt ?? Date.now()).toISOString(),
-      perfType: game.perf ?? game.speed ?? perfType,
-      rated: game.rated === true,
-      finished: !["aborted", "created", "started"].includes(game.status ?? ""),
-      turns: game.turns ?? 0,
-      moveCount,
-      won: Boolean(studentColor && game.winner === studentColor)
-    };
-  });
+
+  try {
+    const narrowGames = await fetchRawGames(username, narrowParams, accessToken);
+    if (narrowGames.length) return narrowGames.map((game) => mapGame(game, username, perfType));
+  } catch {
+    // Retry below with fewer Lichess filters, then filter locally.
+  }
+
+  const broadGames = await fetchRawGames(username, broadParams, accessToken);
+  return broadGames
+    .map((game) => mapGame(game, username, perfType))
+    .filter((game) => game.perfType === perfType && game.rated);
 }
 
 export function createMockStudentGamesForWindow(start: Date, perfType: LichessGamePerfType = "rapid"): LichessQuestGame[] {
