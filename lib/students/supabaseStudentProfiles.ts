@@ -292,3 +292,42 @@ export async function addSupabaseStudentXp(
     }
   };
 }
+
+export async function updateSupabaseStudentProfile(
+  studentId: string,
+  input: { displayName: string; publicSlug: string; classGroup: string; lichessUsername?: string; slug?: string }
+) {
+  if (!isSupabaseServiceConfigured()) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required to update students in Supabase.");
+  }
+
+  const ids = await findSupabaseStudentIds(studentId, input.slug, input.lichessUsername);
+  if (!ids.length) return { updated: false, skipped: true };
+
+  const supabase = getSupabaseServiceClient();
+  if (!supabase) throw new Error("Supabase service role is not configured.");
+
+  const displayName = input.displayName.trim();
+  const publicSlug = slugifyStudent(input.publicSlug || input.lichessUsername || displayName);
+  const classGroup = input.classGroup.trim() || "Unassigned";
+  if (!displayName) throw new Error("Student name is required.");
+
+  const { data, error } = await supabase
+    .from("students")
+    .update({
+      display_name: displayName,
+      public_slug: publicSlug,
+      class_group: classGroup,
+      lichess_username: input.lichessUsername?.trim() || publicSlug
+    })
+    .eq("id", ids[0])
+    .select(studentSelect)
+    .single();
+
+  if (error) throw new Error(error.message);
+  return {
+    updated: true,
+    skipped: false,
+    student: toStudent(data as SupabaseStudentRow)
+  };
+}

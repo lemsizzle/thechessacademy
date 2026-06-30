@@ -32,6 +32,13 @@ function getDisplayProgress(questId: string, progress: LichessQuestProgress[], c
   return newestByDate(questProgress, (item) => item.updatedAt);
 }
 
+function findAttemptForPeriod(attempts: StudentQuestAttempt[], period?: { sourcePeriodStart: string; sourcePeriodEnd: string }) {
+  if (!period) return undefined;
+  return attempts.find((attempt) => (
+    attempt.startedAt === period.sourcePeriodStart && attempt.expiresAt === period.sourcePeriodEnd
+  ));
+}
+
 export function StudentLichessQuestList({ detailed = false }: { detailed?: boolean }) {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [progress, setProgress] = useState<LichessQuestProgress[]>([]);
@@ -110,17 +117,27 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
   }
 
   const studentId = getCurrentStudentUser()?.studentId ?? "";
+  const completedQuestIds = new Set(completions.map((item) => item.questId));
   const activeQuests = quests.filter((quest) => getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now)));
-  const availableQuests = quests.filter((quest) => !getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now)));
+  const completedQuests = quests.filter((quest) => completedQuestIds.has(quest.id) && !getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now)));
+  const availableQuests = quests.filter((quest) => !completedQuestIds.has(quest.id) && !getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now)));
 
   const renderQuestCard = (quest: Quest) => {
-    const attempt = getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now));
+    const activeAttempt = getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now));
+    const latestCompletion = newestByDate(completions.filter((item) => item.questId === quest.id), (item) => item.completedAt);
+    const latestAward = newestByDate(awards.filter((item) => item.questId === quest.id), (item) => item.createdAt);
+    const latestProgress = newestByDate(progress.filter((item) => item.questId === quest.id), (item) => item.updatedAt);
+    const questAttempts = attempts.filter((attempt) => attempt.questId === quest.id);
+    const attempt = activeAttempt
+      ?? findAttemptForPeriod(questAttempts, latestCompletion)
+      ?? findAttemptForPeriod(questAttempts, latestAward)
+      ?? findAttemptForPeriod(questAttempts, latestProgress);
     const completion = attempt
       ? newestByDate(completions.filter((item) => item.questId === quest.id && item.sourcePeriodStart === attempt.startedAt && item.sourcePeriodEnd === attempt.expiresAt), (item) => item.completedAt)
-      : undefined;
+      : latestCompletion;
     const award = attempt
       ? newestByDate(awards.filter((item) => item.questId === quest.id && item.sourcePeriodStart === attempt.startedAt && item.sourcePeriodEnd === attempt.expiresAt), (item) => item.createdAt)
-      : undefined;
+      : latestAward;
 
     return (
       <LichessQuestProgressCard
@@ -158,6 +175,20 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
           </div>
         </section>
       )}
+      {completedQuests.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-black text-white">Completed Quests</h2>
+              <p className="mt-1 text-sm text-slate-400">XP has already been awarded for these quest attempts.</p>
+            </div>
+            <span className="rounded bg-emerald-300/15 px-2 py-1 text-xs font-black text-emerald-100">{completedQuests.length} done</span>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {completedQuests.map(renderQuestCard)}
+          </div>
+        </section>
+      )}
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
@@ -169,7 +200,7 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {availableQuests.map(renderQuestCard)}
         </div>
-        {availableQuests.length === 0 && activeQuests.length === 0 && (
+        {availableQuests.length === 0 && activeQuests.length === 0 && completedQuests.length === 0 && (
           <Card className="p-4 text-sm text-slate-300">No live Lichess quests are available right now.</Card>
         )}
       </section>

@@ -43,7 +43,12 @@ export function LichessQuestProgressCard({
       </div>
       <p className="mt-2 text-sm text-slate-300">{quest.description}</p>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-300">
-        {attempt ? (
+        {completion ? (
+          <>
+            <span>Completed {new Date(completion.completedAt).toLocaleString()}</span>
+            <span className="text-emerald-100">XP awarded</span>
+          </>
+        ) : attempt ? (
           <>
             <span>Started {new Date(attempt.startedAt).toLocaleString()}</span>
             <span className="text-cyan-100">{countdown} left</span>

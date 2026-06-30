@@ -355,12 +355,37 @@ export function AdminPanel({
     setStudents((items) => items.map((student) => student.id === currentStudent.id ? { ...student, ...patch } : student));
   }
 
-  function saveStudent() {
+  async function saveStudent() {
     if (!currentStudent) return;
     const lichessUsername = cleanLichessUsername(currentStudent.lichessUsername || currentStudent.slug || currentStudent.name);
     const slug = slugify(lichessUsername);
-    updateStudent({ lichessUsername, slug });
-    pushLog(`Saved ${currentStudent.name}.`);
+    const draft = { ...currentStudent, lichessUsername, slug };
+    try {
+      const response = await fetch(`/api/admin/students/${encodeURIComponent(currentStudent.id)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+        },
+        body: JSON.stringify({
+          name: draft.name,
+          classGroup: draft.classGroup,
+          publicSlug: draft.slug,
+          slug: currentStudent.slug,
+          lichessUsername: draft.lichessUsername
+        })
+      });
+      const data = await response.json().catch(() => ({})) as { student?: Student; error?: string; mode?: "local-only"; skipped?: boolean };
+      if (!response.ok) throw new Error(data.error ?? "Could not save student.");
+      const savedStudent = data.student ?? draft;
+      setStudents((items) => items.map((student) => student.id === currentStudent.id ? { ...student, ...savedStudent } : student));
+      setSelectedStudent(savedStudent.id);
+      setSelectedClassGroup(savedStudent.classGroup || ALL_CLASSES);
+      pushLog(data.mode === "local-only" || data.skipped ? `Saved ${savedStudent.name} locally.` : `Saved ${savedStudent.name} to Supabase.`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not save student.");
+    }
   }
 
   function addStudent() {
@@ -699,7 +724,7 @@ export function AdminPanel({
       const autoCompletions = evaluationData.evaluations.flatMap((evaluation) => evaluation.autoCompletions ?? []);
       const mergedProgress = mergeQuestProgress(lichessQuestProgress, incomingProgress, lichessQuestRules);
       const badgeById = new Map(badges.map((badge) => [badge.id, badge]));
-      const nextStudents = students.map((student) => {
+      let nextStudents = students.map((student) => {
         const awardsForStudent = autoApprovedAwards.filter((award) => award.studentId === student.id);
         if (!awardsForStudent.length) return student;
         return awardsForStudent.reduce((next, award) => ({
@@ -709,6 +734,20 @@ export function AdminPanel({
           completedQuestIds: Array.from(new Set([...(next.completedQuestIds ?? []), award.questId]))
         }), student);
       });
+      const persistedQuestXpEvents: XpEvent[] = [];
+      for (const award of autoApprovedAwards) {
+        const student = nextStudents.find((item) => item.id === award.studentId);
+        if (!student) continue;
+        try {
+          const result = await persistStudentXpChange(student, award.xpAmount, award.title, adminActionToken);
+          if (result.student) {
+            nextStudents = nextStudents.map((item) => item.id === award.studentId ? { ...item, totalXp: result.student!.totalXp } : item);
+          }
+          if (result.event) persistedQuestXpEvents.push(result.event);
+        } catch {
+          pushSyncLog(`Quest XP for ${student.name} stayed local because Supabase could not save it.`, "warning", student.id);
+        }
+      }
       const pendingAwardsWithQuestChanges = pendingAwards;
       const badgeAwardsFromSavedProgress = nextStudents.flatMap((student) => (
         createPendingBadgeAwardsFromProgress(student, tacticProgress, pendingAwardsWithQuestChanges, badges)
@@ -716,24 +755,36 @@ export function AdminPanel({
       const nextPendingAwards = [...badgeAwardsFromSavedProgress, ...pendingAwardsWithQuestChanges];
       const nextPendingQuestAwards = [...newAwards, ...pendingQuestAwards];
       const nextQuestCompletionEvents = [...autoCompletions, ...questCompletionEvents];
+      const nextQuestAttempts = studentQuestAttempts.map((attempt) => (
+        autoCompletions.some((completion) => (
+          completion.studentId === attempt.studentId
+          && completion.questId === attempt.questId
+          && completion.sourcePeriodEnd === attempt.expiresAt
+        ))
+          ? { ...attempt, status: "completed" as const }
+          : attempt
+      ));
 
       setStudents(nextStudents);
       setLichessQuestProgress(mergedProgress);
       setPendingAwards(nextPendingAwards);
       setPendingQuestAwards(nextPendingQuestAwards);
       setQuestCompletionEvents(nextQuestCompletionEvents);
+      setStudentQuestAttempts(nextQuestAttempts);
       setSelectedStudent(nextStudents.some((student) => student.id === selectedStudentBeforeSync) ? selectedStudentBeforeSync : nextStudents[0]?.id ?? "");
       updateAdminStore({
         students: nextStudents,
         studentLichessAccounts: nextAccounts,
         lichessQuestProgress: mergedProgress,
+        studentQuestAttempts: nextQuestAttempts,
         pendingAwards: nextPendingAwards,
         pendingQuestAwards: nextPendingQuestAwards,
         questCompletionEvents: nextQuestCompletionEvents,
+        xpEvents: [...persistedQuestXpEvents, ...(readAdminStore().xpEvents ?? [])],
         questXpEvents: [...autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today })), ...(readAdminStore().questXpEvents ?? [])]
       });
 
-      const message = `Synced ${ratingSyncCount} Lichess profile${ratingSyncCount === 1 ? "" : "s"} and checked ${incomingProgress.length} quest progress record${incomingProgress.length === 1 ? "" : "s"}. ${newAwards.length} quest award${newAwards.length === 1 ? "" : "s"} and ${badgeAwardsFromSavedProgress.length} badge award${badgeAwardsFromSavedProgress.length === 1 ? "" : "s"} sent for approval, ${autoCompletions.length} auto-completed.`;
+      const message = `Synced ${ratingSyncCount} Lichess profile${ratingSyncCount === 1 ? "" : "s"} and checked ${incomingProgress.length} quest progress record${incomingProgress.length === 1 ? "" : "s"}. ${autoCompletions.length} quest${autoCompletions.length === 1 ? "" : "s"} auto-completed with XP, ${badgeAwardsFromSavedProgress.length} badge award${badgeAwardsFromSavedProgress.length === 1 ? "" : "s"} sent for approval.`;
       pushSyncLog(message, "info");
       pushLog(message);
     } catch (error) {

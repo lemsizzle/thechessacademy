@@ -141,14 +141,11 @@ export async function evaluateStudentQuestRequest(
     input.existingAwards ?? [],
     input.completionEvents ?? []
   );
-  const autoApproved = generatedAwards
-    .filter((award) => input.quests.find((quest) => quest.id === award.questId)?.approvalRequired === false)
-    .map((award) => approveQuestAward(award));
-  const newAwards = generatedAwards.filter((award) => input.quests.find((quest) => quest.id === award.questId)?.approvalRequired !== false);
+  const autoApproved = generatedAwards.map((award) => approveQuestAward(award));
 
   return {
     progress,
-    newAwards,
+    newAwards: [],
     autoApprovedAwards: autoApproved.map((item) => item.award),
     autoCompletions: autoApproved.map((item) => item.completion),
     snapshots

@@ -1,5 +1,5 @@
 import { ADMIN_SESSION_COOKIE, isValidAdminActionToken, isValidAdminSession } from "@/lib/auth/adminSession";
-import { addSupabaseStudentXp, deleteSupabaseStudentById } from "@/lib/students/supabaseStudentProfiles";
+import { addSupabaseStudentXp, deleteSupabaseStudentById, updateSupabaseStudentProfile } from "@/lib/students/supabaseStudentProfiles";
 import { isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -57,11 +57,17 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     reason?: string;
     slug?: string;
     lichessUsername?: string;
+    name?: string;
+    classGroup?: string;
+    publicSlug?: string;
   };
   const xpAmount = Number(body.xpAmount ?? 0);
   const reason = body.reason?.trim() || "Teacher XP adjustment";
-  if (!Number.isFinite(xpAmount) || xpAmount === 0) {
-    return NextResponse.json({ error: "XP amount must be a non-zero number." }, { status: 400 });
+  const isXpPatch = body.xpAmount !== undefined;
+  const isProfilePatch = body.name !== undefined || body.classGroup !== undefined || body.publicSlug !== undefined || body.lichessUsername !== undefined;
+  if (!isXpPatch && !isProfilePatch) return NextResponse.json({ error: "No student changes were provided." }, { status: 400 });
+  if (isXpPatch && (!Number.isFinite(xpAmount) || xpAmount === 0)) {
+    return NextResponse.json({ error: "XP amount must be a non-zero number when changing XP." }, { status: 400 });
   }
 
   if (!isSupabaseProjectConfigured()) {
@@ -73,12 +79,20 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   }
 
   try {
-    const result = await addSupabaseStudentXp(studentId, {
-      amount: xpAmount,
-      reason,
-      slug: body.slug,
-      lichessUsername: body.lichessUsername
-    });
+    const result = isXpPatch
+      ? await addSupabaseStudentXp(studentId, {
+        amount: xpAmount,
+        reason,
+        slug: body.slug,
+        lichessUsername: body.lichessUsername
+      })
+      : await updateSupabaseStudentProfile(studentId, {
+        displayName: body.name ?? "",
+        publicSlug: body.publicSlug ?? body.slug ?? body.lichessUsername ?? body.name ?? "",
+        classGroup: body.classGroup ?? "Unassigned",
+        lichessUsername: body.lichessUsername,
+        slug: body.slug
+      });
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not save XP to Supabase.";
