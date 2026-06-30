@@ -290,9 +290,18 @@ export function AdminPanel({
           completions?: QuestCompletionEvent[];
         };
         if (!response.ok) return;
-        if (data.attempts) setStudentQuestAttempts((items) => mergeQuestAttempts(data.attempts, items));
-        if (data.progress) setLichessQuestProgress((items) => mergeLichessQuestProgress(data.progress, items));
-        if (data.completions) setQuestCompletionEvents((items) => mergeQuestCompletions(data.completions, items));
+        const latestStore = readAdminStore();
+        const mergedAttempts = mergeQuestAttempts(data.attempts ?? [], latestStore.studentQuestAttempts ?? []);
+        const mergedProgress = mergeLichessQuestProgress(data.progress ?? [], latestStore.lichessQuestProgress ?? []);
+        const mergedCompletions = mergeQuestCompletions(data.completions ?? [], latestStore.questCompletionEvents ?? []);
+        setStudentQuestAttempts(mergedAttempts);
+        setLichessQuestProgress(mergedProgress);
+        setQuestCompletionEvents(mergedCompletions);
+        updateAdminStore({
+          studentQuestAttempts: mergedAttempts,
+          lichessQuestProgress: mergedProgress,
+          questCompletionEvents: mergedCompletions
+        });
       } catch {
         // Local storage remains the fallback when shared quest tracking is unavailable.
       }
@@ -721,6 +730,33 @@ export function AdminPanel({
       ]);
 
       const lichessQuestRules = quests.filter((quest) => quest.isActive !== false && quest.source?.startsWith("lichess_"));
+      let questAttemptsForEvaluation = studentQuestAttempts;
+      let questProgressForMerge = lichessQuestProgress;
+      let questCompletionsForEvaluation = questCompletionEvents;
+      try {
+        const trackingResponse = await fetch("/api/quest-progress", {
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+          }
+        });
+        const trackingData = await trackingResponse.json() as {
+          attempts?: StudentQuestAttempt[];
+          progress?: LichessQuestProgress[];
+          completions?: QuestCompletionEvent[];
+        };
+        if (trackingResponse.ok) {
+          questAttemptsForEvaluation = mergeQuestAttempts(trackingData.attempts ?? [], studentQuestAttempts);
+          questProgressForMerge = mergeLichessQuestProgress(trackingData.progress ?? [], lichessQuestProgress);
+          questCompletionsForEvaluation = mergeQuestCompletions(trackingData.completions ?? [], questCompletionEvents);
+          setStudentQuestAttempts(questAttemptsForEvaluation);
+          setLichessQuestProgress(questProgressForMerge);
+          setQuestCompletionEvents(questCompletionsForEvaluation);
+        }
+      } catch {
+        // Continue with the latest in-browser tracking if shared tracking is unavailable.
+      }
       const evaluationResponse = await fetch("/api/lichess/quests/evaluate/all", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -733,8 +769,8 @@ export function AdminPanel({
           })),
           quests: lichessQuestRules,
           existingAwards: pendingQuestAwards,
-          completionEvents: questCompletionEvents,
-          questAttempts: studentQuestAttempts,
+          completionEvents: questCompletionsForEvaluation,
+          questAttempts: questAttemptsForEvaluation,
           timeZone: DEFAULT_QUEST_TIMEZONE
         })
       });
@@ -747,7 +783,7 @@ export function AdminPanel({
       const newAwards = evaluationData.evaluations.flatMap((evaluation) => evaluation.newAwards ?? []);
       const autoApprovedAwards = evaluationData.evaluations.flatMap((evaluation) => evaluation.autoApprovedAwards ?? []);
       const autoCompletions = evaluationData.evaluations.flatMap((evaluation) => evaluation.autoCompletions ?? []);
-      const mergedProgress = mergeQuestProgress(lichessQuestProgress, incomingProgress, lichessQuestRules);
+      const mergedProgress = mergeQuestProgress(questProgressForMerge, incomingProgress, lichessQuestRules);
       const badgeById = new Map(badges.map((badge) => [badge.id, badge]));
       let nextStudents = students.map((student) => {
         const awardsForStudent = autoApprovedAwards.filter((award) => award.studentId === student.id);
@@ -779,8 +815,8 @@ export function AdminPanel({
       ));
       const nextPendingAwards = [...badgeAwardsFromSavedProgress, ...pendingAwardsWithQuestChanges];
       const nextPendingQuestAwards = [...newAwards, ...pendingQuestAwards];
-      const nextQuestCompletionEvents = [...autoCompletions, ...questCompletionEvents];
-      const nextQuestAttempts = studentQuestAttempts.map((attempt) => (
+      const nextQuestCompletionEvents = mergeQuestCompletions(autoCompletions, questCompletionsForEvaluation);
+      const nextQuestAttempts = questAttemptsForEvaluation.map((attempt) => (
         autoCompletions.some((completion) => (
           completion.studentId === attempt.studentId
           && completion.questId === attempt.questId

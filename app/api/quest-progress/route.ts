@@ -33,8 +33,11 @@ export async function POST(request: Request) {
     progress?: LichessQuestProgress[];
     completions?: QuestCompletionEvent[];
   };
-  const studentId = student?.studentId;
-  const own = <T extends { studentId: string }>(items: T[] = []) => admin ? items : items.filter((item) => item.studentId === studentId);
+  const own = <T extends { studentId: string }>(items: T[] = []) => {
+    if (admin) return items;
+    if (!student) return [];
+    return items.map((item) => ({ ...item, studentId: student.studentId }));
+  };
 
   try {
     const result = await saveSupabaseQuestTracking({
