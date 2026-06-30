@@ -269,6 +269,27 @@ export function AdminPanel({
   }, [badges, loaded, log, outschoolGroups, quests, students, tacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, pendingAwards, lichessSyncLogs, lichessQuestProgress, studentQuestAttempts, pendingQuestAwards, questCompletionEvents]);
 
   useEffect(() => {
+    function refreshQuestTrackingFromStore() {
+      const store = readAdminStore();
+      setLichessQuestProgress(store.lichessQuestProgress ?? []);
+      setStudentQuestAttempts(store.studentQuestAttempts ?? []);
+      setPendingQuestAwards(store.pendingQuestAwards ?? []);
+      setQuestCompletionEvents(store.questCompletionEvents ?? []);
+    }
+
+    function handleStorage(event: StorageEvent) {
+      if (!event.key || event.key === ADMIN_STORE_KEY) refreshQuestTrackingFromStore();
+    }
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", refreshQuestTrackingFromStore);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", refreshQuestTrackingFromStore);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!requestedStudent || !students.length) return;
     const match = students.find((student) => student.id === requestedStudent || student.slug === requestedStudent || student.lichessUsername === requestedStudent);
     if (match) {
@@ -1044,6 +1065,62 @@ export function AdminPanel({
     </Card>
   );
 
+  const studentQuestOverviewPanel = (
+    <Card className="p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="font-black text-white">Roster Quest Progress</h2>
+          <p className="mt-1 text-sm text-slate-400">Quick progress check for {selectedClassGroup}. Click a student to review their detailed quest cards below.</p>
+        </div>
+        <span className="rounded bg-cyan-300/10 px-2 py-1 text-xs font-black text-cyan-100">{classRoster.length} student{classRoster.length === 1 ? "" : "s"}</span>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        {classRoster.map((student) => {
+          const attempts = studentQuestAttempts.filter((attempt) => attempt.studentId === student.id);
+          const activeAttempts = attempts.filter((attempt) => isQuestAttemptActive(attempt));
+          const progress = lichessQuestProgress.filter((item) => item.studentId === student.id);
+          const completions = questCompletionEvents.filter((item) => item.studentId === student.id);
+          const pending = pendingQuestAwards.filter((item) => item.studentId === student.id && item.status === "pending");
+          const completedKeys = new Set(completions.map((item) => `${item.questId}:${item.sourcePeriodStart}:${item.sourcePeriodEnd}`));
+          const pendingKeys = new Set(pending.map((item) => `${item.questId}:${item.sourcePeriodStart}:${item.sourcePeriodEnd}`));
+          const readyForReview = progress.filter((item) => item.completed && !completedKeys.has(`${item.questId}:${item.sourcePeriodStart}:${item.sourcePeriodEnd}`) && !pendingKeys.has(`${item.questId}:${item.sourcePeriodStart}:${item.sourcePeriodEnd}`));
+          const latestProgress = newestByDate(progress, (item) => item.updatedAt);
+          const syncedQuestIds = new Set(progress.map((item) => item.questId));
+
+          return (
+            <button
+              key={student.id}
+              type="button"
+              onClick={() => {
+                setSelectedStudent(student.id);
+                setSelectedClassGroup(student.classGroup || ALL_CLASSES);
+              }}
+              className={`rounded-lg border p-3 text-left transition active:translate-y-px active:scale-[0.99] ${student.id === currentStudent?.id ? "border-cyan-200/60 bg-cyan-300/10 shadow-glow" : "border-white/10 bg-black/20 hover:border-cyan-300/30 hover:bg-white/5"}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-black text-white">{student.name}</p>
+                  <p className="mt-1 text-xs text-slate-400">{student.lichessUsername || student.slug}</p>
+                </div>
+                <span className="rounded bg-white/10 px-2 py-1 text-xs font-black text-slate-200">{activeAttempts.length} active</span>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                <span className="rounded bg-emerald-300/10 px-2 py-2 text-emerald-100"><strong className="block text-base">{completions.length}</strong>Done</span>
+                <span className="rounded bg-amber-300/10 px-2 py-2 text-amber-100"><strong className="block text-base">{pending.length}</strong>Pending</span>
+                <span className="rounded bg-violet-300/10 px-2 py-2 text-violet-100"><strong className="block text-base">{readyForReview.length}</strong>Ready</span>
+              </div>
+              <p className="mt-3 text-xs text-slate-400">
+                {progress.length ? `${syncedQuestIds.size} quest${syncedQuestIds.size === 1 ? "" : "s"} synced` : "No synced quest progress yet"}
+                {latestProgress ? ` - last sync ${new Date(latestProgress.updatedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}
+              </p>
+            </button>
+          );
+        })}
+        {!classRoster.length && <p className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-slate-300">No students in this class yet.</p>}
+      </div>
+    </Card>
+  );
+
   const studentEditor = (
     <Card className="p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1776,7 +1853,7 @@ export function AdminPanel({
   );
 
   if (mode === "activity") return <ActivityFeed events={activity} />;
-  if (mode === "students") return <div className="space-y-5">{studentSyncAllPanel}{studentEditor}{studentQuestProgressPanel}{lichessSyncPanel}{localTools}{logPanel}</div>;
+  if (mode === "students") return <div className="space-y-5">{studentSyncAllPanel}{studentQuestOverviewPanel}{studentEditor}{studentQuestProgressPanel}{lichessSyncPanel}{localTools}{logPanel}</div>;
   if (mode === "classes") return <div className="space-y-5">{outschoolPanel}{localTools}{logPanel}</div>;
   if (mode === "badges") return <div className="space-y-5">{badgeEditor}{localTools}{logPanel}</div>;
   if (mode === "xp") return <div className="space-y-5">{xpEditor}{localTools}{logPanel}</div>;
@@ -1786,6 +1863,7 @@ export function AdminPanel({
     <div className="space-y-5">
       <div className="grid gap-5 xl:grid-cols-2">
         {studentSyncAllPanel}
+        {studentQuestOverviewPanel}
         {studentEditor}
         {studentQuestProgressPanel}
         {outschoolPanel}
