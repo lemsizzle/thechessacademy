@@ -14,11 +14,11 @@ const workflows = [
   },
   {
     title: "Students And Classes",
-    text: "Manage rosters, class groups, Lichess links, XP, badges, and duplicate profiles.",
+    text: "Manage rosters, class groups, Lichess links, XP, badges, and rankings.",
     primaryHref: "/admin/students",
     primaryLabel: "Manage Students",
-    secondaryHref: "/admin/classes",
-    secondaryLabel: "Manage Classes"
+    secondaryHref: "/admin/leaderboard",
+    secondaryLabel: "Leaderboard"
   },
   {
     title: "Content Setup",

@@ -35,7 +35,8 @@ const studentQuestLinks: NavLink[] = [
 const teacherCoreLinks: NavLink[] = [
   { href: "/admin", label: "Dashboard", icon: "\u{1F9ED}" },
   { href: "/admin/submissions", label: "Submissions", icon: "\u{1F4E5}" },
-  { href: "/admin/students", label: "Students", icon: "\u265F\uFE0F" }
+  { href: "/admin/students", label: "Students", icon: "\u265F\uFE0F" },
+  { href: "/admin/leaderboard", label: "Leaderboard", icon: "\u{1F3C6}" }
 ];
 
 const teacherSetupLinks: NavLink[] = [

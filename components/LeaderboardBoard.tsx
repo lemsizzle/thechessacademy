@@ -7,11 +7,13 @@ import { useMockAdminState } from "@/lib/useMockAdminState";
 
 export function LeaderboardBoard({
   profileBasePath = "/app/students",
+  linkMode = "profile",
   initialStudents,
   initialXpEvents,
   badges
 }: {
   profileBasePath?: string;
+  linkMode?: "profile" | "admin";
   initialStudents?: Student[];
   initialXpEvents?: XpEvent[];
   badges?: Badge[];
@@ -29,6 +31,7 @@ export function LeaderboardBoard({
       tacticProgress={studentTacticProgress}
       lichessAccounts={studentLichessAccounts}
       profileBasePath={profileBasePath}
+      linkMode={linkMode}
       xpEvents={initialXpEvents}
       badges={badges}
     />

@@ -56,7 +56,8 @@ export function LeaderboardTable({
   lichessAccounts,
   xpEvents: initialXpEvents,
   badges = allBadges,
-  profileBasePath = "/app/students"
+  profileBasePath = "/app/students",
+  linkMode = "profile"
 }: {
   students: Student[];
   tacticProgress: StudentTacticProgress[];
@@ -64,6 +65,7 @@ export function LeaderboardTable({
   xpEvents?: XpEvent[];
   badges?: typeof allBadges;
   profileBasePath?: string;
+  linkMode?: "profile" | "admin";
 }) {
   const [classGroup, setClassGroup] = useState("All");
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
@@ -71,7 +73,15 @@ export function LeaderboardTable({
   const [recentXpEvents, setRecentXpEvents] = useState<XpEvent[]>(initialXpEvents ?? xpEvents);
 
   useEffect(() => {
-    setRecentXpEvents([...(readAdminStore().tournamentXpEvents ?? []), ...(initialXpEvents ?? xpEvents)]);
+    const store = readAdminStore();
+    const combinedEvents = [
+      ...(store.xpEvents ?? []),
+      ...(store.questXpEvents ?? []),
+      ...(store.tournamentXpEvents ?? []),
+      ...(initialXpEvents ?? xpEvents)
+    ];
+    const uniqueEvents = Array.from(new Map(combinedEvents.map((event) => [event.id, event])).values());
+    setRecentXpEvents(uniqueEvents);
   }, [initialXpEvents]);
   const groups = ["All", ...Array.from(new Set(students.map((student) => student.classGroup)))];
   const ranked = useMemo(() => {
@@ -90,6 +100,11 @@ export function LeaderboardTable({
   }, [classGroup, focus, lichessAccounts, recentXpEvents, students, tacticProgress, timeWindow]);
   const podium = ranked.slice(0, 3);
   const scoreLabel = focus === "Overall XP" ? (timeWindow === "all" ? "Total XP" : "XP Earned") : `${focus} Tactics`;
+  const getStudentHref = (student: Student) => (
+    linkMode === "admin"
+      ? `/admin/students?student=${encodeURIComponent(student.slug)}`
+      : `${profileBasePath}/${student.slug}`
+  );
 
   return (
     <div className="overflow-hidden rounded-lg border border-white/10 bg-slate-950/58">
@@ -122,7 +137,7 @@ export function LeaderboardTable({
           {podium.map((student) => {
             const level = getLevelFromXp(student.effectiveXp);
             return (
-              <Link key={student.id} href={`${profileBasePath}/${student.slug}`} className="flex items-center gap-3 rounded-md border border-white/10 bg-white/5 p-3 transition hover:border-cyan-200/50 hover:bg-cyan-300/10">
+              <Link key={student.id} href={getStudentHref(student)} className="flex items-center gap-3 rounded-md border border-white/10 bg-white/5 p-3 transition hover:border-cyan-200/50 hover:bg-cyan-300/10">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-200 text-sm font-black text-slate-950">#{student.rank}</span>
                 <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-cyan-200/90 text-lg text-slate-950">{getLevelAvatarSymbol(level)}</span>
                 <span className="min-w-0">
@@ -157,10 +172,10 @@ export function LeaderboardTable({
                     <div className="flex items-center gap-3">
                       <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-cyan-200/90 text-xl font-black text-slate-950">{getLevelAvatarSymbol(level)}</span>
                       <div className="min-w-0">
-                        <Link href={`${profileBasePath}/${student.slug}`} className="font-bold text-white transition hover:text-amber-100">
+                        <Link href={getStudentHref(student)} className="font-bold text-white transition hover:text-amber-100">
                           {student.name}
                         </Link>
-                        <Link href={`${profileBasePath}/${student.slug}`} className="mt-1 block w-fit text-xs font-bold text-cyan-200 transition hover:text-cyan-100 hover:underline">
+                        <Link href={getStudentHref(student)} className="mt-1 block w-fit text-xs font-bold text-cyan-200 transition hover:text-cyan-100 hover:underline">
                           ID: {student.lichessUsername ?? student.slug}
                         </Link>
                       </div>
