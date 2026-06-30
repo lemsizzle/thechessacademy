@@ -40,7 +40,7 @@ function findAttemptForPeriod(attempts: StudentQuestAttempt[], period?: { source
   ));
 }
 
-export function StudentLichessQuestList({ detailed = false }: { detailed?: boolean }) {
+export function StudentLichessQuestList() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [progress, setProgress] = useState<LichessQuestProgress[]>([]);
   const [awards, setAwards] = useState<PendingQuestAward[]>([]);
@@ -198,7 +198,7 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
       <Card className="p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div><h2 className="font-black text-white">Lichess Progress</h2><p className="mt-1 text-sm text-slate-400">{message}</p></div>
-          <div className="flex gap-2"><Button onClick={evaluate} disabled={syncing} variant="secondary">{syncing ? "Syncing..." : "Sync Lichess"}</Button>{!detailed && <Button href="/student/lichess-progress" variant="ghost">Details</Button>}</div>
+          <div className="flex gap-2"><Button onClick={evaluate} disabled={syncing} variant="secondary">{syncing ? "Syncing..." : "Sync Lichess"}</Button></div>
         </div>
       </Card>
       {activeQuests.length > 0 && (

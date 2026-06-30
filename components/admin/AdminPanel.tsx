@@ -17,7 +17,7 @@ import { ADMIN_STORE_KEY, readAdminStore, updateAdminStore } from "@/lib/mockSto
 import { buildDefaultBadgeImagePrompt } from "@/lib/badges";
 import { persistStudentXpChange } from "@/lib/adminXpClient";
 import { ALL_CLASSES, getClassGroupNames, getClassRoster, getClassStudentCount } from "@/lib/classes";
-import { createPendingAwardsFromProgress, getTacticProgressCount, mergeTacticProgress } from "@/lib/lichess";
+import { createPendingAwardsFromProgress, getTacticProgressCount } from "@/lib/lichess";
 import { getStudentXpWithLichess, withLichessActivityBaseline } from "@/lib/lichessXp";
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
 import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, questSources, questTacticThemes, questTimeWindows } from "@/lib/quests/questOptions";
@@ -620,53 +620,6 @@ export function AdminPanel({
       badgeIds: student.badgeIds.filter((id) => id !== badge.id)
     } : student));
     pushLog(`Removed ${badge.name} from ${currentStudent.name}${hadBadge ? ` and subtracted ${badge.xpValue} XP` : ""}.`);
-  }
-
-  async function syncCurrentStudentLichess() {
-    if (!currentStudent) return;
-    const username = currentStudent.lichessUsername || currentStudent.slug;
-    try {
-      const response = await fetch("/api/lichess/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, studentId: currentStudent.id, includeGames: true })
-      });
-      const result = await response.json() as {
-        mode?: "mock" | "connected";
-        counts?: Array<{ tacticTheme: TacticTheme; puzzlesSolved: number }>;
-        ratings?: StudentLichessAccount;
-        message?: string;
-      };
-      const counts = new Map((result.counts ?? []).map((item) => [item.tacticTheme, item.puzzlesSolved] as const));
-      const mergedProgress = mergeTacticProgress(tacticProgress, currentStudent.id, counts);
-      const newAwards = createPendingAwardsFromProgress(currentStudent, mergedProgress, pendingAwards);
-      setTacticProgress(mergedProgress);
-      setPendingAwards((items) => [...newAwards, ...items]);
-      if (result.ratings) {
-        const previousAccount = studentLichessAccounts.find((item) => item.studentId === currentStudent.id);
-        const nextAccount: StudentLichessAccount = withLichessActivityBaseline({ ...result.ratings, studentId: currentStudent.id, lastGameSyncAt: new Date().toISOString().slice(0, 10) }, previousAccount);
-        setStudentLichessAccounts((items) => items.some((item) => item.studentId === currentStudent.id)
-          ? items.map((item) => item.studentId === currentStudent.id ? nextAccount : item)
-          : [nextAccount, ...items]);
-      }
-      setLichessConnections((items) => {
-        const nextConnection: LichessConnection = {
-          studentId: currentStudent.id,
-          lichessUsername: username,
-          connectedAt: currentStudentConnection?.connectedAt ?? new Date().toISOString().slice(0, 10),
-          lastSyncedAt: new Date().toISOString().slice(0, 10),
-          status: result.mode ?? "mock"
-        };
-        return items.some((item) => item.studentId === currentStudent.id)
-          ? items.map((item) => item.studentId === currentStudent.id ? nextConnection : item)
-          : [nextConnection, ...items];
-      });
-      const message = `${result.message ?? "Lichess sync complete"} Created ${newAwards.length} pending award${newAwards.length === 1 ? "" : "s"}.`;
-      pushSyncLog(message, result.mode === "mock" ? "warning" : "info", currentStudent.id);
-      pushLog(message);
-    } catch {
-      pushSyncLog("Lichess sync failed. Mock data is still available for manual testing.", "error", currentStudent.id);
-    }
   }
 
   async function syncAllLichessProgress() {
@@ -1511,12 +1464,10 @@ export function AdminPanel({
     <Card className="p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="font-black text-white">Lichess Sync</h2>
-          <p className="text-sm text-slate-400">Sync Lichess activity for {currentStudent.lichessUsername ?? currentStudent.slug}. Tokens stay server-side; mock fallback data is used when no Lichess token is connected.</p>
+          <h2 className="font-black text-white">Lichess Summary</h2>
+          <p className="text-sm text-slate-400">Ratings, puzzle progress, and pending badge awards for {currentStudent.lichessUsername ?? currentStudent.slug}. Use Sync All at the top of this page to refresh roster activity.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button href="/api/auth/lichess/start?returnTo=/admin/students" variant="secondary">Connect Lichess</Button>
-          <Button onClick={syncCurrentStudentLichess}>Sync Lichess</Button>
           <Button onClick={resetCurrentStudentOnboarding} variant="ghost">Reset Onboarding</Button>
           <Button onClick={unlinkCurrentStudentLichess} variant="ghost">Unlink</Button>
         </div>

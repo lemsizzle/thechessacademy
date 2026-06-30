@@ -20,14 +20,13 @@ const exploreLinks: NavLink[] = [
 const studentExploreLinks: NavLink[] = [
   { href: "/student/leaderboard", label: "Leaderboard", icon: "\u{1F3C6}" },
   { href: "/student/badges", label: "Badges", icon: "\u{1F396}\uFE0F" },
-  { href: "/student/quests", label: "Quests", icon: "\u{1F4DC}" },
+  { href: "/student/quests", label: "Quests & Lichess", icon: "\u{1F4DC}" },
   { href: "/student/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" },
   { href: "/student/resources", label: "Resources FAQ", icon: "\u{1F517}" }
 ];
 
 const studentQuestLinks: NavLink[] = [
   { href: "/student/profile", label: "My Profile", icon: "\u265F\uFE0F" },
-  { href: "/student/lichess-progress", label: "Lichess Progress", icon: "\u{1F4C8}" },
   { href: "/student/submit", label: "Submit Work", icon: "\u{1F4DD}" },
   { href: "/student/submissions", label: "My Submissions", icon: "\u{1F4EC}" }
 ];
@@ -48,7 +47,6 @@ const teacherSetupLinks: NavLink[] = [
 ];
 
 const teacherToolLinks: NavLink[] = [
-  { href: "/admin/lichess/quest-awards", label: "Quest Awards", icon: "\u2728" },
   { href: "/admin/game-analyzer", label: "Game Analyzer", icon: "\u{1F50D}" },
   { href: "/admin/activity", label: "Activity", icon: "\u{1F4D2}" }
 ];
