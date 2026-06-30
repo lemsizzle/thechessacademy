@@ -49,6 +49,33 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
   const [message, setMessage] = useState("Use one Lichess sync to refresh ratings, games, puzzles, quests, and badge checks.");
   const [syncing, setSyncing] = useState(false);
 
+  async function refreshPersistedQuestTracking(studentId?: string) {
+    if (!studentId) return;
+    try {
+      const response = await fetch("/api/quest-progress", { cache: "no-store", credentials: "include" });
+      const data = await response.json() as {
+        attempts?: StudentQuestAttempt[];
+        progress?: LichessQuestProgress[];
+        completions?: QuestCompletionEvent[];
+      };
+      if (!response.ok) return;
+      const store = readAdminStore();
+      const otherAttempts = (store.studentQuestAttempts ?? []).filter((item) => item.studentId !== studentId);
+      const otherProgress = (store.lichessQuestProgress ?? []).filter((item) => item.studentId !== studentId);
+      const otherCompletions = (store.questCompletionEvents ?? []).filter((item) => item.studentId !== studentId);
+      updateAdminStore({
+        studentQuestAttempts: [...(data.attempts ?? []), ...otherAttempts],
+        lichessQuestProgress: [...(data.progress ?? []), ...otherProgress],
+        questCompletionEvents: [...(data.completions ?? []), ...otherCompletions]
+      });
+      setAttempts(data.attempts ?? []);
+      setProgress(data.progress ?? []);
+      setCompletions(data.completions ?? []);
+    } catch {
+      // Local quest progress remains available when Supabase tracking is not configured.
+    }
+  }
+
   function load() {
     const user = getCurrentStudentUser();
     const store = readAdminStore();
@@ -72,6 +99,7 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
     setAwards(studentAwards);
     setCompletions(studentCompletions);
     setAttempts(studentAttempts);
+    void refreshPersistedQuestTracking(studentId);
   }
 
   useEffect(() => {
@@ -100,6 +128,12 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
       ))
     ];
     updateAdminStore({ studentQuestAttempts: nextAttempts });
+    void fetch("/api/quest-progress", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attempts: [attempt] })
+    });
     setMessage(`${quest.title} started. Your countdown is running.`);
     load();
   }

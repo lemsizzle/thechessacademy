@@ -177,6 +177,16 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
     students: nextStudents,
     lichessActivitySnapshots: [...(data.snapshots ?? []), ...(store.lichessActivitySnapshots ?? [])]
   });
+  void fetch("/api/quest-progress", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      progress: data.progress,
+      completions: autoCompletions,
+      attempts: nextQuestAttempts.filter((attempt) => attempt.studentId === user.studentId)
+    })
+  });
 
   const result = {
     user,

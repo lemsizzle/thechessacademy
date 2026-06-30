@@ -269,25 +269,49 @@ export function AdminPanel({
   }, [badges, loaded, log, outschoolGroups, quests, students, tacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, pendingAwards, lichessSyncLogs, lichessQuestProgress, studentQuestAttempts, pendingQuestAwards, questCompletionEvents]);
 
   useEffect(() => {
-    function refreshQuestTrackingFromStore() {
+    async function refreshQuestTrackingFromStore() {
       const store = readAdminStore();
       setLichessQuestProgress(store.lichessQuestProgress ?? []);
       setStudentQuestAttempts(store.studentQuestAttempts ?? []);
       setPendingQuestAwards(store.pendingQuestAwards ?? []);
       setQuestCompletionEvents(store.questCompletionEvents ?? []);
+      try {
+        const response = await fetch("/api/quest-progress", {
+          cache: "no-store",
+          credentials: "include",
+          headers: {
+            ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+          }
+        });
+        const data = await response.json() as {
+          attempts?: StudentQuestAttempt[];
+          progress?: LichessQuestProgress[];
+          completions?: QuestCompletionEvent[];
+        };
+        if (!response.ok) return;
+        if (data.attempts) setStudentQuestAttempts(data.attempts);
+        if (data.progress) setLichessQuestProgress(data.progress);
+        if (data.completions) setQuestCompletionEvents(data.completions);
+      } catch {
+        // Local storage remains the fallback when shared quest tracking is unavailable.
+      }
     }
 
     function handleStorage(event: StorageEvent) {
-      if (!event.key || event.key === ADMIN_STORE_KEY) refreshQuestTrackingFromStore();
+      if (!event.key || event.key === ADMIN_STORE_KEY) void refreshQuestTrackingFromStore();
+    }
+    function handleFocus() {
+      void refreshQuestTrackingFromStore();
     }
 
     window.addEventListener("storage", handleStorage);
-    window.addEventListener("focus", refreshQuestTrackingFromStore);
+    window.addEventListener("focus", handleFocus);
+    void refreshQuestTrackingFromStore();
     return () => {
       window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("focus", refreshQuestTrackingFromStore);
+      window.removeEventListener("focus", handleFocus);
     };
-  }, []);
+  }, [adminActionToken]);
 
   useEffect(() => {
     if (!requestedStudent || !students.length) return;
@@ -301,7 +325,7 @@ export function AdminPanel({
   const classGroups = useMemo(() => getClassGroupNames(outschoolGroups, students), [outschoolGroups, students]);
   const classRoster = useMemo(() => getClassRoster(students, selectedClassGroup), [selectedClassGroup, students]);
   const selectedClassDetails = outschoolGroups.find((group) => group.name === selectedClassGroup);
-  const currentStudent = classRoster.find((student) => student.id === selectedStudent) ?? classRoster[0] ?? (selectedClassGroup === ALL_CLASSES ? students[0] : undefined);
+  const currentStudent = students.find((student) => student.id === selectedStudent) ?? classRoster[0] ?? students[0];
   const currentBadge = badges.find((badge) => badge.id === selectedBadge) ?? badges[0];
   const currentQuest = quests.find((quest) => quest.id === selectedQuest) ?? quests[0];
   const filteredBadges = useMemo(() => badges.filter((badge) => (
@@ -339,11 +363,11 @@ export function AdminPanel({
   }, [classGroups, selectedClassGroup]);
 
   useEffect(() => {
-    if (!classRoster.length) return;
-    if (!classRoster.some((student) => student.id === selectedStudent)) {
-      setSelectedStudent(classRoster[0].id);
+    if (!students.length) return;
+    if (!students.some((student) => student.id === selectedStudent)) {
+      setSelectedStudent(classRoster[0]?.id ?? students[0].id);
     }
-  }, [classRoster, selectedStudent]);
+  }, [classRoster, selectedStudent, students]);
 
   const pushLog = (message: string) => setLog((items) => [`${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${message}`, ...items].slice(0, 10));
   const pushSyncLog = (message: string, level: LichessSyncLog["level"] = "info", studentId?: string) => {
@@ -782,6 +806,19 @@ export function AdminPanel({
         questCompletionEvents: nextQuestCompletionEvents,
         xpEvents: [...persistedQuestXpEvents, ...(readAdminStore().xpEvents ?? [])],
         questXpEvents: [...autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today })), ...(readAdminStore().questXpEvents ?? [])]
+      });
+      void fetch("/api/quest-progress", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+        },
+        body: JSON.stringify({
+          attempts: nextQuestAttempts,
+          progress: incomingProgress,
+          completions: autoCompletions
+        })
       });
 
       const message = `Synced ${ratingSyncCount} Lichess profile${ratingSyncCount === 1 ? "" : "s"} and checked ${incomingProgress.length} quest progress record${incomingProgress.length === 1 ? "" : "s"}. ${autoCompletions.length} quest${autoCompletions.length === 1 ? "" : "s"} auto-completed with XP, ${badgeAwardsFromSavedProgress.length} badge award${badgeAwardsFromSavedProgress.length === 1 ? "" : "s"} sent for approval.`;
@@ -1251,7 +1288,6 @@ export function AdminPanel({
         <label className="grid gap-1 text-xs font-bold text-slate-300">Class Group
           <select className={fieldClass()} value={currentStudent.classGroup} onChange={(event) => {
             updateStudent({ classGroup: event.target.value });
-            setSelectedClassGroup(event.target.value);
           }}>
             {classGroups.map((group) => <option key={group} value={group}>{group}</option>)}
             {!classGroups.includes(currentStudent.classGroup) && <option value={currentStudent.classGroup}>{currentStudent.classGroup}</option>}
