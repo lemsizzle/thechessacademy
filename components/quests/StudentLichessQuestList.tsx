@@ -6,7 +6,8 @@ import { LichessQuestProgressCard } from "@/components/quests/LichessQuestProgre
 import { quests as seedQuests } from "@/data/quests";
 import { getCurrentStudentUser } from "@/lib/auth/getCurrentUser";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
-import { createStudentQuestAttempt, getActiveQuestAttempt, isQuestAttemptActive } from "@/lib/quests/questAttempts";
+import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
+import { createStudentQuestAttempt, getActiveQuestAttempt } from "@/lib/quests/questAttempts";
 import { STUDENT_LICHESS_FULL_SYNC_EVENT, syncStudentLichessEverything } from "@/lib/studentLichessFullSync";
 import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent, StudentQuestAttempt } from "@/lib/types";
 import { useEffect, useState } from "react";
@@ -63,17 +64,23 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
       if (!response.ok) return;
       if (!data.configured || data.error) return;
       const store = readAdminStore();
+      const localAttempts = (store.studentQuestAttempts ?? []).filter((item) => item.studentId === studentId);
+      const localProgress = (store.lichessQuestProgress ?? []).filter((item) => item.studentId === studentId);
+      const localCompletions = (store.questCompletionEvents ?? []).filter((item) => item.studentId === studentId);
+      const mergedAttempts = mergeQuestAttempts(data.attempts, localAttempts);
+      const mergedProgress = mergeLichessQuestProgress(data.progress, localProgress);
+      const mergedCompletions = mergeQuestCompletions(data.completions, localCompletions);
       const otherAttempts = (store.studentQuestAttempts ?? []).filter((item) => item.studentId !== studentId);
       const otherProgress = (store.lichessQuestProgress ?? []).filter((item) => item.studentId !== studentId);
       const otherCompletions = (store.questCompletionEvents ?? []).filter((item) => item.studentId !== studentId);
       updateAdminStore({
-        studentQuestAttempts: [...(data.attempts ?? []), ...otherAttempts],
-        lichessQuestProgress: [...(data.progress ?? []), ...otherProgress],
-        questCompletionEvents: [...(data.completions ?? []), ...otherCompletions]
+        studentQuestAttempts: [...mergedAttempts, ...otherAttempts],
+        lichessQuestProgress: [...mergedProgress, ...otherProgress],
+        questCompletionEvents: [...mergedCompletions, ...otherCompletions]
       });
-      setAttempts(data.attempts ?? []);
-      setProgress(data.progress ?? []);
-      setCompletions(data.completions ?? []);
+      setAttempts(mergedAttempts);
+      setProgress(mergedProgress);
+      setCompletions(mergedCompletions);
     } catch {
       // Local quest progress remains available when Supabase tracking is not configured.
     }
@@ -122,14 +129,10 @@ export function StudentLichessQuestList({ detailed = false }: { detailed?: boole
     const store = readAdminStore();
     const previousAttempts = store.studentQuestAttempts ?? [];
     const attempt = createStudentQuestAttempt(user.studentId, quest);
-    const nextAttempts = [
+    const nextAttempts = mergeQuestAttempts([
       attempt,
-      ...previousAttempts.map((item) => (
-        item.studentId === user.studentId && item.questId === quest.id && isQuestAttemptActive(item)
-          ? { ...item, status: "expired" as const }
-          : item
-      ))
-    ];
+      ...previousAttempts
+    ]);
     updateAdminStore({ studentQuestAttempts: nextAttempts });
     setAttempts(nextAttempts.filter((item) => item.studentId === user.studentId));
     void fetch("/api/quest-progress", {

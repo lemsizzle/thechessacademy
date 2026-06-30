@@ -23,6 +23,7 @@ import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
 import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, questSources, questTacticThemes, questTimeWindows } from "@/lib/quests/questOptions";
 import { formatCountdown, isQuestAttemptActive } from "@/lib/quests/questAttempts";
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
+import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
 import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
 import type { ArenaTournamentResult, Badge, BadgeCategory, BadgeTier, ClassGroup, ConceptTheme, GameReviewSubmission, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, Quest, QuestCompletionEvent, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, Student, StudentLichessAccount, StudentQuestAttempt, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
@@ -289,9 +290,9 @@ export function AdminPanel({
           completions?: QuestCompletionEvent[];
         };
         if (!response.ok) return;
-        if (data.attempts) setStudentQuestAttempts(data.attempts);
-        if (data.progress) setLichessQuestProgress(data.progress);
-        if (data.completions) setQuestCompletionEvents(data.completions);
+        if (data.attempts) setStudentQuestAttempts((items) => mergeQuestAttempts(data.attempts, items));
+        if (data.progress) setLichessQuestProgress((items) => mergeLichessQuestProgress(data.progress, items));
+        if (data.completions) setQuestCompletionEvents((items) => mergeQuestCompletions(data.completions, items));
       } catch {
         // Local storage remains the fallback when shared quest tracking is unavailable.
       }
