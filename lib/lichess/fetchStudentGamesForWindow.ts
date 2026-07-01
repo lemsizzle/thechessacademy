@@ -65,7 +65,7 @@ async function fetchRawGames(username: string, params: URLSearchParams, accessTo
   const response = await fetch(`https://lichess.org/api/games/user/${encodeURIComponent(username)}?${params}`, {
     headers: {
       Accept: "application/x-ndjson",
-      ...(accessToken && !accessToken.startsWith("mock-token-") ? { Authorization: `Bearer ${accessToken}` } : {})
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
     },
     cache: "no-store"
   });

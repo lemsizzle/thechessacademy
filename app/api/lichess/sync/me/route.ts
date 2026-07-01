@@ -1,6 +1,6 @@
 import { LICHESS_TOKEN_COOKIE } from "@/lib/auth/roles";
 import { readStudentSession } from "@/lib/auth/session";
-import { createMockLichessProfile, fetchAuthenticatedLichessAccount } from "@/lib/lichess/fetchAccount";
+import { fetchAuthenticatedLichessAccount } from "@/lib/lichess/fetchAccount";
 import { fetchStudentGamesForWindow } from "@/lib/lichess/fetchStudentGamesForWindow";
 import { fetchStudentPuzzleActivityForWindow } from "@/lib/lichess/fetchStudentPuzzleActivityForWindow";
 import { decryptLichessToken } from "@/lib/lichess/tokenCrypto";
@@ -56,6 +56,10 @@ function getBaselineDate(account: StudentLichessAccount) {
   return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 
+function baselineFromFetchedActivity(currentTotal: number | undefined | null, fetchedSinceBaseline: number) {
+  return Math.max(0, (currentTotal ?? 0) - fetchedSinceBaseline);
+}
+
 async function enrichAccountActivity(account: StudentLichessAccount, token: string) {
   const start = getBaselineDate(account);
   const end = new Date();
@@ -86,15 +90,21 @@ async function enrichAccountActivity(account: StudentLichessAccount, token: stri
   const rapidWins = rapidGames.filter((game) => game.won).length;
   const blitzWins = blitzGames.filter((game) => game.won).length;
   const puzzleCorrect = puzzleActivity.filter((puzzle) => puzzle.win).length;
-  const baselineRapidGames = account.baselineRapidGames ?? account.rapidGames;
-  const baselineBlitzGames = account.baselineBlitzGames ?? account.blitzGames;
-  const baselinePuzzleGames = account.baselinePuzzleGames ?? account.puzzleGames ?? 0;
+  const baselineRapidGames = baselineFromFetchedActivity(account.rapidGames, rapidPlayed);
+  const baselineBlitzGames = baselineFromFetchedActivity(account.blitzGames, blitzPlayed);
+  const baselinePuzzleGames = baselineFromFetchedActivity(account.puzzleGames, puzzleActivity.length);
 
   return {
     ...account,
-    rapidGames: Math.max(account.rapidGames, baselineRapidGames + rapidPlayed),
-    blitzGames: Math.max(account.blitzGames, baselineBlitzGames + blitzPlayed),
-    puzzleGames: Math.max(account.puzzleGames ?? 0, baselinePuzzleGames + puzzleActivity.length),
+    baselineRapidGames,
+    baselineBlitzGames,
+    baselinePuzzleGames,
+    baselineRapidWins: 0,
+    baselineBlitzWins: 0,
+    baselinePuzzleCorrect: 0,
+    rapidGames: account.rapidGames,
+    blitzGames: account.blitzGames,
+    puzzleGames: account.puzzleGames ?? 0,
     rapidWins,
     blitzWins,
     puzzleCorrect,
@@ -112,14 +122,8 @@ export async function POST(request: Request) {
 
   const encryptedToken = cookieStore.get(LICHESS_TOKEN_COOKIE)?.value;
   const token = encryptedToken ? decryptLichessToken(encryptedToken) : null;
-  if (!token || token.startsWith("mock-token-")) {
-    const profile = createMockLichessProfile(session.lichessUsername);
-    const account = withLichessActivityBaseline(profileToAccount(session.studentId, profile, "mock"), body.previousAccount);
-    return NextResponse.json({
-      mode: "mock",
-      account,
-      message: "Mock Lichess log in is active. Local Blitz, Rapid, and Puzzle ratings were refreshed."
-    });
+  if (!token) {
+    return NextResponse.json({ error: "A real Lichess login is required before syncing live stats." }, { status: 401 });
   }
 
   const profile = await fetchAuthenticatedLichessAccount(token);

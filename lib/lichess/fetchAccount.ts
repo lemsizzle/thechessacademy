@@ -43,28 +43,6 @@ function profileFromResponse(data: LichessAccountResponse): LichessOAuthProfile 
   };
 }
 
-export function createMockLichessProfile(username = "arina"): LichessOAuthProfile {
-  const safeUsername = username.trim().replace(/[^a-zA-Z0-9_-]/g, "") || "arina";
-  const seed = safeUsername.length;
-  return {
-    id: safeUsername.toLowerCase(),
-    username: safeUsername,
-    profileUrl: `https://lichess.org/@/${safeUsername}`,
-    blitzRating: 1000 + seed * 23,
-    blitzGames: 40 + seed,
-    blitzRatingChange: 8,
-    blitzRatingDeviation: 72,
-    blitzProvisional: false,
-    rapidRating: 1080 + seed * 21,
-    rapidGames: 25 + seed,
-    rapidRatingChange: 12,
-    rapidRatingDeviation: 80,
-    rapidProvisional: false,
-    puzzleRating: 1200 + seed * 17,
-    puzzleGames: 80 + seed
-  };
-}
-
 export async function fetchAuthenticatedLichessAccount(accessToken: string) {
   const response = await fetch("https://lichess.org/api/account", {
     headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },

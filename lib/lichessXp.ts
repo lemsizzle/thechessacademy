@@ -13,6 +13,8 @@ export const LICHESS_XP_RULES = {
   puzzleCorrectXp: 5
 };
 
+const MAX_REASONABLE_UNBASELINED_ACTIVITY = 100;
+
 function ratingMilestoneXp(rating: number | null | undefined, xpPerStep: number) {
   if (!rating) return 0;
   const steps = Math.min(
@@ -27,8 +29,15 @@ function highestRating(...ratings: Array<number | null | undefined>) {
   return valid.length ? Math.max(...valid) : undefined;
 }
 
+function normalizeActivityBaseline(current = 0, baseline?: number) {
+  if (baseline === undefined) return current;
+  if (baseline > current) return current;
+  if (baseline <= 0 && current > MAX_REASONABLE_UNBASELINED_ACTIVITY) return current;
+  return baseline;
+}
+
 function countSinceBaseline(current = 0, baseline?: number) {
-  return Math.max(0, current - (baseline ?? current));
+  return Math.max(0, current - normalizeActivityBaseline(current, baseline));
 }
 
 function xpSinceRatingBaseline(currentPeak: number | undefined, baseline: number | undefined, xpPerStep: number) {
@@ -40,6 +49,18 @@ export function withLichessActivityBaseline(account: StudentLichessAccount, prev
   const currentRapidRating = account.rapidProvisional ? undefined : account.rapidRating ?? undefined;
   const currentPuzzleRating = account.puzzleRating ?? undefined;
   const previousBaseline = previous?.syncStatus === "mock" && account.syncStatus === "connected" ? undefined : previous;
+  const baselineBlitzGames = normalizeActivityBaseline(
+    account.blitzGames,
+    previousBaseline?.baselineBlitzGames ?? previousBaseline?.blitzGames ?? account.blitzGames
+  );
+  const baselineRapidGames = normalizeActivityBaseline(
+    account.rapidGames,
+    previousBaseline?.baselineRapidGames ?? previousBaseline?.rapidGames ?? account.rapidGames
+  );
+  const baselinePuzzleGames = normalizeActivityBaseline(
+    account.puzzleGames ?? 0,
+    previousBaseline?.baselinePuzzleGames ?? previousBaseline?.puzzleGames ?? account.puzzleGames ?? 0
+  );
 
   return {
     ...account,
@@ -47,9 +68,9 @@ export function withLichessActivityBaseline(account: StudentLichessAccount, prev
     rapidWins: account.rapidWins ?? previousBaseline?.rapidWins ?? 0,
     puzzleCorrect: account.puzzleCorrect ?? previousBaseline?.puzzleCorrect ?? 0,
     linkedAt: previousBaseline?.linkedAt ?? account.linkedAt,
-    baselineBlitzGames: previousBaseline?.baselineBlitzGames ?? previousBaseline?.blitzGames ?? account.blitzGames,
-    baselineRapidGames: previousBaseline?.baselineRapidGames ?? previousBaseline?.rapidGames ?? account.rapidGames,
-    baselinePuzzleGames: previousBaseline?.baselinePuzzleGames ?? previousBaseline?.puzzleGames ?? account.puzzleGames ?? 0,
+    baselineBlitzGames,
+    baselineRapidGames,
+    baselinePuzzleGames,
     baselineBlitzWins: previousBaseline?.baselineBlitzWins ?? 0,
     baselineRapidWins: previousBaseline?.baselineRapidWins ?? 0,
     baselinePuzzleCorrect: previousBaseline?.baselinePuzzleCorrect ?? 0,
@@ -89,12 +110,15 @@ export function getLichessXpBreakdown(account?: StudentLichessAccount) {
   const puzzlesAfterLogin = countSinceBaseline(account?.puzzleGames, account?.baselinePuzzleGames);
   const puzzleCorrectAfterLogin = countSinceBaseline(account?.puzzleCorrect ?? account?.puzzleGames, account?.baselinePuzzleCorrect ?? account?.baselinePuzzleGames);
   const ratedGamesAfterLogin = blitzGamesAfterLogin + rapidGamesAfterLogin;
+  const countedBlitzWins = Math.min(blitzWinsAfterLogin, blitzGamesAfterLogin);
+  const countedRapidWins = Math.min(rapidWinsAfterLogin, rapidGamesAfterLogin);
+  const countedPuzzleCorrect = Math.min(puzzleCorrectAfterLogin, puzzlesAfterLogin || puzzleCorrectAfterLogin);
   const blitzGameXp = blitzGamesAfterLogin * LICHESS_XP_RULES.blitzGamePlayedXp;
-  const blitzWinXp = blitzWinsAfterLogin * Math.max(0, LICHESS_XP_RULES.blitzGameWonXp - LICHESS_XP_RULES.blitzGamePlayedXp);
+  const blitzWinXp = countedBlitzWins * Math.max(0, LICHESS_XP_RULES.blitzGameWonXp - LICHESS_XP_RULES.blitzGamePlayedXp);
   const rapidGameXp = rapidGamesAfterLogin * LICHESS_XP_RULES.rapidGamePlayedXp;
-  const rapidWinXp = rapidWinsAfterLogin * Math.max(0, LICHESS_XP_RULES.rapidGameWonXp - LICHESS_XP_RULES.rapidGamePlayedXp);
+  const rapidWinXp = countedRapidWins * Math.max(0, LICHESS_XP_RULES.rapidGameWonXp - LICHESS_XP_RULES.rapidGamePlayedXp);
   const ratedGameXp = rapidGameXp + rapidWinXp + blitzGameXp + blitzWinXp;
-  const puzzleActivityXp = puzzleCorrectAfterLogin * LICHESS_XP_RULES.puzzleCorrectXp;
+  const puzzleActivityXp = countedPuzzleCorrect * LICHESS_XP_RULES.puzzleCorrectXp;
   const ratingXp = blitzRatingXp + rapidRatingXp + puzzleRatingXp;
   const activityXp = ratedGameXp + puzzleActivityXp;
 
@@ -108,11 +132,11 @@ export function getLichessXpBreakdown(account?: StudentLichessAccount) {
     ratingXp,
     blitzGamesAfterLogin,
     rapidGamesAfterLogin,
-    blitzWinsAfterLogin,
-    rapidWinsAfterLogin,
+    blitzWinsAfterLogin: countedBlitzWins,
+    rapidWinsAfterLogin: countedRapidWins,
     ratedGamesAfterLogin,
     puzzlesAfterLogin,
-    puzzleCorrectAfterLogin,
+    puzzleCorrectAfterLogin: countedPuzzleCorrect,
     blitzGameXp,
     blitzWinXp,
     rapidGameXp,

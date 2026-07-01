@@ -1,4 +1,4 @@
-import { getMockLichessNdjson, parseLichessPuzzleActivityNdjson, summarizePuzzleThemes } from "@/lib/lichess";
+import { parseLichessPuzzleActivityNdjson, summarizePuzzleThemes } from "@/lib/lichess";
 import { LICHESS_TOKEN_COOKIE } from "@/lib/auth/roles";
 import { fetchStudentGamesForWindow } from "@/lib/lichess/fetchStudentGamesForWindow";
 import { fetchStudentPuzzleActivityForWindow } from "@/lib/lichess/fetchStudentPuzzleActivityForWindow";
@@ -24,9 +24,14 @@ export async function POST(request: Request) {
   const encryptedToken = cookieStore.get(LICHESS_TOKEN_COOKIE)?.value ?? cookieStore.get("lichess_access_token")?.value;
   const token = encryptedToken ? decryptLichessToken(encryptedToken) ?? encryptedToken : null;
   let ndjson = "";
-  let mode: "mock" | "connected" = "mock";
+  let mode: "connected" | "error" = "error";
   let connectedPuzzleActivity: LichessQuestPuzzleActivity[] = [];
-  const ratings = await syncRatings(safeStudentId, safeUsername);
+  let ratings: Awaited<ReturnType<typeof syncRatings>>;
+  try {
+    ratings = await syncRatings(safeStudentId, safeUsername);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not sync Lichess ratings." }, { status: 502 });
+  }
   let account = withLichessActivityBaseline(ratings.account, previousAccount);
   const start = new Date(account.activityBaselineSetAt ?? account.linkedAt);
   const end = new Date();
@@ -44,7 +49,9 @@ export async function POST(request: Request) {
         .join("\n");
       account = {
         ...account,
-        puzzleGames: Math.max(account.puzzleGames ?? 0, (account.baselinePuzzleGames ?? account.puzzleGames ?? 0) + puzzleActivity.length),
+        baselinePuzzleGames: Math.max(0, (account.puzzleGames ?? 0) - puzzleActivity.length),
+        baselinePuzzleCorrect: 0,
+        puzzleGames: account.puzzleGames ?? 0,
         puzzleCorrect: puzzleActivity.filter((activity) => activity.win).length,
         lastPuzzleSyncAt: end.toISOString(),
         updatedAt: end.toISOString()
@@ -55,7 +62,6 @@ export async function POST(request: Request) {
     }
   }
 
-  if (includePuzzles && !ndjson) ndjson = getMockLichessNdjson(safeUsername);
   const activities = parseLichessPuzzleActivityNdjson(ndjson);
   const solvedActivities = connectedPuzzleActivity.length
     ? connectedPuzzleActivity.filter((activity) => activity.win).map((activity) => ({
@@ -73,10 +79,16 @@ export async function POST(request: Request) {
     ]);
     const rapidGames = rapidResult.status === "fulfilled" ? rapidResult.value.filter((game) => game.rated && game.finished) : [];
     const blitzGames = blitzResult.status === "fulfilled" ? blitzResult.value.filter((game) => game.rated && game.finished) : [];
+    const baselineRapidGames = Math.max(0, account.rapidGames - rapidGames.length);
+    const baselineBlitzGames = Math.max(0, account.blitzGames - blitzGames.length);
     account = {
       ...account,
-      rapidGames: Math.max(account.rapidGames, (account.baselineRapidGames ?? account.rapidGames) + rapidGames.length),
-      blitzGames: Math.max(account.blitzGames, (account.baselineBlitzGames ?? account.blitzGames) + blitzGames.length),
+      baselineRapidGames,
+      baselineBlitzGames,
+      baselineRapidWins: 0,
+      baselineBlitzWins: 0,
+      rapidGames: account.rapidGames,
+      blitzGames: account.blitzGames,
       rapidWins: rapidGames.filter((game) => game.won).length,
       blitzWins: blitzGames.filter((game) => game.won).length,
       lastGameSyncAt: end.toISOString(),
@@ -88,7 +100,7 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
-    mode: ratings.mode === "connected" || mode === "connected" ? "connected" : "mock",
+    mode: ratings.mode === "connected" || mode === "connected" ? "connected" : "error",
     username: safeUsername,
     activityCount: activities.length,
     counts,
@@ -96,7 +108,7 @@ export async function POST(request: Request) {
     message: [
       ratings.message,
       mode === "connected" ? "Synced Lichess game activity." : "",
-      includePuzzles ? (mode === "connected" ? "Synced Lichess puzzle activity." : "Used mock Lichess puzzle activity fallback.") : ""
+      includePuzzles && mode === "connected" ? "Synced Lichess puzzle activity." : ""
     ].filter(Boolean).join(" ")
   });
 }
