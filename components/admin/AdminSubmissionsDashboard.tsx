@@ -20,6 +20,16 @@ export function AdminSubmissionsDashboard() {
     setStudents(store.students ?? seedStudents);
     setGames(store.studentGameSubmissions ?? seedGameSubmissions);
     setScores(store.studentScoreSubmissions ?? seedScoreSubmissions);
+    fetch("/api/admin/submissions", { cache: "no-store", credentials: "include" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data: { games?: StudentGameSubmission[]; scores?: StudentScoreSubmission[] } | null) => {
+        if (!data) return;
+        if (data.games) setGames(data.games);
+        if (data.scores) setScores(data.scores);
+      })
+      .catch(() => {
+        // Local storage remains the fallback for development.
+      });
   }, []);
 
   const studentById = useMemo(() => new Map(students.map((student) => [student.id, student])), [students]);

@@ -17,6 +17,16 @@ export function StudentSubmissionsTable() {
     const store = readAdminStore();
     setGames((store.studentGameSubmissions ?? seedGameSubmissions).filter((item) => item.studentId === user?.studentId));
     setScores((store.studentScoreSubmissions ?? seedScoreSubmissions).filter((item) => item.studentId === user?.studentId));
+    fetch("/api/student/submissions", { cache: "no-store", credentials: "include" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data: { games?: StudentGameSubmission[]; scores?: StudentScoreSubmission[] } | null) => {
+        if (!data) return;
+        if (data.games) setGames(data.games);
+        if (data.scores) setScores(data.scores);
+      })
+      .catch(() => {
+        // Local storage remains the fallback for development.
+      });
   }, []);
 
   return (

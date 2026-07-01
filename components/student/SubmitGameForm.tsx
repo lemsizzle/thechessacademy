@@ -17,7 +17,7 @@ export function SubmitGameForm({ compact = false }: { compact?: boolean }) {
   const [notes, setNotes] = useState("");
   const [message, setMessage] = useState("Submit a Lichess game for teacher review. This does not award XP automatically.");
 
-  function submit() {
+  async function submit() {
     const user = getCurrentStudentUser();
     if (!user) return;
     const result = createGameSubmission({
@@ -32,9 +32,23 @@ export function SubmitGameForm({ compact = false }: { compact?: boolean }) {
       setMessage(result.error);
       return;
     }
+    let submission = result.submission;
+    try {
+      const response = await fetch("/api/student/submissions", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "game", gameUrl, playedAs, gameType, opponentName, notes })
+      });
+      const data = await response.json() as { submission?: StudentGameSubmission; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Could not submit game.");
+      submission = data.submission ?? submission;
+    } catch (error) {
+      setMessage(error instanceof Error ? `${error.message} Saved locally on this device.` : "Saved locally on this device.");
+    }
     const store = readAdminStore();
     const existing = store.studentGameSubmissions ?? seedSubmissions;
-    updateAdminStore({ studentGameSubmissions: [result.submission, ...existing] });
+    updateAdminStore({ studentGameSubmissions: [submission, ...existing.filter((item) => item.id !== submission.id)] });
     setGameUrl("");
     setGameType("");
     setOpponentName("");

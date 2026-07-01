@@ -16,7 +16,7 @@ import { mockArenaTournamentResults } from "@/data/tournamentResults";
 import { ADMIN_STORE_KEY, readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { buildDefaultBadgeImagePrompt } from "@/lib/badges";
 import { persistStudentXpChange } from "@/lib/adminXpClient";
-import { ALL_CLASSES, getClassGroupNames, getClassRoster, getClassStudentCount } from "@/lib/classes";
+import { ALL_CLASSES, UNASSIGNED_CLASS, getClassGroupNames, getClassRoster, getClassStudentCount } from "@/lib/classes";
 import { createPendingAwardsFromProgress, getTacticProgressCount } from "@/lib/lichess";
 import { getStudentXpWithLichess, withLichessActivityBaseline } from "@/lib/lichessXp";
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
@@ -45,7 +45,7 @@ const badgeTiers: BadgeTier[] = ["Bronze", "Silver", "Gold", "Platinum"];
 const questTypes: QuestType[] = ["weekly", "boss"];
 const questStatuses: QuestStatus[] = ["available", "in-progress", "completed"];
 
-const emptyStudent = (count: number, classGroup = "Unassigned"): Student => ({
+const emptyStudent = (count: number, classGroup = UNASSIGNED_CLASS): Student => ({
   id: `local-student-${Date.now()}`,
   slug: `student-${count + 1}`,
   lichessUsername: `student-${count + 1}`,
@@ -390,12 +390,13 @@ export function AdminPanel({
   }
 
   async function saveStudent() {
-    if (!currentStudent) return;
-    const lichessUsername = cleanLichessUsername(currentStudent.lichessUsername || currentStudent.slug || currentStudent.name);
+    const studentToSave = students.find((student) => student.id === selectedStudent) ?? currentStudent;
+    if (!studentToSave) return;
+    const lichessUsername = cleanLichessUsername(studentToSave.lichessUsername || studentToSave.slug || studentToSave.name);
     const slug = slugify(lichessUsername);
-    const draft = { ...currentStudent, lichessUsername, slug };
+    const draft = { ...studentToSave, classGroup: studentToSave.classGroup || UNASSIGNED_CLASS, lichessUsername, slug };
     try {
-      const response = await fetch(`/api/admin/students/${encodeURIComponent(currentStudent.id)}`, {
+      const response = await fetch(`/api/admin/students/${encodeURIComponent(studentToSave.id)}`, {
         method: "PATCH",
         credentials: "include",
         headers: {
@@ -406,24 +407,25 @@ export function AdminPanel({
           name: draft.name,
           classGroup: draft.classGroup,
           publicSlug: draft.slug,
-          slug: currentStudent.slug,
+          slug: studentToSave.slug,
           lichessUsername: draft.lichessUsername
         })
       });
       const data = await response.json().catch(() => ({})) as { student?: Student; error?: string; mode?: "local-only"; skipped?: boolean };
       if (!response.ok) throw new Error(data.error ?? "Could not save student.");
+      if (data.skipped) throw new Error("Could not find this student in Supabase. Refresh the page, select the student again, and save.");
       const savedStudent = data.student ?? draft;
-      setStudents((items) => items.map((student) => student.id === currentStudent.id ? { ...student, ...savedStudent } : student));
+      setStudents((items) => items.map((student) => student.id === studentToSave.id ? { ...student, ...savedStudent } : student));
       setSelectedStudent(savedStudent.id);
       setSelectedClassGroup(savedStudent.classGroup || ALL_CLASSES);
-      pushLog(data.mode === "local-only" || data.skipped ? `Saved ${savedStudent.name} locally.` : `Saved ${savedStudent.name} to Supabase.`);
+      pushLog(data.mode === "local-only" ? `Saved ${savedStudent.name} locally.` : `Saved ${savedStudent.name} to Supabase.`);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Could not save student.");
     }
   }
 
   function addStudent() {
-    const classGroup = selectedClassGroup === ALL_CLASSES ? outschoolGroups[0]?.name ?? "Unassigned" : selectedClassGroup;
+    const classGroup = selectedClassGroup === ALL_CLASSES ? UNASSIGNED_CLASS : selectedClassGroup;
     const student = emptyStudent(students.length, classGroup);
     setStudents((items) => [student, ...items]);
     setSelectedClassGroup(classGroup);
@@ -525,7 +527,7 @@ export function AdminPanel({
     setStudents((items) => items.map((student) => {
       const renamed = renamedPairs.find((pair) => pair.before === student.classGroup);
       if (renamed?.after) return { ...student, classGroup: renamed.after };
-      if (deletedNames.includes(student.classGroup)) return { ...student, classGroup: "Unassigned" };
+      if (deletedNames.includes(student.classGroup)) return { ...student, classGroup: UNASSIGNED_CLASS };
       return student;
     }));
     setOutschoolGroups(classDrafts);

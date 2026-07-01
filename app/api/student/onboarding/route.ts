@@ -1,5 +1,6 @@
 import { rememberKnownLichessStudent } from "@/lib/auth/knownLichessStudents";
 import { readStudentSession, setStudentSessionCookie } from "@/lib/auth/session";
+import { UNASSIGNED_CLASS } from "@/lib/classes";
 import { createSupabaseStudentForLichess } from "@/lib/students/supabaseStudentProfiles";
 import { isSupabaseProjectConfigured, isSupabaseReadConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import type { Student } from "@/lib/types";
@@ -15,8 +16,8 @@ export async function POST(request: Request) {
 
   const input = await request.json().catch(() => ({})) as { displayName?: string; classGroup?: string };
   const displayName = input.displayName?.trim();
-  const classGroup = input.classGroup?.trim();
-  if (!displayName || !classGroup) return NextResponse.json({ error: "Display name and class group are required." }, { status: 400 });
+  const classGroup = input.classGroup?.trim() || UNASSIGNED_CLASS;
+  if (!displayName) return NextResponse.json({ error: "Display name is required." }, { status: 400 });
 
   let student: Student;
   try {

@@ -1,4 +1,5 @@
 import { getSupabaseServerReadClient, getSupabaseServiceClient, isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
+import { UNASSIGNED_CLASS } from "@/lib/classes";
 import type { Student, StudentSession } from "@/lib/types";
 
 type SupabaseStudentRow = {
@@ -30,7 +31,7 @@ function toStudent(row: SupabaseStudentRow): Student {
     lichessUsername: row.lichess_username ?? row.public_slug,
     name: row.display_name,
     avatar: row.avatar_url ?? row.display_name.slice(0, 1).toUpperCase(),
-    classGroup: row.class_group ?? "Unassigned",
+    classGroup: row.class_group ?? UNASSIGNED_CLASS,
     source: "manual",
     isActive: row.is_active ?? true,
     onboardingCompleted: true,
@@ -163,7 +164,7 @@ export async function createSupabaseStudentForLichess(
   if (existing.error) throw new Error(existing.error);
 
   const displayName = input.displayName.trim();
-  const classGroup = input.classGroup.trim() || "Unassigned";
+  const classGroup = input.classGroup.trim() || UNASSIGNED_CLASS;
   const publicSlug = await createUniqueSlug(session.lichessUsername || displayName);
 
   const { data, error } = await supabase
@@ -309,7 +310,7 @@ export async function updateSupabaseStudentProfile(
 
   const displayName = input.displayName.trim();
   const publicSlug = slugifyStudent(input.publicSlug || input.lichessUsername || displayName);
-  const classGroup = input.classGroup.trim() || "Unassigned";
+  const classGroup = input.classGroup.trim() || UNASSIGNED_CLASS;
   if (!displayName) throw new Error("Student name is required.");
 
   const { data, error } = await supabase

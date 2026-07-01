@@ -54,6 +54,14 @@ export function AdminScoreSubmissionsTable() {
     setSubmissions(store.studentScoreSubmissions ?? seedSubmissions);
     setProgress(store.studentTacticProgress ?? seedProgress);
     setPendingAwards(store.pendingAwards ?? seedPendingAwards);
+    fetch("/api/admin/submissions", { cache: "no-store", credentials: "include" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data: { scores?: StudentScoreSubmission[] } | null) => {
+        if (data?.scores) setSubmissions(data.scores);
+      })
+      .catch(() => {
+        // Local storage remains the fallback for development.
+      });
   }, []);
 
   function save(nextSubmissions: StudentScoreSubmission[], nextStudents = students, nextProgress = progress, nextPendingAwards = pendingAwards) {
@@ -72,7 +80,24 @@ export function AdminScoreSubmissionsTable() {
     const wasAlreadyApproved = submission.status === "approved";
     const xp = Math.max(0, xpAwards[submission.id] ?? 0);
     const progressAmount = Math.max(0, progressAwards[submission.id] ?? 0);
-    const nextSubmissions = submissions.map((item) => item.id === submission.id ? reviewScoreSubmission(item, action, notes[item.id], xp, progressAmount) : item);
+    const reviewedSubmission = reviewScoreSubmission(submission, action, notes[submission.id], xp, progressAmount);
+    const nextSubmissions = submissions.map((item) => item.id === submission.id ? reviewedSubmission : item);
+    try {
+      const response = await fetch(`/api/admin/submissions/scores/${encodeURIComponent(submission.id)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, teacherNote: notes[submission.id], submission, xpAwarded: xp, tacticProgressAdded: progressAmount })
+      });
+      const data = await response.json() as { submission?: StudentScoreSubmission; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Could not save review.");
+      if (data.submission) {
+        const index = nextSubmissions.findIndex((item) => item.id === submission.id);
+        if (index >= 0) nextSubmissions.splice(index, 1, data.submission);
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Review saved locally, but not to Supabase.");
+    }
     if (action !== "approve" || wasAlreadyApproved) {
       save(nextSubmissions);
       return;

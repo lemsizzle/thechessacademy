@@ -30,6 +30,14 @@ export function AdminGameSubmissionsTable() {
     setBadges(store.badges ?? seedBadges);
     setQuests(store.quests ?? seedQuests);
     setSubmissions(store.studentGameSubmissions ?? seedSubmissions);
+    fetch("/api/admin/submissions", { cache: "no-store", credentials: "include" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data: { games?: StudentGameSubmission[] } | null) => {
+        if (data?.games) setSubmissions(data.games);
+      })
+      .catch(() => {
+        // Local storage remains the fallback for development.
+      });
   }, []);
 
   function save(next: StudentGameSubmission[]) {
@@ -42,8 +50,22 @@ export function AdminGameSubmissionsTable() {
     updateAdminStore({ students: nextStudents });
   }
 
-  function review(submission: StudentGameSubmission, action: SubmissionReviewAction) {
-    save(submissions.map((item) => item.id === submission.id ? reviewGameSubmission(item, action, notes[item.id]) : item));
+  async function review(submission: StudentGameSubmission, action: SubmissionReviewAction) {
+    const reviewed = reviewGameSubmission(submission, action, notes[submission.id]);
+    save(submissions.map((item) => item.id === submission.id ? reviewed : item));
+    try {
+      const response = await fetch(`/api/admin/submissions/games/${encodeURIComponent(submission.id)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, teacherNote: notes[submission.id], submission })
+      });
+      const data = await response.json() as { submission?: StudentGameSubmission; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Could not save review.");
+      if (data.submission) save(submissions.map((item) => item.id === submission.id ? data.submission! : item));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Review saved locally, but not to Supabase.");
+    }
   }
 
   const filtered = useMemo(() => submissions.filter((item) => (

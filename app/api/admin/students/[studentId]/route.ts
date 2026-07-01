@@ -1,4 +1,5 @@
 import { ADMIN_SESSION_COOKIE, isValidAdminActionToken, isValidAdminSession } from "@/lib/auth/adminSession";
+import { UNASSIGNED_CLASS } from "@/lib/classes";
 import { addSupabaseStudentXp, deleteSupabaseStudentById, updateSupabaseStudentProfile } from "@/lib/students/supabaseStudentProfiles";
 import { isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
@@ -89,7 +90,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       : await updateSupabaseStudentProfile(studentId, {
         displayName: body.name ?? "",
         publicSlug: body.publicSlug ?? body.slug ?? body.lichessUsername ?? body.name ?? "",
-        classGroup: body.classGroup ?? "Unassigned",
+        classGroup: body.classGroup ?? UNASSIGNED_CLASS,
         lichessUsername: body.lichessUsername,
         slug: body.slug
       });

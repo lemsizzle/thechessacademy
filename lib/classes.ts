@@ -1,12 +1,17 @@
 import type { ClassGroup, Student } from "@/lib/types";
 
 export const ALL_CLASSES = "All Classes";
+export const UNASSIGNED_CLASS = "Unassigned";
 
 export function getClassGroupNames(classGroups: ClassGroup[], students: Student[]) {
-  return Array.from(new Set([
+  const names = Array.from(new Set([
     ...classGroups.map((group) => group.name),
     ...students.map((student) => student.classGroup)
   ].filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  return [
+    UNASSIGNED_CLASS,
+    ...names.filter((name) => name !== UNASSIGNED_CLASS)
+  ];
 }
 
 export function getClassRoster(students: Student[], classGroup: string) {
