@@ -6,7 +6,7 @@ export function Sidebar({ variant = "public" }: { variant?: NavVariant }) {
   const homeHref = variant === "student" ? "/student" : variant === "admin" ? "/admin" : "/";
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-white/10 bg-slate-950/70 p-4 lg:block">
+    <aside className="scrollbar-soft sticky top-0 hidden h-screen w-56 shrink-0 overflow-y-auto border-r border-white/10 bg-slate-950/70 p-3 md:block lg:w-64 lg:p-4">
       <Link href={homeHref} className="block rounded-lg border border-amber-300/20 bg-amber-300/10 p-4">
         <p className="text-xs font-bold uppercase text-amber-100">Chess Academy</p>
         <p className="mt-1 text-lg font-black text-white">Quest Board</p>
