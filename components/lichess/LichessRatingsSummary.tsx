@@ -6,7 +6,9 @@ import { LichessRatingCard } from "@/components/lichess/LichessRatingCard";
 import { LichessXpSummary } from "@/components/lichess/LichessXpSummary";
 import { studentLichessAccounts as seedAccounts } from "@/data/lichessSync";
 import { mockArenaTournamentResults } from "@/data/tournamentResults";
-import { readAdminStore } from "@/lib/mockStorage";
+import { ADMIN_STORE_UPDATED_EVENT, readAdminStore } from "@/lib/mockStorage";
+import { STUDENT_LICHESS_FULL_SYNC_EVENT } from "@/lib/studentLichessFullSync";
+import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
 import type { Student, StudentLichessAccount } from "@/lib/types";
 import { useEffect, useState } from "react";
@@ -16,11 +18,23 @@ export function LichessRatingsSummary({ student, compact = false, profileBasePat
   const [arenaPoints, setArenaPoints] = useState({ totalPoints: 0, tournamentsPlayed: 0 });
 
   useEffect(() => {
+    function loadRatings() {
     const store = readAdminStore();
     const accounts = store.studentLichessAccounts ?? seedAccounts;
     const nextAccount = accounts.find((item) => item.studentId === student.id);
     setAccount(nextAccount);
     setArenaPoints(getStudentArenaPoints(nextAccount, store.arenaTournamentResults ?? mockArenaTournamentResults));
+    }
+
+    loadRatings();
+    window.addEventListener(STUDENT_LICHESS_SYNC_EVENT, loadRatings);
+    window.addEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, loadRatings);
+    window.addEventListener(ADMIN_STORE_UPDATED_EVENT, loadRatings);
+    return () => {
+      window.removeEventListener(STUDENT_LICHESS_SYNC_EVENT, loadRatings);
+      window.removeEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, loadRatings);
+      window.removeEventListener(ADMIN_STORE_UPDATED_EVENT, loadRatings);
+    };
   }, [student.id]);
 
   if (!account) {

@@ -15,9 +15,10 @@ import { mockArenaTournamentResults } from "@/data/tournamentResults";
 import { xpEvents as seedXpEvents } from "@/data/xpEvents";
 import { getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/getCurrentUser";
 import { getStudentXpWithLichess } from "@/lib/lichessXp";
-import { readAdminStore } from "@/lib/mockStorage";
+import { ADMIN_STORE_UPDATED_EVENT, readAdminStore } from "@/lib/mockStorage";
 import { buildStudentActivityItems } from "@/lib/studentActivity";
 import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
+import { STUDENT_LICHESS_FULL_SYNC_EVENT } from "@/lib/studentLichessFullSync";
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
 import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
 import { getLevelFromXp, getLevelTitle } from "@/lib/xp";
@@ -114,6 +115,22 @@ export function StudentDashboard() {
   }, []);
 
   useEffect(() => {
+    function refreshFromStore() {
+      const store = readAdminStore();
+      setStudent((current) => {
+        if (!current) return current;
+        return (store.students ?? []).find((item) => item.id === current.id) ?? current;
+      });
+      setLichessAccount((current) => {
+        const studentId = student?.id ?? current?.studentId;
+        const account = (store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === studentId);
+        if (account) setArenaPoints(getStudentArenaPoints(account, store.arenaTournamentResults ?? mockArenaTournamentResults));
+        return account ?? current;
+      });
+      setXpEvents([...(store.xpEvents ?? []), ...(store.questXpEvents ?? []), ...(store.tournamentXpEvents ?? []), ...seedXpEvents]);
+      setQuestCompletions(store.questCompletionEvents ?? []);
+    }
+
     function handleSync(event: Event) {
       const detail = (event as CustomEvent<StudentLichessAccount>).detail;
       setLichessAccount((current) => {
@@ -121,10 +138,17 @@ export function StudentDashboard() {
         setArenaPoints(getStudentArenaPoints(detail, readAdminStore().arenaTournamentResults ?? mockArenaTournamentResults));
         return detail;
       });
+      refreshFromStore();
     }
 
     window.addEventListener(STUDENT_LICHESS_SYNC_EVENT, handleSync);
-    return () => window.removeEventListener(STUDENT_LICHESS_SYNC_EVENT, handleSync);
+    window.addEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, refreshFromStore);
+    window.addEventListener(ADMIN_STORE_UPDATED_EVENT, refreshFromStore);
+    return () => {
+      window.removeEventListener(STUDENT_LICHESS_SYNC_EVENT, handleSync);
+      window.removeEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, refreshFromStore);
+      window.removeEventListener(ADMIN_STORE_UPDATED_EVENT, refreshFromStore);
+    };
   }, [student?.id]);
 
   const earned = useMemo(() => allBadges.filter((badge) => student?.badgeIds.includes(badge.id)), [student]);

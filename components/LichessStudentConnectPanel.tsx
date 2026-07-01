@@ -4,8 +4,9 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { lichessConnections as seedConnections, pendingAwards as seedPendingAwards } from "@/data/lichessSync";
 import { studentTacticProgress as seedProgress } from "@/data/studentTacticProgress";
-import { readAdminStore } from "@/lib/mockStorage";
-import { syncStudentLichessEverything } from "@/lib/studentLichessFullSync";
+import { ADMIN_STORE_UPDATED_EVENT, readAdminStore } from "@/lib/mockStorage";
+import { STUDENT_LICHESS_FULL_SYNC_EVENT, syncStudentLichessEverything } from "@/lib/studentLichessFullSync";
+import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
 import type { LichessConnection, PendingAward, Student, StudentTacticProgress } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
@@ -16,23 +17,34 @@ export function LichessStudentConnectPanel({ student, profileBasePath = "/app/st
   const [message, setMessage] = useState("Connect Lichess here. Students can refresh stats, quests, and badges from Lichess Progress after logging in.");
 
   useEffect(() => {
+    function loadConnectionState() {
     const store = readAdminStore();
     const storedProgress = store.studentTacticProgress ?? seedProgress;
     const storedConnections = store.lichessConnections ?? seedConnections;
     const storedAwards = store.pendingAwards ?? seedPendingAwards;
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get("lichess");
 
     setProgress(storedProgress);
     setConnection(storedConnections.find((item) => item.studentId === student.id));
     setPendingAwards(storedAwards.filter((award) => award.studentId === student.id && award.status === "pending"));
+    }
+
+    loadConnectionState();
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("lichess");
 
     if (status === "connected") {
       setMessage("Lichess connected. Syncing your academy progress now.");
       void syncLichess();
     }
-    if (status === "mock") setMessage("Lichess connection could not finish, but mock sync is ready for testing.");
     if (status === "error") setMessage("Lichess connection was not completed. Try connecting again.");
+    window.addEventListener(STUDENT_LICHESS_SYNC_EVENT, loadConnectionState);
+    window.addEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, loadConnectionState);
+    window.addEventListener(ADMIN_STORE_UPDATED_EVENT, loadConnectionState);
+    return () => {
+      window.removeEventListener(STUDENT_LICHESS_SYNC_EVENT, loadConnectionState);
+      window.removeEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, loadConnectionState);
+      window.removeEventListener(ADMIN_STORE_UPDATED_EVENT, loadConnectionState);
+    };
   }, [student.id]);
 
   const topProgress = useMemo(() => (

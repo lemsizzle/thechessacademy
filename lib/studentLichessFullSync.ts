@@ -83,10 +83,10 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
     const puzzleResponse = await fetch("/api/lichess/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, studentId: user.studentId })
+      body: JSON.stringify({ username, studentId: user.studentId, previousAccount: account })
     });
     const puzzleData = await puzzleResponse.json() as {
-      mode?: "mock" | "connected";
+      mode?: "connected" | "error";
       counts?: Array<{ tacticTheme: TacticTheme; puzzlesSolved: number }>;
       ratings?: StudentLichessAccount;
       message?: string;
@@ -107,12 +107,12 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
         lichessUsername: username,
         connectedAt: store.lichessConnections?.find((item) => item.studentId === user.studentId)?.connectedAt ?? today,
         lastSyncedAt: today,
-        status: puzzleData.mode ?? "mock"
+        status: puzzleData.mode === "connected" ? "connected" : "needs-auth"
       };
       const syncLog: LichessSyncLog = {
         id: `lichess-log-${Date.now()}`,
         studentId: user.studentId,
-        level: puzzleData.mode === "mock" ? "warning" : "info",
+        level: puzzleData.mode === "connected" ? "info" : "warning",
         message: `${puzzleData.message ?? "Lichess sync complete"} ${newBadgeAwards.length} pending badge award${newBadgeAwards.length === 1 ? "" : "s"} sent to teacher.`,
         createdAt: today
       };

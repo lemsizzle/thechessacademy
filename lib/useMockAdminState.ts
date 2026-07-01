@@ -9,7 +9,7 @@ import { resources as seedResources } from "@/data/resources";
 import { students as seedStudents } from "@/data/students";
 import { studentGameSubmissions as seedStudentGameSubmissions, studentScoreSubmissions as seedStudentScoreSubmissions } from "@/data/studentSubmissions";
 import { studentTacticProgress as seedStudentTacticProgress } from "@/data/studentTacticProgress";
-import { readAdminStore } from "@/lib/mockStorage";
+import { ADMIN_STORE_UPDATED_EVENT, readAdminStore } from "@/lib/mockStorage";
 import type { Badge, ClassGroup, GameReviewSubmission, LichessConnection, LichessSyncLog, PendingAward, Quest, Resource, Student, StudentGameSubmission, StudentLichessAccount, StudentScoreSubmission, StudentTacticProgress } from "@/lib/types";
 import { useEffect, useState } from "react";
 
@@ -37,6 +37,7 @@ export function useMockAdminState() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    function loadState() {
     const parsed = readAdminStore();
     setStudents(parsed.students ?? seedStudents);
     setBadges(parsed.badges ?? seedBadges);
@@ -52,6 +53,15 @@ export function useMockAdminState() {
     setPendingAwards(parsed.pendingAwards ?? seedPendingAwards);
     setLichessSyncLogs(parsed.lichessSyncLogs ?? seedLichessSyncLogs);
     setLoaded(true);
+    }
+
+    loadState();
+    window.addEventListener(ADMIN_STORE_UPDATED_EVENT, loadState);
+    window.addEventListener("storage", loadState);
+    return () => {
+      window.removeEventListener(ADMIN_STORE_UPDATED_EVENT, loadState);
+      window.removeEventListener("storage", loadState);
+    };
   }, []);
 
   return { students, badges, quests, classGroups, resources, studentTacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, studentGameSubmissions, studentScoreSubmissions, pendingAwards, lichessSyncLogs, loaded };

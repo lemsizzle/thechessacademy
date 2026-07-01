@@ -2,6 +2,7 @@ import type { ActivityEvent, ArenaTournamentResult, Badge, ClassGroup, GameAnaly
 
 export const ADMIN_STORE_KEY = "quest-board-admin-state-v1";
 export const ADMIN_SESSION_KEY = "quest-board-admin";
+export const ADMIN_STORE_UPDATED_EVENT = "quest-board-admin-store-updated";
 
 export type AdminStoreState = {
   students?: Student[];
@@ -49,6 +50,7 @@ export function readAdminStore(): AdminStoreState {
 export function updateAdminStore(patch: Partial<AdminStoreState>) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(ADMIN_STORE_KEY, JSON.stringify({ ...readAdminStore(), ...patch }));
+  window.dispatchEvent(new CustomEvent(ADMIN_STORE_UPDATED_EVENT));
 }
 
 export function hasAdminSession() {

@@ -14,8 +14,10 @@ import { allBadges } from "@/data/badges";
 import { xpEvents as seedXpEvents } from "@/data/xpEvents";
 import { getTacticProgressCount } from "@/lib/lichess";
 import { findStudentLichessAccount, getStudentXpWithLichess } from "@/lib/lichessXp";
-import { hasAdminSession, readAdminStore } from "@/lib/mockStorage";
+import { ADMIN_STORE_UPDATED_EVENT, hasAdminSession, readAdminStore } from "@/lib/mockStorage";
 import { buildStudentActivityItems } from "@/lib/studentActivity";
+import { STUDENT_LICHESS_FULL_SYNC_EVENT } from "@/lib/studentLichessFullSync";
+import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
 import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
 import { useMockAdminState } from "@/lib/useMockAdminState";
 import type { Badge, Quest, QuestCompletionEvent, Student, XpEvent } from "@/lib/types";
@@ -99,11 +101,23 @@ export function StudentProfile({
   const visibleQuests = quests.filter((quest) => quest.isLive || effectiveStudent.completedQuestIds?.includes(quest.id));
 
   useEffect(() => {
+    function loadLocalProfileState() {
     setIsAdmin(hasAdminSession());
     const store = readAdminStore();
     setLocalStudents(store.students ?? []);
     setLocalXpEvents([...(store.xpEvents ?? []), ...(store.questXpEvents ?? []), ...(store.tournamentXpEvents ?? [])]);
     setLocalQuestCompletions(store.questCompletionEvents ?? []);
+    }
+
+    loadLocalProfileState();
+    window.addEventListener(STUDENT_LICHESS_SYNC_EVENT, loadLocalProfileState);
+    window.addEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, loadLocalProfileState);
+    window.addEventListener(ADMIN_STORE_UPDATED_EVENT, loadLocalProfileState);
+    return () => {
+      window.removeEventListener(STUDENT_LICHESS_SYNC_EVENT, loadLocalProfileState);
+      window.removeEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, loadLocalProfileState);
+      window.removeEventListener(ADMIN_STORE_UPDATED_EVENT, loadLocalProfileState);
+    };
   }, []);
 
   return (
