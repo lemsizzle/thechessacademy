@@ -13,6 +13,8 @@ type RawGame = {
   moves?: string;
   pgn?: string;
   winner?: "white" | "black";
+  winnerColor?: "white" | "black";
+  color?: "white" | "black";
   players?: {
     white?: { user?: { id?: string; name?: string } };
     black?: { user?: { id?: string; name?: string } };
@@ -22,7 +24,20 @@ type RawGame = {
 export type LichessGamePerfType = "bullet" | "blitz" | "rapid" | "classical" | "correspondence";
 
 function normalizeUsername(value?: string) {
-  return value?.toLowerCase() ?? "";
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function getPgnHeader(pgn: string | undefined, name: string) {
+  if (!pgn) return undefined;
+  const match = pgn.match(new RegExp(`\\[${name}\\s+"([^"]+)"\\]`, "i"));
+  return match?.[1];
+}
+
+function getWinnerFromPgn(pgn?: string) {
+  const result = getPgnHeader(pgn, "Result") ?? pgn?.match(/\b(1-0|0-1|1\/2-1\/2)\b/)?.[1];
+  if (result === "1-0") return "white" as const;
+  if (result === "0-1") return "black" as const;
+  return undefined;
 }
 
 function countMovesFromPgn(pgn?: string) {
@@ -64,9 +79,18 @@ async function fetchRawGames(username: string, params: URLSearchParams, accessTo
 
 function mapGame(game: RawGame, username: string, fallbackPerfType: LichessGamePerfType): LichessQuestGame {
   const safeUsername = normalizeUsername(username);
-  const white = normalizeUsername(game.players?.white?.user?.name ?? game.players?.white?.user?.id);
-  const black = normalizeUsername(game.players?.black?.user?.name ?? game.players?.black?.user?.id);
-  const studentColor = white === safeUsername ? "white" : black === safeUsername ? "black" : undefined;
+  const whiteCandidates = [
+    game.players?.white?.user?.name,
+    game.players?.white?.user?.id,
+    getPgnHeader(game.pgn, "White")
+  ].map(normalizeUsername).filter(Boolean);
+  const blackCandidates = [
+    game.players?.black?.user?.name,
+    game.players?.black?.user?.id,
+    getPgnHeader(game.pgn, "Black")
+  ].map(normalizeUsername).filter(Boolean);
+  const studentColor = whiteCandidates.includes(safeUsername) ? "white" : blackCandidates.includes(safeUsername) ? "black" : game.color;
+  const winner = game.winner ?? game.winnerColor ?? getWinnerFromPgn(game.pgn);
   const moveCount = countFullMoves(game);
   return {
     id: game.id ?? crypto.randomUUID(),
@@ -76,7 +100,7 @@ function mapGame(game: RawGame, username: string, fallbackPerfType: LichessGameP
     finished: !["aborted", "created", "started"].includes(game.status ?? ""),
     turns: game.turns ?? 0,
     moveCount,
-    won: Boolean(studentColor && game.winner === studentColor)
+    won: Boolean(studentColor && winner === studentColor)
   };
 }
 

@@ -662,7 +662,12 @@ export function AdminPanel({
           const response = await fetch("/api/lichess/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, studentId: student.id, includePuzzles: false })
+            body: JSON.stringify({
+              username,
+              studentId: student.id,
+              includePuzzles: false,
+              previousAccount: nextAccounts.find((item) => item.studentId === student.id)
+            })
           });
           const result = await response.json() as {
             mode?: "mock" | "connected";
