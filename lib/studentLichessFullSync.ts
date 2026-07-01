@@ -59,7 +59,12 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
   let account: StudentLichessAccount | undefined;
 
   try {
-    const syncResponse = await fetch("/api/lichess/sync/me", { method: "POST" });
+    const previousAccount = (store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === user.studentId);
+    const syncResponse = await fetch("/api/lichess/sync/me", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ previousAccount })
+    });
     const syncData = await syncResponse.json() as { account?: StudentLichessAccount; message?: string };
     if (syncResponse.ok && syncData.account) {
       account = saveStudentLichessAccount(syncData.account);

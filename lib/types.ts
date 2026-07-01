@@ -335,6 +335,9 @@ export type StudentLichessAccount = {
   rapidProvisional: boolean;
   puzzleRating?: number | null;
   puzzleGames?: number;
+  blitzWins?: number;
+  rapidWins?: number;
+  puzzleCorrect?: number;
   peakBlitzRating?: number;
   peakRapidRating?: number;
   peakPuzzleRating?: number;
@@ -344,6 +347,9 @@ export type StudentLichessAccount = {
   baselineBlitzGames?: number;
   baselineRapidGames?: number;
   baselinePuzzleGames?: number;
+  baselineBlitzWins?: number;
+  baselineRapidWins?: number;
+  baselinePuzzleCorrect?: number;
   activityBaselineSetAt?: string;
   linkedAt: string;
   lastRatingSyncAt?: string;

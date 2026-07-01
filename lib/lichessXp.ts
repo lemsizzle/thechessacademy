@@ -6,8 +6,11 @@ export const LICHESS_XP_RULES = {
   competitiveRatingXpPerStep: 15,
   puzzleRatingXpPerStep: 10,
   maximumRatingSteps: 12,
-  puzzleXp: 1,
-  ratedGameXp: 2
+  rapidGamePlayedXp: 5,
+  rapidGameWonXp: 10,
+  blitzGamePlayedXp: 2,
+  blitzGameWonXp: 5,
+  puzzleCorrectXp: 5
 };
 
 function ratingMilestoneXp(rating: number | null | undefined, xpPerStep: number) {
@@ -40,10 +43,16 @@ export function withLichessActivityBaseline(account: StudentLichessAccount, prev
 
   return {
     ...account,
+    blitzWins: account.blitzWins ?? previousBaseline?.blitzWins ?? 0,
+    rapidWins: account.rapidWins ?? previousBaseline?.rapidWins ?? 0,
+    puzzleCorrect: account.puzzleCorrect ?? previousBaseline?.puzzleCorrect ?? 0,
     linkedAt: previousBaseline?.linkedAt ?? account.linkedAt,
     baselineBlitzGames: previousBaseline?.baselineBlitzGames ?? previousBaseline?.blitzGames ?? account.blitzGames,
     baselineRapidGames: previousBaseline?.baselineRapidGames ?? previousBaseline?.rapidGames ?? account.rapidGames,
     baselinePuzzleGames: previousBaseline?.baselinePuzzleGames ?? previousBaseline?.puzzleGames ?? account.puzzleGames ?? 0,
+    baselineBlitzWins: previousBaseline?.baselineBlitzWins ?? 0,
+    baselineRapidWins: previousBaseline?.baselineRapidWins ?? 0,
+    baselinePuzzleCorrect: previousBaseline?.baselinePuzzleCorrect ?? 0,
     baselineBlitzRating: previousBaseline?.baselineBlitzRating ?? previousBaseline?.peakBlitzRating ?? highestRating(previousBaseline?.blitzProvisional ? undefined : previousBaseline?.blitzRating, currentBlitzRating),
     baselineRapidRating: previousBaseline?.baselineRapidRating ?? previousBaseline?.peakRapidRating ?? highestRating(previousBaseline?.rapidProvisional ? undefined : previousBaseline?.rapidRating, currentRapidRating),
     baselinePuzzleRating: previousBaseline?.baselinePuzzleRating ?? previousBaseline?.peakPuzzleRating ?? highestRating(previousBaseline?.puzzleRating, currentPuzzleRating),
@@ -75,10 +84,17 @@ export function getLichessXpBreakdown(account?: StudentLichessAccount) {
   const puzzleRatingXp = xpSinceRatingBaseline(puzzlePeak, baselinePuzzleRating, LICHESS_XP_RULES.puzzleRatingXpPerStep);
   const blitzGamesAfterLogin = countSinceBaseline(account?.blitzGames, account?.baselineBlitzGames);
   const rapidGamesAfterLogin = countSinceBaseline(account?.rapidGames, account?.baselineRapidGames);
+  const blitzWinsAfterLogin = countSinceBaseline(account?.blitzWins, account?.baselineBlitzWins);
+  const rapidWinsAfterLogin = countSinceBaseline(account?.rapidWins, account?.baselineRapidWins);
   const puzzlesAfterLogin = countSinceBaseline(account?.puzzleGames, account?.baselinePuzzleGames);
+  const puzzleCorrectAfterLogin = countSinceBaseline(account?.puzzleCorrect ?? account?.puzzleGames, account?.baselinePuzzleCorrect ?? account?.baselinePuzzleGames);
   const ratedGamesAfterLogin = blitzGamesAfterLogin + rapidGamesAfterLogin;
-  const ratedGameXp = ratedGamesAfterLogin * LICHESS_XP_RULES.ratedGameXp;
-  const puzzleActivityXp = puzzlesAfterLogin * LICHESS_XP_RULES.puzzleXp;
+  const blitzGameXp = blitzGamesAfterLogin * LICHESS_XP_RULES.blitzGamePlayedXp;
+  const blitzWinXp = blitzWinsAfterLogin * Math.max(0, LICHESS_XP_RULES.blitzGameWonXp - LICHESS_XP_RULES.blitzGamePlayedXp);
+  const rapidGameXp = rapidGamesAfterLogin * LICHESS_XP_RULES.rapidGamePlayedXp;
+  const rapidWinXp = rapidWinsAfterLogin * Math.max(0, LICHESS_XP_RULES.rapidGameWonXp - LICHESS_XP_RULES.rapidGamePlayedXp);
+  const ratedGameXp = rapidGameXp + rapidWinXp + blitzGameXp + blitzWinXp;
+  const puzzleActivityXp = puzzleCorrectAfterLogin * LICHESS_XP_RULES.puzzleCorrectXp;
   const ratingXp = blitzRatingXp + rapidRatingXp + puzzleRatingXp;
   const activityXp = ratedGameXp + puzzleActivityXp;
 
@@ -92,8 +108,15 @@ export function getLichessXpBreakdown(account?: StudentLichessAccount) {
     ratingXp,
     blitzGamesAfterLogin,
     rapidGamesAfterLogin,
+    blitzWinsAfterLogin,
+    rapidWinsAfterLogin,
     ratedGamesAfterLogin,
     puzzlesAfterLogin,
+    puzzleCorrectAfterLogin,
+    blitzGameXp,
+    blitzWinXp,
+    rapidGameXp,
+    rapidWinXp,
     ratedGameXp,
     puzzleActivityXp,
     activityXp,

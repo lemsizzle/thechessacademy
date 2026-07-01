@@ -14,11 +14,13 @@ export function LichessXpSummary({ account }: { account?: StudentLichessAccount 
         </p>
         <p className="text-slate-300">
           New activity: <span className="font-bold text-white">{xp.activityXp} XP</span>
-          <span className="block text-slate-500">{xp.ratedGamesAfterLogin} rated games + {xp.puzzlesAfterLogin} puzzles after first login</span>
+          <span className="block text-slate-500">
+            Rapid {xp.rapidGamesAfterLogin} played/{xp.rapidWinsAfterLogin} won, Blitz {xp.blitzGamesAfterLogin} played/{xp.blitzWinsAfterLogin} won, {xp.puzzleCorrectAfterLogin} puzzles correct after first login
+          </span>
         </p>
       </div>
       <p className="mt-2 text-[11px] text-slate-500">
-        Every {LICHESS_XP_RULES.ratingStep} rating above {LICHESS_XP_RULES.ratingFloor} earns {LICHESS_XP_RULES.competitiveRatingXpPerStep} XP in established Blitz/Rapid or {LICHESS_XP_RULES.puzzleRatingXpPerStep} XP in Puzzle. Highest earned rating is kept.
+        Activity XP: rapid games +{LICHESS_XP_RULES.rapidGamePlayedXp}, rapid wins total +{LICHESS_XP_RULES.rapidGameWonXp}, blitz games +{LICHESS_XP_RULES.blitzGamePlayedXp}, blitz wins total +{LICHESS_XP_RULES.blitzGameWonXp}, puzzle correct +{LICHESS_XP_RULES.puzzleCorrectXp}. Rating milestones still count after first login.
       </p>
     </div>
   );
