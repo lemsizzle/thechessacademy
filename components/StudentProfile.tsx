@@ -6,6 +6,7 @@ import { Card } from "@/components/Card";
 import { LichessStudentConnectPanel } from "@/components/LichessStudentConnectPanel";
 import { LichessRatingsSummary } from "@/components/lichess/LichessRatingsSummary";
 import { StudentCallingCard } from "@/components/StudentCallingCard";
+import { StudentActivityTimeline } from "@/components/StudentActivityTimeline";
 import { StudentTournamentSummary } from "@/components/tournaments/StudentTournamentSummary";
 import { StudentLichessQuestSummary } from "@/components/quests/StudentLichessQuestSummary";
 import { XpBar } from "@/components/XpBar";
@@ -14,9 +15,10 @@ import { xpEvents as seedXpEvents } from "@/data/xpEvents";
 import { getTacticProgressCount } from "@/lib/lichess";
 import { findStudentLichessAccount, getStudentXpWithLichess } from "@/lib/lichessXp";
 import { hasAdminSession, readAdminStore } from "@/lib/mockStorage";
+import { buildStudentActivityItems } from "@/lib/studentActivity";
 import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
 import { useMockAdminState } from "@/lib/useMockAdminState";
-import type { Badge, Quest, Student, XpEvent } from "@/lib/types";
+import type { Badge, Quest, QuestCompletionEvent, Student, XpEvent } from "@/lib/types";
 import { useEffect, useState, type ReactNode } from "react";
 
 function QuestLogSection({
@@ -78,10 +80,20 @@ export function StudentProfile({
   const quests = initialQuests ?? adminQuests;
   const [isAdmin, setIsAdmin] = useState(false);
   const [localXpEvents, setLocalXpEvents] = useState<XpEvent[]>([]);
+  const [localQuestCompletions, setLocalQuestCompletions] = useState<QuestCompletionEvent[]>([]);
   const lichessAccount = findStudentLichessAccount(effectiveStudent, studentLichessAccounts);
   const xp = getStudentXpWithLichess(effectiveStudent, lichessAccount);
   const earned = badges.filter((badge) => effectiveStudent.badgeIds.includes(badge.id));
   const events = [...localXpEvents, ...xpEvents].filter((event) => event.studentId === effectiveStudent.id);
+  const activityItems = buildStudentActivityItems({
+    student: effectiveStudent,
+    badges,
+    quests,
+    xpEvents: events,
+    questCompletions: localQuestCompletions,
+    lichessAccount,
+    limit: 10
+  });
   const nextBadge = getClosestNextTacticBadge(effectiveStudent.id);
   const completedQuests = quests.filter((quest) => effectiveStudent.completedQuestIds?.includes(quest.id));
   const visibleQuests = quests.filter((quest) => quest.isLive || effectiveStudent.completedQuestIds?.includes(quest.id));
@@ -91,6 +103,7 @@ export function StudentProfile({
     const store = readAdminStore();
     setLocalStudents(store.students ?? []);
     setLocalXpEvents([...(store.xpEvents ?? []), ...(store.questXpEvents ?? []), ...(store.tournamentXpEvents ?? [])]);
+    setLocalQuestCompletions(store.questCompletionEvents ?? []);
   }, []);
 
   return (
@@ -176,18 +189,8 @@ export function StudentProfile({
           )}
         </QuestLogSection>
 
-        <QuestLogSection title="Recent Achievements" summary={earned.length ? earned.slice(0, 2).map((badge) => badge.name).join(", ") : "No achievements yet"}>
-          <div className="space-y-3 text-sm text-slate-300">
-            {earned.slice(0, 4).map((badge) => <p key={badge.id}>Earned {badge.name}</p>)}
-            {earned.length === 0 && <p>No achievements yet.</p>}
-          </div>
-        </QuestLogSection>
-
-        <QuestLogSection title="XP History" summary={`${events.length} recent event${events.length === 1 ? "" : "s"}`}>
-          <div className="space-y-3 text-sm text-slate-300">
-            {events.map((event) => <p key={event.id}>{event.amount >= 0 ? "+" : ""}{event.amount} XP - {event.reason}</p>)}
-            {events.length === 0 && <p>No recent XP events yet.</p>}
-          </div>
+        <QuestLogSection title="Recent Activity" summary={`${activityItems.length} recent update${activityItems.length === 1 ? "" : "s"}`} defaultOpen>
+          <StudentActivityTimeline items={activityItems} />
         </QuestLogSection>
       </div>
     </div>

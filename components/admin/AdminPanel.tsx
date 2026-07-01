@@ -3,6 +3,7 @@
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { StudentActivityTimeline } from "@/components/StudentActivityTimeline";
 import { BadgeGeneratorPanel } from "@/components/admin/BadgeGeneratorPanel";
 import { activity } from "@/data/activity";
 import { allBadges as seedBadges, conceptThemes, tacticThemes } from "@/data/badges";
@@ -25,6 +26,7 @@ import { formatCountdown, isQuestAttemptActive } from "@/lib/quests/questAttempt
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
 import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
 import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
+import { buildStudentActivityItems } from "@/lib/studentActivity";
 import type { ArenaTournamentResult, Badge, BadgeCategory, BadgeTier, ClassGroup, ConceptTheme, GameReviewSubmission, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, Quest, QuestCompletionEvent, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, Student, StudentLichessAccount, StudentQuestAttempt, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
@@ -356,6 +358,20 @@ export function AdminPanel({
   const currentStudentQuestProgress = lichessQuestProgress.filter((item) => item.studentId === currentStudent?.id);
   const currentStudentQuestAwards = pendingQuestAwards.filter((item) => item.studentId === currentStudent?.id);
   const currentStudentQuestCompletions = questCompletionEvents.filter((item) => item.studentId === currentStudent?.id);
+  const storeSnapshot = readAdminStore();
+  const currentStudentActivityItems = currentStudent ? buildStudentActivityItems({
+    student: currentStudent,
+    badges,
+    quests,
+    xpEvents: [
+      ...(storeSnapshot.xpEvents ?? []),
+      ...(storeSnapshot.questXpEvents ?? []),
+      ...(storeSnapshot.tournamentXpEvents ?? [])
+    ],
+    questCompletions: currentStudentQuestCompletions,
+    lichessAccount: currentStudentLichessAccount,
+    limit: 10
+  }) : [];
   const trackedLichessQuests = quests.filter((quest) => quest.source?.startsWith("lichess_") && quest.isActive !== false);
 
   useEffect(() => {
@@ -1439,6 +1455,21 @@ export function AdminPanel({
     </Card>
   );
 
+  const studentActivityPanel = currentStudent && (
+    <Card className="p-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-black text-white">Selected Student Activity</h2>
+          <p className="mt-1 text-sm text-slate-400">Recent XP, Lichess activity, quest completions, and badge unlocks for {currentStudent.name}.</p>
+        </div>
+        <span className="rounded bg-cyan-300/10 px-2 py-1 text-xs font-black text-cyan-100">{currentStudentActivityItems.length} updates</span>
+      </div>
+      <div className="mt-4">
+        <StudentActivityTimeline items={currentStudentActivityItems} />
+      </div>
+    </Card>
+  );
+
   const xpEditor = currentStudent && (
     <Card className="p-4">
       <h2 className="font-black text-white">XP and Badge Awards</h2>
@@ -1930,7 +1961,7 @@ export function AdminPanel({
   );
 
   if (mode === "activity") return <ActivityFeed events={activity} />;
-  if (mode === "students") return <div className="space-y-5">{studentSyncAllPanel}{studentQuestOverviewPanel}{studentEditor}{studentQuestProgressPanel}{lichessSyncPanel}{localTools}{logPanel}</div>;
+  if (mode === "students") return <div className="space-y-5">{studentSyncAllPanel}{studentQuestOverviewPanel}{studentEditor}{studentActivityPanel}{studentQuestProgressPanel}{lichessSyncPanel}{localTools}{logPanel}</div>;
   if (mode === "classes") return <div className="space-y-5">{outschoolPanel}{localTools}{logPanel}</div>;
   if (mode === "badges") return <div className="space-y-5">{badgeEditor}{localTools}{logPanel}</div>;
   if (mode === "xp") return <div className="space-y-5">{xpEditor}{localTools}{logPanel}</div>;
@@ -1942,6 +1973,7 @@ export function AdminPanel({
         {studentSyncAllPanel}
         {studentQuestOverviewPanel}
         {studentEditor}
+        {studentActivityPanel}
         {studentQuestProgressPanel}
         {outschoolPanel}
         {xpEditor}

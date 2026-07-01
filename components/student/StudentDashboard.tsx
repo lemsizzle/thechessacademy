@@ -3,6 +3,7 @@
 import { BadgeCard } from "@/components/BadgeCard";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { StudentActivityTimeline } from "@/components/StudentActivityTimeline";
 import { LinkedLichessCard } from "@/components/student/LinkedLichessCard";
 import { XpBar } from "@/components/XpBar";
 import { StudentTournamentSummary } from "@/components/tournaments/StudentTournamentSummary";
@@ -11,21 +12,25 @@ import { studentLichessAccounts as seedAccounts } from "@/data/lichessSync";
 import { studentGameSubmissions as seedGameSubmissions, studentScoreSubmissions as seedScoreSubmissions } from "@/data/studentSubmissions";
 import { students as seedStudents } from "@/data/students";
 import { mockArenaTournamentResults } from "@/data/tournamentResults";
+import { xpEvents as seedXpEvents } from "@/data/xpEvents";
 import { getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/getCurrentUser";
 import { getStudentXpWithLichess } from "@/lib/lichessXp";
 import { readAdminStore } from "@/lib/mockStorage";
+import { buildStudentActivityItems } from "@/lib/studentActivity";
 import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
 import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
 import { getLevelFromXp, getLevelTitle } from "@/lib/xp";
 import { useEffect, useMemo, useState } from "react";
-import type { Student, StudentGameSubmission, StudentLichessAccount, StudentScoreSubmission, StudentUser } from "@/lib/types";
+import type { QuestCompletionEvent, Student, StudentGameSubmission, StudentLichessAccount, StudentScoreSubmission, StudentUser, XpEvent } from "@/lib/types";
 
 export function StudentDashboard() {
   const [student, setStudent] = useState<Student | undefined>();
   const [lichessAccount, setLichessAccount] = useState<StudentLichessAccount | undefined>();
   const [gameSubmissions, setGameSubmissions] = useState<StudentGameSubmission[]>([]);
   const [scoreSubmissions, setScoreSubmissions] = useState<StudentScoreSubmission[]>([]);
+  const [xpEvents, setXpEvents] = useState<XpEvent[]>([]);
+  const [questCompletions, setQuestCompletions] = useState<QuestCompletionEvent[]>([]);
   const [arenaPoints, setArenaPoints] = useState({ totalPoints: 0, tournamentsPlayed: 0 });
   const [loaded, setLoaded] = useState(false);
   const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
@@ -97,6 +102,8 @@ export function StudentDashboard() {
       setArenaPoints(getStudentArenaPoints(account, store.arenaTournamentResults ?? mockArenaTournamentResults));
       setGameSubmissions((store.studentGameSubmissions ?? seedGameSubmissions).filter((item) => item.studentId === current?.id));
       setScoreSubmissions((store.studentScoreSubmissions ?? seedScoreSubmissions).filter((item) => item.studentId === current?.id));
+      setXpEvents([...(store.xpEvents ?? []), ...(store.questXpEvents ?? []), ...(store.tournamentXpEvents ?? []), ...seedXpEvents]);
+      setQuestCompletions(store.questCompletionEvents ?? []);
       setLoaded(true);
     }
 
@@ -123,6 +130,14 @@ export function StudentDashboard() {
   const earned = useMemo(() => allBadges.filter((badge) => student?.badgeIds.includes(badge.id)), [student]);
   const nextBadge = student ? getClosestNextTacticBadge(student.id) : undefined;
   const pendingCount = [...gameSubmissions, ...scoreSubmissions].filter((item) => item.status === "pending").length;
+  const activityItems = student ? buildStudentActivityItems({
+    student,
+    badges: allBadges,
+    xpEvents,
+    questCompletions,
+    lichessAccount,
+    limit: 8
+  }) : [];
 
   if (!loaded) return <Card className="p-4 text-sm text-slate-300">Loading student dashboard...</Card>;
   if (!student) return <Card className="p-4 text-sm text-slate-300">No student record found. Try logging out and logging in with Lichess again.</Card>;
@@ -191,6 +206,16 @@ export function StudentDashboard() {
         </Card>
       </div>
       <StudentTournamentSummary student={student} />
+
+      <Card className="p-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-black text-white">Recent Activity</h2>
+          <p className="text-xs font-bold text-slate-500">Games, puzzles, quests, badges, and XP</p>
+        </div>
+        <div className="mt-4">
+          <StudentActivityTimeline items={activityItems} />
+        </div>
+      </Card>
 
       {nextBadge && (
         <Card className="p-4">
