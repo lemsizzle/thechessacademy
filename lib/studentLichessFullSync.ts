@@ -19,6 +19,9 @@ type QuestEvaluationResponse = {
   autoApprovedAwards?: PendingQuestAward[];
   autoCompletions?: QuestCompletionEvent[];
   snapshots?: LichessActivitySnapshot[];
+  xpEvents?: Array<{ id: string; studentId: string; amount: number; reason: string; createdAt: string }>;
+  xpPersisted?: boolean;
+  xpError?: string;
   error?: string;
 };
 
@@ -172,7 +175,7 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
     pendingQuestAwards: [...data.newAwards, ...(store.pendingQuestAwards ?? [])],
     questCompletionEvents: [...autoCompletions, ...(store.questCompletionEvents ?? [])],
     studentQuestAttempts: nextQuestAttempts,
-    questXpEvents: [...autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today })), ...(store.questXpEvents ?? [])],
+    questXpEvents: [...(data.xpEvents?.length ? data.xpEvents : autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today }))), ...(store.questXpEvents ?? [])],
     questActivityEvents: [...autoApprovedAwards.map((award) => ({ id: `activity-${award.id}`, title: "Lichess quest auto-completed", detail: `${award.title} awarded ${award.xpAmount} XP.`, createdAt: today })), ...(store.questActivityEvents ?? [])],
     students: nextStudents,
     lichessActivitySnapshots: [...(data.snapshots ?? []), ...(store.lichessActivitySnapshots ?? [])]
@@ -195,7 +198,7 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
     autoCompletedCount: autoCompletions.length,
     approvalCount: data.newAwards.length,
     badgeAwardCount,
-    message: `${data.progress.length} Lichess quests checked. ${autoCompletions.length} auto-completed with XP. ${badgeAwardCount} badge award${badgeAwardCount === 1 ? "" : "s"} found.`
+    message: `${data.progress.length} Lichess quests checked. ${autoCompletions.length} auto-completed${data.xpError ? ", but XP could not be saved to Supabase" : " with XP"}. ${badgeAwardCount} badge award${badgeAwardCount === 1 ? "" : "s"} found.`
   };
 
   window.dispatchEvent(new CustomEvent(STUDENT_LICHESS_FULL_SYNC_EVENT, { detail: result }));
