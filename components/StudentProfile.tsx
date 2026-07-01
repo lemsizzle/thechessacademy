@@ -20,7 +20,7 @@ import { STUDENT_LICHESS_FULL_SYNC_EVENT } from "@/lib/studentLichessFullSync";
 import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
 import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
 import { useMockAdminState } from "@/lib/useMockAdminState";
-import type { Badge, Quest, QuestCompletionEvent, Student, XpEvent } from "@/lib/types";
+import type { Badge, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentQuestAttempt, XpEvent } from "@/lib/types";
 import { useEffect, useState, type ReactNode } from "react";
 
 function QuestLogSection({
@@ -83,6 +83,8 @@ export function StudentProfile({
   const [isAdmin, setIsAdmin] = useState(false);
   const [localXpEvents, setLocalXpEvents] = useState<XpEvent[]>([]);
   const [localQuestCompletions, setLocalQuestCompletions] = useState<QuestCompletionEvent[]>([]);
+  const [localQuestProgress, setLocalQuestProgress] = useState<LichessQuestProgress[]>([]);
+  const [localQuestAttempts, setLocalQuestAttempts] = useState<StudentQuestAttempt[]>([]);
   const lichessAccount = findStudentLichessAccount(effectiveStudent, studentLichessAccounts);
   const xp = getStudentXpWithLichess(effectiveStudent, lichessAccount);
   const earned = badges.filter((badge) => effectiveStudent.badgeIds.includes(badge.id));
@@ -92,7 +94,9 @@ export function StudentProfile({
     badges,
     quests,
     xpEvents: events,
+    questProgress: localQuestProgress,
     questCompletions: localQuestCompletions,
+    questAttempts: localQuestAttempts,
     lichessAccount,
     limit: 10
   });
@@ -107,6 +111,8 @@ export function StudentProfile({
     setLocalStudents(store.students ?? []);
     setLocalXpEvents([...(store.xpEvents ?? []), ...(store.questXpEvents ?? []), ...(store.tournamentXpEvents ?? [])]);
     setLocalQuestCompletions(store.questCompletionEvents ?? []);
+    setLocalQuestProgress(store.lichessQuestProgress ?? []);
+    setLocalQuestAttempts(store.studentQuestAttempts ?? []);
     }
 
     loadLocalProfileState();

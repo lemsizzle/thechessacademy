@@ -9,6 +9,7 @@ import { XpBar } from "@/components/XpBar";
 import { StudentTournamentSummary } from "@/components/tournaments/StudentTournamentSummary";
 import { allBadges } from "@/data/badges";
 import { studentLichessAccounts as seedAccounts } from "@/data/lichessSync";
+import { quests as seedQuests } from "@/data/quests";
 import { studentGameSubmissions as seedGameSubmissions, studentScoreSubmissions as seedScoreSubmissions } from "@/data/studentSubmissions";
 import { students as seedStudents } from "@/data/students";
 import { mockArenaTournamentResults } from "@/data/tournamentResults";
@@ -23,7 +24,7 @@ import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
 import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
 import { getLevelFromXp, getLevelTitle } from "@/lib/xp";
 import { useEffect, useMemo, useState } from "react";
-import type { QuestCompletionEvent, Student, StudentGameSubmission, StudentLichessAccount, StudentScoreSubmission, StudentUser, XpEvent } from "@/lib/types";
+import type { LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentGameSubmission, StudentLichessAccount, StudentQuestAttempt, StudentScoreSubmission, StudentUser, XpEvent } from "@/lib/types";
 
 export function StudentDashboard() {
   const [student, setStudent] = useState<Student | undefined>();
@@ -31,7 +32,10 @@ export function StudentDashboard() {
   const [gameSubmissions, setGameSubmissions] = useState<StudentGameSubmission[]>([]);
   const [scoreSubmissions, setScoreSubmissions] = useState<StudentScoreSubmission[]>([]);
   const [xpEvents, setXpEvents] = useState<XpEvent[]>([]);
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [questProgress, setQuestProgress] = useState<LichessQuestProgress[]>([]);
   const [questCompletions, setQuestCompletions] = useState<QuestCompletionEvent[]>([]);
+  const [questAttempts, setQuestAttempts] = useState<StudentQuestAttempt[]>([]);
   const [arenaPoints, setArenaPoints] = useState({ totalPoints: 0, tournamentsPlayed: 0 });
   const [loaded, setLoaded] = useState(false);
   const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
@@ -104,7 +108,10 @@ export function StudentDashboard() {
       setGameSubmissions((store.studentGameSubmissions ?? seedGameSubmissions).filter((item) => item.studentId === current?.id));
       setScoreSubmissions((store.studentScoreSubmissions ?? seedScoreSubmissions).filter((item) => item.studentId === current?.id));
       setXpEvents([...(store.xpEvents ?? []), ...(store.questXpEvents ?? []), ...(store.tournamentXpEvents ?? []), ...seedXpEvents]);
+      setQuests(store.quests ?? seedQuests);
+      setQuestProgress((store.lichessQuestProgress ?? []).filter((item) => item.studentId === current?.id));
       setQuestCompletions(store.questCompletionEvents ?? []);
+      setQuestAttempts((store.studentQuestAttempts ?? []).filter((item) => item.studentId === current?.id));
       setLoaded(true);
     }
 
@@ -117,18 +124,22 @@ export function StudentDashboard() {
   useEffect(() => {
     function refreshFromStore() {
       const store = readAdminStore();
+      const activeStudentId = student?.id ?? lichessAccount?.studentId;
       setStudent((current) => {
         if (!current) return current;
         return (store.students ?? []).find((item) => item.id === current.id) ?? current;
       });
       setLichessAccount((current) => {
-        const studentId = student?.id ?? current?.studentId;
+        const studentId = activeStudentId ?? current?.studentId;
         const account = (store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === studentId);
         if (account) setArenaPoints(getStudentArenaPoints(account, store.arenaTournamentResults ?? mockArenaTournamentResults));
         return account ?? current;
       });
       setXpEvents([...(store.xpEvents ?? []), ...(store.questXpEvents ?? []), ...(store.tournamentXpEvents ?? []), ...seedXpEvents]);
-      setQuestCompletions(store.questCompletionEvents ?? []);
+      setQuests(store.quests ?? seedQuests);
+      setQuestProgress((store.lichessQuestProgress ?? []).filter((item) => item.studentId === activeStudentId));
+      setQuestCompletions((store.questCompletionEvents ?? []).filter((item) => item.studentId === activeStudentId));
+      setQuestAttempts((store.studentQuestAttempts ?? []).filter((item) => item.studentId === activeStudentId));
     }
 
     function handleSync(event: Event) {
@@ -144,12 +155,13 @@ export function StudentDashboard() {
     window.addEventListener(STUDENT_LICHESS_SYNC_EVENT, handleSync);
     window.addEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, refreshFromStore);
     window.addEventListener(ADMIN_STORE_UPDATED_EVENT, refreshFromStore);
+    refreshFromStore();
     return () => {
       window.removeEventListener(STUDENT_LICHESS_SYNC_EVENT, handleSync);
       window.removeEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, refreshFromStore);
       window.removeEventListener(ADMIN_STORE_UPDATED_EVENT, refreshFromStore);
     };
-  }, [student?.id]);
+  }, [lichessAccount?.studentId, student?.id]);
 
   const earned = useMemo(() => allBadges.filter((badge) => student?.badgeIds.includes(badge.id)), [student]);
   const nextBadge = student ? getClosestNextTacticBadge(student.id) : undefined;
@@ -157,8 +169,11 @@ export function StudentDashboard() {
   const activityItems = student ? buildStudentActivityItems({
     student,
     badges: allBadges,
+    quests,
     xpEvents,
+    questProgress,
     questCompletions,
+    questAttempts,
     lichessAccount,
     limit: 8
   }) : [];

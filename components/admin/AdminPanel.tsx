@@ -368,7 +368,9 @@ export function AdminPanel({
       ...(storeSnapshot.questXpEvents ?? []),
       ...(storeSnapshot.tournamentXpEvents ?? [])
     ],
+    questProgress: currentStudentQuestProgress,
     questCompletions: currentStudentQuestCompletions,
+    questAttempts: currentStudentQuestAttempts,
     lichessAccount: currentStudentLichessAccount,
     limit: 10
   }) : [];

@@ -1,5 +1,5 @@
 import { getLichessXpBreakdown } from "@/lib/lichessXp";
-import type { Badge, Quest, QuestCompletionEvent, Student, StudentLichessAccount, XpEvent } from "@/lib/types";
+import type { Badge, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentLichessAccount, StudentQuestAttempt, XpEvent } from "@/lib/types";
 
 export type StudentActivityKind = "xp" | "game" | "puzzle" | "quest" | "badge";
 
@@ -32,6 +32,8 @@ export function buildStudentActivityItems({
   quests,
   xpEvents,
   questCompletions,
+  questProgress,
+  questAttempts,
   lichessAccount,
   limit = 12
 }: {
@@ -40,6 +42,8 @@ export function buildStudentActivityItems({
   quests?: Quest[];
   xpEvents?: XpEvent[];
   questCompletions?: QuestCompletionEvent[];
+  questProgress?: LichessQuestProgress[];
+  questAttempts?: StudentQuestAttempt[];
   lichessAccount?: StudentLichessAccount;
   limit?: number;
 }) {
@@ -56,6 +60,31 @@ export function buildStudentActivityItems({
       detail: `${quest?.title ?? completion.questId} awarded ${completion.xpAwarded.toLocaleString()} XP.`,
       createdAt: normalizeDate(completion.completedAt),
       amount: completion.xpAwarded
+    });
+  }
+
+  const completedQuestPeriods = new Set((questCompletions ?? [])
+    .filter((item) => item.studentId === student.id)
+    .map((item) => `${item.questId}:${item.sourcePeriodStart}:${item.sourcePeriodEnd}`));
+
+  for (const progress of questProgress?.filter((item) => item.studentId === student.id) ?? []) {
+    if (progress.currentValue <= 0) continue;
+    const periodKey = `${progress.questId}:${progress.sourcePeriodStart}:${progress.sourcePeriodEnd}`;
+    if (completedQuestPeriods.has(periodKey)) continue;
+    const quest = quests?.find((item) => item.id === progress.questId);
+    const attempt = questAttempts?.find((item) => (
+      item.studentId === student.id
+      && item.questId === progress.questId
+      && item.startedAt === progress.sourcePeriodStart
+      && item.expiresAt === progress.sourcePeriodEnd
+    ));
+    items.push({
+      id: `quest-progress-${periodKey}`,
+      kind: quest?.source === "lichess_puzzles" ? "puzzle" : quest?.source === "lichess_games" ? "game" : "quest",
+      title: progress.completed ? "Quest ready to complete" : "Quest progress updated",
+      detail: `${quest?.title ?? progress.questId}: ${progress.currentValue.toLocaleString()} / ${progress.requiredValue.toLocaleString()}. ${progress.evidence}`,
+      createdAt: normalizeDate(progress.updatedAt ?? attempt?.startedAt),
+      amount: progress.completed ? quest?.xpReward : undefined
     });
   }
 

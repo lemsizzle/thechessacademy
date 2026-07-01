@@ -37,6 +37,61 @@ export type StudentLichessFullSyncResult = {
 
 export const STUDENT_LICHESS_FULL_SYNC_EVENT = "quest-board-lichess-full-sync-complete";
 
+function activityCountFromAccount(account: StudentLichessAccount | undefined, total: number | undefined, baseline: number | undefined) {
+  if (!account || total === undefined) return 0;
+  return Math.max(0, total - (baseline ?? total));
+}
+
+function reconcileAccountWithQuestProgress(account: StudentLichessAccount | undefined, progress: LichessQuestProgress[], rules: typeof seedQuests): StudentLichessAccount | undefined {
+  if (!account) return account;
+
+  const questById = new Map(rules.map((quest) => [quest.id, quest]));
+  let minimumRapidPlayed = activityCountFromAccount(account, account.rapidGames, account.baselineRapidGames);
+  let minimumRapidWon = account.rapidWins ?? 0;
+  let minimumBlitzPlayed = activityCountFromAccount(account, account.blitzGames, account.baselineBlitzGames);
+  let minimumBlitzWon = account.blitzWins ?? 0;
+  let minimumPuzzleCorrect = account.puzzleCorrect ?? 0;
+  let minimumPuzzleAttempts = activityCountFromAccount(account, account.puzzleGames, account.baselinePuzzleGames);
+
+  for (const item of progress.filter((entry) => entry.studentId === account.studentId && entry.currentValue > 0 && entry.mode === "connected")) {
+    const quest = questById.get(item.questId);
+    if (!quest) continue;
+
+    if (quest.conditionType === "rapid_games_played_count" || quest.conditionType === "rated_games_played_count") {
+      minimumRapidPlayed = Math.max(minimumRapidPlayed, item.currentValue);
+    }
+    if (quest.conditionType === "rapid_win_count" || quest.conditionType === "rated_win_count") {
+      minimumRapidWon = Math.max(minimumRapidWon, item.currentValue);
+    }
+    if (quest.conditionType === "blitz_games_played_count") {
+      minimumBlitzPlayed = Math.max(minimumBlitzPlayed, item.currentValue);
+    }
+    if (quest.conditionType === "blitz_win_count") {
+      minimumBlitzWon = Math.max(minimumBlitzWon, item.currentValue);
+    }
+    if (quest.conditionType === "puzzle_solved_count" || quest.conditionType === "puzzle_theme_solved_count") {
+      minimumPuzzleCorrect = Math.max(minimumPuzzleCorrect, item.currentValue);
+      minimumPuzzleAttempts = Math.max(minimumPuzzleAttempts, item.currentValue);
+    }
+    if (quest.conditionType === "puzzle_accuracy_threshold") {
+      const solved = Math.round(item.currentValue * ((item.accuracy ?? 0) / 100));
+      minimumPuzzleCorrect = Math.max(minimumPuzzleCorrect, solved);
+      minimumPuzzleAttempts = Math.max(minimumPuzzleAttempts, item.currentValue);
+    }
+  }
+
+  return {
+    ...account,
+    rapidWins: minimumRapidWon,
+    blitzWins: minimumBlitzWon,
+    puzzleCorrect: minimumPuzzleCorrect,
+    baselineRapidGames: Math.max(0, account.rapidGames - minimumRapidPlayed),
+    baselineBlitzGames: Math.max(0, account.blitzGames - minimumBlitzPlayed),
+    baselinePuzzleGames: Math.max(0, (account.puzzleGames ?? 0) - minimumPuzzleAttempts),
+    updatedAt: new Date().toISOString()
+  };
+}
+
 async function getFreshStudentUser() {
   try {
     const response = await fetch("/api/auth/session", { cache: "no-store" });
@@ -165,6 +220,8 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
   });
 
   const mergedQuestProgress = mergeQuestProgress(store.lichessQuestProgress ?? [], data.progress, rules);
+  account = reconcileAccountWithQuestProgress(account, mergedQuestProgress, rules);
+  if (account) saveStudentLichessAccount(account);
   const nextQuestAttempts = (store.studentQuestAttempts ?? []).map((attempt) => (
     autoCompletions.some((completion) => (
       completion.studentId === attempt.studentId
