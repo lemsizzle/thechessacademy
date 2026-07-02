@@ -45,6 +45,10 @@ export type QuestTrackingState = {
   completions: QuestCompletionEvent[];
 };
 
+function uniqueBy<T>(items: T[] = [], getKey: (item: T) => string) {
+  return Array.from(new Map(items.map((item) => [getKey(item), item])).values());
+}
+
 function mapAttempt(row: AttemptRow): StudentQuestAttempt {
   return {
     id: row.id,
@@ -126,8 +130,9 @@ export async function saveSupabaseQuestTracking(input: Partial<QuestTrackingStat
   const supabase = getSupabaseServiceClient();
   if (!supabase) return { configured: false, saved: false };
 
-  if (input.attempts?.length) {
-    const { error } = await supabase.from("student_quest_attempts").upsert(input.attempts.map((attempt) => ({
+  const attempts = uniqueBy(input.attempts, (attempt) => attempt.id);
+  if (attempts.length) {
+    const { error } = await supabase.from("student_quest_attempts").upsert(attempts.map((attempt) => ({
       id: attempt.id,
       student_id: attempt.studentId,
       quest_id: attempt.questId,
@@ -139,8 +144,9 @@ export async function saveSupabaseQuestTracking(input: Partial<QuestTrackingStat
     if (error) throw new Error(error.message);
   }
 
-  if (input.progress?.length) {
-    const { error } = await supabase.from("lichess_quest_progress").upsert(input.progress.map((item) => ({
+  const progress = uniqueBy(input.progress, (item) => `${item.studentId}:${item.questId}:${item.sourcePeriodStart}:${item.sourcePeriodEnd}`);
+  if (progress.length) {
+    const { error } = await supabase.from("lichess_quest_progress").upsert(progress.map((item) => ({
       student_id: item.studentId,
       quest_id: item.questId,
       source_period_start: item.sourcePeriodStart,
@@ -156,8 +162,9 @@ export async function saveSupabaseQuestTracking(input: Partial<QuestTrackingStat
     if (error) throw new Error(error.message);
   }
 
-  if (input.completions?.length) {
-    const { error } = await supabase.from("quest_completion_events").upsert(input.completions.map((item) => ({
+  const completions = uniqueBy(input.completions, (item) => item.id);
+  if (completions.length) {
+    const { error } = await supabase.from("quest_completion_events").upsert(completions.map((item) => ({
       id: item.id,
       student_id: item.studentId,
       quest_id: item.questId,

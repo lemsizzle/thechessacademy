@@ -35,6 +35,7 @@ export type StudentLichessFullSyncResult = {
 };
 
 export const STUDENT_LICHESS_FULL_SYNC_EVENT = "quest-board-lichess-full-sync-complete";
+let activeFullSync: Promise<StudentLichessFullSyncResult> | null = null;
 
 function activityCountFromAccount(account: StudentLichessAccount | undefined, total: number | undefined, baseline: number | undefined) {
   if (!account || total === undefined) return 0;
@@ -105,7 +106,7 @@ async function getFreshStudentUser() {
   return getCurrentStudentUser();
 }
 
-export async function syncStudentLichessEverything(): Promise<StudentLichessFullSyncResult> {
+async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult> {
   const user = await getFreshStudentUser();
   if (!user) throw new Error("Student log in is required.");
 
@@ -173,7 +174,7 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
       timeZone: DEFAULT_QUEST_TIMEZONE
     })
   });
-  const data = await response.json() as QuestEvaluationResponse;
+  const data = await response.json() as QuestEvaluationResponse & { progressError?: string };
   if (!response.ok || !data.progress || !data.newAwards) throw new Error(data.error ?? "Could not sync Lichess progress.");
   if (data.message) {
     throw new Error(data.message);
@@ -234,9 +235,22 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
     autoCompletedCount: autoCompletions.length,
     approvalCount: data.newAwards.length,
     badgeAwardCount,
-    message: `${data.progress.length} Lichess quests checked. ${autoCompletions.length} auto-completed${data.xpError ? ", but XP could not be saved to Supabase" : " with XP"}. ${badgeAwardCount} badge award${badgeAwardCount === 1 ? "" : "s"} found.`
+    message: [
+      `${data.progress.length} Lichess quests checked.`,
+      `${autoCompletions.length} auto-completed${autoCompletions.length > 0 ? (data.xpError ? ", but XP could not be saved to Supabase" : " with XP") : ""}.`,
+      data.progressError ? "Quest progress could not be saved to Supabase." : "",
+      `${badgeAwardCount} badge award${badgeAwardCount === 1 ? "" : "s"} found.`
+    ].filter(Boolean).join(" ")
   };
 
   window.dispatchEvent(new CustomEvent(STUDENT_LICHESS_FULL_SYNC_EVENT, { detail: result }));
   return result;
+}
+
+export async function syncStudentLichessEverything(): Promise<StudentLichessFullSyncResult> {
+  if (activeFullSync) return activeFullSync;
+  activeFullSync = runStudentLichessFullSync().finally(() => {
+    activeFullSync = null;
+  });
+  return activeFullSync;
 }

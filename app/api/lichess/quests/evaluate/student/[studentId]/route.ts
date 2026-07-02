@@ -15,6 +15,8 @@ type EvaluationWithXp = Awaited<ReturnType<typeof evaluateStudentQuestRequest>> 
   xpEvents?: XpEvent[];
   xpPersisted?: boolean;
   xpError?: string;
+  progressPersisted?: boolean;
+  progressError?: string;
   message?: string;
 };
 
@@ -126,7 +128,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
       completions: result.autoCompletions,
       attempts: completedAttempts.filter((attempt) => attempt.studentId === studentId)
     });
+    response.progressPersisted = true;
+  } catch (error) {
+    response.progressPersisted = false;
+    response.progressError = error instanceof Error ? error.message : "Quest progress could not be saved.";
+  }
 
+  try {
     for (const award of result.autoApprovedAwards ?? []) {
       const event = await persistQuestXpOnce(studentId, award.title, award.sourcePeriodStart, award.xpAmount, session.lichessUsername);
       if (event) response.xpEvents?.push(event);
