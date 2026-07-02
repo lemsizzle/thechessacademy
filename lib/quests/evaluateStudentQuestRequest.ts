@@ -28,16 +28,27 @@ function getPerfTypesForQuest(quest: Quest): LichessGamePerfType[] {
   return ["rapid"];
 }
 
-async function fetchGamesForPerfTypes(username: string, start: Date, end: Date, perfTypes: LichessGamePerfType[], accessToken?: string | null) {
-  const results = await Promise.allSettled(perfTypes.map((perfType) => fetchStudentGamesForWindow(username, start, end, perfType, accessToken)));
-  const games = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
-  if (!games.length && results.some((result) => result.status === "rejected")) {
-    const errors = results
-      .filter((result): result is PromiseRejectedResult => result.status === "rejected")
-      .map((result) => result.reason instanceof Error ? result.reason.message : "Unknown Lichess error.");
-    throw new Error(errors[0] ?? "No Lichess game activity could be fetched.");
-  }
-  return Array.from(new Map(games.map((game) => [game.id, game])).values());
+function getEvaluationWindow(input: EvaluateRequest, quest: Quest, attempt: StudentQuestAttempt | undefined) {
+  const baseWindow = attempt ? getAttemptQuestWindow(attempt) : getQuestWindow(quest.timeWindow, input.timeZone);
+  const baseline = input.account ? new Date(input.account.activityBaselineSetAt ?? input.account.linkedAt) : undefined;
+  if (!baseline || Number.isNaN(baseline.getTime()) || baseline <= baseWindow.start) return baseWindow;
+  return {
+    ...baseWindow,
+    start: baseline,
+    label: `${baseline.toISOString().slice(0, 10)} to ${baseWindow.end.toISOString().slice(0, 10)}`
+  };
+}
+
+function mergeWindows(windows: Array<ReturnType<typeof getQuestWindow>>) {
+  return {
+    start: new Date(Math.min(...windows.map((window) => window.start.getTime()))),
+    end: new Date(Math.max(...windows.map((window) => window.end.getTime())))
+  };
+}
+
+function isInsideWindow(value: string, window: ReturnType<typeof getQuestWindow>) {
+  const time = new Date(value).getTime();
+  return time >= window.start.getTime() && time <= window.end.getTime();
 }
 
 export async function evaluateStudentQuestRequest(
@@ -53,97 +64,128 @@ export async function evaluateStudentQuestRequest(
   const windowsByQuest: Record<string, ReturnType<typeof getQuestWindow>> = {};
   const encryptedToken = cookieStore.get(LICHESS_TOKEN_COOKIE)?.value;
   const token = allowPuzzleToken && encryptedToken ? decryptLichessToken(encryptedToken) : null;
-  const gameCache = new Map<string, Awaited<ReturnType<typeof fetchStudentGamesForWindow>>>();
-  const puzzleCache = new Map<string, Awaited<ReturnType<typeof fetchStudentPuzzleActivityForWindow>>>();
   const evaluatedQuestIds = new Set<string>();
+  const eligibleQuests = input.quests.filter((item) => item.isActive !== false && item.source?.startsWith("lichess_"));
+  const gameQuests: Quest[] = [];
+  const puzzleQuests: Quest[] = [];
 
-  for (const quest of input.quests.filter((item) => item.isActive !== false && item.source?.startsWith("lichess_"))) {
+  for (const quest of eligibleQuests) {
     const attempt = getActiveQuestAttempt(input.questAttempts ?? [], input.studentId, quest.id);
     if (!attempt && quest.timeWindow !== "all_time" && quest.timeWindow !== "tournament") continue;
-
-    if (quest.source === "lichess_games") {
-      const baseWindow = attempt ? getAttemptQuestWindow(attempt) : getQuestWindow(quest.timeWindow, input.timeZone);
-      const baseline = input.account ? new Date(input.account.activityBaselineSetAt ?? input.account.linkedAt) : undefined;
-      const window = baseline && baseline > baseWindow.start
-        ? { ...baseWindow, start: baseline, label: `${baseline.toISOString().slice(0, 10)} to ${baseWindow.end.toISOString().slice(0, 10)}` }
-        : baseWindow;
-      windowsByQuest[quest.id] = window;
-      const perfTypes = getPerfTypesForQuest(quest);
-      const cacheKey = `${perfTypes.join("-")}-${window.start.toISOString()}-${window.end.toISOString()}`;
+    if (quest.source === "lichess_tournaments") {
       evaluatedQuestIds.add(quest.id);
-      try {
-        const games = gameCache.get(cacheKey) ?? await fetchGamesForPerfTypes(input.username, window.start, window.end, perfTypes, token);
-        gameCache.set(cacheKey, games);
-        gamesByQuest[quest.id] = games;
-        modeByQuest[quest.id] = "connected";
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Lichess game activity could not be fetched.";
-        const canUseMockFallback = input.account?.syncStatus === "mock" || token?.startsWith("mock-token-");
-        gamesByQuest[quest.id] = canUseMockFallback ? perfTypes.flatMap((perfType) => createMockStudentGamesForWindow(window.start, perfType)) : [];
-        modeByQuest[quest.id] = canUseMockFallback ? "mock" : "connected";
-        if (!canUseMockFallback) fetchErrorsByQuest[quest.id] = message;
-      }
+      continue;
+    }
+    const window = getEvaluationWindow(input, quest, attempt);
+    windowsByQuest[quest.id] = window;
+    if (quest.source === "lichess_games") gameQuests.push(quest);
+    if (quest.source === "lichess_puzzles") puzzleQuests.push(quest);
+  }
+
+  const gameWindowsByPerf = new Map<LichessGamePerfType, Array<ReturnType<typeof getQuestWindow>>>();
+  for (const quest of gameQuests) {
+    const window = windowsByQuest[quest.id];
+    if (!window) continue;
+    for (const perfType of getPerfTypesForQuest(quest)) {
+      gameWindowsByPerf.set(perfType, [...(gameWindowsByPerf.get(perfType) ?? []), window]);
+    }
+  }
+
+  const gamesByPerf = new Map<LichessGamePerfType, Awaited<ReturnType<typeof fetchStudentGamesForWindow>>>();
+  const gameErrorsByPerf = new Map<LichessGamePerfType, string>();
+  for (const [perfType, windows] of gameWindowsByPerf.entries()) {
+    const window = mergeWindows(windows);
+    try {
+      gamesByPerf.set(perfType, await fetchStudentGamesForWindow(input.username, window.start, window.end, perfType, token));
+    } catch (error) {
+      gameErrorsByPerf.set(perfType, error instanceof Error ? error.message : "Lichess game activity could not be fetched.");
+    }
+  }
+
+  for (const quest of gameQuests) {
+    const window = windowsByQuest[quest.id];
+    if (!window) continue;
+    const perfTypes = getPerfTypesForQuest(quest);
+    const errors = perfTypes.flatMap((perfType) => gameErrorsByPerf.get(perfType) ?? []);
+    const fetchedGames = perfTypes
+      .flatMap((perfType) => gamesByPerf.get(perfType) ?? [])
+      .filter((game) => isInsideWindow(game.playedAt, window));
+    const canUseMockFallback = input.account?.syncStatus === "mock" || token?.startsWith("mock-token-");
+    evaluatedQuestIds.add(quest.id);
+    if (fetchedGames.length || !errors.length) {
+      gamesByQuest[quest.id] = Array.from(new Map(fetchedGames.map((game) => [game.id, game])).values());
+      modeByQuest[quest.id] = "connected";
+    } else {
+      gamesByQuest[quest.id] = canUseMockFallback ? perfTypes.flatMap((perfType) => createMockStudentGamesForWindow(window.start, perfType)) : [];
+      modeByQuest[quest.id] = canUseMockFallback ? "mock" : "connected";
+      if (!canUseMockFallback) fetchErrorsByQuest[quest.id] = errors[0] ?? "Lichess game activity could not be fetched.";
+    }
+    snapshots.push({
+      id: `quest-snapshot-${input.studentId}-${quest.id}-${window.start.toISOString()}`,
+      studentId: input.studentId,
+      source: "lichess_games",
+      periodStart: window.start.toISOString(),
+      periodEnd: window.end.toISOString(),
+      data: { games: gamesByQuest[quest.id], error: fetchErrorsByQuest[quest.id] },
+      mode: modeByQuest[quest.id],
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  if (puzzleQuests.length) {
+    const canUseMockFallback = input.account?.syncStatus === "mock" || token?.startsWith("mock-token-");
+    const questsNeedingToken = puzzleQuests.filter((quest) => {
+      if (token || !skipPuzzleQuestsWithoutToken || canUseMockFallback) return true;
+      const window = windowsByQuest[quest.id];
+      if (!window) return false;
       snapshots.push({
         id: `quest-snapshot-${input.studentId}-${quest.id}-${window.start.toISOString()}`,
         studentId: input.studentId,
-        source: quest.source,
+        source: "lichess_puzzles",
         periodStart: window.start.toISOString(),
         periodEnd: window.end.toISOString(),
-        data: { games: gamesByQuest[quest.id], error: fetchErrorsByQuest[quest.id] },
-        mode: modeByQuest[quest.id],
+        data: { puzzles: [], error: "Puzzle activity requires the student's Lichess login token." },
+        mode: "connected",
         createdAt: new Date().toISOString()
       });
-    }
+      return false;
+    });
 
-    if (quest.source === "lichess_puzzles") {
-      const baseWindow = attempt ? getAttemptQuestWindow(attempt) : getQuestWindow(quest.timeWindow, input.timeZone);
-      const baseline = input.account ? new Date(input.account.activityBaselineSetAt ?? input.account.linkedAt) : undefined;
-      const window = baseline && baseline > baseWindow.start
-        ? { ...baseWindow, start: baseline, label: `${baseline.toISOString().slice(0, 10)} to ${baseWindow.end.toISOString().slice(0, 10)}` }
-        : baseWindow;
-      windowsByQuest[quest.id] = window;
-      const cacheKey = `${window.start.toISOString()}-${window.end.toISOString()}`;
-      const canUseMockFallback = input.account?.syncStatus === "mock" || token?.startsWith("mock-token-");
-      if (!token && skipPuzzleQuestsWithoutToken && !canUseMockFallback) {
-        snapshots.push({
-          id: `quest-snapshot-${input.studentId}-${quest.id}-${window.start.toISOString()}`,
-          studentId: input.studentId,
-          source: quest.source,
-          periodStart: window.start.toISOString(),
-          periodEnd: window.end.toISOString(),
-          data: { puzzles: [], error: "Puzzle activity requires the student's Lichess login token." },
-          mode: "connected",
-          createdAt: new Date().toISOString()
-        });
-        continue;
-      }
-      evaluatedQuestIds.add(quest.id);
+    const puzzleWindows = questsNeedingToken.flatMap((quest) => windowsByQuest[quest.id] ? [windowsByQuest[quest.id]] : []);
+    let fetchedPuzzles: Awaited<ReturnType<typeof fetchStudentPuzzleActivityForWindow>> = [];
+    let puzzleError = "";
+    if (puzzleWindows.length) {
+      const window = mergeWindows(puzzleWindows);
       try {
         if (!token || token.startsWith("mock-token-")) throw new Error("No real puzzle token.");
-        const puzzles = puzzleCache.get(cacheKey) ?? await fetchStudentPuzzleActivityForWindow(token, window.start, window.end);
-        puzzleCache.set(cacheKey, puzzles);
-        puzzlesByQuest[quest.id] = puzzles;
-        modeByQuest[quest.id] = "connected";
+        fetchedPuzzles = await fetchStudentPuzzleActivityForWindow(token, window.start, window.end);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Lichess puzzle activity could not be fetched.";
+        puzzleError = error instanceof Error ? error.message : "Lichess puzzle activity could not be fetched.";
+      }
+    }
+
+    for (const quest of questsNeedingToken) {
+      const window = windowsByQuest[quest.id];
+      if (!window) continue;
+      evaluatedQuestIds.add(quest.id);
+      if (fetchedPuzzles.length || !puzzleError) {
+        puzzlesByQuest[quest.id] = fetchedPuzzles.filter((puzzle) => isInsideWindow(puzzle.date, window));
+        modeByQuest[quest.id] = "connected";
+      } else {
         puzzlesByQuest[quest.id] = canUseMockFallback ? createMockStudentPuzzleActivityForWindow(window.start, window.end) : [];
         modeByQuest[quest.id] = canUseMockFallback ? "mock" : "connected";
-        if (!canUseMockFallback) fetchErrorsByQuest[quest.id] = message;
+        if (!canUseMockFallback) fetchErrorsByQuest[quest.id] = puzzleError;
       }
       snapshots.push({
         id: `quest-snapshot-${input.studentId}-${quest.id}-${window.start.toISOString()}`,
         studentId: input.studentId,
-        source: quest.source,
+        source: "lichess_puzzles",
         periodStart: window.start.toISOString(),
         periodEnd: window.end.toISOString(),
         data: { puzzles: puzzlesByQuest[quest.id], error: fetchErrorsByQuest[quest.id] },
         mode: modeByQuest[quest.id],
         createdAt: new Date().toISOString()
       });
-    }
-
-    if (quest.source === "lichess_tournaments") {
-      evaluatedQuestIds.add(quest.id);
     }
   }
 

@@ -1,6 +1,7 @@
 import { evaluateStudentQuestRequest } from "@/lib/quests/evaluateStudentQuestRequest";
 import { readStudentSession } from "@/lib/auth/session";
 import { mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
+import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
 import { getSupabaseQuestTracking, saveSupabaseQuestTracking } from "@/lib/quests/supabaseQuestProgress";
 import { addSupabaseStudentXp } from "@/lib/students/supabaseStudentProfiles";
 import { getSupabaseServiceClient, isSupabaseServiceConfigured } from "@/lib/supabase/server";
@@ -76,8 +77,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
     questAttempts,
     timeZone: body.timeZone
   }, cookieStore, { allowPuzzleToken: session?.studentId === studentId });
+  const progressToSave = mergeQuestProgress(persistedTracking.progress, result.progress, body.quests);
 
-  const response: EvaluationWithXp = { ...result, xpEvents: [], xpPersisted: false };
+  const response: EvaluationWithXp = { ...result, progress: progressToSave, xpEvents: [], xpPersisted: false };
   const completedAttemptKeys = new Set((result.autoCompletions ?? []).map((completion) => `${completion.studentId}:${completion.questId}:${completion.sourcePeriodEnd}`));
   const completedAttempts = questAttempts.map((attempt) => completedAttemptKeys.has(`${attempt.studentId}:${attempt.questId}:${attempt.expiresAt}`)
     ? { ...attempt, status: "completed" as const }
@@ -85,7 +87,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
 
   try {
     await saveSupabaseQuestTracking({
-      progress: result.progress,
+      progress: progressToSave,
       completions: result.autoCompletions,
       attempts: completedAttempts.filter((attempt) => attempt.studentId === studentId)
     });
