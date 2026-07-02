@@ -2,6 +2,8 @@ import { evaluateStudentQuestRequest } from "@/lib/quests/evaluateStudentQuestRe
 import { readStudentSession } from "@/lib/auth/session";
 import { mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
+import { formatCooldown } from "@/lib/lichess/rateLimit";
+import { getCooldownSeconds, getLichessSyncState, recordLichessSyncAttempt, recordLichessSyncRateLimit, recordLichessSyncSuccess } from "@/lib/lichess/syncState";
 import { getSupabaseQuestTracking, saveSupabaseQuestTracking } from "@/lib/quests/supabaseQuestProgress";
 import { addSupabaseStudentXp } from "@/lib/students/supabaseStudentProfiles";
 import { getSupabaseServiceClient, isSupabaseServiceConfigured } from "@/lib/supabase/server";
@@ -13,6 +15,7 @@ type EvaluationWithXp = Awaited<ReturnType<typeof evaluateStudentQuestRequest>> 
   xpEvents?: XpEvent[];
   xpPersisted?: boolean;
   xpError?: string;
+  message?: string;
 };
 
 function questXpReason(title: string, periodStart: string) {
@@ -63,6 +66,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
   if (!session || session.studentId !== studentId) {
     return NextResponse.json({ error: "Student log in required." }, { status: 401 });
   }
+  const existingState = await getLichessSyncState(studentId);
+  const cooldownSeconds = getCooldownSeconds(existingState);
+  if (cooldownSeconds > 0) {
+    const persistedTracking = await getSupabaseQuestTracking(studentId);
+    return NextResponse.json({
+      progress: persistedTracking.progress,
+      autoApprovedAwards: [],
+      autoCompletions: [],
+      newAwards: [],
+      snapshots: [],
+      rateLimited: true,
+      cooldownSeconds,
+      message: `Lichess rate limit reached. Try again in ${formatCooldown(cooldownSeconds)}.`
+    });
+  }
+  await recordLichessSyncAttempt(studentId, body.username);
   const persistedTracking = await getSupabaseQuestTracking(studentId);
   const completionEvents = mergeQuestCompletions(persistedTracking.completions, body.completionEvents);
   const questAttempts = mergeQuestAttempts(persistedTracking.attempts, body.questAttempts);
@@ -77,9 +96,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
     questAttempts,
     timeZone: body.timeZone
   }, cookieStore, { allowPuzzleToken: session?.studentId === studentId });
+  if (result.rateLimited) {
+    await recordLichessSyncRateLimit(
+      studentId,
+      body.username,
+      "Lichess rate limit reached while syncing quest activity.",
+      result.retryAfterSeconds || 60
+    );
+  } else {
+    await recordLichessSyncSuccess(studentId, body.username, result.requestCount ?? 0);
+  }
   const progressToSave = mergeQuestProgress(persistedTracking.progress, result.progress, body.quests);
 
-  const response: EvaluationWithXp = { ...result, progress: progressToSave, xpEvents: [], xpPersisted: false };
+  const response: EvaluationWithXp = {
+    ...result,
+    progress: progressToSave,
+    xpEvents: [],
+    xpPersisted: false,
+    ...(result.rateLimited ? { message: `Lichess rate limit reached. Try again in ${formatCooldown(result.retryAfterSeconds || 60)}.` } : {})
+  };
   const completedAttemptKeys = new Set((result.autoCompletions ?? []).map((completion) => `${completion.studentId}:${completion.questId}:${completion.sourcePeriodEnd}`));
   const completedAttempts = questAttempts.map((attempt) => completedAttemptKeys.has(`${attempt.studentId}:${attempt.questId}:${attempt.expiresAt}`)
     ? { ...attempt, status: "completed" as const }

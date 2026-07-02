@@ -3,6 +3,8 @@ import { readStudentSession } from "@/lib/auth/session";
 import { fetchAuthenticatedLichessAccount } from "@/lib/lichess/fetchAccount";
 import { fetchStudentGamesForWindow } from "@/lib/lichess/fetchStudentGamesForWindow";
 import { fetchStudentPuzzleActivityForWindow } from "@/lib/lichess/fetchStudentPuzzleActivityForWindow";
+import { formatCooldown, isLichessRateLimitError } from "@/lib/lichess/rateLimit";
+import { getCooldownSeconds, getLichessSyncState, recordLichessSyncAttempt, recordLichessSyncRateLimit, recordLichessSyncSuccess } from "@/lib/lichess/syncState";
 import { decryptLichessToken } from "@/lib/lichess/tokenCrypto";
 import { withLichessActivityBaseline } from "@/lib/lichessXp";
 import type { LichessOAuthProfile, StudentLichessAccount } from "@/lib/types";
@@ -127,7 +129,7 @@ async function enrichAccountActivity(account: StudentLichessAccount, token: stri
 }
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => ({})) as { previousAccount?: StudentLichessAccount };
+  const body = await request.json().catch(() => ({})) as { previousAccount?: StudentLichessAccount; includeActivity?: boolean };
   const cookieStore = await cookies();
   const session = readStudentSession(cookieStore);
   if (!session) return NextResponse.json({ error: "Student log in required." }, { status: 401 });
@@ -138,14 +140,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A real Lichess login is required before syncing live stats." }, { status: 401 });
   }
 
-  const profile = await fetchAuthenticatedLichessAccount(token);
-  const account = await enrichAccountActivity(
-    withLichessActivityBaseline(profileToAccount(session.studentId, profile, "connected"), body.previousAccount),
-    token
-  );
-  return NextResponse.json({
-    mode: "connected",
-    account,
-    message: "Synced Blitz, Rapid, Puzzle ratings, rated games, wins, and correct puzzles from Lichess."
-  });
+  const existingState = await getLichessSyncState(session.studentId);
+  const cooldownSeconds = getCooldownSeconds(existingState);
+  if (cooldownSeconds > 0) {
+    return NextResponse.json({
+      error: `Lichess rate limit reached. Try again in ${formatCooldown(cooldownSeconds)}.`,
+      cooldownSeconds,
+      syncState: existingState
+    }, { status: 429 });
+  }
+
+  let requestCount = 0;
+  try {
+    await recordLichessSyncAttempt(session.studentId, session.lichessUsername);
+    requestCount += 1;
+    const profile = await fetchAuthenticatedLichessAccount(token);
+    const baseAccount = withLichessActivityBaseline(profileToAccount(session.studentId, profile, "connected"), body.previousAccount);
+    const account = body.includeActivity === true ? await enrichAccountActivity(baseAccount, token) : baseAccount;
+    await recordLichessSyncSuccess(session.studentId, profile.username, requestCount);
+    return NextResponse.json({
+      mode: "connected",
+      account,
+      requestCount,
+      message: body.includeActivity === true
+        ? "Synced Lichess profile, ratings, games, and puzzles."
+        : "Synced Lichess profile and ratings. Quest activity sync runs separately."
+    });
+  } catch (error) {
+    if (isLichessRateLimitError(error)) {
+      const retryAfterSeconds = "retryAfterSeconds" in error ? error.retryAfterSeconds : 60;
+      await recordLichessSyncRateLimit(session.studentId, session.lichessUsername, error.message, retryAfterSeconds);
+      return NextResponse.json({
+        error: `Lichess rate limit reached. Try again in ${formatCooldown(retryAfterSeconds)}.`,
+        cooldownSeconds: retryAfterSeconds,
+        requestCount
+      }, { status: 429 });
+    }
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not sync Lichess profile." }, { status: 502 });
+  }
 }

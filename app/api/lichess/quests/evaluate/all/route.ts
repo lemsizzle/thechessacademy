@@ -1,4 +1,6 @@
 import { evaluateStudentQuestRequest } from "@/lib/quests/evaluateStudentQuestRequest";
+import { formatCooldown } from "@/lib/lichess/rateLimit";
+import { getCooldownSeconds, getLichessSyncState, recordLichessSyncAttempt, recordLichessSyncRateLimit, recordLichessSyncSuccess } from "@/lib/lichess/syncState";
 import type { ArenaTournamentResult, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt } from "@/lib/types";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -23,9 +25,23 @@ export async function POST(request: Request) {
   const cookieStore = await cookies();
   const evaluations = [];
   for (const student of body.students.slice(0, 50)) {
-    evaluations.push({
-      studentId: student.studentId,
-      ...(await evaluateStudentQuestRequest({
+    const state = await getLichessSyncState(student.studentId);
+    const cooldownSeconds = getCooldownSeconds(state);
+    if (cooldownSeconds > 0) {
+      evaluations.push({
+        studentId: student.studentId,
+        progress: [],
+        newAwards: [],
+        autoApprovedAwards: [],
+        autoCompletions: [],
+        rateLimited: true,
+        cooldownSeconds,
+        message: `Lichess rate limit reached for ${student.username}. Try again in ${formatCooldown(cooldownSeconds)}.`
+      });
+      continue;
+    }
+    await recordLichessSyncAttempt(student.studentId, student.username);
+    const result = await evaluateStudentQuestRequest({
         studentId: student.studentId,
         username: student.username,
         quests: body.quests,
@@ -35,8 +51,13 @@ export async function POST(request: Request) {
         completionEvents: body.completionEvents,
         questAttempts: (body.questAttempts ?? []).filter((attempt) => attempt.studentId === student.studentId),
         timeZone: body.timeZone
-      }, cookieStore, { skipPuzzleQuestsWithoutToken: true }))
-    });
+      }, cookieStore, { skipPuzzleQuestsWithoutToken: true });
+    if (result.rateLimited) {
+      await recordLichessSyncRateLimit(student.studentId, student.username, "Lichess rate limit reached while syncing quest activity.", result.retryAfterSeconds || 60);
+    } else {
+      await recordLichessSyncSuccess(student.studentId, student.username, result.requestCount ?? 0);
+    }
+    evaluations.push({ studentId: student.studentId, ...result });
   }
   return NextResponse.json({ evaluations });
 }

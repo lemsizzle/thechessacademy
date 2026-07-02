@@ -1,4 +1,5 @@
 import { parseNdjson } from "@/lib/lichess/parseNdjson";
+import { getRetryAfterSeconds, LichessRateLimitError } from "@/lib/lichess/rateLimit";
 import type { LichessQuestPuzzleActivity } from "@/lib/types";
 
 type RawPuzzleActivity = {
@@ -17,7 +18,12 @@ export async function fetchStudentPuzzleActivityForWindow(accessToken: string, s
     headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/x-ndjson" },
     cache: "no-store"
   });
-  if (!response.ok) throw new Error(`Lichess puzzle activity failed with ${response.status}.`);
+  if (!response.ok) {
+    if (response.status === 429) {
+      throw new LichessRateLimitError("Lichess rate limit reached for puzzle activity. Try again after the cooldown.", getRetryAfterSeconds(response.headers));
+    }
+    throw new Error(`Lichess puzzle activity failed with ${response.status}.`);
+  }
   return parseNdjson<RawPuzzleActivity>(await response.text()).flatMap((activity) => {
     if (!activity.puzzle?.id) return [];
     return [{

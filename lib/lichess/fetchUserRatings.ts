@@ -1,4 +1,5 @@
 import type { StudentLichessAccount } from "@/lib/types";
+import { getRetryAfterSeconds, LichessRateLimitError } from "@/lib/lichess/rateLimit";
 
 type LichessPerf = {
   rating?: number;
@@ -35,8 +36,7 @@ export async function fetchUserRatings(studentId: string, username: string) {
     });
 
     if (response.status === 429) {
-      const retryAfter = response.headers.get("retry-after");
-      throw new Error(`Lichess rate limit reached. Try again${retryAfter ? ` after ${retryAfter} seconds` : " later"}.`);
+      throw new LichessRateLimitError("Lichess rate limit reached for ratings. Try again after the cooldown.", getRetryAfterSeconds(response.headers));
     }
 
     if (!response.ok) {

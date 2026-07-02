@@ -1,45 +1,61 @@
 # Lichess Sync
 
-The first version is mock-ready and safe to run locally.
+The app now treats Lichess as one shared sync source instead of letting several pages make their own repeated requests.
 
-## Current Scope
+## How Sync Works
 
-- OAuth PKCE start and callback routes exist under `/api/lichess/oauth`.
-- Students connect from their own profile page with the `Connect Lichess` button.
-- The Lichess access token is stored only in an HTTP-only cookie.
-- Client UI never receives or displays the access token.
-- Puzzle activity sync uses `/api/lichess/sync`.
-- Blitz/Rapid ratings sync from the public Lichess user endpoint.
-- Students can submit Lichess game links for teacher review or analysis.
-- If no token is connected, sync uses mock NDJSON puzzle activity.
-- NDJSON parsing is tolerant: malformed lines are skipped.
-- Lichess puzzle themes are mapped to academy tactic themes.
-- Eligible tactic badges become pending awards.
-- Teacher approval is required before XP and badges are applied.
-- Duplicate badge awards are prevented.
+- Student login can refresh the student's Lichess profile and ratings.
+- Quest evaluation fetches game and puzzle activity for active quest windows.
+- The app stops immediately if Lichess returns `429 Too Many Requests`.
+- If the optional `lichess_sync_state` table exists, cooldown state is stored in Supabase so Vercel remembers it across requests.
+- Existing quest progress is preserved when a fresh Lichess request fails or is rate-limited.
 
-## Student Flow
+## Rate Limits
 
-1. Student opens their profile page.
-2. Student clicks `Connect Lichess`.
-3. Lichess handles the OAuth permission screen.
-4. The app returns to the same student profile.
-5. The app syncs Blitz/Rapid ratings and puzzle progress.
-6. Students submit game links manually when they want tactic review or full game analysis.
+When Lichess returns 429, the app:
 
-## Future Supabase Tables
+- reads `Retry-After` when Lichess sends it
+- otherwise waits at least 60 seconds
+- stores `next_allowed_sync_at`
+- skips sync attempts during cooldown
+- shows a friendly cooldown message
 
-Recommended tables:
-- `student_lichess_accounts`
-- `game_review_submissions`
-- `student_tactic_progress`
-- `lichess_sync_logs`
-- `pending_awards`
+Do not keep pressing sync after a 429. Wait for the cooldown message to pass.
 
-Tokens should be encrypted or stored through a secure auth provider/session system. Do not store Lichess tokens in browser localStorage.
+## Optional Supabase Migration
 
-## Privacy
+Run this once in Supabase SQL Editor:
 
-Only sync data needed for classroom progress. Public pages should show safe summary stats only. Keep raw API responses short-lived unless parents/students explicitly consent.
+```sql
+-- docs/supabase-lichess-sync-migration.sql
+```
 
-See `docs/lichess-integration.md` for the full rating, review queue, and rate-limit notes.
+This adds `lichess_sync_state`. It does not delete or change existing student, XP, badge, or quest data.
+
+## Debugging
+
+Teacher-only debug endpoint:
+
+```text
+/api/admin/lichess/debug?studentId=STUDENT_UUID
+```
+
+It returns safe information only:
+
+- whether required environment variables exist
+- the selected student's last sync state
+- current cooldown timing
+
+It never returns API keys, Lichess tokens, or Supabase service keys.
+
+## Required Vercel Variables
+
+- `NEXT_PUBLIC_APP_URL`
+- `LICHESS_CLIENT_ID`
+- `LICHESS_REDIRECT_URI`
+- `LICHESS_ENCRYPTION_SECRET`
+- `LICHESS_TEAM_ID`
+- `LICHESS_TOURNAMENT_SYNC_INTERVAL_MINUTES`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`

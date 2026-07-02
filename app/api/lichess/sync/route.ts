@@ -1,6 +1,8 @@
 import { parseLichessPuzzleActivityNdjson, summarizePuzzleThemes } from "@/lib/lichess";
 import { LICHESS_TOKEN_COOKIE } from "@/lib/auth/roles";
 import { fetchStudentPuzzleActivityForWindow } from "@/lib/lichess/fetchStudentPuzzleActivityForWindow";
+import { formatCooldown, isLichessRateLimitError } from "@/lib/lichess/rateLimit";
+import { getCooldownSeconds, getLichessSyncState, recordLichessSyncAttempt, recordLichessSyncRateLimit, recordLichessSyncSuccess } from "@/lib/lichess/syncState";
 import { decryptLichessToken } from "@/lib/lichess/tokenCrypto";
 import { withLichessActivityBaseline } from "@/lib/lichessXp";
 import { syncRatings } from "@/lib/lichess/syncRatings";
@@ -18,6 +20,15 @@ export async function POST(request: Request) {
   const safeUsername = username?.trim().replace(/[^a-zA-Z0-9_-]/g, "");
   if (!safeUsername) return NextResponse.json({ error: "Missing Lichess username" }, { status: 400 });
   const safeStudentId = studentId?.trim().replace(/[^a-zA-Z0-9_-]/g, "") || safeUsername;
+  const state = await getLichessSyncState(safeStudentId);
+  const cooldownSeconds = getCooldownSeconds(state);
+  if (cooldownSeconds > 0) {
+    return NextResponse.json({
+      error: `Lichess rate limit reached. Try again in ${formatCooldown(cooldownSeconds)}.`,
+      cooldownSeconds,
+      syncState: state
+    }, { status: 429 });
+  }
 
   const cookieStore = await cookies();
   const encryptedToken = cookieStore.get(LICHESS_TOKEN_COOKIE)?.value ?? cookieStore.get("lichess_access_token")?.value;
@@ -26,9 +37,20 @@ export async function POST(request: Request) {
   let mode: "connected" | "error" = "error";
   let connectedPuzzleActivity: LichessQuestPuzzleActivity[] = [];
   let ratings: Awaited<ReturnType<typeof syncRatings>>;
+  let requestCount = 0;
   try {
+    await recordLichessSyncAttempt(safeStudentId, safeUsername);
+    requestCount += 1;
     ratings = await syncRatings(safeStudentId, safeUsername);
   } catch (error) {
+    if (isLichessRateLimitError(error)) {
+      await recordLichessSyncRateLimit(safeStudentId, safeUsername, error.message, error.retryAfterSeconds);
+      return NextResponse.json({
+        error: `Lichess rate limit reached. Try again in ${formatCooldown(error.retryAfterSeconds)}.`,
+        cooldownSeconds: error.retryAfterSeconds,
+        requestCount
+      }, { status: 429 });
+    }
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not sync Lichess ratings." }, { status: 502 });
   }
   let account = withLichessActivityBaseline(ratings.account, previousAccount);
@@ -37,6 +59,7 @@ export async function POST(request: Request) {
 
   if (includePuzzles && token) {
     try {
+      requestCount += 1;
       const puzzleActivity = await fetchStudentPuzzleActivityForWindow(token, start, end);
       connectedPuzzleActivity = puzzleActivity;
       ndjson = puzzleActivity
@@ -56,7 +79,15 @@ export async function POST(request: Request) {
         updatedAt: end.toISOString()
       };
       mode = "connected";
-    } catch {
+    } catch (error) {
+      if (isLichessRateLimitError(error)) {
+        await recordLichessSyncRateLimit(safeStudentId, safeUsername, error.message, error.retryAfterSeconds);
+        return NextResponse.json({
+          error: `Lichess rate limit reached. Try again in ${formatCooldown(error.retryAfterSeconds)}.`,
+          cooldownSeconds: error.retryAfterSeconds,
+          requestCount
+        }, { status: 429 });
+      }
       ndjson = "";
     }
   }
@@ -71,12 +102,14 @@ export async function POST(request: Request) {
     : activities;
   const counts = Array.from(summarizePuzzleThemes(solvedActivities).entries()).map(([tacticTheme, puzzlesSolved]) => ({ tacticTheme, puzzlesSolved }));
 
+  await recordLichessSyncSuccess(safeStudentId, safeUsername, requestCount);
   return NextResponse.json({
     mode: ratings.mode === "connected" || mode === "connected" ? "connected" : "error",
     username: safeUsername,
     activityCount: activities.length,
     counts,
     ratings: account,
+    requestCount,
     message: [
       ratings.message,
       includePuzzles && mode === "connected" ? "Synced Lichess puzzle activity." : ""

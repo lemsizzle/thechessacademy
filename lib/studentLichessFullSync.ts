@@ -1,17 +1,15 @@
 "use client";
 
 import { badges as seedBadges } from "@/data/badges";
-import { lichessConnections as seedConnections, lichessSyncLogs as seedLogs, pendingAwards as seedPendingAwards, studentLichessAccounts as seedAccounts } from "@/data/lichessSync";
+import { lichessConnections as seedConnections, lichessSyncLogs as seedLogs, studentLichessAccounts as seedAccounts } from "@/data/lichessSync";
 import { quests as seedQuests } from "@/data/quests";
 import { students as seedStudents } from "@/data/students";
-import { studentTacticProgress as seedProgress } from "@/data/studentTacticProgress";
 import { getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/getCurrentUser";
-import { createPendingAwardsFromProgress, mergeTacticProgress } from "@/lib/lichess";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
 import { saveStudentLichessAccount } from "@/lib/studentLichessAccountStore";
-import type { LichessActivitySnapshot, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingQuestAward, QuestCompletionEvent, StudentLichessAccount, TacticTheme, StudentUser } from "@/lib/types";
+import type { LichessActivitySnapshot, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingQuestAward, QuestCompletionEvent, StudentLichessAccount, StudentUser } from "@/lib/types";
 
 type QuestEvaluationResponse = {
   progress?: LichessQuestProgress[];
@@ -23,6 +21,7 @@ type QuestEvaluationResponse = {
   xpPersisted?: boolean;
   xpError?: string;
   error?: string;
+  message?: string;
 };
 
 export type StudentLichessFullSyncResult = {
@@ -118,9 +117,10 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
     const syncResponse = await fetch("/api/lichess/sync/me", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ previousAccount })
+      body: JSON.stringify({ previousAccount, includeActivity: false })
     });
-    const syncData = await syncResponse.json() as { account?: StudentLichessAccount; message?: string };
+    const syncData = await syncResponse.json() as { account?: StudentLichessAccount; message?: string; error?: string };
+    if (!syncResponse.ok) throw new Error(syncData.error ?? "Could not sync Lichess profile.");
     if (syncResponse.ok && syncData.account) {
       account = saveStudentLichessAccount(syncData.account);
       store = readAdminStore();
@@ -134,58 +134,29 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
   if (!username) throw new Error("No linked Lichess username was found. Log out and log back in with Lichess, then sync again.");
 
   let badgeAwardCount = 0;
-  try {
-    const puzzleResponse = await fetch("/api/lichess/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, studentId: user.studentId, previousAccount: account })
-    });
-    const puzzleData = await puzzleResponse.json() as {
-      mode?: "connected" | "error";
-      counts?: Array<{ tacticTheme: TacticTheme; puzzlesSolved: number }>;
-      ratings?: StudentLichessAccount;
-      message?: string;
-    };
-    if (puzzleResponse.ok) {
-      store = readAdminStore();
-      const students = store.students ?? seedStudents;
-      const currentStudent = students.find((student) => student.id === user.studentId);
-      const existingProgress = store.studentTacticProgress ?? seedProgress;
-      const existingAwards = store.pendingAwards ?? seedPendingAwards;
-      const counts = new Map((puzzleData.counts ?? []).map((item) => [item.tacticTheme, item.puzzlesSolved] as const));
-      const mergedProgress = mergeTacticProgress(existingProgress, user.studentId, counts);
-      const newBadgeAwards = currentStudent ? createPendingAwardsFromProgress(currentStudent, mergedProgress, existingAwards) : [];
-      badgeAwardCount = newBadgeAwards.length;
-      const today = new Date().toISOString().slice(0, 10);
-      const nextConnection: LichessConnection = {
-        studentId: user.studentId,
-        lichessUsername: username,
-        connectedAt: store.lichessConnections?.find((item) => item.studentId === user.studentId)?.connectedAt ?? today,
-        lastSyncedAt: today,
-        status: puzzleData.mode === "connected" ? "connected" : "needs-auth"
-      };
-      const syncLog: LichessSyncLog = {
-        id: `lichess-log-${Date.now()}`,
-        studentId: user.studentId,
-        level: puzzleData.mode === "connected" ? "info" : "warning",
-        message: `${puzzleData.message ?? "Lichess sync complete"} ${newBadgeAwards.length} pending badge award${newBadgeAwards.length === 1 ? "" : "s"} sent to teacher.`,
-        createdAt: today
-      };
-      updateAdminStore({
-        studentTacticProgress: mergedProgress,
-        pendingAwards: [...newBadgeAwards, ...existingAwards],
-        lichessConnections: [
-          nextConnection,
-          ...(store.lichessConnections ?? seedConnections).filter((item) => item.studentId !== user.studentId)
-        ],
-        lichessSyncLogs: [syncLog, ...(store.lichessSyncLogs ?? seedLogs)].slice(0, 20)
-      });
-      if (puzzleData.ratings) account = saveStudentLichessAccount({ ...puzzleData.ratings, studentId: user.studentId });
-      store = readAdminStore();
-    }
-  } catch {
-    // Quest sync still runs even if puzzle badge progress could not be refreshed.
-  }
+  const syncDate = new Date().toISOString().slice(0, 10);
+  const nextConnection: LichessConnection = {
+    studentId: user.studentId,
+    lichessUsername: username,
+    connectedAt: store.lichessConnections?.find((item) => item.studentId === user.studentId)?.connectedAt ?? syncDate,
+    lastSyncedAt: syncDate,
+    status: account ? "connected" : "needs-auth"
+  };
+  const syncLog: LichessSyncLog = {
+    id: `lichess-log-${Date.now()}`,
+    studentId: user.studentId,
+    level: account ? "info" : "warning",
+    message: "Lichess profile checked. Quest activity sync is running from one shared flow.",
+    createdAt: syncDate
+  };
+  updateAdminStore({
+    lichessConnections: [
+      nextConnection,
+      ...(store.lichessConnections ?? seedConnections).filter((item) => item.studentId !== user.studentId)
+    ],
+    lichessSyncLogs: [syncLog, ...(store.lichessSyncLogs ?? seedLogs)].slice(0, 20)
+  });
+  store = readAdminStore();
 
   const rules = (store.quests ?? seedQuests).filter((quest) => quest.isActive !== false && quest.source?.startsWith("lichess_"));
   const response = await fetch(`/api/lichess/quests/evaluate/student/${encodeURIComponent(user.studentId)}`, {
@@ -204,6 +175,9 @@ export async function syncStudentLichessEverything(): Promise<StudentLichessFull
   });
   const data = await response.json() as QuestEvaluationResponse;
   if (!response.ok || !data.progress || !data.newAwards) throw new Error(data.error ?? "Could not sync Lichess progress.");
+  if (data.message) {
+    throw new Error(data.message);
+  }
 
   const autoApprovedAwards = data.autoApprovedAwards ?? [];
   const autoCompletions = data.autoCompletions ?? [];

@@ -1,4 +1,5 @@
 import type { LichessOAuthProfile } from "@/lib/types";
+import { getRetryAfterSeconds, LichessRateLimitError } from "@/lib/lichess/rateLimit";
 
 type LichessPerf = {
   rating?: number;
@@ -49,6 +50,9 @@ export async function fetchAuthenticatedLichessAccount(accessToken: string) {
     cache: "no-store"
   });
 
+  if (response.status === 429) {
+    throw new LichessRateLimitError("Lichess rate limit reached for profile stats. Try again after the cooldown.", getRetryAfterSeconds(response.headers));
+  }
   if (!response.ok) throw new Error("Could not fetch Lichess account.");
   return profileFromResponse(await response.json() as LichessAccountResponse);
 }

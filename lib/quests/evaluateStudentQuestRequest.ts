@@ -2,6 +2,7 @@ import { LICHESS_TOKEN_COOKIE } from "@/lib/auth/roles";
 import { decryptLichessToken } from "@/lib/lichess/tokenCrypto";
 import { createMockStudentGamesForWindow, fetchStudentGamesForWindow, type LichessGamePerfType } from "@/lib/lichess/fetchStudentGamesForWindow";
 import { createMockStudentPuzzleActivityForWindow, fetchStudentPuzzleActivityForWindow } from "@/lib/lichess/fetchStudentPuzzleActivityForWindow";
+import { isLichessRateLimitError } from "@/lib/lichess/rateLimit";
 import { approveQuestAward } from "@/lib/quests/approveQuestAward";
 import { createPendingQuestAwards } from "@/lib/quests/createPendingQuestAward";
 import { evaluateQuestRules } from "@/lib/quests/evaluateQuestRules";
@@ -62,6 +63,9 @@ export async function evaluateStudentQuestRequest(
   const fetchErrorsByQuest: Record<string, string> = {};
   const snapshots: LichessActivitySnapshot[] = [];
   const windowsByQuest: Record<string, ReturnType<typeof getQuestWindow>> = {};
+  let requestCount = 0;
+  let rateLimited = false;
+  let retryAfterSeconds = 0;
   const encryptedToken = cookieStore.get(LICHESS_TOKEN_COOKIE)?.value;
   const token = allowPuzzleToken && encryptedToken ? decryptLichessToken(encryptedToken) : null;
   const evaluatedQuestIds = new Set<string>();
@@ -96,9 +100,15 @@ export async function evaluateStudentQuestRequest(
   for (const [perfType, windows] of gameWindowsByPerf.entries()) {
     const window = mergeWindows(windows);
     try {
+      requestCount += 1;
       gamesByPerf.set(perfType, await fetchStudentGamesForWindow(input.username, window.start, window.end, perfType, token));
     } catch (error) {
+      if (isLichessRateLimitError(error)) {
+        rateLimited = true;
+        retryAfterSeconds = Math.max(retryAfterSeconds, "retryAfterSeconds" in error ? error.retryAfterSeconds : 60);
+      }
       gameErrorsByPerf.set(perfType, error instanceof Error ? error.message : "Lichess game activity could not be fetched.");
+      if (rateLimited) break;
     }
   }
 
@@ -158,8 +168,13 @@ export async function evaluateStudentQuestRequest(
       const window = mergeWindows(puzzleWindows);
       try {
         if (!token || token.startsWith("mock-token-")) throw new Error("No real puzzle token.");
+        requestCount += 1;
         fetchedPuzzles = await fetchStudentPuzzleActivityForWindow(token, window.start, window.end);
       } catch (error) {
+        if (isLichessRateLimitError(error)) {
+          rateLimited = true;
+          retryAfterSeconds = Math.max(retryAfterSeconds, "retryAfterSeconds" in error ? error.retryAfterSeconds : 60);
+        }
         puzzleError = error instanceof Error ? error.message : "Lichess puzzle activity could not be fetched.";
       }
     }
@@ -216,6 +231,9 @@ export async function evaluateStudentQuestRequest(
     newAwards: [],
     autoApprovedAwards: autoApproved.map((item) => item.award),
     autoCompletions: autoApproved.map((item) => item.completion),
-    snapshots
+    snapshots,
+    requestCount,
+    rateLimited,
+    retryAfterSeconds
   };
 }

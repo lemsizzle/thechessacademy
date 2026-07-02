@@ -30,6 +30,24 @@ Use this checklist for Vercel Production environment variables.
 | `LICHESS_TEAM_TOURNAMENT_MAX` | `50` | Private server env | Tournament sync limit |
 | `LICHESS_QUEST_TIMEZONE` | `America/Vancouver` | Private server env | Lichess quest windows |
 
+## Lichess Sync Cooldown
+
+Run this optional Supabase migration once for production sync stability:
+
+```text
+docs/supabase-lichess-sync-migration.sql
+```
+
+It adds `lichess_sync_state`, which lets Vercel remember the last successful sync, last rate-limit error, request count, and next allowed sync time. Without it, the app still works, but cooldowns are less reliable across serverless requests.
+
+Teacher-only safe debug route:
+
+```text
+/api/admin/lichess/debug?studentId=STUDENT_UUID
+```
+
+This reports whether required environment variables exist and whether that student is cooling down. It does not return secret values.
+
 ## Exact Lichess Callback URL
 
 The app's real student Lichess OAuth callback route is:

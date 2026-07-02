@@ -1,4 +1,5 @@
 import { parseNdjson } from "@/lib/lichess/parseNdjson";
+import { getRetryAfterSeconds, LichessRateLimitError, sanitizeLichessErrorDetail } from "@/lib/lichess/rateLimit";
 import type { LichessQuestGame } from "@/lib/types";
 
 type RawGame = {
@@ -80,9 +81,10 @@ async function fetchRawGames(username: string, params: URLSearchParams, accessTo
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     if (response.status === 429) {
-      throw new Error("Lichess is rate-limiting game activity right now. Wait a few minutes, then sync again.");
+      const retryAfterSeconds = getRetryAfterSeconds(response.headers);
+      throw new LichessRateLimitError("Lichess rate limit reached for game activity. Try again after the cooldown.", retryAfterSeconds);
     }
-    const cleanDetail = detail.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+    const cleanDetail = sanitizeLichessErrorDetail(detail);
     throw new Error(`Lichess game activity failed with ${response.status}${cleanDetail ? `: ${cleanDetail}` : ""}.`);
   }
   return parseNdjson<RawGame>(await response.text());
