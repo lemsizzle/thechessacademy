@@ -23,6 +23,14 @@ type RawGame = {
 
 export type LichessGamePerfType = "bullet" | "blitz" | "rapid" | "classical" | "correspondence";
 
+const GAME_ACTIVITY_CACHE_TTL_MS = 60_000;
+const gameActivityCache = new Map<string, { expiresAt: number; games: LichessQuestGame[] }>();
+
+function cacheKey(username: string, start: Date, end: Date, perfType: LichessGamePerfType) {
+  const normalizedEndMinute = Math.floor(end.getTime() / 60_000);
+  return `${normalizeUsername(username)}:${perfType}:${start.getTime()}:${normalizedEndMinute}`;
+}
+
 function normalizeUsername(value?: string) {
   return value?.trim().toLowerCase() ?? "";
 }
@@ -71,10 +79,17 @@ async function fetchRawGames(username: string, params: URLSearchParams, accessTo
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    const cleanDetail = detail.trim().slice(0, 160);
+    if (response.status === 429) {
+      throw new Error("Lichess is rate-limiting game activity right now. Wait a few minutes, then sync again.");
+    }
+    const cleanDetail = detail.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
     throw new Error(`Lichess game activity failed with ${response.status}${cleanDetail ? `: ${cleanDetail}` : ""}.`);
   }
   return parseNdjson<RawGame>(await response.text());
+}
+
+function isRateLimitError(error: unknown) {
+  return error instanceof Error && error.message.toLowerCase().includes("rate-limiting");
 }
 
 function mapGame(game: RawGame, username: string, fallbackPerfType: LichessGamePerfType): LichessQuestGame {
@@ -106,6 +121,9 @@ function mapGame(game: RawGame, username: string, fallbackPerfType: LichessGameP
 
 export async function fetchStudentGamesForWindow(username: string, start: Date, end: Date, perfType: LichessGamePerfType = "rapid", accessToken?: string | null) {
   const requestEnd = new Date(Math.min(end.getTime(), Date.now() + 2 * 60_000));
+  const key = cacheKey(username, start, requestEnd, perfType);
+  const cached = gameActivityCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.games;
   const narrowParams = new URLSearchParams({
     since: String(start.getTime()),
     until: String(requestEnd.getTime()),
@@ -125,15 +143,22 @@ export async function fetchStudentGamesForWindow(username: string, start: Date, 
 
   try {
     const narrowGames = await fetchRawGames(username, narrowParams, accessToken);
-    if (narrowGames.length) return narrowGames.map((game) => mapGame(game, username, perfType));
-  } catch {
+    if (narrowGames.length) {
+      const games = narrowGames.map((game) => mapGame(game, username, perfType));
+      gameActivityCache.set(key, { expiresAt: Date.now() + GAME_ACTIVITY_CACHE_TTL_MS, games });
+      return games;
+    }
+  } catch (error) {
+    if (isRateLimitError(error)) throw error;
     // Retry below with fewer Lichess filters, then filter locally.
   }
 
   const broadGames = await fetchRawGames(username, broadParams, accessToken);
-  return broadGames
+  const games = broadGames
     .map((game) => mapGame(game, username, perfType))
     .filter((game) => game.perfType === perfType && game.rated);
+  gameActivityCache.set(key, { expiresAt: Date.now() + GAME_ACTIVITY_CACHE_TTL_MS, games });
+  return games;
 }
 
 export function createMockStudentGamesForWindow(start: Date, perfType: LichessGamePerfType = "rapid"): LichessQuestGame[] {

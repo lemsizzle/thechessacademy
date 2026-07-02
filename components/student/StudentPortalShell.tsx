@@ -15,7 +15,7 @@ export function StudentPortalShell({ children, title, subtitle }: { children: Re
   const pathname = usePathname();
   const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const allowLocalMockSession = process.env.NODE_ENV !== "production" && !supabaseBackedApp;
-  const autoSyncCooldownMs = 2 * 60 * 1000;
+  const autoSyncCooldownMs = 10 * 60 * 1000;
 
   async function syncLichessForLogin(studentUser: StudentUser) {
     if (studentUser.onboardingCompleted === false) return;

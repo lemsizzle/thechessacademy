@@ -23,6 +23,7 @@ import { getStudentXpWithLichess, withLichessActivityBaseline } from "@/lib/lich
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
 import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, questSources, questTacticThemes, questTimeWindows } from "@/lib/quests/questOptions";
 import { formatCountdown, isQuestAttemptActive } from "@/lib/quests/questAttempts";
+import { formatQuestEvidence } from "@/lib/quests/formatQuestEvidence";
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
 import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
 import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
@@ -1328,7 +1329,7 @@ export function AdminPanel({
                 {!latestAttempt && latestProgress && <span>Last synced {new Date(latestProgress.updatedAt).toLocaleDateString()}</span>}
                 {!latestAttempt && !latestProgress && <span>Waiting for student to start</span>}
               </div>
-              {latestProgress?.evidence && <p className="mt-2 text-xs text-slate-500">{latestProgress.evidence}</p>}
+              {latestProgress?.evidence && <p className="mt-2 text-xs text-slate-500">{formatQuestEvidence(latestProgress.evidence)}</p>}
             </div>
           );
         })}

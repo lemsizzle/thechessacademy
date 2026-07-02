@@ -1,6 +1,7 @@
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { QuestConditionBadge } from "@/components/quests/QuestConditionBadge";
+import { formatQuestEvidence } from "@/lib/quests/formatQuestEvidence";
 import { formatCountdown } from "@/lib/quests/questAttempts";
 import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent, StudentQuestAttempt } from "@/lib/types";
 
@@ -29,7 +30,7 @@ export function LichessQuestProgressCard({
       ? Math.min(100, Math.round((currentValue / Math.max(1, requiredValue)) * 100))
       : 0;
   const status = completion ? "Completed" : award?.status === "pending" ? "Pending approval" : award?.status === "rejected" ? "Not approved" : progress?.completed ? "Ready for review" : attempt ? "In progress" : "Not started";
-  const evidence = completion?.evidence ?? progress?.evidence;
+  const evidence = formatQuestEvidence(completion?.evidence ?? progress?.evidence ?? "");
   const countdown = attempt ? formatCountdown(new Date(attempt.expiresAt).getTime() - now) : "";
 
   return (

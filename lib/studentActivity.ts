@@ -1,4 +1,5 @@
 import { getLichessXpBreakdown } from "@/lib/lichessXp";
+import { formatQuestEvidence } from "@/lib/quests/formatQuestEvidence";
 import type { Badge, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentLichessAccount, StudentQuestAttempt, XpEvent } from "@/lib/types";
 
 export type StudentActivityKind = "xp" | "game" | "puzzle" | "quest" | "badge";
@@ -82,7 +83,7 @@ export function buildStudentActivityItems({
       id: `quest-progress-${periodKey}`,
       kind: quest?.source === "lichess_puzzles" ? "puzzle" : quest?.source === "lichess_games" ? "game" : "quest",
       title: progress.completed ? "Quest ready to complete" : "Quest progress updated",
-      detail: `${quest?.title ?? progress.questId}: ${progress.currentValue.toLocaleString()} / ${progress.requiredValue.toLocaleString()}. ${progress.evidence}`,
+      detail: `${quest?.title ?? progress.questId}: ${progress.currentValue.toLocaleString()} / ${progress.requiredValue.toLocaleString()}. ${formatQuestEvidence(progress.evidence)}`,
       createdAt: normalizeDate(progress.updatedAt ?? attempt?.startedAt),
       amount: progress.completed ? quest?.xpReward : undefined
     });

@@ -1,6 +1,5 @@
 import { parseLichessPuzzleActivityNdjson, summarizePuzzleThemes } from "@/lib/lichess";
 import { LICHESS_TOKEN_COOKIE } from "@/lib/auth/roles";
-import { fetchStudentGamesForWindow } from "@/lib/lichess/fetchStudentGamesForWindow";
 import { fetchStudentPuzzleActivityForWindow } from "@/lib/lichess/fetchStudentPuzzleActivityForWindow";
 import { decryptLichessToken } from "@/lib/lichess/tokenCrypto";
 import { withLichessActivityBaseline } from "@/lib/lichessXp";
@@ -72,33 +71,6 @@ export async function POST(request: Request) {
     : activities;
   const counts = Array.from(summarizePuzzleThemes(solvedActivities).entries()).map(([tacticTheme, puzzlesSolved]) => ({ tacticTheme, puzzlesSolved }));
 
-  try {
-    const [rapidResult, blitzResult] = await Promise.allSettled([
-      fetchStudentGamesForWindow(safeUsername, start, end, "rapid", token),
-      fetchStudentGamesForWindow(safeUsername, start, end, "blitz", token)
-    ]);
-    const rapidGames = rapidResult.status === "fulfilled" ? rapidResult.value.filter((game) => game.rated && game.finished) : [];
-    const blitzGames = blitzResult.status === "fulfilled" ? blitzResult.value.filter((game) => game.rated && game.finished) : [];
-    const baselineRapidGames = Math.max(0, account.rapidGames - rapidGames.length);
-    const baselineBlitzGames = Math.max(0, account.blitzGames - blitzGames.length);
-    account = {
-      ...account,
-      baselineRapidGames,
-      baselineBlitzGames,
-      baselineRapidWins: 0,
-      baselineBlitzWins: 0,
-      rapidGames: account.rapidGames,
-      blitzGames: account.blitzGames,
-      rapidWins: rapidGames.filter((game) => game.won).length,
-      blitzWins: blitzGames.filter((game) => game.won).length,
-      lastGameSyncAt: end.toISOString(),
-      updatedAt: end.toISOString()
-    };
-    if (rapidResult.status === "fulfilled" || blitzResult.status === "fulfilled") mode = "connected";
-  } catch {
-    // Ratings and puzzle data can still update if public game export is unavailable.
-  }
-
   return NextResponse.json({
     mode: ratings.mode === "connected" || mode === "connected" ? "connected" : "error",
     username: safeUsername,
@@ -107,7 +79,6 @@ export async function POST(request: Request) {
     ratings: account,
     message: [
       ratings.message,
-      mode === "connected" ? "Synced Lichess game activity." : "",
       includePuzzles && mode === "connected" ? "Synced Lichess puzzle activity." : ""
     ].filter(Boolean).join(" ")
   });

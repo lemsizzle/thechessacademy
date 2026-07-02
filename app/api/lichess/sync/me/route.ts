@@ -72,19 +72,31 @@ async function enrichAccountActivity(account: StudentLichessAccount, token: stri
     };
   }
 
-  const [rapidResult, blitzResult, puzzleResult] = await Promise.allSettled([
-    fetchStudentGamesForWindow(account.lichessUsername, start, end, "rapid", token),
-    fetchStudentGamesForWindow(account.lichessUsername, start, end, "blitz", token),
-    fetchStudentPuzzleActivityForWindow(token, start, end)
-  ]);
+  let hitGameRateLimit = false;
+  let rapidGames: Awaited<ReturnType<typeof fetchStudentGamesForWindow>> = [];
+  let blitzGames: Awaited<ReturnType<typeof fetchStudentGamesForWindow>> = [];
+  let puzzleActivity: Awaited<ReturnType<typeof fetchStudentPuzzleActivityForWindow>> = [];
 
-  const rapidGames = rapidResult.status === "fulfilled"
-    ? rapidResult.value.filter((game) => game.rated && game.finished)
-    : [];
-  const blitzGames = blitzResult.status === "fulfilled"
-    ? blitzResult.value.filter((game) => game.rated && game.finished)
-    : [];
-  const puzzleActivity = puzzleResult.status === "fulfilled" ? puzzleResult.value : [];
+  try {
+    rapidGames = await fetchStudentGamesForWindow(account.lichessUsername, start, end, "rapid", token);
+  } catch (error) {
+    hitGameRateLimit = error instanceof Error && error.message.toLowerCase().includes("rate-limiting");
+  }
+  if (!hitGameRateLimit) {
+    try {
+      blitzGames = await fetchStudentGamesForWindow(account.lichessUsername, start, end, "blitz", token);
+    } catch {
+      // Lichess game activity can be rate-limited while ratings and puzzles still update.
+    }
+  }
+  try {
+    puzzleActivity = await fetchStudentPuzzleActivityForWindow(token, start, end);
+  } catch {
+    // Puzzle activity can be unavailable while ratings still update.
+  }
+
+  rapidGames = rapidGames.filter((game) => game.rated && game.finished);
+  blitzGames = blitzGames.filter((game) => game.rated && game.finished);
   const rapidPlayed = rapidGames.length;
   const blitzPlayed = blitzGames.length;
   const rapidWins = rapidGames.filter((game) => game.won).length;
