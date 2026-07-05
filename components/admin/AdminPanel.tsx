@@ -1174,7 +1174,7 @@ export function AdminPanel({
       </div>
       <div className="mt-4 space-y-4">
         <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] xl:items-end">
             <label className="grid gap-1 text-xs font-black uppercase text-slate-400">
               Class
               <select className={fieldClass("normal-case")} value={selectedClassGroup} onChange={(event) => setSelectedClassGroup(event.target.value)}>
@@ -1186,7 +1186,7 @@ export function AdminPanel({
               </select>
             </label>
             <label className="grid gap-1 text-xs font-black uppercase text-slate-400">
-              Student
+              Student To Edit
               <select
                 className={fieldClass("normal-case")}
                 value={classRoster.some((student) => student.id === currentStudent?.id) ? currentStudent?.id : ""}
@@ -1200,7 +1200,7 @@ export function AdminPanel({
                 ))}
               </select>
             </label>
-            <Button href="/admin/classes" variant="ghost">Manage Classes</Button>
+            <Button href="/admin/classes" variant="ghost" className="md:col-span-2 xl:col-span-1">Manage Classes</Button>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-300">
             <span className="rounded bg-cyan-300/10 px-2 py-1 text-cyan-100">{getClassStudentCount(students, selectedClassGroup)} student{getClassStudentCount(students, selectedClassGroup) === 1 ? "" : "s"}</span>

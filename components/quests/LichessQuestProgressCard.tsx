@@ -24,13 +24,25 @@ export function LichessQuestProgressCard({
   onStart?: () => void;
 }) {
   const requiredValue = progress?.requiredValue ?? quest.requiredScore ?? quest.requiredCount ?? 1;
-  const currentValue = completion ? requiredValue : attempt ? progress?.currentValue ?? 0 : undefined;
+  const currentValue = completion ? requiredValue : progress ? progress.currentValue : attempt ? 0 : undefined;
   const percent = completion
     ? 100
     : currentValue !== undefined
       ? Math.min(100, Math.round((currentValue / Math.max(1, requiredValue)) * 100))
       : 0;
-  const status = completion ? "Completed" : award?.status === "pending" ? "Pending approval" : award?.status === "rejected" ? "Not approved" : progress?.completed ? "Ready for review" : attempt ? "In progress" : "Not started";
+  const status = completion
+    ? "Completed"
+    : award?.status === "pending"
+      ? "Pending approval"
+      : award?.status === "rejected"
+        ? "Not approved"
+        : progress?.completed
+          ? "Ready for review"
+          : attempt
+            ? "In progress"
+            : progress && progress.currentValue > 0
+              ? "Progress synced"
+              : "Not started";
   const evidence = formatQuestEvidence(completion?.evidence ?? progress?.evidence ?? "");
   const countdown = attempt ? formatCountdown(new Date(attempt.expiresAt).getTime() - now) : "";
   const completionUrl = quest.completionUrl?.trim();
