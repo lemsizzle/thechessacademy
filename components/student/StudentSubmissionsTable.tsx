@@ -4,35 +4,61 @@ import { Card } from "@/components/Card";
 import { SubmissionStatusBadge } from "@/components/SubmissionStatusBadge";
 import { studentGameSubmissions as seedGameSubmissions, studentScoreSubmissions as seedScoreSubmissions } from "@/data/studentSubmissions";
 import { getCurrentStudentUser } from "@/lib/auth/getCurrentUser";
-import { readAdminStore } from "@/lib/mockStorage";
+import { ADMIN_STORE_UPDATED_EVENT, readAdminStore } from "@/lib/mockStorage";
 import type { StudentGameSubmission, StudentScoreSubmission } from "@/lib/types";
 import { useEffect, useState } from "react";
 
 export function StudentSubmissionsTable() {
   const [games, setGames] = useState<StudentGameSubmission[]>([]);
   const [scores, setScores] = useState<StudentScoreSubmission[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const user = getCurrentStudentUser();
-    const store = readAdminStore();
-    setGames((store.studentGameSubmissions ?? seedGameSubmissions).filter((item) => item.studentId === user?.studentId));
-    setScores((store.studentScoreSubmissions ?? seedScoreSubmissions).filter((item) => item.studentId === user?.studentId));
-    fetch("/api/student/submissions", { cache: "no-store", credentials: "include" })
-      .then((response) => response.ok ? response.json() : null)
-      .then((data: { games?: StudentGameSubmission[]; scores?: StudentScoreSubmission[] } | null) => {
-        if (!data) return;
+    let cancelled = false;
+
+    async function loadSubmissions() {
+      const user = getCurrentStudentUser();
+      const store = readAdminStore();
+      const localGames = (store.studentGameSubmissions ?? seedGameSubmissions).filter((item) => item.studentId === user?.studentId);
+      const localScores = (store.studentScoreSubmissions ?? seedScoreSubmissions).filter((item) => item.studentId === user?.studentId);
+      if (!cancelled) {
+        setGames(localGames);
+        setScores(localScores);
+        setLoading(false);
+      }
+
+      try {
+        const response = await fetch("/api/student/submissions", { cache: "no-store", credentials: "include" });
+        const data = response.ok ? await response.json() as { games?: StudentGameSubmission[]; scores?: StudentScoreSubmission[] } : null;
+        if (cancelled || !data) return;
         if (data.games) setGames(data.games);
         if (data.scores) setScores(data.scores);
-      })
-      .catch(() => {
+      } catch {
         // Local storage remains the fallback for development.
-      });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadSubmissions();
+    window.addEventListener(ADMIN_STORE_UPDATED_EVENT, loadSubmissions);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(ADMIN_STORE_UPDATED_EVENT, loadSubmissions);
+    };
   }, []);
 
   return (
     <div className="space-y-5">
       <Card className="p-4">
-        <h2 className="font-black text-white">Game Submissions</h2>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-black text-white">Your Submissions</h2>
+          <p className="text-xs font-bold text-slate-500">{loading ? "Refreshing..." : `${games.length + scores.length} total`}</p>
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <h2 className="font-black text-white">Game Reviews</h2>
         <div className="mt-3 space-y-3">
           {games.map((submission) => (
             <div key={submission.id} className="rounded-md border border-white/10 bg-white/5 p-3">
@@ -50,7 +76,7 @@ export function StudentSubmissionsTable() {
       </Card>
 
       <Card className="p-4">
-        <h2 className="font-black text-white">Puzzle Score Submissions</h2>
+        <h2 className="font-black text-white">Puzzle Scores</h2>
         <div className="mt-3 space-y-3">
           {scores.map((submission) => (
             <div key={submission.id} className="rounded-md border border-white/10 bg-white/5 p-3">

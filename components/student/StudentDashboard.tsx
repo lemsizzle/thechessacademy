@@ -194,7 +194,6 @@ export function StudentDashboard() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button href="/student/submit" variant="secondary">Submit Work</Button>
-            <Button href="/student/submissions" variant="ghost">My Submissions</Button>
             <Button href="/student/resources" variant="ghost">Resources</Button>
           </div>
         </div>

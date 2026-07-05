@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { StudentSubmissionsTable } from "@/components/student/StudentSubmissionsTable";
 import { SubmitGameForm } from "@/components/student/SubmitGameForm";
 import { SubmitScoreForm } from "@/components/student/SubmitScoreForm";
 import { useState } from "react";
@@ -17,7 +18,7 @@ export function SubmitWorkHub({ initialMode = "score" }: { initialMode?: SubmitM
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-black text-white">Submit Work</h2>
-            <p className="mt-1 text-sm text-slate-400">Games and puzzle scores both go to the teacher review queue before XP or progress is awarded.</p>
+            <p className="mt-1 text-sm text-slate-400">Send work to your teacher, then track the review status on this same page.</p>
           </div>
           <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/10 bg-black/20 p-1 text-xs font-bold sm:w-72">
             <Button className="px-3 py-2" variant={mode === "score" ? "secondary" : "ghost"} onClick={() => setMode("score")}>Puzzle Score</Button>
@@ -26,6 +27,7 @@ export function SubmitWorkHub({ initialMode = "score" }: { initialMode?: SubmitM
         </div>
       </Card>
       {mode === "game" ? <SubmitGameForm compact /> : <SubmitScoreForm compact />}
+      <StudentSubmissionsTable />
     </div>
   );
 }
