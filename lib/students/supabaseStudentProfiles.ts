@@ -361,6 +361,18 @@ async function resolveSupabaseBadgeForAward(
     throw new Error("This badge is from the old local badge list. Refresh the admin page and try again.");
   }
   const badge = badgeInput ?? {};
+  const badgePayload = {
+    description: badge.description?.trim() ?? "",
+    category: badge.category ?? "Tactics",
+    tier: toSupabaseBadgeTier(badge.tier),
+    xp_value: Math.max(0, Number(badge.xpValue ?? 0)),
+    unlock_requirement: badge.unlockRequirement?.trim() ?? "Teacher-awarded achievement.",
+    visual_theme: badge.visualTheme?.trim() ?? "magical chess academy emblem",
+    art_image_url: badge.artImageUrl ?? null,
+    final_image_url: badge.finalImageUrl ?? null,
+    generation_status: badge.generationStatus ?? "pending",
+    generation_error: badge.generationError ?? null
+  };
 
   const existing = await supabase
     .from("badges")
@@ -369,22 +381,27 @@ async function resolveSupabaseBadgeForAward(
     .maybeSingle();
 
   if (existing.error) throw new Error(existing.error.message);
-  if (existing.data) return existing.data as { id: string; name: string; xp_value: number | null };
+  if (existing.data) {
+    const existingBadge = existing.data as { id: string; name: string; xp_value: number | null };
+    if (badgeInput) {
+      const { data, error } = await supabase
+        .from("badges")
+        .update(badgePayload)
+        .eq("id", existingBadge.id)
+        .select("id,name,xp_value")
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data as { id: string; name: string; xp_value: number | null };
+    }
+    return existingBadge;
+  }
 
   const { data, error } = await supabase
     .from("badges")
     .insert({
       name: badgeName,
-      description: badge.description?.trim() ?? "",
-      category: badge.category ?? "Tactics",
-      tier: toSupabaseBadgeTier(badge.tier),
-      xp_value: Math.max(0, Number(badge.xpValue ?? 0)),
-      unlock_requirement: badge.unlockRequirement?.trim() ?? "Teacher-awarded achievement.",
-      visual_theme: badge.visualTheme?.trim() ?? "magical chess academy emblem",
-      art_image_url: badge.artImageUrl ?? null,
-      final_image_url: badge.finalImageUrl ?? null,
-      generation_status: badge.generationStatus ?? "pending",
-      generation_error: badge.generationError ?? null
+      ...badgePayload
     })
     .select("id,name,xp_value")
     .single();

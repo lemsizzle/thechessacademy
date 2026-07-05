@@ -89,7 +89,7 @@ export function buildStudentActivityItems({
     });
   }
 
-  for (const event of xpEvents?.filter((item) => item.studentId === student.id) ?? []) {
+  for (const event of xpEvents?.filter((item) => item.studentId === student.id && item.amount !== 0) ?? []) {
     const questEventAlreadyShown = isQuestXpEvent(event)
       && Array.from(completedQuestKeys).some((key) => event.reason.includes(key.split(":")[0]) || event.reason.includes(key.split(":")[1]?.slice(0, 10) ?? ""));
     if (questEventAlreadyShown) continue;

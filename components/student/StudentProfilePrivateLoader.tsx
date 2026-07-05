@@ -4,6 +4,7 @@ import { Card } from "@/components/Card";
 import { LinkedLichessCard } from "@/components/student/LinkedLichessCard";
 import { StudentProfileSettings } from "@/components/student/StudentProfileSettings";
 import { StudentProfile } from "@/components/StudentProfile";
+import { allBadges } from "@/data/badges";
 import { studentLichessAccounts as seedAccounts } from "@/data/lichessSync";
 import { students as seedStudents } from "@/data/students";
 import { getCurrentStudentUser } from "@/lib/auth/getCurrentUser";
@@ -11,11 +12,12 @@ import { ADMIN_STORE_UPDATED_EVENT, readAdminStore } from "@/lib/mockStorage";
 import { STUDENT_LICHESS_FULL_SYNC_EVENT } from "@/lib/studentLichessFullSync";
 import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
 import { useEffect, useState } from "react";
-import type { Student, StudentLichessAccount } from "@/lib/types";
+import type { Badge, Student, StudentLichessAccount } from "@/lib/types";
 
 export function StudentProfilePrivateLoader() {
   const [student, setStudent] = useState<Student | undefined>();
   const [account, setAccount] = useState<StudentLichessAccount | undefined>();
+  const [badges, setBadges] = useState<Badge[]>(allBadges);
   const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const allowLocalMockSession = process.env.NODE_ENV !== "production" && !supabaseBackedApp;
 
@@ -24,7 +26,15 @@ export function StudentProfilePrivateLoader() {
       if (!studentId) return;
       const store = readAdminStore();
       const nextStudent = (store.students ?? seedStudents).find((item) => item.id === studentId);
-      if (nextStudent) setStudent(nextStudent);
+      if (nextStudent) {
+        setStudent((current) => current ? {
+          ...nextStudent,
+          ...current,
+          totalXp: Math.max(nextStudent.totalXp, current.totalXp),
+          badgeIds: Array.from(new Set([...current.badgeIds, ...nextStudent.badgeIds])),
+          completedQuestIds: Array.from(new Set([...(current.completedQuestIds ?? []), ...(nextStudent.completedQuestIds ?? [])]))
+        } : nextStudent);
+      }
       setAccount((store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === studentId));
     }
 
@@ -48,6 +58,13 @@ export function StudentProfilePrivateLoader() {
       }
 
       const store = readAdminStore();
+      try {
+        const badgesResponse = await fetch("/api/badges", { cache: "no-store" });
+        const badgesData = await badgesResponse.json() as { data?: Badge[] };
+        if (badgesData.data?.length) setBadges(badgesData.data);
+      } catch {
+        setBadges(store.badges ?? allBadges);
+      }
       current = current ?? (allowLocalMockSession ? (store.students ?? seedStudents).find((item) => item.id === user?.studentId) : undefined);
       setStudent(current);
       setAccount((store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === current?.id));
@@ -74,7 +91,7 @@ export function StudentProfilePrivateLoader() {
     <div className="space-y-5">
       <StudentProfileSettings student={student} />
       <LinkedLichessCard account={account} />
-      <StudentProfile key={`${account?.updatedAt ?? "profile"}-${account?.blitzRating ?? 0}-${account?.rapidRating ?? 0}-${account?.puzzleRating ?? 0}-${account?.puzzleGames ?? 0}`} student={student} showAdminControls={false} profileBasePath="/student/students" />
+      <StudentProfile key={`${account?.updatedAt ?? "profile"}-${account?.blitzRating ?? 0}-${account?.rapidRating ?? 0}-${account?.puzzleRating ?? 0}-${account?.puzzleGames ?? 0}`} student={student} badges={badges} showAdminControls={false} profileBasePath="/student/students" />
     </div>
   );
 }

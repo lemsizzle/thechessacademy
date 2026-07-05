@@ -24,7 +24,7 @@ import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
 import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
 import { getLevelFromXp, getLevelTitle } from "@/lib/xp";
 import { useEffect, useMemo, useState } from "react";
-import type { LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentGameSubmission, StudentLichessAccount, StudentQuestAttempt, StudentScoreSubmission, StudentUser, XpEvent } from "@/lib/types";
+import type { Badge, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentGameSubmission, StudentLichessAccount, StudentQuestAttempt, StudentScoreSubmission, StudentUser, XpEvent } from "@/lib/types";
 
 export function StudentDashboard() {
   const [student, setStudent] = useState<Student | undefined>();
@@ -32,6 +32,7 @@ export function StudentDashboard() {
   const [gameSubmissions, setGameSubmissions] = useState<StudentGameSubmission[]>([]);
   const [scoreSubmissions, setScoreSubmissions] = useState<StudentScoreSubmission[]>([]);
   const [xpEvents, setXpEvents] = useState<XpEvent[]>([]);
+  const [badges, setBadges] = useState<Badge[]>(allBadges);
   const [quests, setQuests] = useState<Quest[]>([]);
   const [questProgress, setQuestProgress] = useState<LichessQuestProgress[]>([]);
   const [questCompletions, setQuestCompletions] = useState<QuestCompletionEvent[]>([]);
@@ -80,6 +81,13 @@ export function StudentDashboard() {
 
       if (cancelled) return;
       const store = readAdminStore();
+      try {
+        const badgesResponse = await fetch("/api/badges", { cache: "no-store" });
+        const badgesData = await badgesResponse.json() as { data?: Badge[] };
+        if (badgesData.data?.length) setBadges(badgesData.data);
+      } catch {
+        setBadges(store.badges ?? allBadges);
+      }
       const students = store.students ?? seedStudents;
       const accounts = store.studentLichessAccounts ?? seedAccounts;
       const account = accounts.find((item) => item.studentId === user?.studentId);
@@ -88,7 +96,14 @@ export function StudentDashboard() {
         item.slug === supabaseStudent?.slug ||
         (supabaseStudent?.lichessUsername && item.lichessUsername?.toLowerCase() === supabaseStudent.lichessUsername.toLowerCase())
       ));
-      const current = localStudent ?? supabaseStudent ?? (allowLocalMockSession ? students.find((item) => item.id === user?.studentId) : undefined) ?? (allowLocalMockSession && user ? {
+      const fallbackStudent = allowLocalMockSession ? students.find((item) => item.id === user?.studentId) : undefined;
+      const current = supabaseStudent && localStudent ? {
+        ...localStudent,
+        ...supabaseStudent,
+        totalXp: Math.max(localStudent.totalXp, supabaseStudent.totalXp),
+        badgeIds: Array.from(new Set([...supabaseStudent.badgeIds, ...localStudent.badgeIds])),
+        completedQuestIds: Array.from(new Set([...(supabaseStudent.completedQuestIds ?? []), ...(localStudent.completedQuestIds ?? [])]))
+      } : supabaseStudent ?? localStudent ?? fallbackStudent ?? (allowLocalMockSession && user ? {
         id: user.studentId,
         slug: user.lichessUsername ?? user.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         lichessUsername: user.lichessUsername,
@@ -163,12 +178,12 @@ export function StudentDashboard() {
     };
   }, [lichessAccount?.studentId, student?.id]);
 
-  const earned = useMemo(() => allBadges.filter((badge) => student?.badgeIds.includes(badge.id)), [student]);
+  const earned = useMemo(() => badges.filter((badge) => student?.badgeIds.includes(badge.id)), [badges, student]);
   const nextBadge = student ? getClosestNextTacticBadge(student.id) : undefined;
   const pendingCount = [...gameSubmissions, ...scoreSubmissions].filter((item) => item.status === "pending").length;
   const activityItems = student ? buildStudentActivityItems({
     student,
-    badges: allBadges,
+    badges,
     quests,
     xpEvents,
     questProgress,
