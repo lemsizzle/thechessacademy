@@ -1,6 +1,6 @@
 import { getSupabaseServerReadClient, getSupabaseServiceClient, isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import { UNASSIGNED_CLASS } from "@/lib/classes";
-import type { Student, StudentSession } from "@/lib/types";
+import type { Student, StudentSession, XpEvent } from "@/lib/types";
 
 type SupabaseStudentRow = {
   id: string;
@@ -291,6 +291,89 @@ export async function addSupabaseStudentXp(
       reason: (event as { reason: string }).reason,
       createdAt: (event as { created_at: string }).created_at
     }
+  };
+}
+
+export async function awardSupabaseStudentBadge(
+  studentId: string,
+  input: { badgeId: string; note?: string; slug?: string; lichessUsername?: string; awardBadgeXp?: boolean }
+): Promise<{ awarded: boolean; alreadyAwarded: boolean; student?: Student; event?: XpEvent; badgeName?: string; xpValue?: number }> {
+  if (!isSupabaseServiceConfigured()) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required to award badges in Supabase.");
+  }
+
+  const badgeId = input.badgeId.trim();
+  if (!badgeId) throw new Error("Badge is required.");
+
+  const ids = await findSupabaseStudentIds(studentId, input.slug, input.lichessUsername);
+  if (!ids.length) return { awarded: false, alreadyAwarded: false };
+
+  const supabase = getSupabaseServiceClient();
+  if (!supabase) throw new Error("Supabase service role is not configured.");
+
+  const studentIdToUpdate = ids[0];
+  const { data: badge, error: badgeError } = await supabase
+    .from("badges")
+    .select("id,name,xp_value")
+    .eq("id", badgeId)
+    .single();
+
+  if (badgeError) throw new Error(badgeError.message);
+
+  const existing = await supabase
+    .from("student_badges")
+    .select("id")
+    .eq("student_id", studentIdToUpdate)
+    .eq("badge_id", badgeId)
+    .maybeSingle();
+
+  if (existing.error) throw new Error(existing.error.message);
+
+  const badgeRow = badge as { id: string; name: string; xp_value: number | null };
+  if (existing.data) {
+    const current = await findSupabaseStudentById(studentIdToUpdate);
+    return {
+      awarded: false,
+      alreadyAwarded: true,
+      student: current.student ?? undefined,
+      badgeName: badgeRow.name,
+      xpValue: badgeRow.xp_value ?? 0
+    };
+  }
+
+  const { error: awardError } = await supabase
+    .from("student_badges")
+    .insert({
+      student_id: studentIdToUpdate,
+      badge_id: badgeId,
+      note: input.note?.trim() || null
+    });
+
+  if (awardError) throw new Error(awardError.message);
+
+  const xpValue = Math.max(0, Number(badgeRow.xp_value ?? 0));
+  if (input.awardBadgeXp !== false && xpValue > 0) {
+    const xpResult = await addSupabaseStudentXp(studentIdToUpdate, {
+      amount: xpValue,
+      reason: `Badge awarded: ${badgeRow.name}`
+    });
+    return {
+      awarded: true,
+      alreadyAwarded: false,
+      student: xpResult.student ? { ...xpResult.student, badgeIds: [badgeId] } : undefined,
+      event: xpResult.event,
+      badgeName: badgeRow.name,
+      xpValue
+    };
+  }
+
+  const current = await findSupabaseStudentById(studentIdToUpdate);
+  return {
+    awarded: true,
+    alreadyAwarded: false,
+    student: current.student ? { ...current.student, badgeIds: [badgeId] } : undefined,
+    badgeName: badgeRow.name,
+    xpValue
   };
 }
 

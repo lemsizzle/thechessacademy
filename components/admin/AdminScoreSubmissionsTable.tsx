@@ -32,7 +32,7 @@ function addProgress(progress: StudentTacticProgress[], studentId: string, tacti
   });
 }
 
-export function AdminScoreSubmissionsTable() {
+export function AdminScoreSubmissionsTable({ adminActionToken }: { adminActionToken?: string }) {
   const [students, setStudents] = useState<Student[]>(seedStudents);
   const [badges, setBadges] = useState<Badge[]>(seedBadges);
   const [quests, setQuests] = useState<Quest[]>(seedQuests);
@@ -54,7 +54,8 @@ export function AdminScoreSubmissionsTable() {
     setSubmissions(store.studentScoreSubmissions ?? seedSubmissions);
     setProgress(store.studentTacticProgress ?? seedProgress);
     setPendingAwards(store.pendingAwards ?? seedPendingAwards);
-    fetch("/api/admin/submissions", { cache: "no-store", credentials: "include" })
+    const authHeaders = adminActionToken ? { "x-admin-action-token": adminActionToken } : undefined;
+    fetch("/api/admin/submissions", { cache: "no-store", credentials: "include", headers: authHeaders })
       .then((response) => response.ok ? response.json() : null)
       .then((data: { scores?: StudentScoreSubmission[] } | null) => {
         if (data?.scores) setSubmissions(data.scores);
@@ -62,7 +63,23 @@ export function AdminScoreSubmissionsTable() {
       .catch(() => {
         // Local storage remains the fallback for development.
       });
-  }, []);
+    fetch("/api/admin/students", { cache: "no-store", credentials: "include", headers: authHeaders })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data: { students?: Student[] } | null) => {
+        if (data?.students?.length) setStudents(data.students);
+      })
+      .catch(() => {
+        // Local storage remains the fallback for development.
+      });
+    fetch("/api/admin/badges", { cache: "no-store", credentials: "include", headers: authHeaders })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data: { badges?: Badge[] } | null) => {
+        if (data?.badges?.length) setBadges(data.badges);
+      })
+      .catch(() => {
+        // Local storage remains the fallback for development.
+      });
+  }, [adminActionToken]);
 
   function save(nextSubmissions: StudentScoreSubmission[], nextStudents = students, nextProgress = progress, nextPendingAwards = pendingAwards) {
     setSubmissions(nextSubmissions);
@@ -86,7 +103,10 @@ export function AdminScoreSubmissionsTable() {
       const response = await fetch(`/api/admin/submissions/scores/${encodeURIComponent(submission.id)}`, {
         method: "PATCH",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+        },
         body: JSON.stringify({ action, teacherNote: notes[submission.id], submission, xpAwarded: xp, tacticProgressAdded: progressAmount })
       });
       const data = await response.json() as { submission?: StudentScoreSubmission; error?: string };
@@ -105,7 +125,7 @@ export function AdminScoreSubmissionsTable() {
     const currentStudent = students.find((student) => student.id === submission.studentId);
     let savedTotalXp = currentStudent?.totalXp ?? 0;
     const xpReason = `Approved score: ${submission.challengeName}`;
-    const xpEvent: XpEvent | undefined = xp > 0 && currentStudent ? await persistStudentXpChange(currentStudent, xp, xpReason).then((result) => {
+    const xpEvent: XpEvent | undefined = xp > 0 && currentStudent ? await persistStudentXpChange(currentStudent, xp, xpReason, adminActionToken).then((result) => {
       savedTotalXp = result.student?.totalXp ?? currentStudent.totalXp + xp;
       return result.event ?? {
         id: `score-xp-${submission.id}-${Date.now()}`,
@@ -174,7 +194,7 @@ export function AdminScoreSubmissionsTable() {
                   <p className="mt-2 text-sm text-slate-300">{submission.challengeName}: {submission.score}{submission.totalQuestions ? `/${submission.totalQuestions}` : ""} - {submission.tacticTheme}</p>
                   {submission.notes && <p className="mt-2 text-sm text-slate-400">{submission.notes}</p>}
                   <div className="mt-3 grid gap-2 md:grid-cols-2">
-                    <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">XP To Award
+                    <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">XP Award On Approval
                       <input className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white" type="number" value={xpAwards[submission.id] ?? 0} onChange={(event) => setXpAwards((items) => ({ ...items, [submission.id]: Math.max(0, Number(event.target.value) || 0) }))} />
                     </label>
                     <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">Progress Points
@@ -191,7 +211,7 @@ export function AdminScoreSubmissionsTable() {
                     onNeedsChanges={() => review(submission, "needs_changes")}
                     approveLabel="Approve Score"
                   />
-                  <SubmissionRewardsPanel student={student} badges={badges} quests={quests} students={students} onStudentsChange={saveStudents} />
+                  <SubmissionRewardsPanel student={student} badges={badges} quests={quests} students={students} onStudentsChange={saveStudents} adminActionToken={adminActionToken} />
                 </div>
               </div>
             </Card>
