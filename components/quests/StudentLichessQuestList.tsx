@@ -16,28 +16,65 @@ function newestByDate<T>(items: T[], getDate: (item: T) => string) {
   return [...items].sort((a, b) => getDate(b).localeCompare(getDate(a)))[0];
 }
 
+function timeMs(value?: string) {
+  if (!value) return Number.NaN;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : Number.NaN;
+}
+
+function isCloseTime(left?: string, right?: string) {
+  const leftMs = timeMs(left);
+  const rightMs = timeMs(right);
+  return Number.isFinite(leftMs) && Number.isFinite(rightMs) && Math.abs(leftMs - rightMs) < 60_000;
+}
+
+function periodsOverlap(
+  left?: { sourcePeriodStart: string; sourcePeriodEnd: string },
+  right?: { startedAt: string; expiresAt: string }
+) {
+  if (!left || !right) return false;
+  const leftStart = timeMs(left.sourcePeriodStart);
+  const leftEnd = timeMs(left.sourcePeriodEnd);
+  const rightStart = timeMs(right.startedAt);
+  const rightEnd = timeMs(right.expiresAt);
+  if (![leftStart, leftEnd, rightStart, rightEnd].every(Number.isFinite)) return false;
+  return leftStart <= rightEnd && leftEnd >= rightStart;
+}
+
+function periodMatchesAttempt(period: { sourcePeriodStart: string; sourcePeriodEnd: string }, attempt: StudentQuestAttempt) {
+  return (
+    (period.sourcePeriodStart === attempt.startedAt && period.sourcePeriodEnd === attempt.expiresAt)
+    || (isCloseTime(period.sourcePeriodStart, attempt.startedAt) && isCloseTime(period.sourcePeriodEnd, attempt.expiresAt))
+    || periodsOverlap(period, attempt)
+  );
+}
+
 function getDisplayProgress(questId: string, progress: LichessQuestProgress[], completion?: QuestCompletionEvent, attempt?: StudentQuestAttempt) {
-  const questProgress = progress.filter((item) => (
-    item.questId === questId
-    && (!attempt || (item.sourcePeriodStart === attempt.startedAt && item.sourcePeriodEnd === attempt.expiresAt))
-  ));
+  const allQuestProgress = progress.filter((item) => item.questId === questId);
+  const questProgress = attempt
+    ? allQuestProgress.filter((item) => periodMatchesAttempt(item, attempt))
+    : allQuestProgress;
   if (completion) {
     const matchingPeriod = questProgress.find((item) => (
-      item.sourcePeriodStart === completion.sourcePeriodStart
-      && item.sourcePeriodEnd === completion.sourcePeriodEnd
+      item.sourcePeriodStart === completion.sourcePeriodStart && item.sourcePeriodEnd === completion.sourcePeriodEnd
     ));
     if (matchingPeriod) return matchingPeriod;
     const completedProgress = newestByDate(questProgress.filter((item) => item.completed), (item) => item.updatedAt);
     if (completedProgress) return completedProgress;
   }
-  return newestByDate(questProgress, (item) => item.updatedAt);
+  const matchedProgress = newestByDate(questProgress, (item) => item.updatedAt);
+  if (matchedProgress) return matchedProgress;
+
+  const attemptStart = timeMs(attempt?.startedAt);
+  const progressSinceAttempt = Number.isFinite(attemptStart)
+    ? allQuestProgress.filter((item) => timeMs(item.updatedAt) >= attemptStart || timeMs(item.sourcePeriodStart) >= attemptStart)
+    : [];
+  return newestByDate(progressSinceAttempt.length ? progressSinceAttempt : allQuestProgress.filter((item) => item.currentValue > 0), (item) => item.updatedAt);
 }
 
 function findAttemptForPeriod(attempts: StudentQuestAttempt[], period?: { sourcePeriodStart: string; sourcePeriodEnd: string }) {
   if (!period) return undefined;
-  return attempts.find((attempt) => (
-    attempt.startedAt === period.sourcePeriodStart && attempt.expiresAt === period.sourcePeriodEnd
-  ));
+  return attempts.find((attempt) => periodMatchesAttempt(period, attempt));
 }
 
 export function StudentLichessQuestList() {
@@ -173,10 +210,10 @@ export function StudentLichessQuestList() {
       ?? findAttemptForPeriod(questAttempts, latestAward)
       ?? findAttemptForPeriod(questAttempts, latestProgress);
     const completion = attempt
-      ? newestByDate(completions.filter((item) => item.questId === quest.id && item.sourcePeriodStart === attempt.startedAt && item.sourcePeriodEnd === attempt.expiresAt), (item) => item.completedAt)
+      ? newestByDate(completions.filter((item) => item.questId === quest.id && periodMatchesAttempt(item, attempt)), (item) => item.completedAt)
       : latestCompletion;
     const award = attempt
-      ? newestByDate(awards.filter((item) => item.questId === quest.id && item.sourcePeriodStart === attempt.startedAt && item.sourcePeriodEnd === attempt.expiresAt), (item) => item.createdAt)
+      ? newestByDate(awards.filter((item) => item.questId === quest.id && periodMatchesAttempt(item, attempt)), (item) => item.createdAt)
       : latestAward;
 
     return (
