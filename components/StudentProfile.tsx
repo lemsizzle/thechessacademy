@@ -75,11 +75,18 @@ export function StudentProfile({
 }) {
   const { quests: adminQuests, studentLichessAccounts } = useMockAdminState();
   const [localStudents, setLocalStudents] = useState<Student[]>([]);
-  const effectiveStudent = localStudents.find((item) => (
+  const localStudent = localStudents.find((item) => (
     item.id === student.id ||
     item.slug === student.slug ||
     (student.lichessUsername && item.lichessUsername?.toLowerCase() === student.lichessUsername.toLowerCase())
-  )) ?? student;
+  ));
+  const effectiveStudent = localStudent ? {
+    ...localStudent,
+    ...student,
+    totalXp: Math.max(localStudent.totalXp, student.totalXp),
+    badgeIds: Array.from(new Set([...student.badgeIds, ...localStudent.badgeIds])),
+    completedQuestIds: Array.from(new Set([...(student.completedQuestIds ?? []), ...(localStudent.completedQuestIds ?? [])]))
+  } : student;
   const quests = initialQuests ?? adminQuests;
   const [isAdmin, setIsAdmin] = useState(false);
   const [localXpEvents, setLocalXpEvents] = useState<XpEvent[]>([]);

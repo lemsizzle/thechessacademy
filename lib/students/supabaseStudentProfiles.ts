@@ -14,6 +14,17 @@ type SupabaseStudentRow = {
   lichess_username?: string | null;
 };
 
+type StudentBadgeRow = {
+  student_id: string;
+  badge_id: string;
+};
+
+type StudentQuestRow = {
+  student_id: string;
+  quest_id: string;
+  status: string | null;
+};
+
 export type StudentProfileLookup = {
   configured: boolean;
   student: Student | null;
@@ -24,7 +35,7 @@ export function slugifyStudent(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || `student-${Date.now()}`;
 }
 
-function toStudent(row: SupabaseStudentRow): Student {
+function toStudent(row: SupabaseStudentRow, badgeIds: string[] = [], completedQuestIds: string[] = []): Student {
   return {
     id: row.id,
     slug: row.public_slug,
@@ -36,13 +47,33 @@ function toStudent(row: SupabaseStudentRow): Student {
     isActive: row.is_active ?? true,
     onboardingCompleted: true,
     totalXp: row.total_xp ?? 0,
-    badgeIds: [],
-    completedQuestIds: [],
+    badgeIds,
+    completedQuestIds,
     encouragement: "Welcome to the academy. Your Lichess account is linked and your quest board is ready."
   };
 }
 
 const studentSelect = "id,display_name,public_slug,avatar_url,class_group,total_xp,is_active,lichess_id,lichess_username";
+
+async function hydrateStudentRows(rows: SupabaseStudentRow[]) {
+  const supabase = getSupabaseServerReadClient() ?? getSupabaseServiceClient();
+  if (!supabase || !rows.length) return rows.map((row) => toStudent(row));
+
+  const studentIds = rows.map((row) => row.id);
+  const [badges, quests] = await Promise.all([
+    supabase.from("student_badges").select("student_id,badge_id").in("student_id", studentIds),
+    supabase.from("student_quests").select("student_id,quest_id,status").in("student_id", studentIds)
+  ]);
+
+  const badgeRows = badges.error ? [] : ((badges.data ?? []) as StudentBadgeRow[]);
+  const questRows = quests.error ? [] : ((quests.data ?? []) as StudentQuestRow[]);
+
+  return rows.map((row) => toStudent(
+    row,
+    badgeRows.filter((badge) => badge.student_id === row.id).map((badge) => badge.badge_id),
+    questRows.filter((quest) => quest.student_id === row.id && quest.status === "completed").map((quest) => quest.quest_id)
+  ));
+}
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -69,7 +100,8 @@ export async function findSupabaseStudentById(studentId: string): Promise<Studen
     .maybeSingle();
 
   if (error) return { configured: true, student: null, error: error.message };
-  return { configured: true, student: data ? toStudent(data as SupabaseStudentRow) : null };
+  const [student] = data ? await hydrateStudentRows([data as SupabaseStudentRow]) : [];
+  return { configured: true, student: student ?? null };
 }
 
 export async function listSupabaseStudents(): Promise<StudentProfileLookup & { students: Student[] }> {
@@ -87,7 +119,7 @@ export async function listSupabaseStudents(): Promise<StudentProfileLookup & { s
     .order("display_name", { ascending: true });
 
   if (error) return { configured: true, student: null, students: [], error: error.message };
-  return { configured: true, student: null, students: ((data ?? []) as SupabaseStudentRow[]).map(toStudent) };
+  return { configured: true, student: null, students: await hydrateStudentRows((data ?? []) as SupabaseStudentRow[]) };
 }
 
 export async function findSupabaseStudentByLichess(lichessId: string, lichessUsername: string): Promise<StudentProfileLookup> {
@@ -110,7 +142,10 @@ export async function findSupabaseStudentByLichess(lichessId: string, lichessUse
       .maybeSingle();
 
     if (byId.error) return { configured: true, student: null, error: byId.error.message };
-    if (byId.data) return { configured: true, student: toStudent(byId.data as SupabaseStudentRow) };
+    if (byId.data) {
+      const [student] = await hydrateStudentRows([byId.data as SupabaseStudentRow]);
+      return { configured: true, student: student ?? null };
+    }
   }
 
   if (cleanUsername) {
@@ -122,7 +157,10 @@ export async function findSupabaseStudentByLichess(lichessId: string, lichessUse
       .maybeSingle();
 
     if (byUsername.error) return { configured: true, student: null, error: byUsername.error.message };
-    if (byUsername.data) return { configured: true, student: toStudent(byUsername.data as SupabaseStudentRow) };
+    if (byUsername.data) {
+      const [student] = await hydrateStudentRows([byUsername.data as SupabaseStudentRow]);
+      return { configured: true, student: student ?? null };
+    }
   }
 
   return { configured: true, student: null };
@@ -184,7 +222,8 @@ export async function createSupabaseStudentForLichess(
     .single();
 
   if (error) throw new Error(error.message);
-  return toStudent(data as SupabaseStudentRow);
+  const [student] = await hydrateStudentRows([data as SupabaseStudentRow]);
+  return student ?? toStudent(data as SupabaseStudentRow);
 }
 
 async function findSupabaseStudentIds(identifier: string, slug?: string, lichessUsername?: string) {
@@ -283,7 +322,7 @@ export async function addSupabaseStudentXp(
   return {
     updated: true,
     skipped: false,
-    student: toStudent(updated as SupabaseStudentRow),
+    student: (await hydrateStudentRows([updated as SupabaseStudentRow]))[0] ?? toStudent(updated as SupabaseStudentRow),
     event: {
       id: (event as { id: string }).id,
       studentId: (event as { student_id: string }).student_id,
@@ -360,7 +399,7 @@ export async function awardSupabaseStudentBadge(
     return {
       awarded: true,
       alreadyAwarded: false,
-      student: xpResult.student ? { ...xpResult.student, badgeIds: [badgeId] } : undefined,
+      student: xpResult.student,
       event: xpResult.event,
       badgeName: badgeRow.name,
       xpValue
@@ -371,7 +410,7 @@ export async function awardSupabaseStudentBadge(
   return {
     awarded: true,
     alreadyAwarded: false,
-    student: current.student ? { ...current.student, badgeIds: [badgeId] } : undefined,
+    student: current.student ?? undefined,
     badgeName: badgeRow.name,
     xpValue
   };
@@ -412,6 +451,6 @@ export async function updateSupabaseStudentProfile(
   return {
     updated: true,
     skipped: false,
-    student: toStudent(data as SupabaseStudentRow)
+    student: (await hydrateStudentRows([data as SupabaseStudentRow]))[0] ?? toStudent(data as SupabaseStudentRow)
   };
 }

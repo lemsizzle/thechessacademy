@@ -630,12 +630,48 @@ export function AdminPanel({
       pushLog(`${currentStudent.name} already has ${badge.name}.`);
       return;
     }
-    await recordXpChange(currentStudent, badge.xpValue, `Badge awarded: ${badge.name}`);
-    setStudents((items) => items.map((student) => student.id === currentStudent.id ? {
-      ...student,
-      badgeIds: [...student.badgeIds, badge.id]
-    } : student));
-    pushLog(`Awarded ${badge.name} to ${currentStudent.name} and added ${badge.xpValue} XP.`);
+    try {
+      const response = await fetch(`/api/admin/students/${encodeURIComponent(currentStudent.id)}/badges`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+        },
+        body: JSON.stringify({
+          badgeId: badge.id,
+          slug: currentStudent.slug,
+          lichessUsername: currentStudent.lichessUsername,
+          note: "Awarded from Manage Students.",
+          awardBadgeXp: true
+        })
+      });
+      const data = await response.json().catch(() => ({})) as {
+        mode?: "local-only";
+        alreadyAwarded?: boolean;
+        student?: Student;
+        event?: XpEvent;
+        error?: string;
+      };
+      if (!response.ok) throw new Error(data.error ?? "Could not award badge.");
+
+      if (data.event) updateAdminStore({ xpEvents: [data.event, ...(readAdminStore().xpEvents ?? [])] });
+      setStudents((items) => items.map((student) => {
+        if (student.id !== currentStudent.id) return student;
+        const fallbackTotalXp = data.alreadyAwarded ? student.totalXp : student.totalXp + badge.xpValue;
+        return {
+          ...student,
+          ...(data.student ?? {}),
+          totalXp: data.student?.totalXp ?? fallbackTotalXp,
+          badgeIds: data.student?.badgeIds?.length ? data.student.badgeIds : Array.from(new Set([...student.badgeIds, badge.id]))
+        };
+      }));
+      pushLog(data.alreadyAwarded
+        ? `${currentStudent.name} already has ${badge.name}.`
+        : `Awarded ${badge.name} to ${currentStudent.name} and added ${badge.xpValue} XP.`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not award badge.");
+    }
   }
 
   function removeBadge() {
