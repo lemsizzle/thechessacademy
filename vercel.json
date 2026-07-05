@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/lichess-team-tournaments",
+      "schedule": "0 12 * * *"
+    }
+  ]
+}

@@ -39,6 +39,7 @@ Required for teacher/admin protection:
 ```bash
 ADMIN_PASSWORD=replace_with_a_strong_teacher_password
 ADMIN_SESSION_SECRET=replace_with_a_different_long_random_secret
+CRON_SECRET=replace_with_a_long_random_cron_secret
 ```
 
 Recommended app URL:
@@ -91,6 +92,7 @@ Server-only secrets must not use the `NEXT_PUBLIC_` prefix. Keep these server-on
 
 - `ADMIN_PASSWORD`
 - `ADMIN_SESSION_SECRET`
+- `CRON_SECRET`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY`
 - `LICHESS_CLIENT_SECRET`
@@ -109,6 +111,20 @@ The app currently renders and edits mock data locally. To make classroom edits p
 7. Move generated badge images into Supabase Storage.
 
 Student onboarding writes new rows to Supabase, so `SUPABASE_SERVICE_ROLE_KEY` must be configured in Vercel. Also run `docs/supabase-add-lichess-fields.sql` once so students can be linked by Lichess account.
+
+## 4.1 Vercel Cron Jobs
+
+`vercel.json` schedules a protected daily Lichess team tournament sync:
+
+```text
+/api/cron/lichess-team-tournaments
+```
+
+Set `CRON_SECRET` in Vercel Production before deploying. Vercel sends it as a bearer token when invoking the cron route. The default schedule is once per day so it works on Hobby plans. On a Pro plan, you can increase freshness by changing the schedule in `vercel.json`, for example hourly:
+
+```json
+{ "path": "/api/cron/lichess-team-tournaments", "schedule": "0 * * * *" }
+```
 
 ## 5. Test Public Student Pages
 

@@ -15,3 +15,6 @@ out/
 .codex/
 .vercel/
 .gitrepo/
+
+.vercel
+.env*

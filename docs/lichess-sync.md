@@ -6,6 +6,7 @@ The app now treats Lichess as one shared sync source instead of letting several 
 
 - Student login can refresh the student's Lichess profile and ratings.
 - Quest evaluation fetches game and puzzle activity for active quest windows.
+- Vercel Cron can refresh team Arena tournament data through `/api/cron/lichess-team-tournaments`.
 - The app stops immediately if Lichess returns `429 Too Many Requests`.
 - If the optional `lichess_sync_state` table exists, cooldown state is stored in Supabase so Vercel remembers it across requests.
 - Existing quest progress is preserved when a fresh Lichess request fails or is rate-limited.
@@ -51,6 +52,7 @@ It never returns API keys, Lichess tokens, or Supabase service keys.
 ## Required Vercel Variables
 
 - `NEXT_PUBLIC_APP_URL`
+- `CRON_SECRET`
 - `LICHESS_CLIENT_ID`
 - `LICHESS_REDIRECT_URI`
 - `LICHESS_ENCRYPTION_SECRET`
