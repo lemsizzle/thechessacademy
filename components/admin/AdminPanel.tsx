@@ -26,6 +26,7 @@ import { formatCountdown, isQuestAttemptActive } from "@/lib/quests/questAttempt
 import { formatQuestEvidence } from "@/lib/quests/formatQuestEvidence";
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
 import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
+import { findAttemptForPeriod, selectPendingQuestAward, selectQuestCompletion, selectQuestProgress } from "@/lib/quests/selectQuestProgress";
 import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
 import { buildStudentActivityItems } from "@/lib/studentActivity";
 import type { ArenaTournamentResult, Badge, BadgeCategory, BadgeTier, ClassGroup, ConceptTheme, GameReviewSubmission, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, Quest, QuestCompletionEvent, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, Student, StudentLichessAccount, StudentQuestAttempt, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
@@ -130,15 +131,6 @@ function normalizeQuests(quests: Quest[]) {
 
 function newestByDate<T>(items: T[], getDate: (item: T) => string | undefined) {
   return [...items].sort((a, b) => (getDate(b) ?? "").localeCompare(getDate(a) ?? ""))[0];
-}
-
-function periodMatchesAttempt(period: { sourcePeriodStart: string; sourcePeriodEnd: string }, attempt: StudentQuestAttempt) {
-  return period.sourcePeriodStart === attempt.startedAt && period.sourcePeriodEnd === attempt.expiresAt;
-}
-
-function findAttemptForPeriod(attempts: StudentQuestAttempt[], period?: { sourcePeriodStart: string; sourcePeriodEnd: string }) {
-  if (!period) return undefined;
-  return attempts.find((attempt) => periodMatchesAttempt(period, attempt));
 }
 
 function createPendingBadgeAwardsFromProgress(student: Student, progress: StudentTacticProgress[], existingPendingAwards: PendingAward[], badgeSource: Badge[]) {
@@ -1304,20 +1296,22 @@ export function AdminPanel({
             ?? findAttemptForPeriod(attemptsForQuest, latestProgressForQuest)
             ?? newestByDate(attemptsForQuest, (attempt) => attempt.startedAt);
           const attemptIsActive = latestAttempt ? isQuestAttemptActive(latestAttempt) : false;
-          const progressForQuest = currentStudentQuestProgress.filter((item) => (
-            item.questId === quest.id
-            && (!latestAttempt || (item.sourcePeriodStart === latestAttempt.startedAt && item.sourcePeriodEnd === latestAttempt.expiresAt))
-          ));
-          const latestProgress = newestByDate(progressForQuest, (item) => item.updatedAt);
-          const completion = newestByDate(currentStudentQuestCompletions.filter((item) => (
-            item.questId === quest.id
-            && (!latestAttempt || (item.sourcePeriodStart === latestAttempt.startedAt && item.sourcePeriodEnd === latestAttempt.expiresAt))
-          )), (item) => item.completedAt);
-          const pendingAward = newestByDate(currentStudentQuestAwards.filter((item) => (
-            item.questId === quest.id
-            && (!latestAttempt || (item.sourcePeriodStart === latestAttempt.startedAt && item.sourcePeriodEnd === latestAttempt.expiresAt))
-            && item.status === "pending"
-          )), (item) => item.createdAt);
+          const completion = selectQuestCompletion({
+            quest,
+            completions: currentStudentQuestCompletions,
+            attempt: latestAttempt
+          });
+          const pendingAward = selectPendingQuestAward({
+            quest,
+            awards: currentStudentQuestAwards,
+            attempt: latestAttempt
+          });
+          const latestProgress = selectQuestProgress({
+            quest,
+            progress: currentStudentQuestProgress,
+            completion,
+            attempt: latestAttempt
+          });
           const required = Math.max(1, latestProgress?.requiredValue ?? quest.requiredCount ?? quest.requiredScore ?? 1);
           const current = completion ? required : latestProgress ? Math.min(required, latestProgress.currentValue) : 0;
           const percent = Math.min(100, Math.round((current / required) * 100));
