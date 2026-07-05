@@ -1,5 +1,6 @@
 import type { LichessQuestGame, LichessQuestProgress, Quest } from "@/lib/types";
 import type { QuestWindow } from "@/lib/quests/timeWindows";
+import { formatSyncErrorForEvidence } from "@/lib/quests/formatQuestEvidence";
 
 export function evaluateLichessGameQuest(
   studentId: string,
@@ -23,7 +24,7 @@ export function evaluateLichessGameQuest(
   const countedEvidence = isWinQuest
     ? `Fetched ${games.length} game${games.length === 1 ? "" : "s"} and counted ${relevant.length} ${label} won during ${window.label}. ${ignoredShortGames} rated finished game${ignoredShortGames === 1 ? "" : "s"} under 10 moves ignored.`
     : `Fetched ${games.length} game${games.length === 1 ? "" : "s"} and counted ${relevant.length} ${label} during ${window.label}. ${ignoredShortGames} rated finished game${ignoredShortGames === 1 ? "" : "s"} under 10 moves ignored.`;
-  const evidence = fetchError ? `Lichess game sync did not return fresh data: ${fetchError} ${countedEvidence}` : countedEvidence;
+  const evidence = fetchError ? formatSyncErrorForEvidence("game", fetchError) : countedEvidence;
 
   return {
     studentId,

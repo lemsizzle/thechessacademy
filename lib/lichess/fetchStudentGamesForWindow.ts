@@ -1,5 +1,5 @@
 import { parseNdjson } from "@/lib/lichess/parseNdjson";
-import { getRetryAfterSeconds, LichessRateLimitError, sanitizeLichessErrorDetail } from "@/lib/lichess/rateLimit";
+import { getRetryAfterSeconds, isLichessRateLimitError, LichessRateLimitError, sanitizeLichessErrorDetail } from "@/lib/lichess/rateLimit";
 import type { LichessQuestGame } from "@/lib/types";
 
 type RawGame = {
@@ -90,10 +90,6 @@ async function fetchRawGames(username: string, params: URLSearchParams, accessTo
   return parseNdjson<RawGame>(await response.text());
 }
 
-function isRateLimitError(error: unknown) {
-  return error instanceof Error && error.message.toLowerCase().includes("rate-limiting");
-}
-
 function mapGame(game: RawGame, username: string, fallbackPerfType: LichessGamePerfType): LichessQuestGame {
   const safeUsername = normalizeUsername(username);
   const whiteCandidates = [
@@ -145,13 +141,11 @@ export async function fetchStudentGamesForWindow(username: string, start: Date, 
 
   try {
     const narrowGames = await fetchRawGames(username, narrowParams, accessToken);
-    if (narrowGames.length) {
-      const games = narrowGames.map((game) => mapGame(game, username, perfType));
-      gameActivityCache.set(key, { expiresAt: Date.now() + GAME_ACTIVITY_CACHE_TTL_MS, games });
-      return games;
-    }
+    const games = narrowGames.map((game) => mapGame(game, username, perfType));
+    gameActivityCache.set(key, { expiresAt: Date.now() + GAME_ACTIVITY_CACHE_TTL_MS, games });
+    return games;
   } catch (error) {
-    if (isRateLimitError(error)) throw error;
+    if (isLichessRateLimitError(error)) throw error;
     // Retry below with fewer Lichess filters, then filter locally.
   }
 

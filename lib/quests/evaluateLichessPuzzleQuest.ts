@@ -1,4 +1,5 @@
 import { mapLichessThemeToTactic } from "@/lib/lichess/gameTacticThemeMap";
+import { formatSyncErrorForEvidence } from "@/lib/quests/formatQuestEvidence";
 import type { LichessQuestProgress, LichessQuestPuzzleActivity, Quest } from "@/lib/types";
 import type { QuestWindow } from "@/lib/quests/timeWindows";
 
@@ -27,7 +28,7 @@ export function evaluateLichessPuzzleQuest(
     : quest.conditionType === "puzzle_theme_solved_count"
       ? `Solved ${themedSolved.length} ${quest.requiredTheme ?? "themed"} Lichess puzzles during ${window.label}.`
       : `Solved ${solved.length} of ${attempted} Lichess puzzles during ${window.label}.`;
-  const evidence = fetchError ? `Lichess puzzle sync did not return fresh data: ${fetchError} ${countedEvidence}` : countedEvidence;
+  const evidence = fetchError ? formatSyncErrorForEvidence("puzzle", fetchError) : countedEvidence;
 
   return {
     studentId,

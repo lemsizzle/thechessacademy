@@ -8,10 +8,19 @@ type RawPuzzleActivity = {
   puzzle?: { id?: string; themes?: string[] };
 };
 
-export async function fetchStudentPuzzleActivityForWindow(accessToken: string, start: Date, end: Date) {
+function mapPuzzleActivity(activity: RawPuzzleActivity): LichessQuestPuzzleActivity | null {
+  if (!activity.puzzle?.id) return null;
+  return {
+    puzzleId: activity.puzzle.id,
+    date: new Date(activity.date ?? Date.now()).toISOString(),
+    win: activity.win === true,
+    themes: activity.puzzle.themes ?? []
+  };
+}
+
+async function fetchPuzzlePage(accessToken: string, before: Date) {
   const params = new URLSearchParams({
-    since: String(start.getTime()),
-    before: String(end.getTime()),
+    before: String(before.getTime()),
     max: "100"
   });
   const response = await fetch(`https://lichess.org/api/puzzle/activity?${params}`, {
@@ -25,14 +34,31 @@ export async function fetchStudentPuzzleActivityForWindow(accessToken: string, s
     throw new Error(`Lichess puzzle activity failed with ${response.status}.`);
   }
   return parseNdjson<RawPuzzleActivity>(await response.text()).flatMap((activity) => {
-    if (!activity.puzzle?.id) return [];
-    return [{
-      puzzleId: activity.puzzle.id,
-      date: new Date(activity.date ?? Date.now()).toISOString(),
-      win: activity.win === true,
-      themes: activity.puzzle.themes ?? []
-    }];
+    const mapped = mapPuzzleActivity(activity);
+    return mapped ? [mapped] : [];
   });
+}
+
+export async function fetchStudentPuzzleActivityForWindow(accessToken: string, start: Date, end: Date) {
+  const requestEnd = new Date(Math.min(end.getTime(), Date.now() + 2 * 60_000));
+  const activities: LichessQuestPuzzleActivity[] = [];
+  let before = requestEnd;
+
+  for (let page = 0; page < 5; page += 1) {
+    const pageActivities = await fetchPuzzlePage(accessToken, before);
+    if (!pageActivities.length) break;
+    activities.push(...pageActivities);
+
+    const oldest = Math.min(...pageActivities.map((activity) => new Date(activity.date).getTime()));
+    if (!Number.isFinite(oldest) || oldest <= start.getTime()) break;
+    before = new Date(oldest - 1);
+  }
+
+  return Array.from(new Map(activities.map((activity) => [activity.puzzleId, activity])).values())
+    .filter((activity) => {
+      const time = new Date(activity.date).getTime();
+      return time >= start.getTime() && time <= requestEnd.getTime();
+    });
 }
 
 export function createMockStudentPuzzleActivityForWindow(start: Date, end: Date): LichessQuestPuzzleActivity[] {

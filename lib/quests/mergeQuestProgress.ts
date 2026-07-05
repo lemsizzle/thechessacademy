@@ -5,7 +5,7 @@ function progressKey(progress: LichessQuestProgress) {
 }
 
 function hasFreshSyncError(progress: LichessQuestProgress) {
-  return progress.evidence.includes("sync did not return fresh data");
+  return /sync did not return fresh data|sync paused|rate-limited|rate limit reached|requires the student's Lichess login token/i.test(progress.evidence);
 }
 
 function shouldKeepHighWaterMark(quest?: Quest) {

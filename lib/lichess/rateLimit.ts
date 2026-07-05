@@ -19,8 +19,12 @@ export function getRetryAfterSeconds(headers: Headers) {
 }
 
 export function isLichessRateLimitError(error: unknown): error is LichessRateLimitError {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
   return error instanceof LichessRateLimitError
-    || (error instanceof Error && error.message.toLowerCase().includes("rate limit"));
+    || message.includes("rate limit")
+    || message.includes("rate-limit")
+    || message.includes("rate-limiting")
+    || message.includes("too many requests");
 }
 
 export function sanitizeLichessErrorDetail(detail: string) {
