@@ -1,6 +1,6 @@
 import { getSupabaseServerReadClient, getSupabaseServiceClient, isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import { UNASSIGNED_CLASS } from "@/lib/classes";
-import type { Student, StudentSession, XpEvent } from "@/lib/types";
+import type { Badge, BadgeTier, Student, StudentSession, XpEvent } from "@/lib/types";
 
 type SupabaseStudentRow = {
   id: string;
@@ -333,9 +333,69 @@ export async function addSupabaseStudentXp(
   };
 }
 
+function toSupabaseBadgeTier(tier: BadgeTier | undefined) {
+  if (tier === "Silver" || tier === "B") return "B";
+  if (tier === "Gold" || tier === "A") return "A";
+  if (tier === "Platinum" || tier === "S") return "S";
+  return "C";
+}
+
+async function resolveSupabaseBadgeForAward(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServiceClient>>,
+  badgeId: string,
+  badgeInput?: Partial<Badge>
+) {
+  if (isUuid(badgeId)) {
+    const { data, error } = await supabase
+      .from("badges")
+      .select("id,name,xp_value")
+      .eq("id", badgeId)
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data as { id: string; name: string; xp_value: number | null };
+  }
+
+  const badgeName = badgeInput?.name?.trim();
+  if (!badgeName) {
+    throw new Error("This badge is from the old local badge list. Refresh the admin page and try again.");
+  }
+  const badge = badgeInput ?? {};
+
+  const existing = await supabase
+    .from("badges")
+    .select("id,name,xp_value")
+    .eq("name", badgeName)
+    .maybeSingle();
+
+  if (existing.error) throw new Error(existing.error.message);
+  if (existing.data) return existing.data as { id: string; name: string; xp_value: number | null };
+
+  const { data, error } = await supabase
+    .from("badges")
+    .insert({
+      name: badgeName,
+      description: badge.description?.trim() ?? "",
+      category: badge.category ?? "Tactics",
+      tier: toSupabaseBadgeTier(badge.tier),
+      xp_value: Math.max(0, Number(badge.xpValue ?? 0)),
+      unlock_requirement: badge.unlockRequirement?.trim() ?? "Teacher-awarded achievement.",
+      visual_theme: badge.visualTheme?.trim() ?? "magical chess academy emblem",
+      art_image_url: badge.artImageUrl ?? null,
+      final_image_url: badge.finalImageUrl ?? null,
+      generation_status: badge.generationStatus ?? "pending",
+      generation_error: badge.generationError ?? null
+    })
+    .select("id,name,xp_value")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as { id: string; name: string; xp_value: number | null };
+}
+
 export async function awardSupabaseStudentBadge(
   studentId: string,
-  input: { badgeId: string; note?: string; slug?: string; lichessUsername?: string; awardBadgeXp?: boolean }
+  input: { badgeId: string; note?: string; slug?: string; lichessUsername?: string; awardBadgeXp?: boolean; badge?: Partial<Badge> }
 ): Promise<{ awarded: boolean; alreadyAwarded: boolean; student?: Student; event?: XpEvent; badgeName?: string; xpValue?: number }> {
   if (!isSupabaseServiceConfigured()) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is required to award badges in Supabase.");
@@ -351,24 +411,18 @@ export async function awardSupabaseStudentBadge(
   if (!supabase) throw new Error("Supabase service role is not configured.");
 
   const studentIdToUpdate = ids[0];
-  const { data: badge, error: badgeError } = await supabase
-    .from("badges")
-    .select("id,name,xp_value")
-    .eq("id", badgeId)
-    .single();
-
-  if (badgeError) throw new Error(badgeError.message);
+  const badgeRow = await resolveSupabaseBadgeForAward(supabase, badgeId, input.badge);
+  const supabaseBadgeId = badgeRow.id;
 
   const existing = await supabase
     .from("student_badges")
     .select("id")
     .eq("student_id", studentIdToUpdate)
-    .eq("badge_id", badgeId)
+    .eq("badge_id", supabaseBadgeId)
     .maybeSingle();
 
   if (existing.error) throw new Error(existing.error.message);
 
-  const badgeRow = badge as { id: string; name: string; xp_value: number | null };
   if (existing.data) {
     const current = await findSupabaseStudentById(studentIdToUpdate);
     return {
@@ -384,7 +438,7 @@ export async function awardSupabaseStudentBadge(
     .from("student_badges")
     .insert({
       student_id: studentIdToUpdate,
-      badge_id: badgeId,
+      badge_id: supabaseBadgeId,
       note: input.note?.trim() || null
     });
 

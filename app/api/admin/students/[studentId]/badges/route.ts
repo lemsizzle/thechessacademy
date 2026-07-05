@@ -1,6 +1,7 @@
 import { ADMIN_SESSION_COOKIE, isValidAdminActionToken, isValidAdminSession } from "@/lib/auth/adminSession";
 import { awardSupabaseStudentBadge } from "@/lib/students/supabaseStudentProfiles";
 import { isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
+import type { Badge } from "@/lib/types";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -29,6 +30,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     slug?: string;
     lichessUsername?: string;
     awardBadgeXp?: boolean;
+    badge?: Partial<Badge>;
   };
   if (!body.badgeId) return NextResponse.json({ error: "Badge is required." }, { status: 400 });
 
@@ -46,7 +48,8 @@ export async function POST(request: Request, { params }: RouteContext) {
       note: body.note,
       slug: body.slug,
       lichessUsername: body.lichessUsername,
-      awardBadgeXp: body.awardBadgeXp
+      awardBadgeXp: body.awardBadgeXp,
+      badge: body.badge
     });
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {

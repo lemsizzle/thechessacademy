@@ -643,7 +643,8 @@ export function AdminPanel({
           slug: currentStudent.slug,
           lichessUsername: currentStudent.lichessUsername,
           note: "Awarded from Manage Students.",
-          awardBadgeXp: true
+          awardBadgeXp: true,
+          badge
         })
       });
       const data = await response.json().catch(() => ({})) as {

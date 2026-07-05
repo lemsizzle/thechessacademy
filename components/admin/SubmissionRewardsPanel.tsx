@@ -64,7 +64,8 @@ export function SubmissionRewardsPanel({
           slug: student.slug,
           lichessUsername: student.lichessUsername,
           note: "Awarded from puzzle score review.",
-          awardBadgeXp: true
+          awardBadgeXp: true,
+          badge
         })
       });
       const data = await response.json().catch(() => ({})) as {
