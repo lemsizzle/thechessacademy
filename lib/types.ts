@@ -172,6 +172,7 @@ export type Quest = {
   isLive?: boolean;
   xpReward: number;
   badgeRewardId?: string;
+  completionUrl?: string;
   classGroup?: string;
   category?: string;
   source?: QuestSource;

@@ -18,6 +18,7 @@ import { ADMIN_STORE_UPDATED_EVENT, hasAdminSession, readAdminStore } from "@/li
 import { buildStudentActivityItems } from "@/lib/studentActivity";
 import { STUDENT_LICHESS_FULL_SYNC_EVENT } from "@/lib/studentLichessFullSync";
 import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
+import { isSafeExternalUrl } from "@/lib/resources";
 import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
 import { useMockAdminState } from "@/lib/useMockAdminState";
 import type { Badge, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentQuestAttempt, XpEvent } from "@/lib/types";
@@ -174,6 +175,8 @@ export function StudentProfile({
           <div className="grid gap-3 md:grid-cols-2">
             {visibleQuests.map((quest) => {
               const completed = effectiveStudent.completedQuestIds?.includes(quest.id) ?? false;
+              const completionUrl = quest.completionUrl?.trim();
+              const hasSafeCompletionUrl = completionUrl ? isSafeExternalUrl(completionUrl) : false;
               return (
                 <div key={quest.id} className={`rounded-md border p-3 ${completed ? "border-emerald-300/25 bg-emerald-300/10" : "border-cyan-300/20 bg-cyan-300/10"}`}>
                   <div className="flex items-center justify-between gap-3">
@@ -182,6 +185,11 @@ export function StudentProfile({
                   </div>
                   <p className="mt-2 text-sm text-slate-300">{quest.description}</p>
                   <p className="mt-2 text-xs font-bold text-amber-100">{quest.xpReward} XP</p>
+                  {hasSafeCompletionUrl && (
+                    <div className="mt-3">
+                      <Button href={completionUrl} variant="secondary" target="_blank" rel="noopener noreferrer">Open Quest Link</Button>
+                    </div>
+                  )}
                 </div>
               );
             })}

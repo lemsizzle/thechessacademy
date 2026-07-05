@@ -90,6 +90,7 @@ const emptyQuest = (count: number): Quest => ({
   isLive: false,
   xpReward: 100,
   badgeRewardId: undefined,
+  completionUrl: "",
   classGroup: "",
   source: "manual",
   conditionType: "manual",
@@ -1014,6 +1015,7 @@ export function AdminPanel({
         category: "Lichess",
         status: "in-progress",
         isLive: true,
+        completionUrl: "https://lichess.org/",
         timeWindow: "weekly",
         requiredCount: 1,
         xpReward: quest.xpReward || 100,
@@ -1035,6 +1037,7 @@ export function AdminPanel({
         category: "Lichess",
         status: "in-progress",
         isLive: true,
+        completionUrl: "https://lichess.org/",
         timeWindow: "weekly",
         requiredCount: 5,
         xpReward: quest.xpReward || 100,
@@ -1055,6 +1058,7 @@ export function AdminPanel({
       category: "Lichess",
       status: "in-progress",
       isLive: true,
+      completionUrl: "https://lichess.org/training",
       timeWindow: "weekly",
       requiredCount: 10,
       xpReward: quest.xpReward || 100,
@@ -1073,7 +1077,8 @@ export function AdminPanel({
       updatedAt: new Date().toISOString(),
       status: questDraft.isLive && questDraft.status === "completed" ? "in-progress" as const : questDraft.status,
       source: questDraft.source ?? "manual",
-      conditionType: questDraft.conditionType ?? "manual"
+      conditionType: questDraft.conditionType ?? "manual",
+      completionUrl: questDraft.completionUrl?.trim() || undefined
     };
     setQuests((items) => items.map((quest) => quest.id === currentQuest.id ? savedQuest : quest));
     setQuestDraft(savedQuest);
@@ -1812,6 +1817,15 @@ export function AdminPanel({
             <option value="">No badge reward</option>
             {badges.map((badge) => <option key={badge.id} value={badge.id}>{badge.name}</option>)}
           </select>
+        </label>
+        <label className="grid gap-1 text-xs font-bold text-slate-300">Quest Link
+          <input
+            className={fieldClass()}
+            value={questDraft.completionUrl ?? ""}
+            onChange={(event) => updateQuestDraft({ completionUrl: event.target.value })}
+            placeholder="https://lichess.org/training"
+          />
+          <span className="text-[11px] font-normal text-slate-500">Optional link students can open to complete this quest.</span>
         </label>
         <label className="grid gap-1 text-xs font-bold text-slate-300">Class Group
           <input className={fieldClass()} list="class-groups" value={questDraft.classGroup ?? ""} onChange={(event) => updateQuestDraft({ classGroup: event.target.value })} />

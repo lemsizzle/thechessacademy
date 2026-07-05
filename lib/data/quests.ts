@@ -10,6 +10,7 @@ type QuestRow = {
   quest_type: string;
   xp_reward: number | null;
   badge_reward_id: string | null;
+  completion_url?: string | null;
   is_active: boolean | null;
   starts_at: string | null;
   ends_at: string | null;
@@ -34,6 +35,7 @@ function mapQuest(row: QuestRow): Quest {
     isLive,
     xpReward: row.xp_reward ?? 0,
     badgeRewardId: row.badge_reward_id ?? undefined,
+    completionUrl: row.completion_url ?? undefined,
     isActive: row.is_active ?? true,
     createdAt: row.created_at ?? undefined,
     updatedAt: row.updated_at ?? undefined
@@ -44,10 +46,21 @@ export async function getQuestsResult(): Promise<DataResult<Quest[]>> {
   const supabase = getSupabaseClient();
   if (!supabase) return mockResult(mockQuests, "Supabase is not configured.");
 
-  const { data, error } = await supabase
+  const withCompletionUrl = await supabase
     .from("quests")
-    .select("id,title,description,quest_type,xp_reward,badge_reward_id,is_active,starts_at,ends_at,created_at,updated_at")
+    .select("id,title,description,quest_type,xp_reward,badge_reward_id,completion_url,is_active,starts_at,ends_at,created_at,updated_at")
     .order("created_at", { ascending: false });
+  let data = withCompletionUrl.data as QuestRow[] | null;
+  let error = withCompletionUrl.error;
+
+  if (error && error.message.toLowerCase().includes("completion_url")) {
+    const fallback = await supabase
+      .from("quests")
+      .select("id,title,description,quest_type,xp_reward,badge_reward_id,is_active,starts_at,ends_at,created_at,updated_at")
+      .order("created_at", { ascending: false });
+    data = fallback.data as QuestRow[] | null;
+    error = fallback.error;
+  }
 
   if (shouldUseMock(data, error)) return mockResult(mockQuests, error);
   return supabaseResult((data as QuestRow[]).map(mapQuest));

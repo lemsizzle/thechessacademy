@@ -3,6 +3,7 @@ import { Button } from "@/components/Button";
 import { QuestConditionBadge } from "@/components/quests/QuestConditionBadge";
 import { formatQuestEvidence } from "@/lib/quests/formatQuestEvidence";
 import { formatCountdown } from "@/lib/quests/questAttempts";
+import { isSafeExternalUrl } from "@/lib/resources";
 import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent, StudentQuestAttempt } from "@/lib/types";
 
 export function LichessQuestProgressCard({
@@ -32,6 +33,8 @@ export function LichessQuestProgressCard({
   const status = completion ? "Completed" : award?.status === "pending" ? "Pending approval" : award?.status === "rejected" ? "Not approved" : progress?.completed ? "Ready for review" : attempt ? "In progress" : "Not started";
   const evidence = formatQuestEvidence(completion?.evidence ?? progress?.evidence ?? "");
   const countdown = attempt ? formatCountdown(new Date(attempt.expiresAt).getTime() - now) : "";
+  const completionUrl = quest.completionUrl?.trim();
+  const hasSafeCompletionUrl = completionUrl ? isSafeExternalUrl(completionUrl) : false;
 
   return (
     <Card className="p-4">
@@ -68,6 +71,13 @@ export function LichessQuestProgressCard({
         <span>{currentValue !== undefined ? `${currentValue} / ${requiredValue}` : "Not synced"}</span>
         <span>{quest.xpReward} XP</span>
       </div>
+      {hasSafeCompletionUrl && (
+        <div className="mt-3">
+          <Button href={completionUrl} variant="secondary" target="_blank" rel="noopener noreferrer">
+            Open Quest Link
+          </Button>
+        </div>
+      )}
       {progress?.accuracy !== undefined && <p className="mt-2 text-xs text-cyan-100">Accuracy: {progress.accuracy}%</p>}
       {completion && <p className="mt-2 text-xs text-emerald-100">Completed on {new Date(completion.completedAt).toLocaleDateString()}.</p>}
       {evidence && <p className="mt-2 text-xs text-slate-500">{evidence}{!completion && progress?.mode === "mock" ? " Mock fallback." : ""}</p>}
