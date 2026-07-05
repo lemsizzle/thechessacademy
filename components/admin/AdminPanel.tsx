@@ -338,7 +338,9 @@ export function AdminPanel({
   const classGroups = useMemo(() => getClassGroupNames(outschoolGroups, students), [outschoolGroups, students]);
   const classRoster = useMemo(() => getClassRoster(students, selectedClassGroup), [selectedClassGroup, students]);
   const selectedClassDetails = outschoolGroups.find((group) => group.name === selectedClassGroup);
-  const currentStudent = students.find((student) => student.id === selectedStudent) ?? classRoster[0] ?? students[0];
+  const currentStudent = selectedClassGroup === ALL_CLASSES
+    ? students.find((student) => student.id === selectedStudent) ?? classRoster[0] ?? students[0]
+    : classRoster.find((student) => student.id === selectedStudent) ?? classRoster[0];
   const currentBadge = badges.find((badge) => badge.id === selectedBadge) ?? badges[0];
   const currentQuest = quests.find((quest) => quest.id === selectedQuest) ?? quests[0];
   const filteredBadges = useMemo(() => badges.filter((badge) => (
@@ -351,6 +353,15 @@ export function AdminPanel({
   const currentStudentLichessProgress = tacticProgress.filter((item) => item.studentId === currentStudent?.id);
   const currentStudentConnection = lichessConnections.find((item) => item.studentId === currentStudent?.id);
   const currentStudentLichessAccount = studentLichessAccounts.find((item) => item.studentId === currentStudent?.id);
+  const currentStudentLichessHandle = cleanLichessUsername(currentStudent?.lichessUsername ?? "");
+  const currentStudentLichessStatus = currentStudentConnection?.status
+    ?? currentStudentLichessAccount?.syncStatus
+    ?? (currentStudentLichessAccount ? "connected" : currentStudentLichessHandle ? "linked" : "not linked");
+  const currentStudentLichessStatusDetail = currentStudentLichessAccount
+    ? "stats synced"
+    : currentStudentLichessHandle
+      ? "waiting for first stats sync"
+      : "student needs Lichess login";
   const currentStudentArenaPoints = getStudentArenaPoints(currentStudentLichessAccount, arenaTournamentResults);
   const currentStudentXp = currentStudent ? getStudentXpWithLichess(currentStudent, currentStudentLichessAccount) : undefined;
   const currentStudentPendingAwards = pendingAwards.filter((award) => award.studentId === currentStudent?.id && award.status === "pending");
@@ -393,10 +404,14 @@ export function AdminPanel({
 
   useEffect(() => {
     if (!students.length) return;
-    if (!students.some((student) => student.id === selectedStudent)) {
-      setSelectedStudent(classRoster[0]?.id ?? students[0].id);
+    if (!classRoster.length) {
+      if (selectedClassGroup !== ALL_CLASSES && selectedStudent) setSelectedStudent("");
+      return;
     }
-  }, [classRoster, selectedStudent, students]);
+    if (!classRoster.some((student) => student.id === selectedStudent)) {
+      setSelectedStudent(classRoster[0].id);
+    }
+  }, [classRoster, selectedClassGroup, selectedStudent, students.length]);
 
   const pushLog = (message: string) => setLog((items) => [`${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${message}`, ...items].slice(0, 10));
   const pushSyncLog = (message: string, level: LichessSyncLog["level"] = "info", studentId?: string) => {
@@ -1139,22 +1154,6 @@ export function AdminPanel({
     </Card>
   );
 
-  const studentQuestOverviewPanel = (
-    <Card className="p-4">
-      <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-        <label className="grid gap-1 text-xs font-black uppercase text-slate-400">
-          Student
-          <select className={fieldClass("normal-case")} value={classRoster.some((student) => student.id === currentStudent?.id) ? currentStudent?.id : ""} onChange={(event) => setSelectedStudent(event.target.value)}>
-            {!classRoster.length && <option value="">No students</option>}
-            {classRoster.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}
-          </select>
-        </label>
-        <span className="rounded bg-cyan-300/10 px-2 py-2 text-xs font-black text-cyan-100">{classRoster.length} student{classRoster.length === 1 ? "" : "s"}</span>
-      </div>
-      {!classRoster.length && <p className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-slate-300">No students in this class yet.</p>}
-    </Card>
-  );
-
   const studentEditor = (
     <Card className="p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1170,13 +1169,28 @@ export function AdminPanel({
       </div>
       <div className="mt-4 space-y-4">
         <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
             <label className="grid gap-1 text-xs font-black uppercase text-slate-400">
               Class
               <select className={fieldClass("normal-case")} value={selectedClassGroup} onChange={(event) => setSelectedClassGroup(event.target.value)}>
                 {[ALL_CLASSES, ...classGroups].map((group) => (
                   <option key={group} value={group}>
                     {group} ({getClassStudentCount(students, group)})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-black uppercase text-slate-400">
+              Student
+              <select
+                className={fieldClass("normal-case")}
+                value={classRoster.some((student) => student.id === currentStudent?.id) ? currentStudent?.id : ""}
+                onChange={(event) => setSelectedStudent(event.target.value)}
+              >
+                {!classRoster.length && <option value="">No students in this class</option>}
+                {classRoster.map((student) => (
+                  <option key={student.id} value={student.id}>
+                    {student.name} {student.lichessUsername ? `(${student.lichessUsername})` : ""}
                   </option>
                 ))}
               </select>
@@ -1212,7 +1226,9 @@ export function AdminPanel({
         </label>
         <label className="grid gap-1 text-xs font-bold text-slate-300">Class Group
           <select className={fieldClass()} value={currentStudent.classGroup} onChange={(event) => {
-            updateStudent({ classGroup: event.target.value });
+            const nextClassGroup = event.target.value;
+            updateStudent({ classGroup: nextClassGroup });
+            setSelectedClassGroup(nextClassGroup);
           }}>
             {classGroups.map((group) => <option key={group} value={group}>{group}</option>)}
             {!classGroups.includes(currentStudent.classGroup) && <option value={currentStudent.classGroup}>{currentStudent.classGroup}</option>}
@@ -1395,7 +1411,10 @@ export function AdminPanel({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="font-black text-white">Lichess Ratings & Puzzles</h3>
-            <p className="text-sm text-cyan-50/80">{currentStudent.lichessUsername || currentStudent.slug} - {currentStudentConnection?.status ?? currentStudentLichessAccount?.syncStatus ?? "not connected"} - {currentStudent.onboardingCompleted === false ? "onboarding needed" : "onboarded"}</p>
+            <p className="text-sm text-cyan-50/80">
+              {currentStudent.lichessUsername || currentStudent.slug} - {currentStudentLichessStatus} - {currentStudent.onboardingCompleted === false ? "onboarding needed" : "onboarded"}
+            </p>
+            <p className="mt-1 text-xs text-slate-400">{currentStudentLichessStatusDetail}</p>
           </div>
           <p className="text-xs font-bold text-slate-300">Last sync: {currentStudentConnection?.lastSyncedAt ?? currentStudentLichessAccount?.lastRatingSyncAt ?? "Never"}</p>
         </div>
@@ -1846,7 +1865,7 @@ export function AdminPanel({
   );
 
   if (mode === "activity") return <ActivityFeed events={activity} />;
-  if (mode === "students") return <div className="space-y-5">{studentSyncAllPanel}{studentEditor}{studentQuestOverviewPanel}{studentQuestProgressPanel}{studentActivityPanel}{lichessSyncPanel}{localTools}{logPanel}</div>;
+  if (mode === "students") return <div className="space-y-5">{studentSyncAllPanel}{studentEditor}{studentQuestProgressPanel}{studentActivityPanel}{lichessSyncPanel}{localTools}{logPanel}</div>;
   if (mode === "classes") return <div className="space-y-5">{outschoolPanel}{localTools}{logPanel}</div>;
   if (mode === "badges") return <div className="space-y-5">{badgeEditor}{localTools}{logPanel}</div>;
   if (mode === "xp") return <div className="space-y-5">{xpEditor}{localTools}{logPanel}</div>;
@@ -1857,7 +1876,6 @@ export function AdminPanel({
       <div className="grid gap-5 xl:grid-cols-2">
         {studentSyncAllPanel}
         {studentEditor}
-        {studentQuestOverviewPanel}
         {studentQuestProgressPanel}
         {studentActivityPanel}
         {outschoolPanel}
