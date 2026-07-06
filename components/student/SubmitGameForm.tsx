@@ -4,9 +4,9 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { studentGameSubmissions as seedSubmissions } from "@/data/studentSubmissions";
 import { createGameSubmission } from "@/lib/submissions/createGameSubmission";
-import { getCurrentStudentUser } from "@/lib/auth/getCurrentUser";
+import { getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/getCurrentUser";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
-import type { StudentGameSubmission } from "@/lib/types";
+import type { StudentGameSubmission, StudentUser } from "@/lib/types";
 import { useState } from "react";
 
 export function SubmitGameForm({ compact = false }: { compact?: boolean }) {
@@ -17,9 +17,28 @@ export function SubmitGameForm({ compact = false }: { compact?: boolean }) {
   const [notes, setNotes] = useState("");
   const [message, setMessage] = useState("Submit a Lichess game for teacher review. This does not award XP automatically.");
 
+  async function getSubmittingUser() {
+    try {
+      const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "include" });
+      const data = await response.json() as { user?: StudentUser };
+      if (response.ok && data.user) {
+        setCurrentStudentUserRecord(data.user);
+        return data.user;
+      }
+    } catch {
+      // Local session mirror remains the development fallback.
+    }
+
+    return getCurrentStudentUser();
+  }
+
   async function submit() {
-    const user = getCurrentStudentUser();
-    if (!user) return;
+    setMessage("Submitting game...");
+    const user = await getSubmittingUser();
+    if (!user) {
+      setMessage("Log in with Lichess before submitting a game.");
+      return;
+    }
     const result = createGameSubmission({
       studentId: user.studentId,
       gameUrl,
@@ -45,6 +64,7 @@ export function SubmitGameForm({ compact = false }: { compact?: boolean }) {
       submission = data.submission ?? submission;
     } catch (error) {
       setMessage(error instanceof Error ? `${error.message} Saved locally on this device.` : "Saved locally on this device.");
+      return;
     }
     const store = readAdminStore();
     const existing = store.studentGameSubmissions ?? seedSubmissions;

@@ -3,10 +3,10 @@
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { studentScoreSubmissions as seedSubmissions } from "@/data/studentSubmissions";
-import { getCurrentStudentUser } from "@/lib/auth/getCurrentUser";
+import { getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/getCurrentUser";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { createScoreSubmission } from "@/lib/submissions/createScoreSubmission";
-import type { StudentScoreSubmission, TacticTheme } from "@/lib/types";
+import type { StudentScoreSubmission, StudentUser, TacticTheme } from "@/lib/types";
 import { useState } from "react";
 
 const tacticThemes: TacticTheme[] = ["Fork", "Pin", "Skewer", "Discovered Attack", "Double Attack", "Deflection", "Decoy", "Removing the Defender", "Back Rank Mate", "Mate in One"];
@@ -17,9 +17,28 @@ export function SubmitScoreForm({ compact = false }: { compact?: boolean }) {
   const [notes, setNotes] = useState("");
   const [message, setMessage] = useState("Submit a puzzle challenge score for teacher review. This does not award XP automatically.");
 
+  async function getSubmittingUser() {
+    try {
+      const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "include" });
+      const data = await response.json() as { user?: StudentUser };
+      if (response.ok && data.user) {
+        setCurrentStudentUserRecord(data.user);
+        return data.user;
+      }
+    } catch {
+      // Local session mirror remains the development fallback.
+    }
+
+    return getCurrentStudentUser();
+  }
+
   async function submit() {
-    const user = getCurrentStudentUser();
-    if (!user) return;
+    setMessage("Submitting puzzle score...");
+    const user = await getSubmittingUser();
+    if (!user) {
+      setMessage("Log in with Lichess before submitting a score.");
+      return;
+    }
     const result = createScoreSubmission({
       studentId: user.studentId,
       challengeName: `${tacticTheme} Puzzle Score`,
@@ -44,6 +63,7 @@ export function SubmitScoreForm({ compact = false }: { compact?: boolean }) {
       submission = data.submission ?? submission;
     } catch (error) {
       setMessage(error instanceof Error ? `${error.message} Saved locally on this device.` : "Saved locally on this device.");
+      return;
     }
     const store = readAdminStore();
     const existing = store.studentScoreSubmissions ?? seedSubmissions;

@@ -15,7 +15,7 @@ import type { Badge, Quest, Student, StudentGameSubmission, SubmissionReviewActi
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-export function AdminGameSubmissionsTable() {
+export function AdminGameSubmissionsTable({ adminActionToken }: { adminActionToken?: string }) {
   const [students, setStudents] = useState<Student[]>(seedStudents);
   const [badges, setBadges] = useState<Badge[]>(seedBadges);
   const [quests, setQuests] = useState<Quest[]>(seedQuests);
@@ -30,7 +30,8 @@ export function AdminGameSubmissionsTable() {
     setBadges(store.badges ?? seedBadges);
     setQuests(store.quests ?? seedQuests);
     setSubmissions(store.studentGameSubmissions ?? seedSubmissions);
-    fetch("/api/admin/submissions", { cache: "no-store", credentials: "include" })
+    const authHeaders = adminActionToken ? { "x-admin-action-token": adminActionToken } : undefined;
+    fetch("/api/admin/submissions", { cache: "no-store", credentials: "include", headers: authHeaders })
       .then((response) => response.ok ? response.json() : null)
       .then((data: { games?: StudentGameSubmission[] } | null) => {
         if (data?.games) setSubmissions(data.games);
@@ -38,7 +39,7 @@ export function AdminGameSubmissionsTable() {
       .catch(() => {
         // Local storage remains the fallback for development.
       });
-  }, []);
+  }, [adminActionToken]);
 
   function save(next: StudentGameSubmission[]) {
     setSubmissions(next);
@@ -57,7 +58,10 @@ export function AdminGameSubmissionsTable() {
       const response = await fetch(`/api/admin/submissions/games/${encodeURIComponent(submission.id)}`, {
         method: "PATCH",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+        },
         body: JSON.stringify({ action, teacherNote: notes[submission.id], submission })
       });
       const data = await response.json() as { submission?: StudentGameSubmission; error?: string };
@@ -123,7 +127,7 @@ export function AdminGameSubmissionsTable() {
                     onNeedsChanges={() => review(submission, "needs_changes")}
                     approveLabel="Approve Only"
                   />
-                  <SubmissionRewardsPanel student={student} badges={badges} quests={quests} students={students} onStudentsChange={saveStudents} />
+                  <SubmissionRewardsPanel student={student} badges={badges} quests={quests} students={students} onStudentsChange={saveStudents} adminActionToken={adminActionToken} />
                 </div>
               </div>
             </Card>

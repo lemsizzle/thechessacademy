@@ -10,7 +10,7 @@ import { readAdminStore } from "@/lib/mockStorage";
 import type { Student, StudentGameSubmission, StudentScoreSubmission, SubmissionStatus } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
-export function AdminSubmissionsDashboard() {
+export function AdminSubmissionsDashboard({ adminActionToken }: { adminActionToken?: string }) {
   const [students, setStudents] = useState<Student[]>(seedStudents);
   const [games, setGames] = useState<StudentGameSubmission[]>(seedGameSubmissions);
   const [scores, setScores] = useState<StudentScoreSubmission[]>(seedScoreSubmissions);
@@ -20,7 +20,8 @@ export function AdminSubmissionsDashboard() {
     setStudents(store.students ?? seedStudents);
     setGames(store.studentGameSubmissions ?? seedGameSubmissions);
     setScores(store.studentScoreSubmissions ?? seedScoreSubmissions);
-    fetch("/api/admin/submissions", { cache: "no-store", credentials: "include" })
+    const authHeaders = adminActionToken ? { "x-admin-action-token": adminActionToken } : undefined;
+    fetch("/api/admin/submissions", { cache: "no-store", credentials: "include", headers: authHeaders })
       .then((response) => response.ok ? response.json() : null)
       .then((data: { games?: StudentGameSubmission[]; scores?: StudentScoreSubmission[] } | null) => {
         if (!data) return;
@@ -30,7 +31,7 @@ export function AdminSubmissionsDashboard() {
       .catch(() => {
         // Local storage remains the fallback for development.
       });
-  }, []);
+  }, [adminActionToken]);
 
   const studentById = useMemo(() => new Map(students.map((student) => [student.id, student])), [students]);
   const pendingGames = games.filter((item) => item.status === "pending");
