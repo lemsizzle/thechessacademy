@@ -8,7 +8,7 @@ import { useEffect } from "react";
 function getStudentPath(pathname: string) {
   if (pathname === "/app") return "/student";
   if (pathname === "/app/leaderboard") return "/student/leaderboard";
-  if (pathname === "/app/badges") return "/student/badges";
+  if (pathname === "/app/badges") return "/student/profile";
   if (pathname === "/app/quests") return "/student/quests";
   if (pathname === "/app/tournaments") return "/student/tournaments";
   if (pathname === "/app/resources") return "/student/resources";

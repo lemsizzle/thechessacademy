@@ -4,13 +4,13 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { LichessQuestProgressCard } from "@/components/quests/LichessQuestProgressCard";
 import { quests as seedQuests } from "@/data/quests";
-import { getCurrentStudentUser } from "@/lib/auth/getCurrentUser";
+import { getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/getCurrentUser";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
 import { createStudentQuestAttempt, getActiveQuestAttempt } from "@/lib/quests/questAttempts";
 import { findAttemptForPeriod, newestByDate, selectPendingQuestAward, selectQuestCompletion, selectQuestProgress } from "@/lib/quests/selectQuestProgress";
 import { STUDENT_LICHESS_FULL_SYNC_EVENT, syncStudentLichessEverything } from "@/lib/studentLichessFullSync";
-import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent, StudentQuestAttempt } from "@/lib/types";
+import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent, StudentQuestAttempt, StudentUser } from "@/lib/types";
 import { useEffect, useState } from "react";
 
 export function StudentLichessQuestList() {
@@ -22,6 +22,25 @@ export function StudentLichessQuestList() {
   const [now, setNow] = useState(Date.now());
   const [message, setMessage] = useState("Use one Lichess sync to refresh ratings, games, puzzles, quests, and badge checks.");
   const [syncing, setSyncing] = useState(false);
+  const [currentUser, setCurrentUser] = useState<StudentUser | null>(null);
+
+  async function resolveCurrentUser() {
+    try {
+      const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "include" });
+      const data = await response.json() as { user?: StudentUser };
+      if (response.ok && data.user) {
+        setCurrentStudentUserRecord(data.user);
+        setCurrentUser(data.user);
+        return data.user;
+      }
+    } catch {
+      // Fall back to the local session mirror when the server session is unavailable locally.
+    }
+
+    const localUser = getCurrentStudentUser();
+    setCurrentUser(localUser);
+    return localUser;
+  }
 
   async function refreshPersistedQuestTracking(studentId?: string) {
     if (!studentId) return;
@@ -59,8 +78,8 @@ export function StudentLichessQuestList() {
     }
   }
 
-  function load() {
-    const user = getCurrentStudentUser();
+  async function load() {
+    const user = await resolveCurrentUser();
     const store = readAdminStore();
     const studentId = user?.studentId;
     const studentProgress = (store.lichessQuestProgress ?? []).filter((item) => item.studentId === studentId);
@@ -82,13 +101,14 @@ export function StudentLichessQuestList() {
     setAwards(studentAwards);
     setCompletions(studentCompletions);
     setAttempts(studentAttempts);
-    void refreshPersistedQuestTracking(studentId);
+    await refreshPersistedQuestTracking(studentId);
   }
 
   useEffect(() => {
-    load();
-    window.addEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, load);
-    return () => window.removeEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, load);
+    void load();
+    const refresh = () => void load();
+    window.addEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, refresh);
+    return () => window.removeEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, refresh);
   }, []);
 
   useEffect(() => {
@@ -97,7 +117,7 @@ export function StudentLichessQuestList() {
   }, []);
 
   function startQuest(quest: Quest) {
-    const user = getCurrentStudentUser();
+    const user = currentUser ?? getCurrentStudentUser();
     if (!user) return;
     const store = readAdminStore();
     const previousAttempts = store.studentQuestAttempts ?? [];
@@ -121,7 +141,7 @@ export function StudentLichessQuestList() {
     try {
       const result = await syncStudentLichessEverything();
       setMessage(result.message);
-      load();
+      void load();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not sync Lichess.");
     } finally {
@@ -129,7 +149,7 @@ export function StudentLichessQuestList() {
     }
   }
 
-  const studentId = getCurrentStudentUser()?.studentId ?? "";
+  const studentId = currentUser?.studentId ?? getCurrentStudentUser()?.studentId ?? "";
   const completedQuestIds = new Set(completions.map((item) => item.questId));
   const activeQuests = quests.filter((quest) => getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now)));
   const completedQuests = quests.filter((quest) => completedQuestIds.has(quest.id) && !getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now)));

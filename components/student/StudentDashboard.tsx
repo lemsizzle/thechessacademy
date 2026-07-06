@@ -26,6 +26,16 @@ import { getLevelFromXp, getLevelTitle } from "@/lib/xp";
 import { useEffect, useMemo, useState } from "react";
 import type { Badge, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentGameSubmission, StudentLichessAccount, StudentQuestAttempt, StudentScoreSubmission, StudentUser, XpEvent } from "@/lib/types";
 
+function mergeStudentRecords(primary: Student, secondary: Student): Student {
+  return {
+    ...secondary,
+    ...primary,
+    totalXp: Math.max(primary.totalXp, secondary.totalXp),
+    badgeIds: Array.from(new Set([...(primary.badgeIds ?? []), ...(secondary.badgeIds ?? [])])),
+    completedQuestIds: Array.from(new Set([...(primary.completedQuestIds ?? []), ...(secondary.completedQuestIds ?? [])]))
+  };
+}
+
 export function StudentDashboard() {
   const [student, setStudent] = useState<Student | undefined>();
   const [lichessAccount, setLichessAccount] = useState<StudentLichessAccount | undefined>();
@@ -97,13 +107,9 @@ export function StudentDashboard() {
         (supabaseStudent?.lichessUsername && item.lichessUsername?.toLowerCase() === supabaseStudent.lichessUsername.toLowerCase())
       ));
       const fallbackStudent = allowLocalMockSession ? students.find((item) => item.id === user?.studentId) : undefined;
-      const current = supabaseStudent && localStudent ? {
-        ...localStudent,
-        ...supabaseStudent,
-        totalXp: Math.max(localStudent.totalXp, supabaseStudent.totalXp),
-        badgeIds: Array.from(new Set([...supabaseStudent.badgeIds, ...localStudent.badgeIds])),
-        completedQuestIds: Array.from(new Set([...(supabaseStudent.completedQuestIds ?? []), ...(localStudent.completedQuestIds ?? [])]))
-      } : supabaseStudent ?? localStudent ?? fallbackStudent ?? (allowLocalMockSession && user ? {
+      const current = supabaseStudent && localStudent
+        ? mergeStudentRecords(supabaseStudent, localStudent)
+        : supabaseStudent ?? localStudent ?? fallbackStudent ?? (allowLocalMockSession && user ? {
         id: user.studentId,
         slug: user.lichessUsername ?? user.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         lichessUsername: user.lichessUsername,
@@ -142,7 +148,12 @@ export function StudentDashboard() {
       const activeStudentId = student?.id ?? lichessAccount?.studentId;
       setStudent((current) => {
         if (!current) return current;
-        return (store.students ?? []).find((item) => item.id === current.id) ?? current;
+        const localStudent = (store.students ?? []).find((item) => (
+          item.id === current.id
+          || item.slug === current.slug
+          || (current.lichessUsername && item.lichessUsername?.toLowerCase() === current.lichessUsername.toLowerCase())
+        ));
+        return localStudent ? mergeStudentRecords(current, localStudent) : current;
       });
       setLichessAccount((current) => {
         const studentId = activeStudentId ?? current?.studentId;

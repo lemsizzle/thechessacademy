@@ -2,13 +2,12 @@
 
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { classGroups } from "@/data/classGroups";
 import { studentLichessAccounts as seedAccounts } from "@/data/lichessSync";
 import { students as seedStudents } from "@/data/students";
 import { setCurrentStudentUserRecord } from "@/lib/auth/getCurrentUser";
 import { UNASSIGNED_CLASS } from "@/lib/classes";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
-import type { Student, StudentUser } from "@/lib/types";
+import type { ClassGroup, Student, StudentUser } from "@/lib/types";
 import { useEffect, useState } from "react";
 
 function slugify(value: string) {
@@ -19,9 +18,24 @@ export function StudentOnboardingForm() {
   const [user, setUser] = useState<StudentUser | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [classGroup, setClassGroup] = useState(UNASSIGNED_CLASS);
+  const [classOptions, setClassOptions] = useState<string[]>([UNASSIGNED_CLASS]);
   const [message, setMessage] = useState("Confirm your student profile to finish setup.");
 
   useEffect(() => {
+    fetch("/api/classes", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data: { names?: string[]; data?: ClassGroup[] }) => {
+        const names = data.names?.length
+          ? data.names
+          : data.data?.map((group) => group.name) ?? [];
+        const uniqueNames = Array.from(new Set([UNASSIGNED_CLASS, ...names.filter(Boolean)]));
+        setClassOptions([
+          UNASSIGNED_CLASS,
+          ...uniqueNames.filter((name) => name !== UNASSIGNED_CLASS).sort((a, b) => a.localeCompare(b))
+        ]);
+      })
+      .catch(() => setClassOptions([UNASSIGNED_CLASS]));
+
     fetch("/api/auth/session", { cache: "no-store" })
       .then((response) => response.json())
       .then((data: { user?: StudentUser }) => {
@@ -97,8 +111,7 @@ export function StudentOnboardingForm() {
         </label>
         <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">Class Group
           <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={classGroup} onChange={(event) => setClassGroup(event.target.value)}>
-            <option>{UNASSIGNED_CLASS}</option>
-            {classGroups.map((group) => <option key={group.id}>{group.name}</option>)}
+            {classOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
         </label>
       </div>
