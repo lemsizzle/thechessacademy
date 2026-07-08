@@ -150,29 +150,38 @@ export function StudentLichessQuestList() {
   }
 
   const studentId = currentUser?.studentId ?? getCurrentStudentUser()?.studentId ?? "";
-  const completedQuestIds = new Set(completions.map((item) => item.questId));
-  const activeQuests = quests.filter((quest) => getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now)));
-  const completedQuests = quests.filter((quest) => completedQuestIds.has(quest.id) && !getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now)));
-  const availableQuests = quests.filter((quest) => !completedQuestIds.has(quest.id) && !getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now)));
+  const nowDate = new Date(now);
+  const completionIsCurrent = (quest: Quest) => {
+    const latestCompletion = newestByDate(completions.filter((item) => item.questId === quest.id), (item) => item.completedAt);
+    if (!latestCompletion) return false;
+    const attempt = findAttemptForPeriod(attempts.filter((item) => item.questId === quest.id), latestCompletion);
+    if (!attempt) return false;
+    return new Date(attempt.expiresAt).getTime() > now;
+  };
+  const activeQuests = quests.filter((quest) => getActiveQuestAttempt(attempts, studentId, quest.id, nowDate));
+  const completedQuests = quests.filter((quest) => completionIsCurrent(quest) && !getActiveQuestAttempt(attempts, studentId, quest.id, nowDate));
+  const availableQuests = quests.filter((quest) => !completionIsCurrent(quest) && !getActiveQuestAttempt(attempts, studentId, quest.id, nowDate));
 
   const renderQuestCard = (quest: Quest) => {
-    const activeAttempt = getActiveQuestAttempt(attempts, studentId, quest.id, new Date(now));
+    const activeAttempt = getActiveQuestAttempt(attempts, studentId, quest.id, nowDate);
     const latestCompletion = newestByDate(completions.filter((item) => item.questId === quest.id), (item) => item.completedAt);
     const latestAward = newestByDate(awards.filter((item) => item.questId === quest.id), (item) => item.createdAt);
     const latestProgress = newestByDate(progress.filter((item) => item.questId === quest.id), (item) => item.updatedAt);
     const questAttempts = attempts.filter((attempt) => attempt.questId === quest.id);
-    const attempt = activeAttempt
-      ?? findAttemptForPeriod(questAttempts, latestCompletion)
+    const historicalAttempt = findAttemptForPeriod(questAttempts, latestCompletion)
       ?? findAttemptForPeriod(questAttempts, latestAward)
       ?? findAttemptForPeriod(questAttempts, latestProgress);
-    const completion = selectQuestCompletion({ quest, completions, attempt }) ?? latestCompletion;
-    const award = selectPendingQuestAward({ quest, awards, attempt }) ?? latestAward;
+    const historicalAttemptIsCurrent = historicalAttempt ? new Date(historicalAttempt.expiresAt).getTime() > now : false;
+    const attempt = activeAttempt ?? (historicalAttemptIsCurrent ? historicalAttempt : undefined);
+    const completion = attempt ? selectQuestCompletion({ quest, completions, attempt }) ?? latestCompletion : undefined;
+    const award = attempt ? selectPendingQuestAward({ quest, awards, attempt }) ?? latestAward : undefined;
+    const selectedProgress = attempt ? selectQuestProgress({ quest, progress, completion, attempt }) : undefined;
 
     return (
       <LichessQuestProgressCard
         key={quest.id}
         quest={quest}
-        progress={selectQuestProgress({ quest, progress, completion, attempt })}
+        progress={selectedProgress}
         award={award}
         completion={completion}
         attempt={attempt}
