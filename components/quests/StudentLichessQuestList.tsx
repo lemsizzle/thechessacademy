@@ -78,6 +78,31 @@ export function StudentLichessQuestList() {
     }
   }
 
+  async function refreshServerQuests(visibleQuestIds: Set<string>, localQuests: Quest[]) {
+    try {
+      const response = await fetch("/api/quests", { cache: "no-store" });
+      const data = await response.json() as { data?: Quest[] };
+      if (!response.ok || !data.data) return false;
+
+      const localById = new Map(localQuests.map((quest) => [quest.id, quest]));
+      const mergedQuests = data.data.map((quest) => {
+        const localQuest = localById.get(quest.id);
+        return localQuest ? { ...quest, ...localQuest, completionUrl: localQuest.completionUrl ?? quest.completionUrl } : quest;
+      });
+      const visibleQuests = mergedQuests.filter((quest) => (
+        quest.source?.startsWith("lichess_")
+        && quest.isActive !== false
+        && (quest.isLive || visibleQuestIds.has(quest.id))
+      ));
+      if (!visibleQuests.length) return false;
+
+      setQuests(visibleQuests);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async function load() {
     const user = await resolveCurrentUser();
     const store = readAdminStore();
@@ -92,11 +117,15 @@ export function StudentLichessQuestList() {
       ...studentCompletions.map((item) => item.questId)
     ]);
 
-    setQuests((store.quests ?? seedQuests).filter((quest) => (
-      quest.source?.startsWith("lichess_")
-      && quest.isActive !== false
-      && (quest.isLive || visibleQuestIds.has(quest.id))
-    )));
+    const localQuests = store.quests ?? seedQuests;
+    const loadedServerQuests = await refreshServerQuests(visibleQuestIds, localQuests);
+    if (!loadedServerQuests) {
+      setQuests(localQuests.filter((quest) => (
+        quest.source?.startsWith("lichess_")
+        && quest.isActive !== false
+        && (quest.isLive || visibleQuestIds.has(quest.id))
+      )));
+    }
     setProgress(studentProgress);
     setAwards(studentAwards);
     setCompletions(studentCompletions);

@@ -3,7 +3,7 @@ import { Button } from "@/components/Button";
 import { QuestConditionBadge } from "@/components/quests/QuestConditionBadge";
 import { formatQuestEvidence } from "@/lib/quests/formatQuestEvidence";
 import { formatCountdown } from "@/lib/quests/questAttempts";
-import { isSafeExternalUrl } from "@/lib/resources";
+import { getSafeExternalUrl } from "@/lib/resources";
 import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent, StudentQuestAttempt } from "@/lib/types";
 
 export function LichessQuestProgressCard({
@@ -45,8 +45,7 @@ export function LichessQuestProgressCard({
               : "Not started";
   const evidence = formatQuestEvidence(completion?.evidence ?? progress?.evidence ?? "");
   const countdown = attempt ? formatCountdown(new Date(attempt.expiresAt).getTime() - now) : "";
-  const completionUrl = quest.completionUrl?.trim();
-  const hasSafeCompletionUrl = completionUrl ? isSafeExternalUrl(completionUrl) : false;
+  const completionUrl = getSafeExternalUrl(quest.completionUrl);
 
   return (
     <Card className="p-4">
@@ -83,7 +82,7 @@ export function LichessQuestProgressCard({
         <span>{currentValue !== undefined ? `${currentValue} / ${requiredValue}` : "Not synced"}</span>
         <span>{quest.xpReward} XP</span>
       </div>
-      {hasSafeCompletionUrl && (
+      {completionUrl && (
         <div className="mt-3">
           <Button href={completionUrl} variant="secondary" target="_blank" rel="noopener noreferrer">
             Open Quest Link

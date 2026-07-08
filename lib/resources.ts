@@ -20,8 +20,20 @@ export function isSafeExternalUrl(url: string) {
   }
 }
 
+export function normalizeExternalUrl(url: string) {
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+export function getSafeExternalUrl(url?: string | null) {
+  const normalized = normalizeExternalUrl(url ?? "");
+  return normalized && isSafeExternalUrl(normalized) ? normalized : "";
+}
+
 export function getVisibleResources(resources: Resource[]) {
-  return resources.filter((resource) => resource.status === "active" && isSafeExternalUrl(resource.url));
+  return resources.filter((resource) => resource.status === "active" && Boolean(getSafeExternalUrl(resource.url)));
 }
 
 export function resourceMatchesSearch(resource: Resource, search: string, category: string) {
