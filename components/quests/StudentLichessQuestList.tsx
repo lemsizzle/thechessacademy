@@ -222,12 +222,24 @@ export function StudentLichessQuestList() {
 
   return (
     <div className="space-y-5">
-      <Card className="p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div><h2 className="font-black text-white">Lichess Progress</h2><p className="mt-1 text-sm text-slate-400">{message}</p></div>
-          <div className="flex gap-2"><Button onClick={evaluate} disabled={syncing} variant="secondary">{syncing ? "Syncing..." : "Sync Lichess"}</Button></div>
+      <section>
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-black text-white">Live Quests</h2>
+            <p className="mt-1 text-sm text-slate-400">Start any live quest when you are ready. {message}</p>
+          </div>
+          <Button onClick={evaluate} disabled={syncing} variant="secondary">{syncing ? "Syncing..." : "Sync Lichess"}</Button>
         </div>
-      </Card>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {availableQuests.map(renderQuestCard)}
+        </div>
+        {availableQuests.length === 0 && activeQuests.length === 0 && completedQuests.length === 0 && (
+          <Card className="p-4 text-sm text-slate-300">No live Lichess quests are available right now.</Card>
+        )}
+        {availableQuests.length === 0 && (activeQuests.length > 0 || completedQuests.length > 0) && (
+          <Card className="p-4 text-sm text-slate-300">No new live quests are ready to start right now.</Card>
+        )}
+      </section>
       {activeQuests.length > 0 && (
         <section>
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -256,21 +268,6 @@ export function StudentLichessQuestList() {
           </div>
         </section>
       )}
-      <section>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="font-black text-white">Available Quests</h2>
-            <p className="mt-1 text-sm text-slate-400">Pick a quest and press Start when you are ready to begin its timer.</p>
-          </div>
-          <span className="rounded bg-white/10 px-2 py-1 text-xs font-black text-slate-200">{availableQuests.length} ready</span>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {availableQuests.map(renderQuestCard)}
-        </div>
-        {availableQuests.length === 0 && activeQuests.length === 0 && completedQuests.length === 0 && (
-          <Card className="p-4 text-sm text-slate-300">No live Lichess quests are available right now.</Card>
-        )}
-      </section>
     </div>
   );
 }
