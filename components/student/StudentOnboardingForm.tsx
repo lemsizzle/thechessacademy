@@ -95,7 +95,7 @@ export function StudentOnboardingForm() {
 
     updateAdminStore({ students: nextStudents, studentLichessAccounts: nextAccounts });
     setCurrentStudentUserRecord(data.user);
-    window.location.href = data.redirectTo ?? "/student/profile";
+    window.location.href = data.redirectTo ?? "/student";
   }
 
   return (

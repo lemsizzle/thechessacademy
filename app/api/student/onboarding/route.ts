@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       onboardingCompleted: true
     },
     student,
-    redirectTo: "/student/profile"
+    redirectTo: "/student"
   });
   setStudentSessionCookie(response, updatedSession);
   if (process.env.NODE_ENV !== "production" && !isSupabaseProjectConfigured()) {

@@ -1,10 +1,5 @@
-import { StudentPortalShell } from "@/components/student/StudentPortalShell";
-import { StudentProfilePrivateLoader } from "@/components/student/StudentProfilePrivateLoader";
+import { redirect } from "next/navigation";
 
 export default function StudentPrivateProfilePage() {
-  return (
-    <StudentPortalShell title="My Profile" subtitle="Your private profile view.">
-      <StudentProfilePrivateLoader />
-    </StudentPortalShell>
-  );
+  redirect("/student");
 }

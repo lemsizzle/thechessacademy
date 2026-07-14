@@ -18,6 +18,7 @@ export function StudentProfilePrivateLoader() {
   const [student, setStudent] = useState<Student | undefined>();
   const [account, setAccount] = useState<StudentLichessAccount | undefined>();
   const [badges, setBadges] = useState<Badge[]>(allBadges);
+  const [loaded, setLoaded] = useState(false);
   const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const allowLocalMockSession = process.env.NODE_ENV !== "production" && !supabaseBackedApp;
 
@@ -68,6 +69,7 @@ export function StudentProfilePrivateLoader() {
       current = current ?? (allowLocalMockSession ? (store.students ?? seedStudents).find((item) => item.id === user?.studentId) : undefined);
       setStudent(current);
       setAccount((store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === current?.id));
+      setLoaded(true);
     }
 
     void loadProfile();
@@ -86,7 +88,8 @@ export function StudentProfilePrivateLoader() {
     };
   }, [student?.id]);
 
-  if (!student) return <Card className="p-4 text-sm text-slate-300">No student record found.</Card>;
+  if (!loaded) return <Card className="p-4 text-sm text-slate-300">Loading student dashboard...</Card>;
+  if (!student) return <Card className="p-4 text-sm text-slate-300">No student record found. Try logging out and logging in with Lichess again.</Card>;
   return (
     <div className="space-y-5">
       <StudentProfileSettings student={student} />

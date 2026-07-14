@@ -25,7 +25,6 @@ const studentExploreLinks: NavLink[] = [
 ];
 
 const studentQuestLinks: NavLink[] = [
-  { href: "/student/profile", label: "My Profile", icon: "\u265F\uFE0F" },
   { href: "/student/submit", label: "Submit Work", icon: "\u{1F4DD}" }
 ];
 
