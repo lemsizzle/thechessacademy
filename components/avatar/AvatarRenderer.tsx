@@ -1,6 +1,7 @@
 "use client";
 
 import { avatarCategories } from "@/lib/avatar/catalog";
+import { AVATAR_CANVAS_HEIGHT, AVATAR_CANVAS_WIDTH } from "@/lib/avatar/geometry";
 import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
 
 type AvatarRendererProps = {
@@ -12,10 +13,10 @@ type AvatarRendererProps = {
 };
 
 const sizeClasses = {
-  sm: "h-12 w-12 rounded-md",
-  md: "h-20 w-20 rounded-lg",
-  lg: "h-40 w-40 rounded-lg",
-  studio: "h-72 w-72 rounded-lg"
+  sm: "h-12 w-12",
+  md: "h-20 w-20",
+  lg: "h-40 w-40",
+  studio: "aspect-square w-72 max-w-full"
 };
 
 export function AvatarRenderer({ items, avatar, previewItem, size = "md", label = "Student avatar" }: AvatarRendererProps) {
@@ -31,9 +32,10 @@ export function AvatarRenderer({ items, avatar, previewItem, size = "md", label 
 
   return (
     <div
-      className={`relative shrink-0 overflow-hidden border border-cyan-200/20 bg-slate-950 shadow-glow ${sizeClasses[size]}`}
+      className={`relative shrink-0 overflow-hidden rounded-[5%] bg-slate-950 shadow-glow ring-1 ring-inset ring-cyan-200/20 ${sizeClasses[size]}`}
       role="img"
       aria-label={label}
+      data-avatar-canvas={`${AVATAR_CANVAS_WIDTH}x${AVATAR_CANVAS_HEIGHT}`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(125,211,252,0.24),transparent_54%)]" />
       {layers.map((item) => item.assetUrl ? (
@@ -41,7 +43,9 @@ export function AvatarRenderer({ items, avatar, previewItem, size = "md", label 
           key={`${item.category}-${item.id}`}
           src={item.assetUrl}
           alt=""
-          className="absolute inset-0 h-full w-full object-contain"
+          width={AVATAR_CANVAS_WIDTH}
+          height={AVATAR_CANVAS_HEIGHT}
+          className="absolute inset-0 block h-full w-full object-fill object-center"
           draggable={false}
         />
       ) : (

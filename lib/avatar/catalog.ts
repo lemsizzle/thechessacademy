@@ -1,4 +1,5 @@
 import { getConfiguredAvatarPrice } from "@/lib/avatar/economy";
+import { AVATAR_CANVAS_HEIGHT, AVATAR_CANVAS_WIDTH, AVATAR_LOGICAL_HEIGHT, AVATAR_LOGICAL_WIDTH } from "@/lib/avatar/geometry";
 import type { AvatarCategory, AvatarItem, AvatarRarity, AvatarUnlockType } from "@/lib/types";
 
 export const avatarCategories: Array<{ id: AvatarCategory; label: string; layerOrder: number }> = [
@@ -74,7 +75,7 @@ function decodeSvgColor(value: string) {
 function svgDataUri(category: AvatarCategory, color: string, label: string, slug: string) {
   const safeLabel = label.replace(/[^A-Za-z0-9 ]/g, "");
   const accent = decodeSvgColor(color);
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160' role='img' aria-label='${safeLabel}'><rect width='160' height='160' rx='28' fill='transparent'/>${layerShape(category, slug, accent)}</svg>`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${AVATAR_CANVAS_WIDTH}' height='${AVATAR_CANVAS_HEIGHT}' viewBox='0 0 ${AVATAR_LOGICAL_WIDTH} ${AVATAR_LOGICAL_HEIGHT}' role='img' aria-label='${safeLabel}'><rect width='${AVATAR_LOGICAL_WIDTH}' height='${AVATAR_LOGICAL_HEIGHT}' rx='8' fill='transparent'/>${layerShape(category, slug, accent)}</svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 

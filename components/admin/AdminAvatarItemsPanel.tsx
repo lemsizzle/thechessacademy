@@ -230,6 +230,7 @@ export function AdminAvatarItemsPanel({
           </label>
           <label className="grid gap-1 text-xs font-black uppercase text-slate-400 md:col-span-2">Asset URL or SVG Data URL
             <input className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={form.assetUrl} onChange={(event) => setField("assetUrl", event.target.value)} />
+            <span className="text-[11px] font-medium normal-case text-slate-500">Production layers must be full-canvas 1024 × 1024 transparent PNGs (1:1). Keep all unused pixels transparent; do not trim to the item.</span>
           </label>
           <label className="grid gap-1 text-xs font-black uppercase text-slate-400 md:col-span-2">Description
             <textarea className="min-h-24 rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={form.description} onChange={(event) => setField("description", event.target.value)} />
