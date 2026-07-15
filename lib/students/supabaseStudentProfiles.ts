@@ -1,4 +1,5 @@
 import { getSupabaseServerReadClient, getSupabaseServiceClient, isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
+import { grantAcademyCoinsForXp } from "@/lib/avatar/supabaseAvatar";
 import { UNASSIGNED_CLASS } from "@/lib/classes";
 import type { Badge, BadgeTier, Student, StudentSession, XpEvent } from "@/lib/types";
 
@@ -318,6 +319,13 @@ export async function addSupabaseStudentXp(
     .single();
 
   if (eventError) throw new Error(eventError.message);
+  await grantAcademyCoinsForXp(
+    studentIdToUpdate,
+    input.amount,
+    "xp_event",
+    (event as { id: string }).id,
+    input.reason
+  );
 
   return {
     updated: true,

@@ -76,6 +76,79 @@ export type Student = {
   encouragement: string;
 };
 
+export type AvatarCategory =
+  | "base_face"
+  | "skin_tone"
+  | "eyes"
+  | "eyebrows"
+  | "mouth"
+  | "hair"
+  | "facial_hair"
+  | "clothing"
+  | "headwear"
+  | "glasses"
+  | "chess_accessory"
+  | "background"
+  | "aura_effect";
+
+export type AvatarRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
+export type AvatarUnlockType = "purchase" | "achievement" | "admin_grant" | "default";
+export type AvatarAcquisitionType = "default" | "purchase" | "achievement" | "admin_grant";
+export type CoinTransactionType = "earn" | "spend" | "adjustment" | "refund";
+
+export type AvatarItem = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  category: AvatarCategory;
+  rarity: AvatarRarity;
+  price: number;
+  assetUrl: string | null;
+  thumbnailUrl: string | null;
+  layerOrder: number;
+  unlockType: AvatarUnlockType;
+  unlockRequirement: string | null;
+  isActive: boolean;
+  isFeatured: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type StudentInventoryItem = {
+  id: string;
+  studentId: string;
+  itemId: string;
+  acquisitionType: AvatarAcquisitionType;
+  acquiredAt: string;
+};
+
+export type StudentAvatarConfig = {
+  studentId: string;
+  equippedItems: Partial<Record<AvatarCategory, string>>;
+  updatedAt?: string;
+};
+
+export type StudentWallet = {
+  studentId: string;
+  academyCoins: number;
+  totalCoinsEarned: number;
+  totalCoinsSpent: number;
+  updatedAt?: string;
+};
+
+export type CoinTransaction = {
+  id: string;
+  studentId: string;
+  amount: number;
+  transactionType: CoinTransactionType;
+  sourceType: string;
+  sourceId: string | null;
+  description: string;
+  idempotencyKey: string | null;
+  createdAt: string;
+};
+
 export type UserRole = "admin" | "student";
 
 export type StudentUser = {
