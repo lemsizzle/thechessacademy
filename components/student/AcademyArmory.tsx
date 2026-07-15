@@ -77,6 +77,7 @@ export function AcademyArmory() {
             <p className="text-xs font-black uppercase text-amber-100">Academy Coins</p>
             <p className="text-4xl font-black text-white">{state?.wallet.academyCoins.toLocaleString() ?? "..."}</p>
             <p className="mt-1 text-sm text-slate-300">{message}</p>
+            <p className="mt-1 text-xs text-slate-500">Lifetime XP is for levels and rankings. Academy Coins are the only currency spent here.</p>
           </div>
           <Button href="/student/avatar" variant="secondary">Open Avatar Studio</Button>
         </div>
@@ -120,7 +121,7 @@ export function AcademyArmory() {
                   <p className="mt-2 text-sm text-slate-300">{item.description}</p>
                   <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
                     <span className={`rounded border px-2 py-1 ${avatarRarityStyles[item.rarity]}`}>{item.rarity}</span>
-                    <span className="rounded border border-white/10 bg-white/5 px-2 py-1 text-slate-200">{itemOwned ? "Owned" : item.unlockType === "purchase" ? `${item.price} coins` : "Achievement-only"}</span>
+                    <span className="rounded border border-white/10 bg-white/5 px-2 py-1 text-slate-200">{itemOwned ? "Owned" : item.unlockType === "purchase" ? `${item.price} coins` : "Achievement-only - no price"}</span>
                     {equipped && <span className="rounded border border-amber-200/40 bg-amber-300/10 px-2 py-1 text-amber-100">Equipped</span>}
                   </div>
                   {item.unlockRequirement && <p className="mt-2 text-xs text-slate-500">{item.unlockRequirement}</p>}

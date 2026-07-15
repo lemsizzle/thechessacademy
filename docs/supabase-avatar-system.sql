@@ -166,21 +166,21 @@ values
   ('Brave Smile', 'brave-smile', 'A confident academy smile.', 'mouth', 'Common', 0, 24, 'default', 'Starter avatar item.', true, false),
   ('Rookie Hair', 'rookie-hair', 'Starter hairstyle for new questers.', 'hair', 'Common', 0, 30, 'default', 'Starter avatar item.', true, false),
   ('Academy Shirt', 'academy-shirt', 'The classic Chess Academy shirt.', 'clothing', 'Common', 0, 40, 'default', 'Starter avatar item.', true, false),
-  ('Pawn Cap', 'pawn-cap', 'A clean cap for brave first moves.', 'headwear', 'Common', 150, 50, 'purchase', null, true, true),
-  ('Chessboard T-Shirt', 'chessboard-t-shirt', 'A casual shirt with board-square energy.', 'clothing', 'Common', 200, 40, 'purchase', null, true, false),
-  ('Knight Headphones', 'knight-headphones', 'Headphones shaped for tactical focus.', 'headwear', 'Uncommon', 450, 50, 'purchase', null, true, true),
-  ('Bishop Glasses', 'bishop-glasses', 'Diagonal vision with scholarly shine.', 'glasses', 'Uncommon', 400, 55, 'purchase', null, true, false),
-  ('Rook Backpack', 'rook-backpack', 'Carry your prep like a fortress.', 'chess_accessory', 'Uncommon', 500, 60, 'purchase', null, true, false),
-  ('Checkmate Crown', 'checkmate-crown', 'A crown for finishing attacks.', 'headwear', 'Rare', 900, 50, 'purchase', null, true, true),
-  ('Grandmaster Suit', 'grandmaster-suit', 'Formal gear for tournament day.', 'clothing', 'Rare', 1000, 40, 'purchase', null, true, false),
-  ('Queen''s Cape', 'queens-cape', 'A royal cape with attacking flair.', 'clothing', 'Epic', 1600, 41, 'purchase', null, true, false),
-  ('Glowing Chess Eyes', 'glowing-chess-eyes', 'Eyes that glow when tactics appear.', 'eyes', 'Epic', 1400, 20, 'purchase', null, true, false),
-  ('Knight Helmet', 'knight-helmet', 'A bold helmet for brave attackers.', 'headwear', 'Rare', 850, 50, 'purchase', null, true, false),
-  ('Mini Rook Companion', 'mini-rook-companion', 'A tiny rook buddy for your shoulder.', 'chess_accessory', 'Rare', 750, 60, 'purchase', null, true, false),
-  ('Golden Grandmaster Aura', 'golden-grandmaster-aura', 'A radiant aura for legendary progress.', 'aura_effect', 'Legendary', 3000, 5, 'achievement', 'Earn a high-tier badge.', true, true),
-  ('Dark King Armor', 'dark-king-armor', 'Boss-level armor with kingly pressure.', 'clothing', 'Legendary', 3500, 40, 'achievement', 'Complete a boss achievement.', true, false),
-  ('Puzzle Wizard Hat', 'puzzle-wizard-hat', 'A wizard hat for puzzle streaks.', 'headwear', 'Epic', 0, 50, 'achievement', 'Solve 50 puzzles in one week.', true, true),
-  ('Rapid Racer Goggles', 'rapid-racer-goggles', 'Speedy goggles for rapid-game quests.', 'glasses', 'Rare', 0, 55, 'achievement', 'Win 5 rapid games in one day.', true, true)
+  ('Pawn Cap', 'pawn-cap', 'A clean cap for brave first moves.', 'headwear', 'Common', 5, 50, 'purchase', null, true, true),
+  ('Chessboard T-Shirt', 'chessboard-t-shirt', 'A casual shirt with board-square energy.', 'clothing', 'Common', 10, 40, 'purchase', null, true, false),
+  ('Bishop Glasses', 'bishop-glasses', 'Diagonal vision with scholarly shine.', 'glasses', 'Common', 12, 55, 'purchase', null, true, false),
+  ('Knight Headphones', 'knight-headphones', 'Headphones shaped for tactical focus.', 'headwear', 'Uncommon', 20, 50, 'purchase', null, true, true),
+  ('Rook Backpack', 'rook-backpack', 'Carry your prep like a fortress.', 'chess_accessory', 'Uncommon', 25, 60, 'purchase', null, true, false),
+  ('Rapid Racer Goggles', 'rapid-racer-goggles', 'Speedy goggles for rapid-game quests.', 'glasses', 'Uncommon', 35, 55, 'purchase', null, true, true),
+  ('Puzzle Wizard Hat', 'puzzle-wizard-hat', 'A wizard hat for puzzle streaks.', 'headwear', 'Rare', 40, 50, 'purchase', null, true, true),
+  ('Knight Helmet', 'knight-helmet', 'A bold helmet for brave attackers.', 'headwear', 'Rare', 50, 50, 'purchase', null, true, false),
+  ('Queen''s Cape', 'queens-cape', 'A royal cape with attacking flair.', 'clothing', 'Rare', 65, 41, 'purchase', null, true, false),
+  ('Mini Rook Companion', 'mini-rook-companion', 'A tiny rook buddy for your shoulder.', 'chess_accessory', 'Epic', 70, 60, 'purchase', null, true, false),
+  ('Checkmate Crown', 'checkmate-crown', 'A crown for finishing attacks.', 'headwear', 'Epic', 90, 50, 'purchase', null, true, true),
+  ('Grandmaster Suit', 'grandmaster-suit', 'Formal gear for tournament day.', 'clothing', 'Epic', 100, 40, 'purchase', null, true, false),
+  ('Glowing Chess Eyes', 'glowing-chess-eyes', 'Eyes that glow when tactics appear.', 'eyes', 'Epic', 110, 20, 'purchase', null, true, false),
+  ('Dark King Armor', 'dark-king-armor', 'Boss-level armor with kingly pressure.', 'clothing', 'Legendary', 135, 40, 'purchase', null, true, false),
+  ('Golden Grandmaster Aura', 'golden-grandmaster-aura', 'A radiant aura for legendary progress.', 'aura_effect', 'Legendary', 150, 5, 'purchase', null, true, true)
 on conflict (slug) do update set
   name = excluded.name,
   description = excluded.description,
@@ -194,11 +194,42 @@ on conflict (slug) do update set
   is_featured = excluded.is_featured,
   updated_at = now();
 
--- Existing students receive wallets based on current lifetime XP.
+-- Existing students receive an idempotent initial coin balance based on lifetime XP.
+-- 1 lifetime XP = 1 Academy Coin. Purchases never deduct lifetime XP.
 insert into public.student_wallets (student_id, academy_coins, total_coins_earned, total_coins_spent)
-select id, greatest(coalesce(total_xp, 0), 0), greatest(coalesce(total_xp, 0), 0), 0
+select id, 0, 0, 0
 from public.students
 on conflict (student_id) do nothing;
+
+with coin_deltas as (
+  select
+    students.id as student_id,
+    greatest(coalesce(students.total_xp, 0), 0) - coalesce(student_wallets.total_coins_earned, 0) as amount
+  from public.students
+  join public.student_wallets on student_wallets.student_id = students.id
+),
+inserted_transactions as (
+  insert into public.coin_transactions
+    (student_id, amount, transaction_type, source_type, source_id, description, idempotency_key)
+  select
+    student_id,
+    amount,
+    'earn',
+    'xp_initial_backfill',
+    student_id::text,
+    'Initial Academy Coins from lifetime XP.',
+    'xp-initial-backfill-v2:' || student_id::text
+  from coin_deltas
+  where amount > 0
+  on conflict (idempotency_key) do nothing
+  returning student_id, amount
+)
+update public.student_wallets
+set
+  academy_coins = academy_coins + inserted_transactions.amount,
+  total_coins_earned = total_coins_earned + inserted_transactions.amount
+from inserted_transactions
+where student_wallets.student_id = inserted_transactions.student_id;
 
 -- Existing students receive default avatar items once.
 insert into public.student_inventory (student_id, item_id, acquisition_type)

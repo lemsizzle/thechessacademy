@@ -93,7 +93,7 @@ export function StudentProfilePrivateLoader() {
   if (!student) return <Card className="p-4 text-sm text-slate-300">No student record found. Try logging out and logging in with Lichess again.</Card>;
   return (
     <div className="space-y-5">
-      <StudentCoinsBalanceCard />
+      <StudentCoinsBalanceCard lifetimeXp={student.totalXp} />
       <StudentProfileSettings student={student} />
       <LinkedLichessCard account={account} />
       <StudentProfile key={`${account?.updatedAt ?? "profile"}-${account?.blitzRating ?? 0}-${account?.rapidRating ?? 0}-${account?.puzzleRating ?? 0}-${account?.puzzleGames ?? 0}`} student={student} badges={badges} showAdminControls={false} profileBasePath="/student/students" />

@@ -1,3 +1,4 @@
+import { getConfiguredAvatarPrice } from "@/lib/avatar/economy";
 import type { AvatarCategory, AvatarItem, AvatarRarity, AvatarUnlockType } from "@/lib/types";
 
 export const avatarCategories: Array<{ id: AvatarCategory; label: string; layerOrder: number }> = [
@@ -56,6 +57,7 @@ function item(input: Omit<AvatarItem, "id" | "assetUrl" | "thumbnailUrl" | "isAc
   return {
     ...input,
     id: input.slug,
+    price: getConfiguredAvatarPrice(input.slug, input.price, input.unlockType),
     assetUrl,
     thumbnailUrl: assetUrl,
     isActive: true,
@@ -83,21 +85,21 @@ export const seedAvatarItems: AvatarItem[] = [
   item({ slug: "brave-smile", name: "Brave Smile", description: "A confident academy smile.", category: "mouth", rarity: "Common", price: 0, layerOrder: 24, unlockType: "default", unlockRequirement: "Starter avatar item.", color: "%23fda4af" }),
   item({ slug: "rookie-hair", name: "Rookie Hair", description: "Starter hairstyle for new questers.", category: "hair", rarity: "Common", price: 0, layerOrder: 30, unlockType: "default", unlockRequirement: "Starter avatar item.", color: "%23c4b5fd" }),
   item({ slug: "academy-shirt", name: "Academy Shirt", description: "The classic Chess Academy shirt.", category: "clothing", rarity: "Common", price: 0, layerOrder: 40, unlockType: "default", unlockRequirement: "Starter avatar item.", color: "%2322d3ee" }),
-  item({ slug: "pawn-cap", name: "Pawn Cap", description: "A clean cap for brave first moves.", category: "headwear", rarity: "Common", price: 150, layerOrder: 50, unlockType: "purchase", unlockRequirement: null, color: "%23a7f3d0", featured: true }),
-  item({ slug: "chessboard-t-shirt", name: "Chessboard T-Shirt", description: "A casual shirt with board-square energy.", category: "clothing", rarity: "Common", price: 200, layerOrder: 40, unlockType: "purchase", unlockRequirement: null, color: "%23fef3c7" }),
-  item({ slug: "knight-headphones", name: "Knight Headphones", description: "Headphones shaped for tactical focus.", category: "headwear", rarity: "Uncommon", price: 450, layerOrder: 50, unlockType: "purchase", unlockRequirement: null, color: "%2393c5fd", featured: true }),
-  item({ slug: "bishop-glasses", name: "Bishop Glasses", description: "Diagonal vision with scholarly shine.", category: "glasses", rarity: "Uncommon", price: 400, layerOrder: 55, unlockType: "purchase", unlockRequirement: null, color: "%23c4b5fd" }),
-  item({ slug: "rook-backpack", name: "Rook Backpack", description: "Carry your prep like a fortress.", category: "chess_accessory", rarity: "Uncommon", price: 500, layerOrder: 60, unlockType: "purchase", unlockRequirement: null, color: "%23bfdbfe" }),
-  item({ slug: "checkmate-crown", name: "Checkmate Crown", description: "A crown for finishing attacks.", category: "headwear", rarity: "Rare", price: 900, layerOrder: 50, unlockType: "purchase", unlockRequirement: null, color: "%23facc15", featured: true }),
-  item({ slug: "grandmaster-suit", name: "Grandmaster Suit", description: "Formal gear for tournament day.", category: "clothing", rarity: "Rare", price: 1000, layerOrder: 40, unlockType: "purchase", unlockRequirement: null, color: "%23e5e7eb" }),
-  item({ slug: "queens-cape", name: "Queen's Cape", description: "A royal cape with attacking flair.", category: "clothing", rarity: "Epic", price: 1600, layerOrder: 41, unlockType: "purchase", unlockRequirement: null, color: "%23f0abfc" }),
-  item({ slug: "glowing-chess-eyes", name: "Glowing Chess Eyes", description: "Eyes that glow when tactics appear.", category: "eyes", rarity: "Epic", price: 1400, layerOrder: 20, unlockType: "purchase", unlockRequirement: null, color: "%2367e8f9" }),
-  item({ slug: "knight-helmet", name: "Knight Helmet", description: "A bold helmet for brave attackers.", category: "headwear", rarity: "Rare", price: 850, layerOrder: 50, unlockType: "purchase", unlockRequirement: null, color: "%23d1d5db" }),
-  item({ slug: "mini-rook-companion", name: "Mini Rook Companion", description: "A tiny rook buddy for your shoulder.", category: "chess_accessory", rarity: "Rare", price: 750, layerOrder: 60, unlockType: "purchase", unlockRequirement: null, color: "%23bae6fd" }),
-  item({ slug: "golden-grandmaster-aura", name: "Golden Grandmaster Aura", description: "A radiant aura for legendary progress.", category: "aura_effect", rarity: "Legendary", price: 3000, layerOrder: 5, unlockType: "achievement", unlockRequirement: "Earn a high-tier badge.", color: "%23fde047", featured: true }),
-  item({ slug: "dark-king-armor", name: "Dark King Armor", description: "Boss-level armor with kingly pressure.", category: "clothing", rarity: "Legendary", price: 3500, layerOrder: 40, unlockType: "achievement", unlockRequirement: "Complete a boss achievement.", color: "%237c3aed" }),
-  item({ slug: "puzzle-wizard-hat", name: "Puzzle Wizard Hat", description: "A wizard hat for puzzle streaks.", category: "headwear", rarity: "Epic", price: 0, layerOrder: 50, unlockType: "achievement", unlockRequirement: "Solve 50 puzzles in one week.", color: "%23a78bfa", featured: true }),
-  item({ slug: "rapid-racer-goggles", name: "Rapid Racer Goggles", description: "Speedy goggles for rapid-game quests.", category: "glasses", rarity: "Rare", price: 0, layerOrder: 55, unlockType: "achievement", unlockRequirement: "Win 5 rapid games in one day.", color: "%23fb7185", featured: true })
+  item({ slug: "pawn-cap", name: "Pawn Cap", description: "A clean cap for brave first moves.", category: "headwear", rarity: "Common", price: 5, layerOrder: 50, unlockType: "purchase", unlockRequirement: null, color: "%23a7f3d0", featured: true }),
+  item({ slug: "chessboard-t-shirt", name: "Chessboard T-Shirt", description: "A casual shirt with board-square energy.", category: "clothing", rarity: "Common", price: 10, layerOrder: 40, unlockType: "purchase", unlockRequirement: null, color: "%23fef3c7" }),
+  item({ slug: "bishop-glasses", name: "Bishop Glasses", description: "Diagonal vision with scholarly shine.", category: "glasses", rarity: "Common", price: 12, layerOrder: 55, unlockType: "purchase", unlockRequirement: null, color: "%23c4b5fd" }),
+  item({ slug: "knight-headphones", name: "Knight Headphones", description: "Headphones shaped for tactical focus.", category: "headwear", rarity: "Uncommon", price: 20, layerOrder: 50, unlockType: "purchase", unlockRequirement: null, color: "%2393c5fd", featured: true }),
+  item({ slug: "rook-backpack", name: "Rook Backpack", description: "Carry your prep like a fortress.", category: "chess_accessory", rarity: "Uncommon", price: 25, layerOrder: 60, unlockType: "purchase", unlockRequirement: null, color: "%23bfdbfe" }),
+  item({ slug: "rapid-racer-goggles", name: "Rapid Racer Goggles", description: "Speedy goggles for rapid-game quests.", category: "glasses", rarity: "Uncommon", price: 35, layerOrder: 55, unlockType: "purchase", unlockRequirement: null, color: "%23fb7185", featured: true }),
+  item({ slug: "puzzle-wizard-hat", name: "Puzzle Wizard Hat", description: "A wizard hat for puzzle streaks.", category: "headwear", rarity: "Rare", price: 40, layerOrder: 50, unlockType: "purchase", unlockRequirement: null, color: "%23a78bfa", featured: true }),
+  item({ slug: "knight-helmet", name: "Knight Helmet", description: "A bold helmet for brave attackers.", category: "headwear", rarity: "Rare", price: 50, layerOrder: 50, unlockType: "purchase", unlockRequirement: null, color: "%23d1d5db" }),
+  item({ slug: "queens-cape", name: "Queen's Cape", description: "A royal cape with attacking flair.", category: "clothing", rarity: "Rare", price: 65, layerOrder: 41, unlockType: "purchase", unlockRequirement: null, color: "%23f0abfc" }),
+  item({ slug: "mini-rook-companion", name: "Mini Rook Companion", description: "A tiny rook buddy for your shoulder.", category: "chess_accessory", rarity: "Epic", price: 70, layerOrder: 60, unlockType: "purchase", unlockRequirement: null, color: "%23bae6fd" }),
+  item({ slug: "checkmate-crown", name: "Checkmate Crown", description: "A crown for finishing attacks.", category: "headwear", rarity: "Epic", price: 90, layerOrder: 50, unlockType: "purchase", unlockRequirement: null, color: "%23facc15", featured: true }),
+  item({ slug: "grandmaster-suit", name: "Grandmaster Suit", description: "Formal gear for tournament day.", category: "clothing", rarity: "Epic", price: 100, layerOrder: 40, unlockType: "purchase", unlockRequirement: null, color: "%23e5e7eb" }),
+  item({ slug: "glowing-chess-eyes", name: "Glowing Chess Eyes", description: "Eyes that glow when tactics appear.", category: "eyes", rarity: "Epic", price: 110, layerOrder: 20, unlockType: "purchase", unlockRequirement: null, color: "%2367e8f9" }),
+  item({ slug: "dark-king-armor", name: "Dark King Armor", description: "Boss-level armor with kingly pressure.", category: "clothing", rarity: "Legendary", price: 135, layerOrder: 40, unlockType: "purchase", unlockRequirement: null, color: "%237c3aed" }),
+  item({ slug: "golden-grandmaster-aura", name: "Golden Grandmaster Aura", description: "A radiant aura for legendary progress.", category: "aura_effect", rarity: "Legendary", price: 150, layerOrder: 5, unlockType: "purchase", unlockRequirement: null, color: "%23fde047", featured: true })
 ];
 
 export function getDefaultEquippedItems(items: AvatarItem[] = seedAvatarItems) {

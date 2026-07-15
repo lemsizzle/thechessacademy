@@ -4,6 +4,7 @@ import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { avatarCategories, avatarCategoryLabels, avatarRarities, avatarRarityStyles, avatarUnlockTypes, seedAvatarItems } from "@/lib/avatar/catalog";
+import { academyCoinEconomy } from "@/lib/avatar/economy";
 import type { AvatarCategory, AvatarItem, AvatarRarity, AvatarUnlockType, Student } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
@@ -30,7 +31,7 @@ const emptyForm: FormState = {
   description: "",
   category: "headwear",
   rarity: "Common",
-  price: 150,
+  price: 5,
   assetUrl: "",
   thumbnailUrl: "",
   layerOrder: 50,
@@ -189,6 +190,7 @@ export function AdminAvatarItemsPanel({ students }: { students: Student[] }) {
 
         <Card className="p-4">
           <h2 className="font-black text-white">Grant & Coins</h2>
+          <p className="mt-1 text-sm text-slate-400">1 XP earns 1 Academy Coin. Coin changes never change lifetime XP.</p>
           <div className="mt-3 grid gap-3">
             <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Student
               <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={studentId} onChange={(event) => setStudentId(event.target.value)}>
@@ -214,6 +216,13 @@ export function AdminAvatarItemsPanel({ students }: { students: Student[] }) {
           <div>
             <h2 className="text-xl font-black text-white">{form.id ? "Edit Avatar Item" : "Create Avatar Item"}</h2>
             <p className="mt-1 text-sm text-slate-400">{message}</p>
+            <p className="mt-2 text-xs text-slate-500">
+              Price guide: Common {academyCoinEconomy.rarityPriceRanges.Common.min}-{academyCoinEconomy.rarityPriceRanges.Common.max},
+              Uncommon {academyCoinEconomy.rarityPriceRanges.Uncommon.min}-{academyCoinEconomy.rarityPriceRanges.Uncommon.max},
+              Rare {academyCoinEconomy.rarityPriceRanges.Rare.min}-{academyCoinEconomy.rarityPriceRanges.Rare.max},
+              Epic {academyCoinEconomy.rarityPriceRanges.Epic.min}-{academyCoinEconomy.rarityPriceRanges.Epic.max},
+              Legendary {academyCoinEconomy.rarityPriceRanges.Legendary.min}-{academyCoinEconomy.rarityPriceRanges.Legendary.max} coins.
+            </p>
           </div>
           <AvatarRenderer
             items={[{
@@ -257,6 +266,7 @@ export function AdminAvatarItemsPanel({ students }: { students: Student[] }) {
           </label>
           <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Price
             <input className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" type="number" value={form.price} onChange={(event) => setField("price", Number(event.target.value) || 0)} />
+            <span className="text-[11px] normal-case text-slate-500">Ignored and saved as 0 for default, achievement, or admin-grant items.</span>
           </label>
           <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Layer Order
             <input className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" type="number" value={form.layerOrder} onChange={(event) => setField("layerOrder", Number(event.target.value) || 0)} />

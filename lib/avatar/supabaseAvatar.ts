@@ -1,4 +1,5 @@
 import { defaultAvatarItemSlugs, getDefaultEquippedItems, normalizeAvatarCategory, normalizeAvatarRarity, normalizeUnlockType, seedAvatarItems } from "@/lib/avatar/catalog";
+import { coinsFromXp, normalizeAvatarPrice } from "@/lib/avatar/economy";
 import { canEquipAvatarItem } from "@/lib/avatar/rules";
 import { getSupabaseServerReadClient, getSupabaseServiceClient, isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import type { AvatarAcquisitionType, AvatarCategory, AvatarItem, AvatarRarity, AvatarUnlockType, CoinTransaction, StudentAvatarConfig, StudentInventoryItem, StudentWallet } from "@/lib/types";
@@ -176,7 +177,7 @@ async function ensureWallet(studentId: string): Promise<StudentWallet> {
 
   const student = await supabase.from("students").select("total_xp").eq("id", studentId).maybeSingle();
   if (student.error) throw new Error(student.error.message);
-  const startingCoins = Math.max(0, Number((student.data as { total_xp?: number | null } | null)?.total_xp ?? 0));
+  const startingCoins = coinsFromXp(Number((student.data as { total_xp?: number | null } | null)?.total_xp ?? 0));
 
   const inserted = await supabase
     .from("student_wallets")
@@ -335,17 +336,19 @@ export async function saveStudentAvatar(studentId: string, equippedItems: Partia
 function toAvatarItemPayload(input: AvatarItemInput) {
   const name = input.name.trim();
   if (!name) throw new Error("Item name is required.");
+  const slug = slugify(input.slug || name);
+  const unlockType = input.unlockType;
   return {
     name,
-    slug: slugify(input.slug || name),
+    slug,
     description: input.description?.trim() || "",
     category: input.category,
     rarity: input.rarity,
-    price: Math.max(0, Number(input.price) || 0),
+    price: normalizeAvatarPrice({ slug, price: input.price, unlockType }),
     asset_url: input.assetUrl || null,
     thumbnail_url: input.thumbnailUrl || input.assetUrl || null,
     layer_order: Number(input.layerOrder ?? 0),
-    unlock_type: input.unlockType,
+    unlock_type: unlockType,
     unlock_requirement: input.unlockRequirement?.trim() || null,
     is_active: input.isActive ?? true,
     is_featured: input.isFeatured ?? false
@@ -373,7 +376,13 @@ export async function updateAvatarItem(itemId: string, input: Partial<AvatarItem
   if (input.description !== undefined) payload.description = input.description.trim();
   if (input.category !== undefined) payload.category = input.category;
   if (input.rarity !== undefined) payload.rarity = input.rarity;
-  if (input.price !== undefined) payload.price = Math.max(0, Number(input.price) || 0);
+  if (input.unlockType !== undefined && input.unlockType !== "purchase") {
+    payload.price = 0;
+  } else if (input.price !== undefined) {
+    const slug = String(payload.slug ?? itemId);
+    const unlockType = (input.unlockType ?? "purchase") as AvatarUnlockType;
+    payload.price = normalizeAvatarPrice({ slug, price: Number(input.price ?? 0), unlockType });
+  }
   if (input.assetUrl !== undefined) payload.asset_url = input.assetUrl || null;
   if (input.thumbnailUrl !== undefined) payload.thumbnail_url = input.thumbnailUrl || input.assetUrl || null;
   if (input.layerOrder !== undefined) payload.layer_order = Number(input.layerOrder) || 0;

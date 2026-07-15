@@ -129,7 +129,7 @@ export function AvatarStudio() {
                 <p className="mt-3 text-sm text-slate-300">{item.description}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold">
                   <span className={`rounded border px-2 py-1 ${avatarRarityStyles[item.rarity]}`}>{item.rarity}</span>
-                  <span className="rounded border border-white/10 bg-white/5 px-2 py-1 text-slate-200">{itemOwned ? "Owned" : item.unlockType === "purchase" ? `${item.price} coins` : "Achievement"}</span>
+                  <span className="rounded border border-white/10 bg-white/5 px-2 py-1 text-slate-200">{itemOwned ? "Owned" : item.unlockType === "purchase" ? `${item.price} coins` : "Achievement-only"}</span>
                 </div>
                 <div className="mt-3 flex gap-2">
                   <Button className="flex-1 px-3 py-2" variant={itemOwned ? "primary" : "secondary"} onClick={() => equip(item)}>{itemOwned ? itemEquipped ? "Equipped" : "Equip" : "Preview"}</Button>

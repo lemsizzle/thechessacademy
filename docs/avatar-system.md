@@ -42,9 +42,19 @@ Academy Coins are separate spendable currency:
 
 Existing students get an initial wallet based on their current `students.total_xp` when you run the SQL setup file.
 
+Current starter economy:
+
+- Common: 5-15 coins
+- Uncommon: 20-35 coins
+- Rare: 40-65 coins
+- Epic: 75-110 coins
+- Legendary: 125-175 coins, or achievement-only with no price
+
+Run `/docs/supabase-avatar-economy-update.sql` if you already ran the earlier avatar SQL with higher prices. It safely updates prices and grants any missing initial Academy Coins based on lifetime XP without repeated grants.
+
 ## Avatar Assets
 
-The first version includes placeholder SVG art from code, matched by item slug. You can replace it with real assets later.
+The first version includes simple placeholder SVG art from code, matched by item slug. The placeholder art is intentionally lightweight and is only there to prove layering, inventory, purchases, equipping, saving, and admin management. You can replace it with real assets later without code changes.
 
 Recommended Supabase Storage setup:
 
