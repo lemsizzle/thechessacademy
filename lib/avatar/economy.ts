@@ -10,6 +10,9 @@ export const academyCoinEconomy = {
     Legendary: { min: 125, max: 175 }
   } satisfies Record<AvatarRarity, { min: number; max: number }>,
   itemPrices: {
+    "steady-brows": 5,
+    "rookie-hair": 8,
+    "long-flowing-hair": 10,
     "pawn-cap": 5,
     "chessboard-t-shirt": 10,
     "bishop-glasses": 12,

@@ -43,7 +43,7 @@ const teacherSetupLinks: NavLink[] = [
   { href: "/admin/quests", label: "Quests", icon: "\u{1F4DC}" },
   { href: "/admin/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" },
   { href: "/admin/resources", label: "Resources", icon: "\u{1F517}" },
-  { href: "/admin/avatar", label: "Avatar Items", icon: "\u{1F9D9}" }
+  { href: "/admin/avatar", label: "Avatar Studio", icon: "\u{1F9D9}" }
 ];
 
 const teacherToolLinks: NavLink[] = [

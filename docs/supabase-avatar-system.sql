@@ -160,11 +160,14 @@ insert into public.avatar_items
 values
   ('Starlit Board', 'starlit-board', 'A simple chessboard classroom backdrop.', 'background', 'Common', 0, 0, 'default', 'Starter avatar item.', true, false),
   ('Academy Face', 'academy-face', 'A friendly cartoon student face.', 'base_face', 'Common', 0, 10, 'default', 'Starter avatar item.', true, false),
+  ('Light Skin Tone', 'light-skin-tone', 'A light skin tone, always free to use.', 'skin_tone', 'Common', 0, 12, 'default', 'Free core avatar choice.', true, false),
   ('Warm Skin Tone', 'warm-skin-tone', 'A warm starter skin tone layer.', 'skin_tone', 'Common', 0, 12, 'default', 'Starter avatar item.', true, false),
+  ('Deep Skin Tone', 'deep-skin-tone', 'A deep skin tone, always free to use.', 'skin_tone', 'Common', 0, 12, 'default', 'Free core avatar choice.', true, false),
   ('Bright Quest Eyes', 'bright-quest-eyes', 'Focused eyes ready for tactics.', 'eyes', 'Common', 0, 20, 'default', 'Starter avatar item.', true, false),
-  ('Steady Brows', 'steady-brows', 'Calm calculation eyebrows.', 'eyebrows', 'Common', 0, 22, 'default', 'Starter avatar item.', true, false),
+  ('Steady Brows', 'steady-brows', 'Calm calculation eyebrows.', 'eyebrows', 'Common', 5, 22, 'purchase', null, true, false),
   ('Brave Smile', 'brave-smile', 'A confident academy smile.', 'mouth', 'Common', 0, 24, 'default', 'Starter avatar item.', true, false),
-  ('Rookie Hair', 'rookie-hair', 'Starter hairstyle for new questers.', 'hair', 'Common', 0, 30, 'default', 'Starter avatar item.', true, false),
+  ('Rookie Hair', 'rookie-hair', 'A neat short hairstyle for new questers.', 'hair', 'Common', 8, 30, 'purchase', null, true, false),
+  ('Long Flowing Hair', 'long-flowing-hair', 'A long hairstyle that frames the face and falls over the shoulders.', 'hair', 'Common', 10, 30, 'purchase', null, true, true),
   ('Academy Shirt', 'academy-shirt', 'The classic Chess Academy shirt.', 'clothing', 'Common', 0, 40, 'default', 'Starter avatar item.', true, false),
   ('Pawn Cap', 'pawn-cap', 'A clean cap for brave first moves.', 'headwear', 'Common', 5, 50, 'purchase', null, true, true),
   ('Chessboard T-Shirt', 'chessboard-t-shirt', 'A casual shirt with board-square energy.', 'clothing', 'Common', 10, 40, 'purchase', null, true, false),
@@ -237,8 +240,8 @@ select students.id, avatar_items.id, 'default'
 from public.students
 cross join public.avatar_items
 where avatar_items.slug in (
-  'starlit-board', 'academy-face', 'warm-skin-tone', 'bright-quest-eyes',
-  'steady-brows', 'brave-smile', 'rookie-hair', 'academy-shirt'
+  'starlit-board', 'academy-face', 'light-skin-tone', 'warm-skin-tone',
+  'deep-skin-tone', 'bright-quest-eyes', 'brave-smile', 'academy-shirt'
 )
 on conflict (student_id, item_id) do nothing;
 
@@ -249,7 +252,7 @@ select
 from public.students
 join public.avatar_items on avatar_items.slug in (
   'starlit-board', 'academy-face', 'warm-skin-tone', 'bright-quest-eyes',
-  'steady-brows', 'brave-smile', 'rookie-hair', 'academy-shirt'
+  'brave-smile', 'academy-shirt'
 )
 group by students.id
 on conflict (student_id) do nothing;

@@ -128,18 +128,19 @@ function normalizeEquippedItems(value: Record<string, string | null> | null | un
 
 function fallbackState(studentId: string): StudentAvatarState {
   const defaultIds = new Set(defaultAvatarItemSlugs);
+  const freeItems = seedAvatarItems.filter((item) => defaultIds.has(item.slug) || item.unlockType === "default");
   const now = new Date().toISOString();
   return {
     configured: isSupabaseProjectConfigured(),
     items: seedAvatarItems,
-    inventory: seedAvatarItems.filter((item) => defaultIds.has(item.slug)).map((item) => ({
+    inventory: freeItems.map((item) => ({
       id: `seed-inventory-${studentId}-${item.slug}`,
       studentId,
       itemId: item.id,
       acquisitionType: "default",
       acquiredAt: now
     })),
-    ownedItemIds: seedAvatarItems.filter((item) => defaultIds.has(item.slug)).map((item) => item.id),
+    ownedItemIds: freeItems.map((item) => item.id),
     wallet: { studentId, academyCoins: 0, totalCoinsEarned: 0, totalCoinsSpent: 0, updatedAt: now },
     avatar: { studentId, equippedItems: getDefaultEquippedItems(seedAvatarItems), updatedAt: now },
     source: "seed"
