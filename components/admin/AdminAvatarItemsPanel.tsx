@@ -5,7 +5,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { avatarCategories, avatarCategoryLabels, avatarRarities, avatarRarityStyles, avatarUnlockTypes, seedAvatarItems } from "@/lib/avatar/catalog";
 import { academyCoinEconomy } from "@/lib/avatar/economy";
-import type { AvatarCategory, AvatarItem, AvatarRarity, AvatarUnlockType, Student } from "@/lib/types";
+import type { AvatarCategory, AvatarItem, AvatarRarity, AvatarUnlockType } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
 type FormState = {
@@ -60,30 +60,19 @@ function formFromItem(item: AvatarItem): FormState {
   };
 }
 
-export function AdminAvatarItemsPanel({ students }: { students: Student[] }) {
-  const [items, setItems] = useState<AvatarItem[]>([]);
-  const [selectedId, setSelectedId] = useState("");
-  const [form, setForm] = useState<FormState>(emptyForm);
-  const [studentId, setStudentId] = useState(students[0]?.id ?? "");
-  const [grantItemId, setGrantItemId] = useState("");
-  const [coinAmount, setCoinAmount] = useState(100);
-  const [message, setMessage] = useState("Loading avatar item manager...");
+export function AdminAvatarItemsPanel({
+  initialItems,
+  adminActionToken
+}: {
+  initialItems: AvatarItem[];
+  adminActionToken?: string;
+}) {
+  const startingItems = initialItems.length ? initialItems : seedAvatarItems;
+  const [items, setItems] = useState<AvatarItem[]>(startingItems);
+  const [selectedId, setSelectedId] = useState(startingItems[0]?.id ?? "");
+  const [form, setForm] = useState<FormState>(startingItems[0] ? formFromItem(startingItems[0]) : emptyForm);
+  const [message, setMessage] = useState("Select an item to edit it, or create a new cosmetic.");
   const selectedItem = useMemo(() => items.find((item) => item.id === selectedId), [items, selectedId]);
-
-  function loadItems() {
-    fetch("/api/admin/avatar-items", { cache: "no-store", credentials: "include" })
-      .then((response) => response.json())
-      .then((data: { items?: AvatarItem[]; error?: string }) => {
-        if (data.error) throw new Error(data.error);
-        const nextItems = data.items?.length ? data.items : seedAvatarItems;
-        setItems(nextItems);
-        setGrantItemId((current) => current || nextItems[0]?.id || "");
-        setMessage("Avatar items loaded.");
-      })
-      .catch((error) => setMessage(error instanceof Error ? error.message : "Could not load avatar items."));
-  }
-
-  useEffect(loadItems, []);
 
   useEffect(() => {
     if (selectedItem) setForm(formFromItem(selectedItem));
@@ -114,7 +103,10 @@ export function AdminAvatarItemsPanel({ students }: { students: Student[] }) {
     setMessage("Saving avatar item...");
     const response = await fetch(url, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+      },
       credentials: "include",
       body: JSON.stringify(payload)
     });
@@ -129,32 +121,6 @@ export function AdminAvatarItemsPanel({ students }: { students: Student[] }) {
     });
     setSelectedId(data.item.id);
     setMessage("Avatar item saved.");
-  }
-
-  async function grantItem() {
-    if (!studentId || !grantItemId) return;
-    setMessage("Granting avatar item...");
-    const response = await fetch("/api/admin/avatar-items/grant", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ studentId, itemId: grantItemId })
-    });
-    const data = await response.json() as { message?: string; error?: string };
-    setMessage(response.ok ? data.message ?? "Avatar item granted." : data.error ?? "Could not grant avatar item.");
-  }
-
-  async function adjustCoins() {
-    if (!studentId) return;
-    setMessage("Updating Academy Coins...");
-    const response = await fetch("/api/admin/wallets/adjust", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ studentId, amount: coinAmount, description: "Teacher Academy Coins adjustment" })
-    });
-    const data = await response.json() as { message?: string; error?: string };
-    setMessage(response.ok ? data.message ?? "Academy Coins updated." : data.error ?? "Could not update Academy Coins.");
   }
 
   return (
@@ -189,27 +155,6 @@ export function AdminAvatarItemsPanel({ students }: { students: Student[] }) {
           </div>
         </Card>
 
-        <Card className="p-4">
-          <h2 className="font-black text-white">Grant & Coins</h2>
-          <p className="mt-1 text-sm text-slate-400">1 XP earns 1 Academy Coin. Coin changes never change lifetime XP.</p>
-          <div className="mt-3 grid gap-3">
-            <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Student
-              <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={studentId} onChange={(event) => setStudentId(event.target.value)}>
-                {students.map((student) => <option key={student.id} value={student.id}>{student.name} - {student.lichessUsername ?? student.slug}</option>)}
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Avatar Item
-              <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={grantItemId} onChange={(event) => setGrantItemId(event.target.value)}>
-                {items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-              </select>
-            </label>
-            <Button variant="secondary" onClick={grantItem}>Grant Item</Button>
-            <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Coin Adjustment
-              <input className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" type="number" value={coinAmount} onChange={(event) => setCoinAmount(Number(event.target.value) || 0)} />
-            </label>
-            <Button onClick={adjustCoins}>Adjust Coins</Button>
-          </div>
-        </Card>
       </div>
 
       <Card className="p-5">

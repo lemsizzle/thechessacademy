@@ -5,6 +5,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { StudentActivityTimeline } from "@/components/StudentActivityTimeline";
 import { BadgeGeneratorPanel } from "@/components/admin/BadgeGeneratorPanel";
+import { AdminStudentAvatarRewards } from "@/components/admin/AdminStudentAvatarRewards";
 import { activity } from "@/data/activity";
 import { allBadges as seedBadges, conceptThemes, tacticThemes } from "@/data/badges";
 import { classGroups as seedClassGroups } from "@/data/classGroups";
@@ -29,7 +30,7 @@ import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } 
 import { findAttemptForPeriod, selectPendingQuestAward, selectQuestCompletion, selectQuestProgress } from "@/lib/quests/selectQuestProgress";
 import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
 import { buildStudentActivityItems } from "@/lib/studentActivity";
-import type { ArenaTournamentResult, Badge, BadgeCategory, BadgeTier, ClassGroup, ConceptTheme, GameReviewSubmission, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, Quest, QuestCompletionEvent, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, Student, StudentLichessAccount, StudentQuestAttempt, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
+import type { ArenaTournamentResult, AvatarItem, Badge, BadgeCategory, BadgeTier, ClassGroup, ConceptTheme, GameReviewSubmission, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, Quest, QuestCompletionEvent, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, Student, StudentLichessAccount, StudentQuestAttempt, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
 type AdminMode = "overview" | "students" | "classes" | "badges" | "xp" | "quests" | "activity" | "resources";
@@ -164,12 +165,14 @@ export function AdminPanel({
   initialStudents,
   deleteStudentAction,
   adminActionToken,
-  initialBadges
+  initialBadges,
+  initialAvatarItems = []
 }: {
   mode?: AdminMode;
   requestedStudent?: string;
   initialStudents?: Student[];
   initialBadges?: Badge[];
+  initialAvatarItems?: AvatarItem[];
   deleteStudentAction?: DeleteStudentAction;
   adminActionToken?: string;
 }) {
@@ -1299,6 +1302,12 @@ export function AdminPanel({
         </div>
         <p className="mt-3 text-xs text-cyan-100/80">Current badges: {currentStudent.badgeIds.length ? currentStudent.badgeIds.map((id) => badges.find((badge) => badge.id === id)?.name ?? id).join(", ") : "None yet"}</p>
       </div>
+      <AdminStudentAvatarRewards
+        key={currentStudent.id}
+        student={currentStudent}
+        items={initialAvatarItems}
+        adminActionToken={adminActionToken}
+      />
         </>
       ) : (
         <div className="mt-5 rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4">
