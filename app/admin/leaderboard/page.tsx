@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/AppShell";
 import { DevDataSourceNote } from "@/components/DevDataSourceNote";
 import { LeaderboardBoard } from "@/components/LeaderboardBoard";
+import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 import { getBadgesResult } from "@/lib/data/badges";
 import { getStudentsResult } from "@/lib/data/students";
 import { getXpEventsResult } from "@/lib/data/xpEvents";
@@ -13,11 +14,12 @@ export default async function AdminLeaderboardPage() {
     getXpEventsResult(),
     getBadgesResult()
   ]);
+  const avatarDisplay = await getStudentAvatarDisplayData(students.data.map((student) => student.id));
 
   return (
     <AppShell title="Teacher Leaderboard" subtitle="View class rankings from the teacher dashboard. Student links open the admin student editor." variant="admin">
       <DevDataSourceNote show={students.source === "mock" || xpEvents.source === "mock" || badges.source === "mock"} />
-      <LeaderboardBoard initialStudents={students.data} initialXpEvents={xpEvents.data} badges={badges.data} linkMode="admin" />
+      <LeaderboardBoard initialStudents={students.data} initialXpEvents={xpEvents.data} badges={badges.data} avatarItems={avatarDisplay.items} studentAvatars={avatarDisplay.avatars} linkMode="admin" />
     </AppShell>
   );
 }

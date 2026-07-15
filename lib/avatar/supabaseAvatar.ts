@@ -286,6 +286,34 @@ export async function getStudentAvatarState(studentId: string): Promise<StudentA
   }
 }
 
+export async function getStudentAvatarDisplayData(studentIds: string[]) {
+  const uniqueStudentIds = Array.from(new Set(studentIds.filter(Boolean)));
+  const items = await listAvatarItems({ includeInactive: false, useService: true });
+  const defaultEquippedItems = getDefaultEquippedItems(items);
+  const avatars: Record<string, StudentAvatarConfig> = Object.fromEntries(
+    uniqueStudentIds.map((studentId) => [studentId, { studentId, equippedItems: defaultEquippedItems }])
+  );
+
+  const supabase = getSupabaseServiceClient();
+  if (!supabase || !uniqueStudentIds.length) return { items, avatars };
+
+  const result = await supabase
+    .from("student_avatar")
+    .select("student_id,equipped_items,updated_at")
+    .in("student_id", uniqueStudentIds);
+
+  if (result.error) return { items, avatars };
+  for (const row of (result.data ?? []) as AvatarRow[]) {
+    avatars[row.student_id] = {
+      studentId: row.student_id,
+      equippedItems: normalizeEquippedItems(row.equipped_items),
+      updatedAt: row.updated_at
+    };
+  }
+
+  return { items, avatars };
+}
+
 export async function purchaseAvatarItem(studentId: string, itemId: string) {
   if (!isSupabaseServiceConfigured()) {
     throw new Error("Supabase service role is required for secure purchases.");

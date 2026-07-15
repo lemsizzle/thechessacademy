@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/Card";
 import { LinkedLichessCard } from "@/components/student/LinkedLichessCard";
+import { StudentDashboardAvatar } from "@/components/student/StudentDashboardAvatar";
 import { StudentCoinsBalanceCard } from "@/components/student/StudentCoinsBalanceCard";
 import { StudentProfileSettings } from "@/components/student/StudentProfileSettings";
 import { StudentProfile } from "@/components/StudentProfile";
@@ -93,6 +94,7 @@ export function StudentProfilePrivateLoader() {
   if (!student) return <Card className="p-4 text-sm text-slate-300">No student record found. Try logging out and logging in with Lichess again.</Card>;
   return (
     <div className="space-y-5">
+      <StudentDashboardAvatar studentId={student.id} studentName={student.name} lifetimeXp={student.totalXp} />
       <StudentCoinsBalanceCard lifetimeXp={student.totalXp} />
       <StudentProfileSettings student={student} />
       <LinkedLichessCard account={account} />

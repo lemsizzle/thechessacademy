@@ -1,13 +1,15 @@
 "use client";
 
+import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { LevelBadge } from "@/components/LevelBadge";
 import { allBadges } from "@/data/badges";
 import { xpEvents } from "@/data/xpEvents";
+import { getDefaultEquippedItems, seedAvatarItems } from "@/lib/avatar/catalog";
 import { getTacticProgressCount } from "@/lib/lichess";
 import { findStudentLichessAccount, getStudentXpWithLichess } from "@/lib/lichessXp";
 import { readAdminStore } from "@/lib/mockStorage";
-import type { Student, StudentLichessAccount, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
-import { getLevelAvatarSymbol, getLevelFromXp } from "@/lib/xp";
+import type { AvatarItem, Student, StudentAvatarConfig, StudentLichessAccount, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
+import { getLevelFromXp } from "@/lib/xp";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -56,6 +58,8 @@ export function LeaderboardTable({
   lichessAccounts,
   xpEvents: initialXpEvents,
   badges = allBadges,
+  avatarItems = seedAvatarItems,
+  studentAvatars = {},
   profileBasePath = "/app/students",
   linkMode = "profile"
 }: {
@@ -64,6 +68,8 @@ export function LeaderboardTable({
   lichessAccounts: StudentLichessAccount[];
   xpEvents?: XpEvent[];
   badges?: typeof allBadges;
+  avatarItems?: AvatarItem[];
+  studentAvatars?: Record<string, StudentAvatarConfig>;
   profileBasePath?: string;
   linkMode?: "profile" | "admin";
 }) {
@@ -71,6 +77,7 @@ export function LeaderboardTable({
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
   const [focus, setFocus] = useState<Focus>("Overall XP");
   const [recentXpEvents, setRecentXpEvents] = useState<XpEvent[]>(initialXpEvents ?? xpEvents);
+  const defaultEquippedItems = useMemo(() => getDefaultEquippedItems(avatarItems), [avatarItems]);
 
   useEffect(() => {
     const store = readAdminStore();
@@ -105,6 +112,9 @@ export function LeaderboardTable({
       ? `/admin/students?student=${encodeURIComponent(student.slug)}`
       : `${profileBasePath}/${student.slug}`
   );
+  const getStudentAvatar = (studentId: string): StudentAvatarConfig => (
+    studentAvatars[studentId] ?? { studentId, equippedItems: defaultEquippedItems }
+  );
 
   return (
     <div className="overflow-hidden rounded-lg border border-white/10 bg-slate-950/58">
@@ -134,19 +144,16 @@ export function LeaderboardTable({
           </div>
         </div>
         <div className="mt-4 grid gap-2 md:grid-cols-3">
-          {podium.map((student) => {
-            const level = getLevelFromXp(student.effectiveXp);
-            return (
+          {podium.map((student) => (
               <Link key={student.id} href={getStudentHref(student)} className="flex items-center gap-3 rounded-md border border-white/10 bg-white/5 p-3 transition hover:border-cyan-200/50 hover:bg-cyan-300/10">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-200 text-sm font-black text-slate-950">#{student.rank}</span>
-                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-cyan-200/90 text-lg text-slate-950">{getLevelAvatarSymbol(level)}</span>
+                <AvatarRenderer items={avatarItems} avatar={getStudentAvatar(student.id)} size="sm" label={`${student.name}'s avatar`} />
                 <span className="min-w-0">
                   <span className="block truncate font-black text-white">{student.name}</span>
                   <span className="text-xs font-bold text-cyan-100">{student.score.toLocaleString()} {focus === "Overall XP" ? "XP" : "found"}</span>
                 </span>
               </Link>
-            );
-          })}
+          ))}
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -170,7 +177,7 @@ export function LeaderboardTable({
                   <td className="px-4 py-4 font-black text-amber-100">#{student.rank}</td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-cyan-200/90 text-xl font-black text-slate-950">{getLevelAvatarSymbol(level)}</span>
+                      <AvatarRenderer items={avatarItems} avatar={getStudentAvatar(student.id)} size="sm" label={`${student.name}'s avatar`} />
                       <div className="min-w-0">
                         <Link href={getStudentHref(student)} className="font-bold text-white transition hover:text-amber-100">
                           {student.name}
@@ -182,7 +189,7 @@ export function LeaderboardTable({
                     </div>
                   </td>
                   <td className="px-4 py-4 text-slate-300">{student.classGroup}</td>
-                  <td className="px-4 py-4"><LevelBadge level={level} /></td>
+                  <td className="px-4 py-4"><LevelBadge level={level} showTitle /></td>
                   <td className="px-4 py-4">
                     <span className="font-black text-slate-100">{student.score.toLocaleString()}</span>
                     {focus === "Overall XP" && student.lichessXp > 0 && <span className="ml-2 text-xs text-cyan-200">+{student.lichessXp.toLocaleString()} Lichess</span>}

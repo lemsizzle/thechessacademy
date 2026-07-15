@@ -2,7 +2,7 @@
 
 import { EmptyState } from "@/components/EmptyState";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
-import type { Badge, Student, XpEvent } from "@/lib/types";
+import type { AvatarItem, Badge, Student, StudentAvatarConfig, XpEvent } from "@/lib/types";
 import { useMockAdminState } from "@/lib/useMockAdminState";
 
 export function LeaderboardBoard({
@@ -10,13 +10,17 @@ export function LeaderboardBoard({
   linkMode = "profile",
   initialStudents,
   initialXpEvents,
-  badges
+  badges,
+  avatarItems,
+  studentAvatars
 }: {
   profileBasePath?: string;
   linkMode?: "profile" | "admin";
   initialStudents?: Student[];
   initialXpEvents?: XpEvent[];
   badges?: Badge[];
+  avatarItems?: AvatarItem[];
+  studentAvatars?: Record<string, StudentAvatarConfig>;
 }) {
   const { students: adminStudents, studentTacticProgress, studentLichessAccounts } = useMockAdminState();
   const students = initialStudents ?? adminStudents;
@@ -34,6 +38,8 @@ export function LeaderboardBoard({
       linkMode={linkMode}
       xpEvents={initialXpEvents}
       badges={badges}
+      avatarItems={avatarItems}
+      studentAvatars={studentAvatars}
     />
   );
 }
