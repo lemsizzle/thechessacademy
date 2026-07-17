@@ -16,7 +16,9 @@ function isCloseTime(left?: string, right?: string) {
   return Number.isFinite(leftMs) && Number.isFinite(rightMs) && Math.abs(leftMs - rightMs) < 60_000;
 }
 
-function periodsOverlap(
+const QUEST_PERIOD_MATCH_TOLERANCE_MS = 60_000;
+
+function periodIsInsideAttempt(
   left?: { sourcePeriodStart: string; sourcePeriodEnd: string },
   right?: { startedAt: string; expiresAt: string }
 ) {
@@ -26,14 +28,18 @@ function periodsOverlap(
   const rightStart = timeMs(right.startedAt);
   const rightEnd = timeMs(right.expiresAt);
   if (![leftStart, leftEnd, rightStart, rightEnd].every(Number.isFinite)) return false;
-  return leftStart <= rightEnd && leftEnd >= rightStart;
+  return (
+    leftStart >= rightStart - QUEST_PERIOD_MATCH_TOLERANCE_MS
+    && leftStart <= rightEnd + QUEST_PERIOD_MATCH_TOLERANCE_MS
+    && leftEnd <= rightEnd + QUEST_PERIOD_MATCH_TOLERANCE_MS
+  );
 }
 
 export function periodMatchesAttempt(period: { sourcePeriodStart: string; sourcePeriodEnd: string }, attempt: StudentQuestAttempt) {
   return (
     (period.sourcePeriodStart === attempt.startedAt && period.sourcePeriodEnd === attempt.expiresAt)
     || (isCloseTime(period.sourcePeriodStart, attempt.startedAt) && isCloseTime(period.sourcePeriodEnd, attempt.expiresAt))
-    || periodsOverlap(period, attempt)
+    || periodIsInsideAttempt(period, attempt)
   );
 }
 
@@ -85,12 +91,9 @@ export function selectQuestProgress({
   const matchedProgress = bestProgressForQuest(questProgress, quest);
   if (matchedProgress && (matchedProgress.currentValue > 0 || !shouldUseHighestProgress(quest))) return matchedProgress;
 
-  const attemptStart = timeMs(attempt?.startedAt);
-  const progressSinceAttempt = Number.isFinite(attemptStart)
-    ? allQuestProgress.filter((item) => timeMs(item.updatedAt) >= attemptStart || timeMs(item.sourcePeriodStart) >= attemptStart)
-    : [];
-  const meaningfulProgress = (progressSinceAttempt.length ? progressSinceAttempt : allQuestProgress)
-    .filter((item) => item.currentValue > 0 || item.completed);
+  if (attempt) return matchedProgress;
+
+  const meaningfulProgress = allQuestProgress.filter((item) => item.currentValue > 0 || item.completed);
 
   return bestProgressForQuest(meaningfulProgress, quest) ?? matchedProgress ?? bestProgressForQuest(allQuestProgress, quest);
 }
