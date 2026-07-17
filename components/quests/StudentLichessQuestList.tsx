@@ -190,6 +190,45 @@ export function StudentLichessQuestList() {
   const activeQuests = quests.filter((quest) => getActiveQuestAttempt(attempts, studentId, quest.id, nowDate));
   const completedQuests = quests.filter((quest) => completionIsCurrent(quest) && !getActiveQuestAttempt(attempts, studentId, quest.id, nowDate));
   const availableQuests = quests.filter((quest) => !completionIsCurrent(quest) && !getActiveQuestAttempt(attempts, studentId, quest.id, nowDate));
+  const questById = new Map(quests.map((quest) => [quest.id, quest]));
+
+  const formatFinishedDate = (value: string) => new Date(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+
+  const finishedQuestHistory = [
+    ...completions.flatMap((completion) => {
+      const quest = questById.get(completion.questId);
+      if (!quest) return [];
+      const attempt = findAttemptForPeriod(attempts.filter((item) => item.questId === quest.id), completion);
+      const selectedProgress = selectQuestProgress({ quest, progress, completion, attempt });
+      return [{
+        id: completion.id,
+        quest,
+        progress: selectedProgress,
+        completed: true,
+        finishedAt: completion.completedAt,
+        xpAwarded: completion.xpAwarded
+      }];
+    }),
+    ...attempts.flatMap((attempt) => {
+      const quest = questById.get(attempt.questId);
+      if (!quest || new Date(attempt.expiresAt).getTime() > now) return [];
+      const completion = selectQuestCompletion({ quest, completions, attempt });
+      if (completion) return [];
+      const selectedProgress = selectQuestProgress({ quest, progress, attempt });
+      return [{
+        id: attempt.id,
+        quest,
+        progress: selectedProgress,
+        completed: false,
+        finishedAt: attempt.expiresAt,
+        xpAwarded: 0
+      }];
+    })
+  ].sort((a, b) => b.finishedAt.localeCompare(a.finishedAt)).slice(0, 10);
 
   const renderQuestCard = (quest: Quest) => {
     const activeAttempt = getActiveQuestAttempt(attempts, studentId, quest.id, nowDate);
@@ -225,19 +264,13 @@ export function StudentLichessQuestList() {
       <section>
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="font-black text-white">Live Quests</h2>
-            <p className="mt-1 text-sm text-slate-400">Start any live quest when you are ready. {message}</p>
+            <h2 className="font-black text-white">Quest Board</h2>
+            <p className="mt-1 text-sm text-slate-400">{message}</p>
           </div>
           <Button onClick={evaluate} disabled={syncing} variant="secondary">{syncing ? "Syncing..." : "Sync Lichess"}</Button>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {availableQuests.map(renderQuestCard)}
-        </div>
         {availableQuests.length === 0 && activeQuests.length === 0 && completedQuests.length === 0 && (
           <Card className="p-4 text-sm text-slate-300">No live Lichess quests are available right now.</Card>
-        )}
-        {availableQuests.length === 0 && (activeQuests.length > 0 || completedQuests.length > 0) && (
-          <Card className="p-4 text-sm text-slate-300">No new live quests are ready to start right now.</Card>
         )}
       </section>
       {activeQuests.length > 0 && (
@@ -254,20 +287,71 @@ export function StudentLichessQuestList() {
           </div>
         </section>
       )}
-      {completedQuests.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="font-black text-white">Completed Quests</h2>
-              <p className="mt-1 text-sm text-slate-400">XP has already been awarded for these quest attempts.</p>
+      <section>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-black text-white">Live Quests</h2>
+            <p className="mt-1 text-sm text-slate-400">Start any live quest when you are ready.</p>
+          </div>
+          <span className="rounded bg-amber-300/15 px-2 py-1 text-xs font-black text-amber-100">{availableQuests.length} ready</span>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {availableQuests.map(renderQuestCard)}
+        </div>
+        {availableQuests.length === 0 && (activeQuests.length > 0 || completedQuests.length > 0) && (
+          <Card className="p-4 text-sm text-slate-300">No new live quests are ready to start right now.</Card>
+        )}
+      </section>
+      <section>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-black text-white">Finished Quests</h2>
+            <p className="mt-1 text-sm text-slate-400">Your last 10 completed or expired quest attempts.</p>
+          </div>
+          <span className="rounded bg-violet-300/15 px-2 py-1 text-xs font-black text-violet-100">{finishedQuestHistory.length} recent</span>
+        </div>
+        <Card className="overflow-hidden p-0">
+          {finishedQuestHistory.length > 0 ? (
+            <div className="divide-y divide-white/10">
+              {finishedQuestHistory.map((item) => {
+                const required = Math.max(1, item.progress?.requiredValue ?? item.quest.requiredCount ?? item.quest.requiredScore ?? 1);
+                const score = item.completed ? required : Math.min(required, item.progress?.currentValue ?? 0);
+                const accuracy = item.progress?.accuracy !== undefined ? `, ${item.progress.accuracy}% accuracy` : "";
+                const coinsAwarded = item.xpAwarded;
+
+                return (
+                  <div key={item.id} className="relative overflow-hidden p-4">
+                    <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-cyan-300 via-violet-300 to-amber-200" />
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-black text-white">{item.quest.title}</h3>
+                          <span className={`rounded px-2 py-1 text-[11px] font-black ${item.completed ? "bg-emerald-300/15 text-emerald-100" : "bg-white/10 text-slate-300"}`}>
+                            {item.completed ? "Completed" : "Ended"}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-400">
+                          Score {score} / {required}{accuracy} - {formatFinishedDate(item.finishedAt)}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-right text-xs font-black sm:min-w-36">
+                        <div className="rounded border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-amber-100">
+                          {item.xpAwarded} XP
+                        </div>
+                        <div className="rounded border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-cyan-100">
+                          {coinsAwarded} coins
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <span className="rounded bg-emerald-300/15 px-2 py-1 text-xs font-black text-emerald-100">{completedQuests.length} done</span>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {completedQuests.map(renderQuestCard)}
-          </div>
-        </section>
-      )}
+          ) : (
+            <div className="p-4 text-sm text-slate-300">No finished quests yet. Start a quest, sync your progress, and your quest history will appear here.</div>
+          )}
+        </Card>
+      </section>
     </div>
   );
 }
