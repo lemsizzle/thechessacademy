@@ -10,6 +10,8 @@ out/
 *.tsbuildinfo
 *.log
 *.pid
+*.csv.zst
+.local/lichess/
 
 .agents/
 .codex/

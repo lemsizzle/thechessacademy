@@ -1,6 +1,6 @@
 # Deploying The Chess Academy Quest Board
 
-This app is ready to deploy as a Next.js App Router project on Vercel. The current version uses mock/local browser storage for editable classroom data, with the code structured for Supabase later.
+This app is a Next.js App Router project deployed on Vercel with Supabase-backed production data.
 
 ## 1. Push To GitHub
 
@@ -55,6 +55,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=replace_with_supabase_anon_key
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=replace_with_supabase_publishable_key_if_used
 SUPABASE_SERVICE_ROLE_KEY=replace_with_server_only_service_role_key
+PUZZLE_SESSION_SECRET=replace_with_a_long_random_puzzle_session_secret
 ```
 
 OpenAI-ready value:
@@ -94,23 +95,22 @@ Server-only secrets must not use the `NEXT_PUBLIC_` prefix. Keep these server-on
 - `ADMIN_SESSION_SECRET`
 - `CRON_SECRET`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `PUZZLE_SESSION_SECRET`
 - `OPENAI_API_KEY`
 - `LICHESS_CLIENT_SECRET`
 - `LICHESS_ENCRYPTION_SECRET`
 
-## 4. Connect Supabase Later
+## 4. Connect Supabase
 
-The app currently renders and edits mock data locally. To make classroom edits persistent across devices:
-
-1. Create a Supabase project.
+1. Create a Supabase project and run the project migrations.
 2. Add the public URL and anon/publishable key to Vercel.
 3. Add `SUPABASE_SERVICE_ROLE_KEY` only in Vercel server environment variables.
-4. Create tables from `docs/data-model.md`.
-5. Add Row Level Security before exposing student-specific data.
-6. Move local admin mutations from browser storage into server routes or server actions.
-7. Move generated badge images into Supabase Storage.
+4. Keep Row Level Security enabled for browser-accessible tables.
+5. Keep service-role mutations inside server routes or server actions.
 
 Student onboarding writes new rows to Supabase, so `SUPABASE_SERVICE_ROLE_KEY` must be configured in Vercel. Also run `docs/supabase-add-lichess-fields.sql` once so students can be linked by Lichess account.
+
+Puzzle Training also needs the two `puzzle_training` migrations, `PUZZLE_SESSION_SECRET`, and an imported curated Lichess puzzle pool. Follow `docs/puzzle-training.md`; the importer runs locally and writes the curated rows to the configured Supabase project.
 
 ## 4.1 Vercel Cron Jobs
 
