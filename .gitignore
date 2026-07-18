@@ -12,6 +12,9 @@ out/
 *.pid
 *.csv.zst
 .local/lichess/
+lichess_db_puzzle.csv
+lichess_db_puzzle.csv.zst
+/data/lichess/
 
 .agents/
 .codex/

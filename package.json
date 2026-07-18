@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "import:lichess-puzzles": "tsx scripts/importLichessPuzzles.ts"
+    "import:lichess-puzzles": "tsx scripts/import-lichess-puzzles.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
