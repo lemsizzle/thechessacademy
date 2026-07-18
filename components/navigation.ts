@@ -18,6 +18,7 @@ const exploreLinks: NavLink[] = [
 ];
 
 const studentExploreLinks: NavLink[] = [
+  { href: "/student/training", label: "Puzzle Training", icon: "\u{1F9E9}" },
   { href: "/student/leaderboard", label: "Leaderboard", icon: "\u{1F3C6}" },
   { href: "/student/quests", label: "Quests & Lichess", icon: "\u{1F4DC}" },
   { href: "/student/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" },
