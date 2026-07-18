@@ -36,10 +36,7 @@ export function StudentCoinsBalanceCard({ lifetimeXp = 0 }: { lifetimeXp?: numbe
             <p className="mt-1 text-sm text-slate-400">Used only for store purchases. Buying items never lowers lifetime XP.</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <a className="rounded-md border border-sky-300/40 bg-sky-300/10 px-3 py-2 text-sm font-bold text-sky-50 hover:bg-sky-300/20" href="/student/avatar">Avatar Studio</a>
-          <a className="rounded-md border border-amber-300/50 bg-amber-300 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-amber-200" href="/student/armory">Armory</a>
-        </div>
+        <a className="rounded-md border border-amber-300/50 bg-amber-300 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-amber-200 active:translate-y-px" href="/student/avatar">Avatar & Store</a>
       </div>
     </Card>
   );

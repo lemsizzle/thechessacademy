@@ -3,7 +3,7 @@ import { StudentPortalShell } from "@/components/student/StudentPortalShell";
 
 export default function StudentAvatarStudioPage() {
   return (
-    <StudentPortalShell title="Avatar Studio" subtitle="Build your academy avatar from owned cosmetic layers.">
+    <StudentPortalShell title="Avatar Studio & Store" subtitle="Build your academy look with earned and purchased cosmetics.">
       <AvatarStudio />
     </StudentPortalShell>
   );

@@ -159,7 +159,7 @@ export function AdminAvatarItemsPanel({
 
       <Card className="p-5">
         <div className="mb-5 rounded-lg border border-cyan-200/20 bg-cyan-300/10 p-4 text-sm text-cyan-50">
-          Select an item from the library, set its unlock type to <strong>purchase</strong>, change its store price, then choose <strong>Save Item</strong>. Price changes take effect in the Academy Armory immediately.
+          Select an item from the library, set its unlock type to <strong>purchase</strong>, change its store price, then choose <strong>Save Item</strong>. Price changes take effect in the student Avatar &amp; Store immediately.
         </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -215,7 +215,7 @@ export function AdminAvatarItemsPanel({
           </label>
           <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Store Price (Academy Coins)
             <input className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white disabled:cursor-not-allowed disabled:opacity-50" type="number" min="0" step="1" disabled={form.unlockType !== "purchase"} value={form.price} onChange={(event) => setField("price", Math.max(0, Math.floor(Number(event.target.value) || 0)))} />
-            <span className="text-[11px] normal-case text-slate-500">{form.unlockType === "purchase" ? "Students pay this amount in the Academy Armory." : "Choose the purchase unlock type to set a store price."}</span>
+            <span className="text-[11px] normal-case text-slate-500">{form.unlockType === "purchase" ? "Students pay this amount in Avatar & Store." : "Choose the purchase unlock type to set a store price."}</span>
           </label>
           <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Layer Order
             <input className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" type="number" value={form.layerOrder} onChange={(event) => setField("layerOrder", Number(event.target.value) || 0)} />

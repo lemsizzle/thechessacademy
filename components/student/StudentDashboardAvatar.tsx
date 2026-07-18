@@ -52,11 +52,10 @@ export function StudentDashboardAvatar({ studentId, studentName, lifetimeXp }: {
             <span className="rounded-md border border-cyan-300/40 bg-cyan-300/10 px-3 py-1.5 text-sm font-black text-cyan-100">{rank}</span>
             {payload && <span className="rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-sm font-bold text-slate-200">{payload.wallet.academyCoins.toLocaleString()} coins</span>}
           </div>
-          <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">Your equipped look appears on the leaderboard beside your name. Visit Avatar Studio to preview, equip, and save new items.</p>
+          <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">Your equipped look appears on the leaderboard beside your name.</p>
           {error && <p className="mt-3 text-sm text-rose-200">{error}</p>}
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
-            <Button href="/student/avatar">Customize Avatar</Button>
-            <Button href="/student/armory" variant="secondary">Open Academy Armory</Button>
+            <Button href="/student/avatar">Open Avatar & Store</Button>
           </div>
         </div>
       </div>

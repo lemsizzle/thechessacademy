@@ -26,8 +26,7 @@ const studentExploreLinks: NavLink[] = [
 ];
 
 const studentQuestLinks: NavLink[] = [
-  { href: "/student/avatar", label: "Avatar Studio", icon: "\u{1F9D9}" },
-  { href: "/student/armory", label: "Academy Armory", icon: "\u2694\uFE0F" },
+  { href: "/student/avatar", label: "Avatar & Store", icon: "\u{1F9D9}" },
   { href: "/student/submit", label: "Submit Work", icon: "\u{1F4DD}" }
 ];
 
