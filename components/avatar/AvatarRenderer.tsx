@@ -1,8 +1,8 @@
 "use client";
 
-import { avatarCategories } from "@/lib/avatar/catalog";
+import { avatarCategories, seedAvatarItems } from "@/lib/avatar/catalog";
 import { AVATAR_CANVAS_HEIGHT, AVATAR_CANVAS_WIDTH } from "@/lib/avatar/geometry";
-import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
+import type { AvatarCategory, AvatarItem, StudentAvatarConfig } from "@/lib/types";
 
 type AvatarRendererProps = {
   items: AvatarItem[];
@@ -19,12 +19,20 @@ const sizeClasses = {
   studio: "aspect-square w-72 max-w-full"
 };
 
+const structuralDefaults = new Map<AvatarCategory, AvatarItem>([
+  ["base_face", seedAvatarItems.find((item) => item.slug === "academy-face")!],
+  ["skin_tone", seedAvatarItems.find((item) => item.slug === "warm-skin-tone")!]
+]);
+
 export function AvatarRenderer({ items, avatar, previewItem, size = "md", label = "Student avatar" }: AvatarRendererProps) {
-  const itemById = new Map(items.map((item) => [item.id, item]));
+  const itemById = new Map([...seedAvatarItems, ...items].map((item) => [item.id, item]));
   const layers = avatarCategories
     .map((category) => {
       const previewMatchesCategory = previewItem?.category === category.id;
-      const item = previewMatchesCategory ? previewItem : itemById.get(avatar.equippedItems[category.id] ?? "");
+      const equippedItem = itemById.get(avatar.equippedItems[category.id] ?? "");
+      const item = previewMatchesCategory
+        ? previewItem
+        : equippedItem ?? structuralDefaults.get(category.id);
       return item ? { ...item, layerOrder: previewMatchesCategory ? category.layerOrder + 0.5 : item.layerOrder } : null;
     })
     .filter((item): item is AvatarItem => Boolean(item))
