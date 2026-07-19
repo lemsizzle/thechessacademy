@@ -482,6 +482,13 @@ export async function grantAcademyCoinsForXp(studentId: string, amount: number, 
   return result.data as CoinTransaction | null;
 }
 
+export async function getStudentWallet(studentId: string) {
+  if (!isSupabaseServiceConfigured()) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required to read Academy Coin balances.");
+  }
+  return ensureWallet(studentId);
+}
+
 export async function syncAcademyCoinsForLichessXp(studentId: string, cumulativeLichessXp: number) {
   const target = Math.max(0, Math.floor(Number(cumulativeLichessXp) || 0));
   if (!isSupabaseServiceConfigured()) return { coinsAwarded: 0, cumulativeLichessXp: target };
