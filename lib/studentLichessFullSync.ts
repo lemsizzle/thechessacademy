@@ -20,6 +20,9 @@ type QuestEvaluationResponse = {
   xpEvents?: Array<{ id: string; studentId: string; amount: number; reason: string; createdAt: string }>;
   xpPersisted?: boolean;
   xpError?: string;
+  account?: StudentLichessAccount;
+  lichessCoinsAwarded?: number;
+  coinError?: string;
   error?: string;
   message?: string;
 };
@@ -195,7 +198,9 @@ async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult
   });
 
   const mergedQuestProgress = mergeQuestProgress(store.lichessQuestProgress ?? [], data.progress, rules);
-  account = reconcileAccountWithQuestProgress(account, mergedQuestProgress, rules);
+  account = data.account
+    ? data.account
+    : reconcileAccountWithQuestProgress(account, mergedQuestProgress, rules);
   if (account) saveStudentLichessAccount(account);
   const nextQuestAttempts = (store.studentQuestAttempts ?? []).map((attempt) => (
     autoCompletions.some((completion) => (
@@ -239,6 +244,8 @@ async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult
       `${data.progress.length} Lichess quests checked.`,
       `${autoCompletions.length} auto-completed${autoCompletions.length > 0 ? (data.xpError ? ", but XP could not be saved to Supabase" : " with XP") : ""}.`,
       data.progressError ? "Quest progress could not be saved to Supabase." : "",
+      data.lichessCoinsAwarded ? `${data.lichessCoinsAwarded} Academy Coins added with Lichess XP.` : "",
+      data.coinError ? "Academy Coins could not be updated." : "",
       `${badgeAwardCount} badge award${badgeAwardCount === 1 ? "" : "s"} found.`
     ].filter(Boolean).join(" ")
   };

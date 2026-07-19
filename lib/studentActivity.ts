@@ -110,7 +110,7 @@ export function buildStudentActivityItems({
         id: `lichess-rapid-${student.id}`,
         kind: "game",
         title: "Rapid games counted",
-        detail: `${xp.rapidGamesAfterLogin} rated rapid game${xp.rapidGamesAfterLogin === 1 ? "" : "s"} played, ${xp.rapidWinsAfterLogin} won, ${xp.rapidGameXp + xp.rapidWinXp} XP.`,
+        detail: `${xp.rapidGamesAfterLogin} rated rapid game${xp.rapidGamesAfterLogin === 1 ? "" : "s"} played, ${xp.rapidWinsAfterLogin} won, ${xp.rapidGameXp + xp.rapidWinXp} XP and coins.`,
         createdAt: normalizeDate(lichessAccount.lastGameSyncAt ?? lichessAccount.updatedAt),
         amount: xp.rapidGameXp + xp.rapidWinXp
       });
@@ -120,7 +120,7 @@ export function buildStudentActivityItems({
         id: `lichess-blitz-${student.id}`,
         kind: "game",
         title: "Blitz games counted",
-        detail: `${xp.blitzGamesAfterLogin} rated blitz game${xp.blitzGamesAfterLogin === 1 ? "" : "s"} played, ${xp.blitzWinsAfterLogin} won, ${xp.blitzGameXp + xp.blitzWinXp} XP.`,
+        detail: `${xp.blitzGamesAfterLogin} rated blitz game${xp.blitzGamesAfterLogin === 1 ? "" : "s"} played, ${xp.blitzWinsAfterLogin} won, ${xp.blitzGameXp + xp.blitzWinXp} XP and coins.`,
         createdAt: normalizeDate(lichessAccount.lastGameSyncAt ?? lichessAccount.updatedAt),
         amount: xp.blitzGameXp + xp.blitzWinXp
       });
@@ -130,7 +130,7 @@ export function buildStudentActivityItems({
         id: `lichess-puzzles-${student.id}`,
         kind: "puzzle",
         title: "Puzzles solved",
-        detail: `${xp.puzzleCorrectAfterLogin} correct Lichess puzzle${xp.puzzleCorrectAfterLogin === 1 ? "" : "s"} counted, ${xp.puzzleActivityXp} XP.`,
+        detail: `${xp.puzzleCorrectAfterLogin} correct Lichess puzzle${xp.puzzleCorrectAfterLogin === 1 ? "" : "s"} counted, ${xp.puzzleActivityXp} XP and coins.`,
         createdAt: normalizeDate(lichessAccount.lastPuzzleSyncAt ?? lichessAccount.updatedAt),
         amount: xp.puzzleActivityXp
       });

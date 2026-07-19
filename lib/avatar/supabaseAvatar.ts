@@ -481,3 +481,21 @@ export async function grantAcademyCoinsForXp(studentId: string, amount: number, 
   if (result.error) return null;
   return result.data as CoinTransaction | null;
 }
+
+export async function syncAcademyCoinsForLichessXp(studentId: string, cumulativeLichessXp: number) {
+  const target = Math.max(0, Math.floor(Number(cumulativeLichessXp) || 0));
+  if (!isSupabaseServiceConfigured()) return { coinsAwarded: 0, cumulativeLichessXp: target };
+  const supabase = getSupabaseServiceClient();
+  if (!supabase) return { coinsAwarded: 0, cumulativeLichessXp: target };
+
+  const result = await supabase.rpc("sync_lichess_xp_coins", {
+    p_student_id: studentId,
+    p_cumulative_lichess_xp: target
+  });
+  if (result.error) throw new Error(result.error.message);
+  const data = (result.data ?? {}) as { coinsAwarded?: number; cumulativeLichessXp?: number };
+  return {
+    coinsAwarded: Math.max(0, Number(data.coinsAwarded ?? 0)),
+    cumulativeLichessXp: Math.max(target, Number(data.cumulativeLichessXp ?? target))
+  };
+}

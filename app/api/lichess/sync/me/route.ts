@@ -155,7 +155,13 @@ export async function POST(request: Request) {
     await recordLichessSyncAttempt(session.studentId, session.lichessUsername);
     requestCount += 1;
     const profile = await fetchAuthenticatedLichessAccount(token);
-    const baseAccount = withLichessActivityBaseline(profileToAccount(session.studentId, profile, "connected"), body.previousAccount);
+    const accountWithBaseline = withLichessActivityBaseline(profileToAccount(session.studentId, profile, "connected"), body.previousAccount);
+    const trustedBaseline = existingState?.createdAt ?? accountWithBaseline.activityBaselineSetAt ?? accountWithBaseline.linkedAt;
+    const baseAccount = {
+      ...accountWithBaseline,
+      activityBaselineSetAt: trustedBaseline,
+      linkedAt: trustedBaseline
+    };
     const account = body.includeActivity === true ? await enrichAccountActivity(baseAccount, token) : baseAccount;
     await recordLichessSyncSuccess(session.studentId, profile.username, requestCount);
     return NextResponse.json({

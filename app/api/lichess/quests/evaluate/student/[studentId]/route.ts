@@ -7,6 +7,8 @@ import { getCooldownSeconds, getLichessSyncState, recordLichessSyncAttempt, reco
 import { getSupabaseQuestTracking, saveSupabaseQuestTracking } from "@/lib/quests/supabaseQuestProgress";
 import { addSupabaseStudentXp } from "@/lib/students/supabaseStudentProfiles";
 import { getSupabaseServiceClient, isSupabaseServiceConfigured } from "@/lib/supabase/server";
+import { syncAcademyCoinsForLichessXp } from "@/lib/avatar/supabaseAvatar";
+import { getLichessXpBreakdown } from "@/lib/lichessXp";
 import type { ArenaTournamentResult, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt, XpEvent } from "@/lib/types";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -17,6 +19,8 @@ type EvaluationWithXp = Awaited<ReturnType<typeof evaluateStudentQuestRequest>> 
   xpError?: string;
   progressPersisted?: boolean;
   progressError?: string;
+  lichessCoinsAwarded?: number;
+  coinError?: string;
   message?: string;
 };
 
@@ -149,6 +153,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
     response.xpPersisted = Boolean(response.xpEvents?.length);
   } catch (error) {
     response.xpError = error instanceof Error ? error.message : "Quest XP could not be saved.";
+  }
+
+  if (result.account) {
+    try {
+      const coinSync = await syncAcademyCoinsForLichessXp(studentId, getLichessXpBreakdown(result.account).total);
+      response.lichessCoinsAwarded = coinSync.coinsAwarded;
+    } catch (error) {
+      response.coinError = error instanceof Error ? error.message : "Lichess XP coins could not be saved.";
+    }
   }
 
   return NextResponse.json(response);

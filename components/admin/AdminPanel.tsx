@@ -42,6 +42,8 @@ type QuestEvaluationResponse = {
     newAwards?: PendingQuestAward[];
     autoApprovedAwards?: PendingQuestAward[];
     autoCompletions?: QuestCompletionEvent[];
+    account?: StudentLichessAccount;
+    lichessCoinsAwarded?: number;
   }>;
   error?: string;
 };
@@ -786,7 +788,10 @@ export function AdminPanel({
       }
       const evaluationResponse = await fetch("/api/lichess/quests/evaluate/all", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+        },
         body: JSON.stringify({
           students: studentsToSync.map((student) => ({
             studentId: student.id,
@@ -807,6 +812,14 @@ export function AdminPanel({
       }
 
       const incomingProgress = evaluationData.evaluations.flatMap((evaluation) => evaluation.progress ?? []);
+      for (const evaluation of evaluationData.evaluations) {
+        if (!evaluation.account) continue;
+        nextAccounts = [
+          evaluation.account,
+          ...nextAccounts.filter((account) => account.studentId !== evaluation.studentId)
+        ];
+      }
+      setStudentLichessAccounts(nextAccounts);
       const newAwards = evaluationData.evaluations.flatMap((evaluation) => evaluation.newAwards ?? []);
       const autoApprovedAwards = evaluationData.evaluations.flatMap((evaluation) => evaluation.autoApprovedAwards ?? []);
       const autoCompletions = evaluationData.evaluations.flatMap((evaluation) => evaluation.autoCompletions ?? []);

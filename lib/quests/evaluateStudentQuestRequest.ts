@@ -7,7 +7,7 @@ import { approveQuestAward } from "@/lib/quests/approveQuestAward";
 import { createPendingQuestAwards } from "@/lib/quests/createPendingQuestAward";
 import { evaluateQuestRules } from "@/lib/quests/evaluateQuestRules";
 import { getActiveQuestAttempt, getAttemptQuestWindow } from "@/lib/quests/questAttempts";
-import { getQuestWindow } from "@/lib/quests/timeWindows";
+import { getQuestWindow, type QuestWindow } from "@/lib/quests/timeWindows";
 import type { ArenaTournamentResult, LichessActivitySnapshot, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt } from "@/lib/types";
 
 type EvaluateRequest = {
@@ -52,6 +52,14 @@ function isInsideWindow(value: string, window: ReturnType<typeof getQuestWindow>
   return time >= window.start.getTime() && time <= window.end.getTime();
 }
 
+function getAccountActivityWindow(account?: StudentLichessAccount): QuestWindow | undefined {
+  if (!account) return undefined;
+  const start = new Date(account.activityBaselineSetAt ?? account.linkedAt);
+  const end = new Date();
+  if (Number.isNaN(start.getTime()) || start >= end) return undefined;
+  return { start, end, label: `${start.toISOString()} to ${end.toISOString()}` };
+}
+
 export async function evaluateStudentQuestRequest(
   input: EvaluateRequest,
   cookieStore: { get: (name: string) => { value: string } | undefined },
@@ -68,6 +76,7 @@ export async function evaluateStudentQuestRequest(
   let retryAfterSeconds = 0;
   const encryptedToken = cookieStore.get(LICHESS_TOKEN_COOKIE)?.value;
   const token = allowPuzzleToken && encryptedToken ? decryptLichessToken(encryptedToken) : null;
+  const activityWindow = getAccountActivityWindow(input.account);
   const evaluatedQuestIds = new Set<string>();
   const eligibleQuests = input.quests.filter((item) => item.isActive !== false && item.source?.startsWith("lichess_"));
   const gameQuests: Quest[] = [];
@@ -93,6 +102,10 @@ export async function evaluateStudentQuestRequest(
     for (const perfType of getPerfTypesForQuest(quest)) {
       gameWindowsByPerf.set(perfType, [...(gameWindowsByPerf.get(perfType) ?? []), window]);
     }
+  }
+  if (activityWindow) {
+    gameWindowsByPerf.set("rapid", [...(gameWindowsByPerf.get("rapid") ?? []), activityWindow]);
+    gameWindowsByPerf.set("blitz", [...(gameWindowsByPerf.get("blitz") ?? []), activityWindow]);
   }
 
   const gamesByPerf = new Map<LichessGamePerfType, Awaited<ReturnType<typeof fetchStudentGamesForWindow>>>();
@@ -142,7 +155,9 @@ export async function evaluateStudentQuestRequest(
     });
   }
 
-  if (puzzleQuests.length) {
+  let fetchedActivityPuzzles: Awaited<ReturnType<typeof fetchStudentPuzzleActivityForWindow>> = [];
+  let activityPuzzleFetchSucceeded = false;
+  if (puzzleQuests.length || (activityWindow && token)) {
     const canUseMockFallback = input.account?.syncStatus === "mock" || token?.startsWith("mock-token-");
     const questsNeedingToken = puzzleQuests.filter((quest) => {
       if (token || !skipPuzzleQuestsWithoutToken || canUseMockFallback) return true;
@@ -161,7 +176,10 @@ export async function evaluateStudentQuestRequest(
       return false;
     });
 
-    const puzzleWindows = questsNeedingToken.flatMap((quest) => windowsByQuest[quest.id] ? [windowsByQuest[quest.id]] : []);
+    const puzzleWindows = [
+      ...questsNeedingToken.flatMap((quest) => windowsByQuest[quest.id] ? [windowsByQuest[quest.id]] : []),
+      ...(activityWindow && token ? [activityWindow] : [])
+    ];
     let fetchedPuzzles: Awaited<ReturnType<typeof fetchStudentPuzzleActivityForWindow>> = [];
     let puzzleError = "";
     if (puzzleWindows.length) {
@@ -170,6 +188,7 @@ export async function evaluateStudentQuestRequest(
         if (!token || token.startsWith("mock-token-")) throw new Error("No real puzzle token.");
         requestCount += 1;
         fetchedPuzzles = await fetchStudentPuzzleActivityForWindow(token, window.start, window.end);
+        activityPuzzleFetchSucceeded = true;
       } catch (error) {
         if (isLichessRateLimitError(error)) {
           rateLimited = true;
@@ -202,6 +221,43 @@ export async function evaluateStudentQuestRequest(
         createdAt: new Date().toISOString()
       });
     }
+    if (activityWindow && activityPuzzleFetchSucceeded) {
+      fetchedActivityPuzzles = fetchedPuzzles.filter((puzzle) => isInsideWindow(puzzle.date, activityWindow));
+    }
+  }
+
+  let syncedAccount = input.account;
+  if (syncedAccount && activityWindow) {
+    const rapidFetchSucceeded = gamesByPerf.has("rapid") && !gameErrorsByPerf.has("rapid");
+    const blitzFetchSucceeded = gamesByPerf.has("blitz") && !gameErrorsByPerf.has("blitz");
+    const rapidActivity = rapidFetchSucceeded
+      ? (gamesByPerf.get("rapid") ?? []).filter((game) => isInsideWindow(game.playedAt, activityWindow))
+      : undefined;
+    const blitzActivity = blitzFetchSucceeded
+      ? (gamesByPerf.get("blitz") ?? []).filter((game) => isInsideWindow(game.playedAt, activityWindow))
+      : undefined;
+    const now = new Date().toISOString();
+    syncedAccount = {
+      ...syncedAccount,
+      ...(rapidActivity ? {
+        baselineRapidGames: Math.max(0, syncedAccount.rapidGames - rapidActivity.length),
+        baselineRapidWins: 0,
+        rapidWins: rapidActivity.filter((game) => game.won).length
+      } : {}),
+      ...(blitzActivity ? {
+        baselineBlitzGames: Math.max(0, syncedAccount.blitzGames - blitzActivity.length),
+        baselineBlitzWins: 0,
+        blitzWins: blitzActivity.filter((game) => game.won).length
+      } : {}),
+      ...(activityPuzzleFetchSucceeded ? {
+        baselinePuzzleGames: Math.max(0, (syncedAccount.puzzleGames ?? 0) - fetchedActivityPuzzles.length),
+        baselinePuzzleCorrect: 0,
+        puzzleCorrect: fetchedActivityPuzzles.filter((puzzle) => puzzle.win).length
+      } : {}),
+      ...(rapidActivity || blitzActivity ? { lastGameSyncAt: now } : {}),
+      ...(activityPuzzleFetchSucceeded ? { lastPuzzleSyncAt: now } : {}),
+      updatedAt: now
+    };
   }
 
   const evaluatedQuests = input.quests.filter((quest) => evaluatedQuestIds.has(quest.id));
@@ -232,6 +288,7 @@ export async function evaluateStudentQuestRequest(
     autoApprovedAwards: autoApproved.map((item) => item.award),
     autoCompletions: autoApproved.map((item) => item.completion),
     snapshots,
+    account: syncedAccount,
     requestCount,
     rateLimited,
     retryAfterSeconds

@@ -9,6 +9,7 @@ export type LichessSyncState = {
   lastError?: string;
   rateLimitCount: number;
   requestCount: number;
+  createdAt?: string;
   updatedAt?: string;
 };
 
@@ -21,6 +22,7 @@ type SyncStateRow = {
   last_error: string | null;
   rate_limit_count: number | null;
   request_count: number | null;
+  created_at: string | null;
   updated_at: string | null;
 };
 
@@ -34,6 +36,7 @@ function mapRow(row: SyncStateRow): LichessSyncState {
     lastError: row.last_error ?? undefined,
     rateLimitCount: row.rate_limit_count ?? 0,
     requestCount: row.request_count ?? 0,
+    createdAt: row.created_at ?? undefined,
     updatedAt: row.updated_at ?? undefined
   };
 }
@@ -55,7 +58,7 @@ export async function getLichessSyncState(studentId: string) {
   if (!supabase) return null;
   const { data, error } = await supabase
     .from("lichess_sync_state")
-    .select("student_id,lichess_username,last_successful_sync_at,last_attempted_sync_at,next_allowed_sync_at,last_error,rate_limit_count,request_count,updated_at")
+    .select("student_id,lichess_username,last_successful_sync_at,last_attempted_sync_at,next_allowed_sync_at,last_error,rate_limit_count,request_count,created_at,updated_at")
     .eq("student_id", studentId)
     .maybeSingle();
   if (error) return null;

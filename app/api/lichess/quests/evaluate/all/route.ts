@@ -1,6 +1,9 @@
 import { evaluateStudentQuestRequest } from "@/lib/quests/evaluateStudentQuestRequest";
 import { formatCooldown } from "@/lib/lichess/rateLimit";
 import { getCooldownSeconds, getLichessSyncState, recordLichessSyncAttempt, recordLichessSyncRateLimit, recordLichessSyncSuccess } from "@/lib/lichess/syncState";
+import { ADMIN_SESSION_COOKIE, isValidAdminActionToken, isValidAdminSession } from "@/lib/auth/adminSession";
+import { syncAcademyCoinsForLichessXp } from "@/lib/avatar/supabaseAvatar";
+import { getLichessXpBreakdown } from "@/lib/lichessXp";
 import type { ArenaTournamentResult, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt } from "@/lib/types";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -13,6 +16,13 @@ type StudentEvaluation = {
 };
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies();
+  const actionToken = request.headers.get("x-admin-action-token");
+  const authorized = await isValidAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE)?.value)
+    || await isValidAdminActionToken(actionToken);
+  if (!authorized) {
+    return NextResponse.json({ error: "Teacher log in required." }, { status: 401 });
+  }
   const body = await request.json().catch(() => ({})) as {
     students?: StudentEvaluation[];
     quests?: Quest[];
@@ -22,7 +32,6 @@ export async function POST(request: Request) {
     timeZone?: string;
   };
   if (!body.students || !body.quests) return NextResponse.json({ error: "Students and quest rules are required." }, { status: 400 });
-  const cookieStore = await cookies();
   const evaluations = [];
   for (const student of body.students.slice(0, 50)) {
     const state = await getLichessSyncState(student.studentId);
@@ -41,11 +50,14 @@ export async function POST(request: Request) {
       continue;
     }
     await recordLichessSyncAttempt(student.studentId, student.username);
+    const trustedAccount = student.account && state?.createdAt
+      ? { ...student.account, activityBaselineSetAt: state.createdAt, linkedAt: state.createdAt }
+      : student.account;
     const result = await evaluateStudentQuestRequest({
         studentId: student.studentId,
         username: student.username,
         quests: body.quests,
-        account: student.account,
+        account: trustedAccount,
         arenaResults: student.arenaResults,
         existingAwards: body.existingAwards,
         completionEvents: body.completionEvents,
@@ -57,7 +69,17 @@ export async function POST(request: Request) {
     } else {
       await recordLichessSyncSuccess(student.studentId, student.username, result.requestCount ?? 0);
     }
-    evaluations.push({ studentId: student.studentId, ...result });
+    let lichessCoinsAwarded = 0;
+    let coinError: string | undefined;
+    if (result.account) {
+      try {
+        const coinSync = await syncAcademyCoinsForLichessXp(student.studentId, getLichessXpBreakdown(result.account).total);
+        lichessCoinsAwarded = coinSync.coinsAwarded;
+      } catch (error) {
+        coinError = error instanceof Error ? error.message : "Academy Coins could not be updated.";
+      }
+    }
+    evaluations.push({ studentId: student.studentId, ...result, lichessCoinsAwarded, coinError });
   }
   return NextResponse.json({ evaluations });
 }
