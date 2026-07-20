@@ -4,6 +4,7 @@ import { fetchAuthenticatedLichessAccount } from "@/lib/lichess/fetchAccount";
 import { fetchStudentGamesForWindow } from "@/lib/lichess/fetchStudentGamesForWindow";
 import { fetchStudentPuzzleActivityForWindow } from "@/lib/lichess/fetchStudentPuzzleActivityForWindow";
 import { formatCooldown, isLichessRateLimitError } from "@/lib/lichess/rateLimit";
+import { getStoredLichessAccount, saveStoredLichessAccount } from "@/lib/lichess/supabaseAccounts";
 import { getCooldownSeconds, getLichessSyncState, recordLichessSyncAttempt, recordLichessSyncRateLimit, recordLichessSyncSuccess } from "@/lib/lichess/syncState";
 import { decryptLichessToken } from "@/lib/lichess/tokenCrypto";
 import { withLichessActivityBaseline } from "@/lib/lichessXp";
@@ -155,7 +156,11 @@ export async function POST(request: Request) {
     await recordLichessSyncAttempt(session.studentId, session.lichessUsername);
     requestCount += 1;
     const profile = await fetchAuthenticatedLichessAccount(token);
-    const accountWithBaseline = withLichessActivityBaseline(profileToAccount(session.studentId, profile, "connected"), body.previousAccount);
+    const storedAccount = await getStoredLichessAccount(session.studentId);
+    const accountWithBaseline = withLichessActivityBaseline(
+      profileToAccount(session.studentId, profile, "connected"),
+      storedAccount ?? body.previousAccount
+    );
     const trustedBaseline = existingState?.createdAt ?? accountWithBaseline.activityBaselineSetAt ?? accountWithBaseline.linkedAt;
     const baseAccount = {
       ...accountWithBaseline,
@@ -163,10 +168,11 @@ export async function POST(request: Request) {
       linkedAt: trustedBaseline
     };
     const account = body.includeActivity === true ? await enrichAccountActivity(baseAccount, token) : baseAccount;
+    const savedAccount = await saveStoredLichessAccount(account);
     await recordLichessSyncSuccess(session.studentId, profile.username, requestCount);
     return NextResponse.json({
       mode: "connected",
-      account,
+      account: savedAccount,
       requestCount,
       message: body.includeActivity === true
         ? "Synced Lichess profile, ratings, games, and puzzles."

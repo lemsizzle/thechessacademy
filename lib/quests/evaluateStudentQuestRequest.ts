@@ -110,18 +110,22 @@ export async function evaluateStudentQuestRequest(
 
   const gamesByPerf = new Map<LichessGamePerfType, Awaited<ReturnType<typeof fetchStudentGamesForWindow>>>();
   const gameErrorsByPerf = new Map<LichessGamePerfType, string>();
-  for (const [perfType, windows] of gameWindowsByPerf.entries()) {
-    const window = mergeWindows(windows);
+  const requestedPerfTypes = Array.from(gameWindowsByPerf.keys());
+  if (requestedPerfTypes.length) {
+    const window = mergeWindows(Array.from(gameWindowsByPerf.values()).flat());
     try {
       requestCount += 1;
-      gamesByPerf.set(perfType, await fetchStudentGamesForWindow(input.username, window.start, window.end, perfType, token));
+      const games = await fetchStudentGamesForWindow(input.username, window.start, window.end, requestedPerfTypes, token);
+      for (const perfType of requestedPerfTypes) {
+        gamesByPerf.set(perfType, games.filter((game) => game.perfType === perfType));
+      }
     } catch (error) {
       if (isLichessRateLimitError(error)) {
         rateLimited = true;
         retryAfterSeconds = Math.max(retryAfterSeconds, "retryAfterSeconds" in error ? error.retryAfterSeconds : 60);
       }
-      gameErrorsByPerf.set(perfType, error instanceof Error ? error.message : "Lichess game activity could not be fetched.");
-      if (rateLimited) break;
+      const message = error instanceof Error ? error.message : "Lichess game activity could not be fetched.";
+      for (const perfType of requestedPerfTypes) gameErrorsByPerf.set(perfType, message);
     }
   }
 
@@ -267,7 +271,7 @@ export async function evaluateStudentQuestRequest(
     gamesByQuest,
     puzzlesByQuest,
     arenaResults: input.arenaResults ?? [],
-    account: input.account,
+    account: syncedAccount,
     modeByQuest,
     windowsByQuest,
     fetchErrorsByQuest,

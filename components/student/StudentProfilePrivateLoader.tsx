@@ -14,12 +14,13 @@ import { ADMIN_STORE_UPDATED_EVENT, readAdminStore } from "@/lib/mockStorage";
 import { STUDENT_LICHESS_FULL_SYNC_EVENT } from "@/lib/studentLichessFullSync";
 import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
 import { useEffect, useState } from "react";
-import type { Badge, Student, StudentLichessAccount } from "@/lib/types";
+import type { Badge, CoinTransaction, Student, StudentLichessAccount } from "@/lib/types";
 
 export function StudentProfilePrivateLoader() {
   const [student, setStudent] = useState<Student | undefined>();
   const [account, setAccount] = useState<StudentLichessAccount | undefined>();
   const [badges, setBadges] = useState<Badge[]>(allBadges);
+  const [coinTransactions, setCoinTransactions] = useState<CoinTransaction[]>([]);
   const [loaded, setLoaded] = useState(false);
   const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const allowLocalMockSession = process.env.NODE_ENV !== "production" && !supabaseBackedApp;
@@ -44,15 +45,23 @@ export function StudentProfilePrivateLoader() {
     async function loadProfile() {
       const user = allowLocalMockSession ? getCurrentStudentUser() : null;
       let current: Student | undefined;
+      let serverAccount: StudentLichessAccount | undefined;
 
       try {
         const response = await fetch("/api/student/profile", { cache: "no-store" });
-        const data = await response.json() as { student?: Student | null; needsOnboarding?: boolean };
+        const data = await response.json() as {
+          student?: Student | null;
+          lichessAccount?: StudentLichessAccount | null;
+          coinTransactions?: CoinTransaction[];
+          needsOnboarding?: boolean;
+        };
         if (data.needsOnboarding) {
           window.location.href = "/student/onboarding";
           return;
         }
         current = data.student ?? undefined;
+        serverAccount = data.lichessAccount ?? undefined;
+        setCoinTransactions(data.coinTransactions ?? []);
       } catch {
         if (!allowLocalMockSession) {
           window.location.href = "/";
@@ -70,7 +79,7 @@ export function StudentProfilePrivateLoader() {
       }
       current = current ?? (allowLocalMockSession ? (store.students ?? seedStudents).find((item) => item.id === user?.studentId) : undefined);
       setStudent(current);
-      setAccount((store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === current?.id));
+      setAccount(serverAccount ?? (store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === current?.id));
       setLoaded(true);
     }
 
@@ -79,6 +88,7 @@ export function StudentProfilePrivateLoader() {
       const detail = (event as CustomEvent<StudentLichessAccount | { user?: { studentId?: string } }>).detail;
       const eventStudentId = detail && "studentId" in detail ? detail.studentId : detail?.user?.studentId;
       refreshFromStore(eventStudentId ?? student?.id);
+      void loadProfile();
     }
     window.addEventListener(STUDENT_LICHESS_SYNC_EVENT, handleSync);
     window.addEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, handleSync);
@@ -98,7 +108,15 @@ export function StudentProfilePrivateLoader() {
       <StudentCoinsBalanceCard lifetimeXp={student.totalXp} />
       <StudentProfileSettings student={student} />
       <LinkedLichessCard account={account} />
-      <StudentProfile key={`${account?.updatedAt ?? "profile"}-${account?.blitzRating ?? 0}-${account?.rapidRating ?? 0}-${account?.puzzleRating ?? 0}-${account?.puzzleGames ?? 0}`} student={student} badges={badges} showAdminControls={false} profileBasePath="/student/students" />
+      <StudentProfile
+        key={`${account?.updatedAt ?? "profile"}-${account?.blitzRating ?? 0}-${account?.rapidRating ?? 0}-${account?.puzzleRating ?? 0}-${account?.puzzleGames ?? 0}`}
+        student={student}
+        badges={badges}
+        lichessAccount={account}
+        coinTransactions={coinTransactions}
+        showAdminControls={false}
+        profileBasePath="/student/students"
+      />
     </div>
   );
 }

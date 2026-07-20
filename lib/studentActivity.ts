@@ -1,8 +1,8 @@
 import { getLichessXpBreakdown } from "@/lib/lichessXp";
 import { formatQuestEvidence } from "@/lib/quests/formatQuestEvidence";
-import type { Badge, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentLichessAccount, StudentQuestAttempt, XpEvent } from "@/lib/types";
+import type { Badge, CoinTransaction, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentLichessAccount, StudentQuestAttempt, XpEvent } from "@/lib/types";
 
-export type StudentActivityKind = "xp" | "game" | "puzzle" | "quest" | "badge";
+export type StudentActivityKind = "xp" | "coin" | "game" | "puzzle" | "quest" | "badge";
 
 export type StudentActivityItem = {
   id: string;
@@ -36,6 +36,7 @@ export function buildStudentActivityItems({
   questProgress,
   questAttempts,
   lichessAccount,
+  coinTransactions,
   limit = 12
 }: {
   student: Student;
@@ -46,6 +47,7 @@ export function buildStudentActivityItems({
   questProgress?: LichessQuestProgress[];
   questAttempts?: StudentQuestAttempt[];
   lichessAccount?: StudentLichessAccount;
+  coinTransactions?: CoinTransaction[];
   limit?: number;
 }) {
   const items: StudentActivityItem[] = [];
@@ -100,6 +102,27 @@ export function buildStudentActivityItems({
       detail: `${formatSignedXp(event.amount)} - ${event.reason}`,
       createdAt: normalizeDate(event.createdAt),
       amount: event.amount
+    });
+  }
+
+  for (const transaction of coinTransactions?.filter((item) => item.studentId === student.id) ?? []) {
+    const mirrorsXp = transaction.amount > 0 && ["xp_event", "lichess_xp", "xp_backfill"].includes(transaction.sourceType);
+    if (mirrorsXp) continue;
+    const spent = transaction.amount < 0 || transaction.transactionType === "spend";
+    const title = spent
+      ? "Academy Coins spent"
+      : transaction.transactionType === "refund"
+        ? "Academy Coins refunded"
+        : transaction.transactionType === "adjustment"
+          ? "Academy Coins adjusted"
+          : "Academy Coins earned";
+    items.push({
+      id: `coin-${transaction.id}`,
+      kind: "coin",
+      title,
+      detail: `${transaction.amount >= 0 ? "+" : ""}${transaction.amount.toLocaleString()} coins - ${transaction.description}`,
+      createdAt: normalizeDate(transaction.createdAt),
+      amount: transaction.amount
     });
   }
 

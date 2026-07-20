@@ -27,9 +27,9 @@ export type LichessGamePerfType = "bullet" | "blitz" | "rapid" | "classical" | "
 const GAME_ACTIVITY_CACHE_TTL_MS = 60_000;
 const gameActivityCache = new Map<string, { expiresAt: number; games: LichessQuestGame[] }>();
 
-function cacheKey(username: string, start: Date, end: Date, perfType: LichessGamePerfType) {
+function cacheKey(username: string, start: Date, end: Date, perfTypes: LichessGamePerfType[]) {
   const normalizedEndMinute = Math.floor(end.getTime() / 60_000);
-  return `${normalizeUsername(username)}:${perfType}:${start.getTime()}:${normalizedEndMinute}`;
+  return `${normalizeUsername(username)}:${[...perfTypes].sort().join(",")}:${start.getTime()}:${normalizedEndMinute}`;
 }
 
 function normalizeUsername(value?: string) {
@@ -125,16 +125,18 @@ export function mapLichessGameForStudent(game: RawLichessGame, username: string,
   };
 }
 
-export async function fetchStudentGamesForWindow(username: string, start: Date, end: Date, perfType: LichessGamePerfType = "rapid", accessToken?: string | null) {
+export async function fetchStudentGamesForWindow(username: string, start: Date, end: Date, perfType: LichessGamePerfType | LichessGamePerfType[] = "rapid", accessToken?: string | null) {
+  const perfTypes = Array.from(new Set(Array.isArray(perfType) ? perfType : [perfType]));
+  const fallbackPerfType = perfTypes[0] ?? "rapid";
   const requestEnd = new Date(Math.min(end.getTime(), Date.now() + 2 * 60_000));
-  const key = cacheKey(username, start, requestEnd, perfType);
+  const key = cacheKey(username, start, requestEnd, perfTypes);
   const cached = gameActivityCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.games;
   const narrowParams = new URLSearchParams({
     since: String(start.getTime()),
     until: String(requestEnd.getTime()),
     rated: "true",
-    perfType,
+    perfType: perfTypes.join(","),
     max: "300",
     moves: "true",
     pgnInJson: "true"
@@ -149,7 +151,9 @@ export async function fetchStudentGamesForWindow(username: string, start: Date, 
 
   try {
     const narrowGames = await fetchRawGames(username, narrowParams, accessToken);
-    const games = narrowGames.map((game) => mapLichessGameForStudent(game, username, perfType));
+    const games = narrowGames
+      .map((game) => mapLichessGameForStudent(game, username, fallbackPerfType))
+      .filter((game) => perfTypes.includes(game.perfType as LichessGamePerfType));
     gameActivityCache.set(key, { expiresAt: Date.now() + GAME_ACTIVITY_CACHE_TTL_MS, games });
     return games;
   } catch (error) {
@@ -159,8 +163,8 @@ export async function fetchStudentGamesForWindow(username: string, start: Date, 
 
   const broadGames = await fetchRawGames(username, broadParams, accessToken);
   const games = broadGames
-    .map((game) => mapLichessGameForStudent(game, username, perfType))
-    .filter((game) => game.perfType === perfType && game.rated);
+    .map((game) => mapLichessGameForStudent(game, username, fallbackPerfType))
+    .filter((game) => perfTypes.includes(game.perfType as LichessGamePerfType) && game.rated);
   gameActivityCache.set(key, { expiresAt: Date.now() + GAME_ACTIVITY_CACHE_TTL_MS, games });
   return games;
 }

@@ -1,7 +1,9 @@
 import { parseLichessPuzzleActivityNdjson, summarizePuzzleThemes } from "@/lib/lichess";
+import { ADMIN_SESSION_COOKIE, isValidAdminActionToken, isValidAdminSession } from "@/lib/auth/adminSession";
 import { LICHESS_TOKEN_COOKIE } from "@/lib/auth/roles";
 import { fetchStudentPuzzleActivityForWindow } from "@/lib/lichess/fetchStudentPuzzleActivityForWindow";
 import { formatCooldown, isLichessRateLimitError } from "@/lib/lichess/rateLimit";
+import { getStoredLichessAccount, saveStoredLichessAccount } from "@/lib/lichess/supabaseAccounts";
 import { getCooldownSeconds, getLichessSyncState, recordLichessSyncAttempt, recordLichessSyncRateLimit, recordLichessSyncSuccess } from "@/lib/lichess/syncState";
 import { decryptLichessToken } from "@/lib/lichess/tokenCrypto";
 import { withLichessActivityBaseline } from "@/lib/lichessXp";
@@ -11,6 +13,10 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies();
+  const authorized = await isValidAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE)?.value)
+    || await isValidAdminActionToken(request.headers.get("x-admin-action-token"));
+  if (!authorized) return NextResponse.json({ error: "Teacher log in required." }, { status: 401 });
   const { username, studentId, includePuzzles = true, previousAccount } = await request.json().catch(() => ({ username: "" })) as {
     username?: string;
     studentId?: string;
@@ -30,7 +36,6 @@ export async function POST(request: Request) {
     }, { status: 429 });
   }
 
-  const cookieStore = await cookies();
   const encryptedToken = cookieStore.get(LICHESS_TOKEN_COOKIE)?.value ?? cookieStore.get("lichess_access_token")?.value;
   const token = encryptedToken ? decryptLichessToken(encryptedToken) ?? encryptedToken : null;
   let ndjson = "";
@@ -53,7 +58,8 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not sync Lichess ratings." }, { status: 502 });
   }
-  let account = withLichessActivityBaseline(ratings.account, previousAccount);
+  const storedAccount = await getStoredLichessAccount(safeStudentId);
+  let account = withLichessActivityBaseline(ratings.account, storedAccount ?? previousAccount);
   const start = new Date(account.activityBaselineSetAt ?? account.linkedAt);
   const end = new Date();
 
@@ -103,6 +109,7 @@ export async function POST(request: Request) {
   const counts = Array.from(summarizePuzzleThemes(solvedActivities).entries()).map(([tacticTheme, puzzlesSolved]) => ({ tacticTheme, puzzlesSolved }));
 
   await recordLichessSyncSuccess(safeStudentId, safeUsername, requestCount);
+  account = await saveStoredLichessAccount(account);
   return NextResponse.json({
     mode: ratings.mode === "connected" || mode === "connected" ? "connected" : "error",
     username: safeUsername,

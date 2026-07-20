@@ -1,6 +1,8 @@
 import { createStudentSession, readStudentSession, sessionToStudentUser, setStudentSessionCookie } from "@/lib/auth/session";
 import { findSupabaseStudentById, findSupabaseStudentByLichess } from "@/lib/students/supabaseStudentProfiles";
 import { isSupabaseProjectConfigured } from "@/lib/supabase/server";
+import { getStoredLichessAccount } from "@/lib/lichess/supabaseAccounts";
+import { listStudentCoinTransactions } from "@/lib/avatar/supabaseAvatar";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -14,6 +16,12 @@ export async function GET() {
   const linked = byId.student ? byId : await findSupabaseStudentByLichess(session.lichessUserId, session.lichessUsername);
 
   if (linked.configured) {
+    const [lichessAccount, coinTransactions] = linked.student
+      ? await Promise.all([
+        getStoredLichessAccount(linked.student.id),
+        listStudentCoinTransactions(linked.student.id)
+      ])
+      : [null, []];
     const repairedSession = createStudentSession({
       studentId: linked.student?.id ?? `pending-${session.lichessUserId}`,
       name: linked.student?.name ?? session.name,
@@ -24,6 +32,8 @@ export async function GET() {
     const response = NextResponse.json({
       user: sessionToStudentUser(repairedSession),
       student: linked.student,
+      lichessAccount,
+      coinTransactions,
       needsOnboarding: !linked.student,
       error: linked.error
     });

@@ -9,6 +9,9 @@ The app now treats Lichess as one shared sync source instead of letting several 
 - Vercel Cron can refresh team Arena tournament data through `/api/cron/lichess-team-tournaments`.
 - The app stops immediately if Lichess returns `429 Too Many Requests`.
 - If the optional `lichess_sync_state` table exists, cooldown state is stored in Supabase so Vercel remembers it across requests.
+- `student_lichess_accounts` stores one private, server-owned account snapshot per student. Its first-login counters are reused by student pages, teacher pages, XP, coins, and quests.
+- Rapid and Blitz game history is requested together, reducing Lichess API calls and rate-limit pressure.
+- If detailed game history is temporarily rate-limited, the persisted baseline still lets profile totals award played-game XP and coins. Win bonuses wait for a successful detail sync.
 - Existing quest progress is preserved when a fresh Lichess request fails or is rate-limited.
 
 ## Rate Limits
@@ -23,7 +26,7 @@ When Lichess returns 429, the app:
 
 Do not keep pressing sync after a 429. Wait for the cooldown message to pass.
 
-## Optional Supabase Migration
+## Supabase Migrations
 
 Run this once in Supabase SQL Editor:
 
@@ -32,6 +35,8 @@ Run this once in Supabase SQL Editor:
 ```
 
 This adds `lichess_sync_state`. It does not delete or change existing student, XP, badge, or quest data.
+
+The versioned migration `supabase/migrations/20260720015734_persist_student_lichess_accounts.sql` adds the private account snapshot used to keep every view consistent. It does not store OAuth tokens.
 
 ## Debugging
 

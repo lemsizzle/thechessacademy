@@ -39,6 +39,18 @@ type WalletRow = {
   updated_at?: string;
 };
 
+type CoinTransactionRow = {
+  id: string;
+  student_id: string;
+  amount: number | null;
+  transaction_type: string | null;
+  source_type: string | null;
+  source_id: string | null;
+  description: string | null;
+  idempotency_key: string | null;
+  created_at: string;
+};
+
 type AvatarRow = {
   student_id: string;
   equipped_items: Record<string, string | null> | null;
@@ -482,11 +494,39 @@ export async function grantAcademyCoinsForXp(studentId: string, amount: number, 
   return result.data as CoinTransaction | null;
 }
 
+function toCoinTransaction(row: CoinTransactionRow): CoinTransaction {
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    amount: Number(row.amount ?? 0),
+    transactionType: (row.transaction_type ?? "adjustment") as CoinTransaction["transactionType"],
+    sourceType: row.source_type ?? "unknown",
+    sourceId: row.source_id,
+    description: row.description ?? "Academy Coin transaction",
+    idempotencyKey: row.idempotency_key,
+    createdAt: row.created_at
+  };
+}
+
 export async function getStudentWallet(studentId: string) {
   if (!isSupabaseServiceConfigured()) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is required to read Academy Coin balances.");
   }
   return ensureWallet(studentId);
+}
+
+export async function listStudentCoinTransactions(studentId: string, limit = 25) {
+  if (!isSupabaseServiceConfigured()) return [];
+  const supabase = getSupabaseServiceClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("coin_transactions")
+    .select("id,student_id,amount,transaction_type,source_type,source_id,description,idempotency_key,created_at")
+    .eq("student_id", studentId)
+    .order("created_at", { ascending: false })
+    .limit(Math.min(100, Math.max(1, limit)));
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as CoinTransactionRow[]).map(toCoinTransaction);
 }
 
 export async function syncAcademyCoinsForLichessXp(studentId: string, cumulativeLichessXp: number) {

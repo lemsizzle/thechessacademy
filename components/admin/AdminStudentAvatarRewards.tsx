@@ -2,17 +2,19 @@
 
 import { Button } from "@/components/Button";
 import { avatarCategoryLabels } from "@/lib/avatar/catalog";
-import type { AvatarItem, Student, StudentWallet } from "@/lib/types";
+import type { AvatarItem, CoinTransaction, Student, StudentWallet } from "@/lib/types";
 import { useEffect, useState } from "react";
 
 export function AdminStudentAvatarRewards({
   student,
   items,
-  adminActionToken
+  adminActionToken,
+  onTransactionsChange
 }: {
   student: Student;
   items: AvatarItem[];
   adminActionToken?: string;
+  onTransactionsChange?: (transactions: CoinTransaction[]) => void;
 }) {
   const [itemId, setItemId] = useState(items[0]?.id ?? "");
   const [coinAmount, setCoinAmount] = useState(25);
@@ -32,11 +34,12 @@ export function AdminStudentAvatarRewards({
       credentials: "include",
       headers: adminActionToken ? { "x-admin-action-token": adminActionToken } : {}
     })
-      .then(async (response) => ({ response, data: await response.json() as { wallet?: StudentWallet; error?: string } }))
+      .then(async (response) => ({ response, data: await response.json() as { wallet?: StudentWallet; transactions?: CoinTransaction[]; error?: string } }))
       .then(({ response, data }) => {
         if (cancelled) return;
         if (!response.ok || !data.wallet) throw new Error(data.error ?? "Could not load Academy Coins.");
         setWallet(data.wallet);
+        onTransactionsChange?.(data.transactions ?? []);
       })
       .catch((error: unknown) => {
         if (!cancelled) setMessage(error instanceof Error ? error.message : "Could not load Academy Coins.");
@@ -82,9 +85,10 @@ export function AdminStudentAvatarRewards({
           description: `Teacher ${direction > 0 ? "award" : "deduction"} for ${student.name}`
         })
       });
-      const data = await response.json() as { wallet?: StudentWallet; error?: string };
+      const data = await response.json() as { wallet?: StudentWallet; transactions?: CoinTransaction[]; error?: string };
       if (!response.ok || !data.wallet) throw new Error(data.error ?? "Could not update Academy Coins.");
       setWallet(data.wallet);
+      onTransactionsChange?.(data.transactions ?? []);
       setMessage(`${student.name} now has ${data.wallet.academyCoins.toLocaleString()} Academy Coins.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not update Academy Coins. Please try again.");

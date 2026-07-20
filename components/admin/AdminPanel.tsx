@@ -30,7 +30,7 @@ import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } 
 import { findAttemptForPeriod, selectPendingQuestAward, selectQuestCompletion, selectQuestProgress } from "@/lib/quests/selectQuestProgress";
 import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
 import { buildStudentActivityItems } from "@/lib/studentActivity";
-import type { ArenaTournamentResult, AvatarItem, Badge, BadgeCategory, BadgeTier, ClassGroup, ConceptTheme, GameReviewSubmission, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, Quest, QuestCompletionEvent, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, Student, StudentLichessAccount, StudentQuestAttempt, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
+import type { ArenaTournamentResult, AvatarItem, Badge, BadgeCategory, BadgeTier, ClassGroup, CoinTransaction, ConceptTheme, GameReviewSubmission, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, Quest, QuestCompletionEvent, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, Student, StudentLichessAccount, StudentQuestAttempt, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
 type AdminMode = "overview" | "students" | "classes" | "badges" | "xp" | "quests" | "activity" | "resources";
@@ -168,13 +168,15 @@ export function AdminPanel({
   deleteStudentAction,
   adminActionToken,
   initialBadges,
-  initialAvatarItems = []
+  initialAvatarItems = [],
+  initialStudentLichessAccounts
 }: {
   mode?: AdminMode;
   requestedStudent?: string;
   initialStudents?: Student[];
   initialBadges?: Badge[];
   initialAvatarItems?: AvatarItem[];
+  initialStudentLichessAccounts?: StudentLichessAccount[];
   deleteStudentAction?: DeleteStudentAction;
   adminActionToken?: string;
 }) {
@@ -183,7 +185,8 @@ export function AdminPanel({
   const [quests, setQuests] = useState<Quest[]>(seedQuests);
   const [tacticProgress, setTacticProgress] = useState<StudentTacticProgress[]>(seedTacticProgress);
   const [lichessConnections, setLichessConnections] = useState<LichessConnection[]>(seedLichessConnections);
-  const [studentLichessAccounts, setStudentLichessAccounts] = useState<StudentLichessAccount[]>(seedStudentLichessAccounts);
+  const [studentLichessAccounts, setStudentLichessAccounts] = useState<StudentLichessAccount[]>(initialStudentLichessAccounts ?? seedStudentLichessAccounts);
+  const [currentStudentCoinTransactions, setCurrentStudentCoinTransactions] = useState<CoinTransaction[]>([]);
   const [arenaTournamentResults, setArenaTournamentResults] = useState<ArenaTournamentResult[]>(mockArenaTournamentResults);
   const [gameReviewSubmissions, setGameReviewSubmissions] = useState<GameReviewSubmission[]>(seedGameReviewSubmissions);
   const [pendingAwards, setPendingAwards] = useState<PendingAward[]>(seedPendingAwards);
@@ -247,7 +250,14 @@ export function AdminPanel({
     }
     if (parsed.studentTacticProgress) setTacticProgress(parsed.studentTacticProgress);
     if (parsed.lichessConnections) setLichessConnections(parsed.lichessConnections);
-    if (parsed.studentLichessAccounts) setStudentLichessAccounts(parsed.studentLichessAccounts);
+    if (initialStudentLichessAccounts) {
+      const storedIds = new Set(initialStudentLichessAccounts.map((item) => item.studentId));
+      setStudentLichessAccounts([
+        ...initialStudentLichessAccounts,
+        ...(parsed.studentLichessAccounts ?? []).filter((item) => !storedIds.has(item.studentId))
+      ]);
+    }
+    else if (parsed.studentLichessAccounts) setStudentLichessAccounts(parsed.studentLichessAccounts);
     if (parsed.arenaTournamentResults) setArenaTournamentResults(parsed.arenaTournamentResults);
     if (parsed.gameReviewSubmissions) setGameReviewSubmissions(parsed.gameReviewSubmissions);
     if (parsed.pendingAwards) setPendingAwards(parsed.pendingAwards);
@@ -263,7 +273,7 @@ export function AdminPanel({
     }
     if (parsed.log) setLog(parsed.log);
     setLoaded(true);
-  }, [initialBadges, initialStudents]);
+  }, [initialBadges, initialStudentLichessAccounts, initialStudents]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -382,6 +392,7 @@ export function AdminPanel({
     questCompletions: currentStudentQuestCompletions,
     questAttempts: currentStudentQuestAttempts,
     lichessAccount: currentStudentLichessAccount,
+    coinTransactions: currentStudentCoinTransactions,
     limit: 10
   }) : [];
   const trackedLichessQuests = quests.filter((quest) => quest.source?.startsWith("lichess_") && quest.isActive !== false);
@@ -393,6 +404,10 @@ export function AdminPanel({
   useEffect(() => {
     if (currentBadge) setBadgeDraft({ ...currentBadge });
   }, [currentBadge?.id]);
+
+  useEffect(() => {
+    setCurrentStudentCoinTransactions([]);
+  }, [currentStudent?.id]);
 
   useEffect(() => {
     if (selectedClassGroup !== ALL_CLASSES && !classGroups.includes(selectedClassGroup)) {
@@ -714,7 +729,11 @@ export function AdminPanel({
         try {
           const response = await fetch("/api/lichess/sync", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+            },
             body: JSON.stringify({
               username,
               studentId: student.id,
@@ -1320,6 +1339,7 @@ export function AdminPanel({
         student={currentStudent}
         items={initialAvatarItems}
         adminActionToken={adminActionToken}
+        onTransactionsChange={setCurrentStudentCoinTransactions}
       />
         </>
       ) : (

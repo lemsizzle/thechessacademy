@@ -21,7 +21,7 @@ import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
 import { isSafeExternalUrl } from "@/lib/resources";
 import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
 import { useMockAdminState } from "@/lib/useMockAdminState";
-import type { Badge, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentQuestAttempt, XpEvent } from "@/lib/types";
+import type { Badge, CoinTransaction, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentLichessAccount, StudentQuestAttempt, XpEvent } from "@/lib/types";
 import { useEffect, useState, type ReactNode } from "react";
 
 function QuestLogSection({
@@ -64,7 +64,9 @@ export function StudentProfile({
   profileBasePath = "/app/students",
   badges = allBadges,
   xpEvents = seedXpEvents,
-  quests: initialQuests
+  quests: initialQuests,
+  lichessAccount: storedLichessAccount,
+  coinTransactions = []
 }: {
   student: Student;
   showAdminControls?: boolean;
@@ -72,6 +74,8 @@ export function StudentProfile({
   badges?: Badge[];
   xpEvents?: XpEvent[];
   quests?: Quest[];
+  lichessAccount?: StudentLichessAccount;
+  coinTransactions?: CoinTransaction[];
 }) {
   const { quests: adminQuests, studentLichessAccounts } = useMockAdminState();
   const [localStudents, setLocalStudents] = useState<Student[]>([]);
@@ -93,7 +97,7 @@ export function StudentProfile({
   const [localQuestCompletions, setLocalQuestCompletions] = useState<QuestCompletionEvent[]>([]);
   const [localQuestProgress, setLocalQuestProgress] = useState<LichessQuestProgress[]>([]);
   const [localQuestAttempts, setLocalQuestAttempts] = useState<StudentQuestAttempt[]>([]);
-  const lichessAccount = findStudentLichessAccount(effectiveStudent, studentLichessAccounts);
+  const lichessAccount = storedLichessAccount ?? findStudentLichessAccount(effectiveStudent, studentLichessAccounts);
   const xp = getStudentXpWithLichess(effectiveStudent, lichessAccount);
   const earned = badges.filter((badge) => effectiveStudent.badgeIds.includes(badge.id));
   const events = [...localXpEvents, ...xpEvents].filter((event) => event.studentId === effectiveStudent.id);
@@ -106,6 +110,7 @@ export function StudentProfile({
     questCompletions: localQuestCompletions,
     questAttempts: localQuestAttempts,
     lichessAccount,
+    coinTransactions,
     limit: 10
   });
   const nextBadge = getClosestNextTacticBadge(effectiveStudent.id);

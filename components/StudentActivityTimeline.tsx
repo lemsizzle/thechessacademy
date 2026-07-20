@@ -4,6 +4,7 @@ import type { StudentActivityItem } from "@/lib/studentActivity";
 
 const kindStyles: Record<StudentActivityItem["kind"], { icon: string; className: string }> = {
   xp: { icon: "XP", className: "border-amber-300/35 bg-amber-300/10 text-amber-100" },
+  coin: { icon: "C", className: "border-yellow-200/35 bg-yellow-200/10 text-yellow-100" },
   game: { icon: "G", className: "border-cyan-300/35 bg-cyan-300/10 text-cyan-100" },
   puzzle: { icon: "?", className: "border-fuchsia-300/35 bg-fuchsia-300/10 text-fuchsia-100" },
   quest: { icon: "Q", className: "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" },

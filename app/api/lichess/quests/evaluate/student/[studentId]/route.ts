@@ -9,6 +9,7 @@ import { addSupabaseStudentXp } from "@/lib/students/supabaseStudentProfiles";
 import { getSupabaseServiceClient, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import { syncAcademyCoinsForLichessXp } from "@/lib/avatar/supabaseAvatar";
 import { getLichessXpBreakdown } from "@/lib/lichessXp";
+import { getStoredLichessAccount, saveStoredLichessAccount } from "@/lib/lichess/supabaseAccounts";
 import type { ArenaTournamentResult, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt, XpEvent } from "@/lib/types";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -91,12 +92,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
   const persistedTracking = await getSupabaseQuestTracking(studentId);
   const completionEvents = mergeQuestCompletions(persistedTracking.completions, body.completionEvents);
   const questAttempts = mergeQuestAttempts(persistedTracking.attempts, body.questAttempts);
+  const storedAccount = await getStoredLichessAccount(studentId);
   const result = await evaluateStudentQuestRequest({
     studentId,
     username: body.username,
     quests: body.quests,
     arenaResults: body.arenaResults,
-    account: body.account,
+    account: storedAccount ?? body.account,
     existingAwards: body.existingAwards,
     completionEvents,
     questAttempts,
@@ -157,7 +159,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
 
   if (result.account) {
     try {
-      const coinSync = await syncAcademyCoinsForLichessXp(studentId, getLichessXpBreakdown(result.account).total);
+      const savedAccount = await saveStoredLichessAccount(result.account);
+      response.account = savedAccount;
+      const coinSync = await syncAcademyCoinsForLichessXp(studentId, getLichessXpBreakdown(savedAccount).total);
       response.lichessCoinsAwarded = coinSync.coinsAwarded;
     } catch (error) {
       response.coinError = error instanceof Error ? error.message : "Lichess XP coins could not be saved.";

@@ -4,6 +4,7 @@ import { getCooldownSeconds, getLichessSyncState, recordLichessSyncAttempt, reco
 import { ADMIN_SESSION_COOKIE, isValidAdminActionToken, isValidAdminSession } from "@/lib/auth/adminSession";
 import { syncAcademyCoinsForLichessXp } from "@/lib/avatar/supabaseAvatar";
 import { getLichessXpBreakdown } from "@/lib/lichessXp";
+import { getStoredLichessAccount, saveStoredLichessAccount } from "@/lib/lichess/supabaseAccounts";
 import type { ArenaTournamentResult, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt } from "@/lib/types";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -50,9 +51,11 @@ export async function POST(request: Request) {
       continue;
     }
     await recordLichessSyncAttempt(student.studentId, student.username);
-    const trustedAccount = student.account && state?.createdAt
-      ? { ...student.account, activityBaselineSetAt: state.createdAt, linkedAt: state.createdAt }
-      : student.account;
+    const storedAccount = await getStoredLichessAccount(student.studentId);
+    const candidateAccount = storedAccount ?? student.account;
+    const trustedAccount = candidateAccount && state?.createdAt && !storedAccount
+      ? { ...candidateAccount, activityBaselineSetAt: state.createdAt, linkedAt: state.createdAt }
+      : candidateAccount;
     const result = await evaluateStudentQuestRequest({
         studentId: student.studentId,
         username: student.username,
@@ -73,7 +76,9 @@ export async function POST(request: Request) {
     let coinError: string | undefined;
     if (result.account) {
       try {
-        const coinSync = await syncAcademyCoinsForLichessXp(student.studentId, getLichessXpBreakdown(result.account).total);
+        const savedAccount = await saveStoredLichessAccount(result.account);
+        result.account = savedAccount;
+        const coinSync = await syncAcademyCoinsForLichessXp(student.studentId, getLichessXpBreakdown(savedAccount).total);
         lichessCoinsAwarded = coinSync.coinsAwarded;
       } catch (error) {
         coinError = error instanceof Error ? error.message : "Academy Coins could not be updated.";

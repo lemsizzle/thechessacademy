@@ -1,5 +1,5 @@
 import { ADMIN_SESSION_COOKIE, isValidAdminActionToken, isValidAdminSession } from "@/lib/auth/adminSession";
-import { adjustStudentCoins, getStudentWallet } from "@/lib/avatar/supabaseAvatar";
+import { adjustStudentCoins, getStudentWallet, listStudentCoinTransactions } from "@/lib/avatar/supabaseAvatar";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -17,8 +17,11 @@ export async function GET(request: Request) {
   const studentId = new URL(request.url).searchParams.get("studentId")?.trim();
   if (!studentId) return NextResponse.json({ error: "Choose a student." }, { status: 400 });
   try {
-    const wallet = await getStudentWallet(studentId);
-    return NextResponse.json({ ok: true, wallet });
+    const [wallet, transactions] = await Promise.all([
+      getStudentWallet(studentId),
+      listStudentCoinTransactions(studentId)
+    ]);
+    return NextResponse.json({ ok: true, wallet, transactions });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not load Academy Coins.";
     return NextResponse.json({ error: message }, { status: 400 });
@@ -31,7 +34,8 @@ export async function POST(request: Request) {
   if (!body.studentId) return NextResponse.json({ error: "Choose a student." }, { status: 400 });
   try {
     const wallet = await adjustStudentCoins(body.studentId, Number(body.amount), body.description ?? "Teacher Academy Coins adjustment");
-    return NextResponse.json({ ok: true, wallet, message: "Academy Coins updated." });
+    const transactions = await listStudentCoinTransactions(body.studentId);
+    return NextResponse.json({ ok: true, wallet, transactions, message: "Academy Coins updated." });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not update Academy Coins.";
     return NextResponse.json({ error: message }, { status: 400 });
