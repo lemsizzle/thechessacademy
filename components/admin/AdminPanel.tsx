@@ -168,6 +168,7 @@ export function AdminPanel({
   deleteStudentAction,
   adminActionToken,
   initialBadges,
+  initialQuests,
   initialAvatarItems = [],
   initialStudentLichessAccounts
 }: {
@@ -175,6 +176,7 @@ export function AdminPanel({
   requestedStudent?: string;
   initialStudents?: Student[];
   initialBadges?: Badge[];
+  initialQuests?: Quest[];
   initialAvatarItems?: AvatarItem[];
   initialStudentLichessAccounts?: StudentLichessAccount[];
   deleteStudentAction?: DeleteStudentAction;
@@ -182,7 +184,7 @@ export function AdminPanel({
 }) {
   const [students, setStudents] = useState<Student[]>(initialStudents ?? seedStudents);
   const [badges, setBadges] = useState<Badge[]>(initialBadges ?? seedBadges);
-  const [quests, setQuests] = useState<Quest[]>(seedQuests);
+  const [quests, setQuests] = useState<Quest[]>(initialQuests ?? seedQuests);
   const [tacticProgress, setTacticProgress] = useState<StudentTacticProgress[]>(seedTacticProgress);
   const [lichessConnections, setLichessConnections] = useState<LichessConnection[]>(seedLichessConnections);
   const [studentLichessAccounts, setStudentLichessAccounts] = useState<StudentLichessAccount[]>(initialStudentLichessAccounts ?? seedStudentLichessAccounts);
@@ -201,8 +203,8 @@ export function AdminPanel({
   const [selectedClassGroup, setSelectedClassGroup] = useState(ALL_CLASSES);
   const [selectedBadge, setSelectedBadge] = useState(initialBadges?.[0]?.id ?? seedBadges[0]?.id ?? "");
   const [badgeDraft, setBadgeDraft] = useState<Badge>(initialBadges?.[0] ?? seedBadges[0]);
-  const [selectedQuest, setSelectedQuest] = useState(seedQuests[0]?.id ?? "");
-  const [questDraft, setQuestDraft] = useState<Quest>(seedQuests[0]);
+  const [selectedQuest, setSelectedQuest] = useState(initialQuests?.[0]?.id ?? seedQuests[0]?.id ?? "");
+  const [questDraft, setQuestDraft] = useState<Quest>(initialQuests?.[0] ?? seedQuests[0]);
   const [badgeToAward, setBadgeToAward] = useState(seedBadges[0]?.id ?? "");
   const [badgeCategoryFilter, setBadgeCategoryFilter] = useState<"All" | BadgeCategory>("All");
   const [badgeThemeFilter, setBadgeThemeFilter] = useState<"All" | TacticTheme>("All");
@@ -217,6 +219,7 @@ export function AdminPanel({
   const [log, setLog] = useState<string[]>(["Admin mock workspace ready."]);
   const [loaded, setLoaded] = useState(false);
   const [badgeSaving, setBadgeSaving] = useState(false);
+  const [questSaving, setQuestSaving] = useState(false);
   const [syncingAllLichess, setSyncingAllLichess] = useState(false);
 
   useEffect(() => {
@@ -242,7 +245,15 @@ export function AdminPanel({
       if (mergedBadges[0]) setBadgeDraft(mergedBadges[0]);
       setBadgeToAward(mergedBadges[0]?.id ?? "");
     }
-    if (parsed.quests) {
+    if (initialQuests) {
+      const serverIds = new Set(initialQuests.map((quest) => quest.id));
+      const localOnlyQuests = (parsed.quests ?? []).filter((quest) => !serverIds.has(quest.id));
+      const normalizedQuests = normalizeQuests([...initialQuests, ...localOnlyQuests]);
+      setQuests(normalizedQuests);
+      setSelectedQuest(normalizedQuests[0]?.id ?? "");
+      if (normalizedQuests[0]) setQuestDraft(normalizedQuests[0]);
+      setLog((items) => [`Loaded ${normalizedQuests.length} shared quest${normalizedQuests.length === 1 ? "" : "s"} from Supabase.`, ...items].slice(0, 10));
+    } else if (parsed.quests) {
       const normalizedQuests = normalizeQuests(parsed.quests);
       setQuests(normalizedQuests);
       setSelectedQuest(normalizedQuests[0]?.id ?? "");
@@ -273,7 +284,7 @@ export function AdminPanel({
     }
     if (parsed.log) setLog(parsed.log);
     setLoaded(true);
-  }, [initialBadges, initialStudentLichessAccounts, initialStudents]);
+  }, [initialBadges, initialQuests, initialStudentLichessAccounts, initialStudents]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -1133,7 +1144,7 @@ export function AdminPanel({
     }));
   }
 
-  function saveQuest() {
+  async function saveQuest() {
     if (!currentQuest) return;
     const savedQuest = {
       ...questDraft,
@@ -1144,9 +1155,27 @@ export function AdminPanel({
       conditionType: questDraft.conditionType ?? "manual",
       completionUrl: questDraft.completionUrl?.trim() || undefined
     };
-    setQuests((items) => items.map((quest) => quest.id === currentQuest.id ? savedQuest : quest));
-    setQuestDraft(savedQuest);
-    pushLog(`Saved quest ${questDraft.title}.`);
+    setQuestSaving(true);
+    try {
+      const response = await fetch("/api/admin/quests", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+        },
+        body: JSON.stringify(savedQuest)
+      });
+      const data = await response.json() as { quest?: Quest; error?: string };
+      if (!response.ok || !data.quest) throw new Error(data.error || "Could not save quest.");
+      setQuests((items) => items.map((quest) => quest.id === currentQuest.id ? data.quest! : quest));
+      setQuestDraft(data.quest);
+      pushLog(`Saved quest ${data.quest.title} to Supabase.`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not save quest.");
+    } finally {
+      setQuestSaving(false);
+    }
   }
 
   function addQuest() {
@@ -1157,13 +1186,27 @@ export function AdminPanel({
     pushLog(`Created ${quest.title}.`);
   }
 
-  function deleteQuest() {
-    if (!currentQuest || !window.confirm(`Delete quest ${currentQuest.title}? This removes it from local mock storage.`)) return;
-    const remaining = quests.filter((quest) => quest.id !== currentQuest.id);
-    setQuests(remaining);
-    setSelectedQuest(remaining[0]?.id ?? "");
-    setQuestDraft(remaining[0] ?? emptyQuest(0));
-    pushLog(`Deleted quest ${currentQuest.title}.`);
+  async function deleteQuest() {
+    if (!currentQuest || !window.confirm(`Delete quest ${currentQuest.title}? Student progress history will be preserved.`)) return;
+    setQuestSaving(true);
+    try {
+      const response = await fetch(`/api/admin/quests/${encodeURIComponent(currentQuest.id)}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: adminActionToken ? { "x-admin-action-token": adminActionToken } : {}
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Could not delete quest.");
+      const remaining = quests.filter((quest) => quest.id !== currentQuest.id);
+      setQuests(remaining);
+      setSelectedQuest(remaining[0]?.id ?? "");
+      setQuestDraft(remaining[0] ?? emptyQuest(0));
+      pushLog(`Deleted quest ${currentQuest.title} from Supabase.`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not delete quest.");
+    } finally {
+      setQuestSaving(false);
+    }
   }
 
   function completeQuest() {
@@ -1802,9 +1845,9 @@ export function AdminPanel({
             <p className="mt-1 text-xs text-slate-400">Manual quests are completed by you. Lichess quests sync activity, then wait for teacher approval before awarding XP.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={saveQuest}>Save Quest</Button>
+            <Button variant="secondary" onClick={saveQuest} disabled={questSaving}>{questSaving ? "Saving..." : "Save Quest"}</Button>
             <Button variant="secondary" onClick={completeQuest}>Mark Complete</Button>
-            <Button variant="ghost" onClick={deleteQuest}>Delete Quest</Button>
+            <Button variant="ghost" onClick={deleteQuest} disabled={questSaving}>Delete Quest</Button>
           </div>
         </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -1927,7 +1970,7 @@ export function AdminPanel({
           <textarea className={fieldClass("min-h-24")} value={questDraft.description} onChange={(event) => updateQuestDraft({ description: event.target.value })} />
         </label>
       </div>
-        <p className="mt-3 text-xs text-slate-400">Quest edits stay as a draft until you press Save Quest.</p>
+        <p className="mt-3 text-xs text-slate-400">Quest edits become available to every student after you press Save Quest.</p>
       </div>
     </Card>
   );

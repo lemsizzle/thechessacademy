@@ -87,7 +87,9 @@ export function StudentLichessQuestList() {
       const localById = new Map(localQuests.map((quest) => [quest.id, quest]));
       const mergedQuests = data.data.map((quest) => {
         const localQuest = localById.get(quest.id);
-        return localQuest ? { ...quest, ...localQuest, completionUrl: localQuest.completionUrl ?? quest.completionUrl } : quest;
+        // Supabase is authoritative. A stale browser copy must never hide or
+        // alter a live quest for only some students.
+        return localQuest ? { ...localQuest, ...quest, completionUrl: quest.completionUrl ?? localQuest.completionUrl } : quest;
       });
       const visibleQuests = mergedQuests.filter((quest) => (
         quest.source?.startsWith("lichess_")
@@ -114,7 +116,8 @@ export function StudentLichessQuestList() {
     const visibleQuestIds = new Set([
       ...studentProgress.filter((item) => item.completed).map((item) => item.questId),
       ...studentAwards.map((item) => item.questId),
-      ...studentCompletions.map((item) => item.questId)
+      ...studentCompletions.map((item) => item.questId),
+      ...studentAttempts.map((item) => item.questId)
     ]);
 
     const localQuests = store.quests ?? seedQuests;

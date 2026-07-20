@@ -3,7 +3,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Quest, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, TacticTheme } from "@/lib/types";
 import { mockResult, supabaseResult, type DataResult } from "./shared";
 
-type QuestRow = {
+export type QuestRow = {
   id: string;
   title: string;
   description: string | null;
@@ -74,7 +74,7 @@ function toQuestTimeWindow(value: string | null | undefined): QuestTimeWindow | 
   return undefined;
 }
 
-function mapQuest(row: QuestRow): Quest {
+export function mapSupabaseQuest(row: QuestRow): Quest {
   const isLive = row.is_live ?? row.is_active ?? true;
   const status = toQuestStatus(row.status, isLive);
 
@@ -110,19 +110,28 @@ export async function getQuestsResult(): Promise<DataResult<Quest[]>> {
   const supabase = getSupabaseClient();
   if (!supabase) return mockResult(mockQuests, "Supabase is not configured.");
 
-  const selects = [
-    "id,title,description,type,status,is_live,xp_reward,badge_reward_id,completion_url,class_group,category,source,condition_type,time_window,required_count,required_score,required_accuracy,required_theme,approval_required,is_active,is_repeatable,cooldown_days,created_at,updated_at",
+  const fullSelect = "id,title,description,type,status,is_live,xp_reward,badge_reward_id,completion_url,class_group,category,source,condition_type,time_window,required_count,required_score,required_accuracy,required_theme,approval_required,is_active,is_repeatable,cooldown_days,created_at,updated_at";
+  const sharedResult = await supabase
+    .from("academy_quests")
+    .select(fullSelect)
+    .order("created_at", { ascending: false });
+
+  if (!sharedResult.error && sharedResult.data?.length) {
+    return supabaseResult((sharedResult.data as unknown as QuestRow[]).map(mapSupabaseQuest));
+  }
+
+  const legacySelects = [
     "id,title,description,quest_type,xp_reward,badge_reward_id,completion_url,is_active,starts_at,ends_at,created_at,updated_at",
     "id,title,description,quest_type,xp_reward,badge_reward_id,is_active,starts_at,ends_at,created_at,updated_at"
   ];
 
-  for (const select of selects) {
+  for (const select of legacySelects) {
     const result = await supabase
       .from("quests")
       .select(select)
       .order("created_at", { ascending: false });
 
-    if (!result.error && result.data?.length) return supabaseResult((result.data as unknown as QuestRow[]).map(mapQuest));
+    if (!result.error && result.data?.length) return supabaseResult((result.data as unknown as QuestRow[]).map(mapSupabaseQuest));
     if (!result.error && result.data) return supabaseResult([]);
   }
 
