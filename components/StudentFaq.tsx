@@ -11,7 +11,7 @@ const faqs = [
   },
   {
     question: "How does Lichess XP work?",
-    answer: "Ratings earn milestone XP for each full 100 points above 800: 15 XP for established Blitz or Rapid, and 10 XP for Puzzle. The highest earned rating is kept, so XP never drops after a rating loss. Provisional Blitz and Rapid do not count. After first login, each rated game adds 2 XP and each puzzle adds 1 XP."
+    answer: "Ratings earn milestone XP for each full 100 points above 800: 15 XP for established Blitz or Rapid, and 10 XP for Puzzle. The highest earned rating is kept, so XP never drops after a rating loss. Provisional Blitz and Rapid do not count. After first login, a rated rapid game earns 5 XP, a rapid win earns 10 XP total, a rated blitz game earns 2 XP, a blitz win earns 5 XP total, and each correct puzzle earns 2 XP. Every XP earned also grants one Academy Coin."
   },
   {
     question: "How do I earn badges?",

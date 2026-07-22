@@ -54,6 +54,21 @@ describe("Lichess XP and coin activity", () => {
     expect(xp.total).toBe(30);
   });
 
+  it("awards 2 XP and 2 coins for each correct puzzle after login", () => {
+    const xp = getLichessXpBreakdown({
+      ...account,
+      rapidGames: 0,
+      puzzleGames: 4,
+      puzzleCorrect: 3,
+      baselinePuzzleGames: 0,
+      baselinePuzzleCorrect: 0
+    });
+
+    expect(xp.puzzleCorrectAfterLogin).toBe(3);
+    expect(xp.puzzleActivityXp).toBe(6);
+    expect(xp.total).toBe(6);
+  });
+
   it("shows store spending in the shared student activity feed", () => {
     const items = buildStudentActivityItems({
       student,

@@ -10,7 +10,7 @@ export const LICHESS_XP_RULES = {
   rapidGameWonXp: 10,
   blitzGamePlayedXp: 2,
   blitzGameWonXp: 5,
-  puzzleCorrectXp: 5
+  puzzleCorrectXp: 2
 };
 
 const MAX_REASONABLE_UNBASELINED_ACTIVITY = 100;
