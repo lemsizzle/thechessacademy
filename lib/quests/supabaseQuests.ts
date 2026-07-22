@@ -39,6 +39,9 @@ function validateQuest(quest: Quest) {
   if (quest.source?.startsWith("lichess_") && !quest.conditionType) {
     throw new Error("Choose a Lichess goal before saving this quest.");
   }
+  if (quest.conditionType === "puzzle_theme_solved_count" && !quest.requiredTheme) {
+    throw new Error("Choose a required tactic theme for this quest.");
+  }
 }
 
 export async function listAdminQuests() {

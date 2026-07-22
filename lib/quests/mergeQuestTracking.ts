@@ -1,8 +1,5 @@
 import type { LichessQuestProgress, QuestCompletionEvent, StudentQuestAttempt } from "@/lib/types";
-
-function progressKey(item: LichessQuestProgress) {
-  return `${item.studentId}:${item.questId}:${item.sourcePeriodStart}:${item.sourcePeriodEnd}`;
-}
+import { questProgressIdentity } from "@/lib/quests/questProgressIdentity";
 
 export function mergeQuestAttempts(...groups: Array<StudentQuestAttempt[] | undefined>) {
   const byId = new Map<string, StudentQuestAttempt>();
@@ -19,9 +16,10 @@ export function mergeLichessQuestProgress(...groups: Array<LichessQuestProgress[
   const byKey = new Map<string, LichessQuestProgress>();
   for (const group of groups) {
     for (const item of group ?? []) {
-      const previous = byKey.get(progressKey(item));
+      const key = questProgressIdentity(item);
+      const previous = byKey.get(key);
       if (!previous || previous.updatedAt <= item.updatedAt || item.currentValue > previous.currentValue) {
-        byKey.set(progressKey(item), {
+        byKey.set(key, {
           ...item,
           currentValue: Math.max(previous?.currentValue ?? 0, item.currentValue),
           completed: Boolean(previous?.completed || item.completed)

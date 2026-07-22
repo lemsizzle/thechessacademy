@@ -1,8 +1,5 @@
 import type { LichessQuestProgress, Quest } from "@/lib/types";
-
-function progressKey(progress: LichessQuestProgress) {
-  return `${progress.studentId}:${progress.questId}:${progress.sourcePeriodStart}:${progress.sourcePeriodEnd}`;
-}
+import { questProgressIdentity } from "@/lib/quests/questProgressIdentity";
 
 function hasFreshSyncError(progress: LichessQuestProgress) {
   return /sync did not return fresh data|sync paused|rate-limited|rate limit reached|requires the student's Lichess login token/i.test(progress.evidence);
@@ -26,13 +23,13 @@ function mergeOneProgress(previous: LichessQuestProgress | undefined, next: Lich
 }
 
 export function mergeQuestProgress(existing: LichessQuestProgress[], incoming: LichessQuestProgress[], quests: Quest[]) {
-  const existingByKey = new Map(existing.map((progress) => [progressKey(progress), progress]));
+  const existingByKey = new Map(existing.map((progress) => [questProgressIdentity(progress), progress]));
   const questById = new Map(quests.map((quest) => [quest.id, quest]));
-  const incomingKeys = new Set(incoming.map(progressKey));
-  const mergedIncoming = incoming.map((next) => mergeOneProgress(existingByKey.get(progressKey(next)), next, questById.get(next.questId)));
+  const incomingKeys = new Set(incoming.map(questProgressIdentity));
+  const mergedIncoming = incoming.map((next) => mergeOneProgress(existingByKey.get(questProgressIdentity(next)), next, questById.get(next.questId)));
 
   return [
     ...mergedIncoming,
-    ...existing.filter((progress) => !incomingKeys.has(progressKey(progress)))
+    ...existing.filter((progress) => !incomingKeys.has(questProgressIdentity(progress)))
   ];
 }

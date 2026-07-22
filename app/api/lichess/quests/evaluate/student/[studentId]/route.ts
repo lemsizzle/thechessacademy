@@ -10,6 +10,7 @@ import { getSupabaseServiceClient, isSupabaseServiceConfigured } from "@/lib/sup
 import { syncAcademyCoinsForLichessXp } from "@/lib/avatar/supabaseAvatar";
 import { getLichessXpBreakdown } from "@/lib/lichessXp";
 import { getStoredLichessAccount, saveStoredLichessAccount } from "@/lib/lichess/supabaseAccounts";
+import { listAdminQuests } from "@/lib/quests/supabaseQuests";
 import type { ArenaTournamentResult, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt, XpEvent } from "@/lib/types";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -67,12 +68,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
     questAttempts?: StudentQuestAttempt[];
     timeZone?: string;
   };
-  if (!body.username || !body.quests) return NextResponse.json({ error: "Student username and quest rules are required." }, { status: 400 });
+  if (!body.username) return NextResponse.json({ error: "Student username is required." }, { status: 400 });
   const cookieStore = await cookies();
   const session = readStudentSession(cookieStore);
   if (!session || session.studentId !== studentId) {
     return NextResponse.json({ error: "Student log in required." }, { status: 401 });
   }
+  let quests = body.quests ?? [];
+  try {
+    const storedQuests = await listAdminQuests();
+    if (storedQuests.length) quests = storedQuests;
+  } catch {
+    // A local installation without Supabase can still evaluate its local rules.
+  }
+  if (!quests.length) return NextResponse.json({ error: "No quest rules are available." }, { status: 400 });
   const existingState = await getLichessSyncState(studentId);
   const cooldownSeconds = getCooldownSeconds(existingState);
   if (cooldownSeconds > 0) {
@@ -96,7 +105,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
   const result = await evaluateStudentQuestRequest({
     studentId,
     username: body.username,
-    quests: body.quests,
+    quests,
     arenaResults: body.arenaResults,
     account: storedAccount ?? body.account,
     existingAwards: body.existingAwards,
@@ -114,7 +123,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
   } else {
     await recordLichessSyncSuccess(studentId, body.username, result.requestCount ?? 0);
   }
-  const progressToSave = mergeQuestProgress(persistedTracking.progress, result.progress, body.quests);
+  const progressToSave = mergeQuestProgress(persistedTracking.progress, result.progress, quests);
 
   const response: EvaluationWithXp = {
     ...result,
@@ -147,7 +156,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
     }
 
     for (const completion of persistedTracking.completions) {
-      const quest = body.quests.find((item) => item.id === completion.questId);
+      const quest = quests.find((item) => item.id === completion.questId);
       if (!quest) continue;
       const event = await persistQuestXpOnce(studentId, quest.title, completion.sourcePeriodStart, completion.xpAwarded, session.lichessUsername);
       if (event) response.xpEvents?.push(event);

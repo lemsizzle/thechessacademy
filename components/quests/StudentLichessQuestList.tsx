@@ -98,6 +98,7 @@ export function StudentLichessQuestList() {
       ));
       if (!visibleQuests.length) return false;
 
+      updateAdminStore({ quests: mergedQuests });
       setQuests(visibleQuests);
       return true;
     } catch {

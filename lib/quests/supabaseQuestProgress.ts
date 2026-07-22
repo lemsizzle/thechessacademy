@@ -1,4 +1,5 @@
 import { isSupabaseServiceConfigured, getSupabaseServiceClient } from "@/lib/supabase/server";
+import { questProgressIdentity } from "@/lib/quests/questProgressIdentity";
 import type { LichessQuestProgress, QuestCompletionEvent, StudentQuestAttempt } from "@/lib/types";
 
 type AttemptRow = {
@@ -144,7 +145,10 @@ export async function saveSupabaseQuestTracking(input: Partial<QuestTrackingStat
     if (error) throw new Error(error.message);
   }
 
-  const progress = uniqueBy(input.progress, (item) => `${item.studentId}:${item.questId}:${item.sourcePeriodStart}:${item.sourcePeriodEnd}`);
+  // PostgreSQL compares timestamptz values by instant, not by their source
+  // formatting. Canonicalize here so Z and +00:00 representations cannot put
+  // the same conflict key into one upsert batch and abort the entire sync.
+  const progress = uniqueBy(input.progress, questProgressIdentity);
   if (progress.length) {
     const { error } = await supabase.from("lichess_quest_progress").upsert(progress.map((item) => ({
       student_id: item.studentId,

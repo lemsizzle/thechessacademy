@@ -5,6 +5,7 @@ import { ADMIN_SESSION_COOKIE, isValidAdminActionToken, isValidAdminSession } fr
 import { syncAcademyCoinsForLichessXp } from "@/lib/avatar/supabaseAvatar";
 import { getLichessXpBreakdown } from "@/lib/lichessXp";
 import { getStoredLichessAccount, saveStoredLichessAccount } from "@/lib/lichess/supabaseAccounts";
+import { listAdminQuests } from "@/lib/quests/supabaseQuests";
 import type { ArenaTournamentResult, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt } from "@/lib/types";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -32,7 +33,15 @@ export async function POST(request: Request) {
     questAttempts?: StudentQuestAttempt[];
     timeZone?: string;
   };
-  if (!body.students || !body.quests) return NextResponse.json({ error: "Students and quest rules are required." }, { status: 400 });
+  if (!body.students) return NextResponse.json({ error: "Students are required." }, { status: 400 });
+  let quests = body.quests ?? [];
+  try {
+    const storedQuests = await listAdminQuests();
+    if (storedQuests.length) quests = storedQuests;
+  } catch {
+    // A local installation without Supabase can still evaluate its local rules.
+  }
+  if (!quests.length) return NextResponse.json({ error: "No quest rules are available." }, { status: 400 });
   const evaluations = [];
   for (const student of body.students.slice(0, 50)) {
     const state = await getLichessSyncState(student.studentId);
@@ -59,7 +68,7 @@ export async function POST(request: Request) {
     const result = await evaluateStudentQuestRequest({
         studentId: student.studentId,
         username: student.username,
-        quests: body.quests,
+        quests,
         account: trustedAccount,
         arenaResults: student.arenaResults,
         existingAwards: body.existingAwards,
