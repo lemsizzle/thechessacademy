@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
-import { mergeLichessQuestProgress } from "@/lib/quests/mergeQuestTracking";
+import { mergeLichessQuestProgress, mergeQuestAttempts } from "@/lib/quests/mergeQuestTracking";
 import { questProgressIdentity } from "@/lib/quests/questProgressIdentity";
 import type { LichessQuestProgress, Quest } from "@/lib/types";
 
@@ -42,5 +42,24 @@ describe("quest progress period identity", () => {
     expect(mergeQuestProgress([zulu], [offset], [quest])).toHaveLength(1);
     expect(mergeLichessQuestProgress([zulu], [offset])).toHaveLength(1);
     expect(mergeLichessQuestProgress([zulu], [offset])[0]?.currentValue).toBe(4);
+  });
+
+  it("keeps a repaired server countdown over an older browser copy", () => {
+    const serverAttempt = {
+      id: "attempt-1",
+      studentId: "student-1",
+      questId: quest.id,
+      startedAt: "2026-07-22T12:00:00.000Z",
+      expiresAt: "2026-07-29T12:00:00.000Z",
+      status: "active" as const,
+      createdAt: "2026-07-22T12:00:00.000Z"
+    };
+    const staleBrowserAttempt = {
+      ...serverAttempt,
+      expiresAt: "2026-07-23T12:00:00.000Z"
+    };
+
+    expect(mergeQuestAttempts([serverAttempt], [staleBrowserAttempt]))
+      .toEqual([serverAttempt]);
   });
 });

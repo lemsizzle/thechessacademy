@@ -6,7 +6,21 @@ export function mergeQuestAttempts(...groups: Array<StudentQuestAttempt[] | unde
   for (const group of groups) {
     for (const attempt of group ?? []) {
       const previous = byId.get(attempt.id);
-      byId.set(attempt.id, previous?.status === "completed" ? previous : attempt);
+      if (!previous || attempt.status === "completed") {
+        byId.set(attempt.id, attempt);
+        continue;
+      }
+      if (previous.status === "completed") continue;
+
+      // The server can repair an attempt window after a quest definition is
+      // corrected. Keep the later expiry so an older browser copy cannot
+      // shorten the authoritative countdown again.
+      byId.set(
+        attempt.id,
+        new Date(attempt.expiresAt).getTime() > new Date(previous.expiresAt).getTime()
+          ? attempt
+          : previous
+      );
     }
   }
   return [...byId.values()].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
