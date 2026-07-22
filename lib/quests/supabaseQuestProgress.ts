@@ -1,5 +1,6 @@
 import { isSupabaseServiceConfigured, getSupabaseServiceClient } from "@/lib/supabase/server";
 import { questProgressIdentity } from "@/lib/quests/questProgressIdentity";
+import { mergeQuestAttempts } from "@/lib/quests/mergeQuestTracking";
 import type { LichessQuestProgress, QuestCompletionEvent, StudentQuestAttempt } from "@/lib/types";
 
 type AttemptRow = {
@@ -133,7 +134,20 @@ export async function saveSupabaseQuestTracking(input: Partial<QuestTrackingStat
 
   const attempts = uniqueBy(input.attempts, (attempt) => attempt.id);
   if (attempts.length) {
-    const { error } = await supabase.from("student_quest_attempts").upsert(attempts.map((attempt) => ({
+    const { data: storedRows, error: readError } = await supabase
+      .from("student_quest_attempts")
+      .select("id,student_id,quest_id,started_at,expires_at,status,created_at")
+      .in("id", attempts.map((attempt) => attempt.id));
+    if (readError) throw new Error(readError.message);
+
+    // A browser may still have an older quest definition in memory. Merge it
+    // with the stored attempt before writing so stale clients cannot shorten a
+    // repaired countdown or reopen a completed attempt.
+    const safeAttempts = mergeQuestAttempts(
+      ((storedRows ?? []) as AttemptRow[]).map(mapAttempt),
+      attempts
+    );
+    const { error } = await supabase.from("student_quest_attempts").upsert(safeAttempts.map((attempt) => ({
       id: attempt.id,
       student_id: attempt.studentId,
       quest_id: attempt.questId,
