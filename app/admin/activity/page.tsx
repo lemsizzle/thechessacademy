@@ -1,6 +1,12 @@
-import { AdminPanel } from "@/components/admin/AdminPanel";
+import { AdminRosterActivityFeed } from "@/components/admin/AdminRosterActivityFeed";
 import { AppShell } from "@/components/AppShell";
+import { getAdminRosterActivity } from "@/lib/activity/adminRosterActivity";
 
-export default function AdminActivityPage() {
-  return <AppShell title="Activity" variant="admin"><AdminPanel mode="activity" /></AppShell>;
+export default async function AdminActivityPage() {
+  const activity = await getAdminRosterActivity();
+  return (
+    <AppShell title="Student Activity" subtitle="Review recent progress and actions across the full roster." variant="admin">
+      <AdminRosterActivityFeed items={activity} />
+    </AppShell>
+  );
 }

@@ -1,7 +1,7 @@
-import { ActivityFeed } from "@/components/ActivityFeed";
+import { AdminRosterActivityFeed } from "@/components/admin/AdminRosterActivityFeed";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { activity } from "@/data/activity";
+import type { AdminRosterActivityItem } from "@/lib/activity/adminRosterActivity";
 
 const workflows = [
   {
@@ -38,7 +38,7 @@ const workflows = [
   }
 ];
 
-export function AdminDashboard() {
+export function AdminDashboard({ activity }: { activity: AdminRosterActivityItem[] }) {
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
       <div className="grid gap-4 md:grid-cols-2">
@@ -53,7 +53,7 @@ export function AdminDashboard() {
           </Card>
         ))}
       </div>
-      <ActivityFeed events={activity} />
+      <AdminRosterActivityFeed items={activity} compact />
     </div>
   );
 }
