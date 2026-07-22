@@ -324,18 +324,32 @@ export function StudentLichessQuestList() {
 
                 return (
                   <div key={item.id} className="relative overflow-hidden p-4">
-                    <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-cyan-300 via-violet-300 to-amber-200" />
+                    <div className={`absolute inset-y-0 left-0 w-1 ${item.completed ? "bg-emerald-300" : "bg-rose-300"}`} />
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div
+                          className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 text-2xl font-black shadow-lg ${item.completed ? "border-emerald-200/70 bg-emerald-300/20 text-emerald-100 shadow-emerald-400/20" : "border-rose-200/60 bg-rose-300/15 text-rose-100 shadow-rose-400/15"}`}
+                          role="img"
+                          aria-label={item.completed ? "Quest completed successfully" : "Quest expired before completion"}
+                        >
+                          <span aria-hidden="true">{item.completed ? "☺" : "☹"}</span>
+                          {item.completed && (
+                            <span aria-hidden="true" className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-slate-950 bg-emerald-300 text-sm text-emerald-950">
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="font-black text-white">{item.quest.title}</h3>
-                          <span className={`rounded px-2 py-1 text-[11px] font-black ${item.completed ? "bg-emerald-300/15 text-emerald-100" : "bg-white/10 text-slate-300"}`}>
-                            {item.completed ? "Completed" : "Ended"}
+                          <span className={`rounded px-2 py-1 text-[11px] font-black ${item.completed ? "bg-emerald-300/15 text-emerald-100" : "bg-rose-300/15 text-rose-100"}`}>
+                            {item.completed ? "Completed" : "Expired"}
                           </span>
                         </div>
                         <p className="mt-1 text-sm text-slate-400">
                           Score {score} / {required}{accuracy} - {formatFinishedDate(item.finishedAt)}
                         </p>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-right text-xs font-black sm:min-w-36">
                         <div className="rounded border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-amber-100">
