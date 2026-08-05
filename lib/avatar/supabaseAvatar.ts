@@ -159,20 +159,36 @@ function fallbackState(studentId: string): StudentAvatarState {
   };
 }
 
+export function sortAvatarItemsNewestFirst(items: AvatarItem[]) {
+  return [...items].sort((left, right) => {
+    const leftCreatedAt = left.createdAt ? Date.parse(left.createdAt) : Number.NaN;
+    const rightCreatedAt = right.createdAt ? Date.parse(right.createdAt) : Number.NaN;
+    const leftHasDate = Number.isFinite(leftCreatedAt);
+    const rightHasDate = Number.isFinite(rightCreatedAt);
+
+    if (leftHasDate && rightHasDate && leftCreatedAt !== rightCreatedAt) {
+      return rightCreatedAt - leftCreatedAt;
+    }
+    if (leftHasDate !== rightHasDate) return leftHasDate ? -1 : 1;
+    return left.name.localeCompare(right.name);
+  });
+}
+
 export async function listAvatarItems(options: { includeInactive?: boolean; useService?: boolean } = {}) {
   const supabase = options.useService ? getSupabaseServiceClient() : (getSupabaseServerReadClient() ?? getSupabaseServiceClient());
-  if (!supabase) return seedAvatarItems.filter((item) => options.includeInactive || item.isActive);
+  const fallbackItems = () => sortAvatarItemsNewestFirst(seedAvatarItems.filter((item) => options.includeInactive || item.isActive));
+  if (!supabase) return fallbackItems();
 
   const query = supabase
     .from("avatar_items")
     .select("id,name,slug,description,category,rarity,price,asset_url,thumbnail_url,layer_order,unlock_type,unlock_requirement,is_active,is_featured,created_at,updated_at")
-    .order("layer_order", { ascending: true })
+    .order("created_at", { ascending: false, nullsFirst: false })
     .order("name", { ascending: true });
 
   const { data, error } = options.includeInactive ? await query : await query.eq("is_active", true);
-  if (error) return seedAvatarItems.filter((item) => options.includeInactive || item.isActive);
-  const items = ((data ?? []) as AvatarItemRow[]).map(toItem);
-  return items.length ? items : seedAvatarItems.filter((item) => options.includeInactive || item.isActive);
+  if (error) return fallbackItems();
+  const items = sortAvatarItemsNewestFirst(((data ?? []) as AvatarItemRow[]).map(toItem));
+  return items.length ? items : fallbackItems();
 }
 
 async function ensureWallet(studentId: string): Promise<StudentWallet> {

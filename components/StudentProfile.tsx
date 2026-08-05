@@ -1,6 +1,7 @@
 "use client";
 
 import { BadgeCard } from "@/components/BadgeCard";
+import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { LichessStudentConnectPanel } from "@/components/LichessStudentConnectPanel";
@@ -21,7 +22,7 @@ import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
 import { isSafeExternalUrl } from "@/lib/resources";
 import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
 import { useMockAdminState } from "@/lib/useMockAdminState";
-import type { Badge, CoinTransaction, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentLichessAccount, StudentQuestAttempt, XpEvent } from "@/lib/types";
+import type { AvatarItem, Badge, CoinTransaction, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentAvatarConfig, StudentLichessAccount, StudentQuestAttempt, XpEvent } from "@/lib/types";
 import { useEffect, useState, type ReactNode } from "react";
 
 function QuestLogSection({
@@ -66,7 +67,9 @@ export function StudentProfile({
   xpEvents = seedXpEvents,
   quests: initialQuests,
   lichessAccount: storedLichessAccount,
-  coinTransactions = []
+  coinTransactions = [],
+  avatarItems = [],
+  studentAvatar
 }: {
   student: Student;
   showAdminControls?: boolean;
@@ -76,6 +79,8 @@ export function StudentProfile({
   quests?: Quest[];
   lichessAccount?: StudentLichessAccount;
   coinTransactions?: CoinTransaction[];
+  avatarItems?: AvatarItem[];
+  studentAvatar?: StudentAvatarConfig;
 }) {
   const { quests: adminQuests, studentLichessAccounts } = useMockAdminState();
   const [localStudents, setLocalStudents] = useState<Student[]>([]);
@@ -142,9 +147,19 @@ export function StudentProfile({
   return (
     <div className="space-y-5">
       <Card className="p-5">
-        <div className="flex flex-col gap-5">
-          <StudentCallingCard name={effectiveStudent.name} classGroup={effectiveStudent.classGroup} lichessUsername={effectiveStudent.lichessUsername ?? effectiveStudent.slug} xp={xp.totalXp} size="hero" />
-          <div className="flex-1">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+          {studentAvatar && avatarItems.length > 0 ? (
+            <div className="mx-auto shrink-0 sm:mx-0">
+              <AvatarRenderer
+                items={avatarItems}
+                avatar={studentAvatar}
+                size="lg"
+                label={`${effectiveStudent.name}'s Academy avatar`}
+              />
+            </div>
+          ) : null}
+          <div className="min-w-0 flex-1">
+            <StudentCallingCard name={effectiveStudent.name} classGroup={effectiveStudent.classGroup} lichessUsername={effectiveStudent.lichessUsername ?? effectiveStudent.slug} xp={xp.totalXp} size="hero" />
             {showAdminControls && isAdmin && (
               <div className="mt-3">
                 <Button href={`/admin/students?student=${encodeURIComponent(effectiveStudent.slug)}`} variant="secondary">Manage Student</Button>

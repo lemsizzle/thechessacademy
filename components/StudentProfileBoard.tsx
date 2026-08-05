@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { StudentProfile } from "@/components/StudentProfile";
 import { hasAdminSession } from "@/lib/mockStorage";
 import { hasParentStudentProfileAccess } from "@/lib/publicStudentAccess";
-import type { Badge, Quest, Student, XpEvent } from "@/lib/types";
+import type { AvatarItem, Badge, Quest, Student, StudentAvatarConfig, XpEvent } from "@/lib/types";
 import { useMockAdminState } from "@/lib/useMockAdminState";
 import { useEffect, useState } from "react";
 
@@ -15,13 +15,17 @@ export function StudentProfileBoard({
   initialStudent,
   badges,
   xpEvents,
-  quests
+  quests,
+  avatarItems,
+  studentAvatar
 }: {
   slug: string;
   initialStudent?: Student | null;
   badges?: Badge[];
   xpEvents?: XpEvent[];
   quests?: Quest[];
+  avatarItems?: AvatarItem[];
+  studentAvatar?: StudentAvatarConfig;
 }) {
   const { students, loaded } = useMockAdminState();
   const [accessChecked, setAccessChecked] = useState(false);
@@ -56,5 +60,14 @@ export function StudentProfileBoard({
     );
   }
 
-  return <StudentProfile student={student} badges={badges} xpEvents={xpEvents} quests={quests} />;
+  return (
+    <StudentProfile
+      student={student}
+      badges={badges}
+      xpEvents={xpEvents}
+      quests={quests}
+      avatarItems={avatarItems}
+      studentAvatar={studentAvatar}
+    />
+  );
 }
