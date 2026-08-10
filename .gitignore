@@ -23,3 +23,9 @@ lichess_db_puzzle.csv.zst
 
 .vercel
 .env*
+
+# Local avatar preparation outputs that are unsafe or disposable.
+/work/avatar-assets/avatar-studio-verification.png
+/work/avatar-assets/**/*-preview.png
+/work/avatar-assets/headwear/fix-cracked-eggshell.json
+/work/avatar-assets/headwear/fix-cracked-eggshell-payload.js

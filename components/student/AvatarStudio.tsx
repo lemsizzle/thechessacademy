@@ -60,6 +60,13 @@ export function AvatarStudio() {
     if (collection === "affordable" && (itemOwned || item.unlockType !== "purchase" || item.price > (state?.wallet.academyCoins ?? 0))) return false;
     return true;
   }), [category, collection, owned, rarity, state?.items, state?.wallet.academyCoins]);
+  const featuredNewItems = useMemo(() => {
+    const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    return (state?.items ?? []).filter((item) => {
+      const createdAt = item.createdAt ? Date.parse(item.createdAt) : Number.NaN;
+      return item.isFeatured && Number.isFinite(createdAt) && createdAt >= cutoff;
+    });
+  }, [state?.items]);
   const renderAvatar = state ? { ...state.avatar, equippedItems: equipped } : { studentId: "loading", equippedItems: {} };
 
   async function saveAvatar(nextEquipped: Partial<Record<AvatarCategory, string>>, itemId: string) {
@@ -154,6 +161,38 @@ export function AvatarStudio() {
       </Card>
 
       <div className="min-w-0 space-y-4">
+        {featuredNewItems.length > 0 && (
+          <Card className="overflow-hidden border-cyan-200/30 bg-gradient-to-br from-cyan-300/10 via-slate-950 to-purple-400/10 p-4">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-200">Featured</p>
+                <h2 className="text-xl font-black text-white">New in the Armory</h2>
+                <p className="text-sm text-slate-300">Featured cosmetics added within the last two weeks.</p>
+              </div>
+              <span className="rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-xs font-black uppercase text-cyan-100">New</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {featuredNewItems.map((item) => {
+                const itemOwned = owned.has(item.id);
+                const itemPreviewed = previewItemId === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setPreviewItemId(item.id)}
+                    className={`flex items-center gap-3 rounded-xl border p-3 text-left transition hover:border-cyan-200/70 hover:bg-cyan-300/10 ${itemPreviewed ? "border-cyan-200 bg-cyan-300/10" : "border-white/10 bg-slate-950/50"}`}
+                  >
+                    <AvatarRenderer items={[item]} avatar={{ studentId: "featured-preview", equippedItems: { [item.category]: item.id } }} size="lg" label={`${item.name} featured preview`} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-black text-white">{item.name}</span>
+                      <span className="block text-xs text-slate-400">{itemOwned ? "Owned — tap to preview" : item.unlockType === "purchase" ? `${item.price} coins — tap to preview` : "Tap to preview"}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+        )}
         <Card className="p-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Category
