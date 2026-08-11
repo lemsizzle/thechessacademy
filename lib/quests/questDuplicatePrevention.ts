@@ -21,8 +21,13 @@ export function canCreateQuestAward(
   const prior = completions.filter((event) => event.studentId === studentId && event.questId === quest.id);
   if (!quest.isRepeatable && prior.length > 0) return false;
   if ((quest.cooldownDays ?? 0) > 0 && prior.length > 0) {
-    const latest = Math.max(...prior.map((event) => new Date(event.completedAt).getTime()));
-    if (Date.now() - latest < (quest.cooldownDays ?? 0) * 86_400_000) return false;
+    const periodStartMs = new Date(periodStart).getTime();
+    const latestUnlockMs = Math.max(...prior.map((event) => {
+      const periodEndMs = new Date(event.sourcePeriodEnd).getTime();
+      if (Number.isFinite(periodEndMs)) return periodEndMs;
+      return new Date(event.completedAt).getTime() + (quest.cooldownDays ?? 0) * 86_400_000;
+    }));
+    if (!Number.isFinite(periodStartMs) || periodStartMs < latestUnlockMs) return false;
   }
   return true;
 }

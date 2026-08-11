@@ -15,7 +15,17 @@ type AvatarPayload = {
   error?: string;
 };
 
-export function StudentDashboardAvatar({ studentId, studentName, lifetimeXp }: { studentId: string; studentName: string; lifetimeXp: number }) {
+export function StudentDashboardAvatar({
+  studentId,
+  studentName,
+  lifetimeXp,
+  rewardRefreshKey
+}: {
+  studentId: string;
+  studentName: string;
+  lifetimeXp: number;
+  rewardRefreshKey?: string;
+}) {
   const [payload, setPayload] = useState<AvatarPayload | null>(null);
   const [error, setError] = useState("");
   const level = getLevelFromXp(lifetimeXp);
@@ -36,7 +46,7 @@ export function StudentDashboardAvatar({ studentId, studentName, lifetimeXp }: {
         setError(reason instanceof Error ? reason.message : "Could not load avatar.");
       });
     return () => controller.abort();
-  }, []);
+  }, [rewardRefreshKey, studentId]);
 
   return (
     <Card className="overflow-hidden p-5 sm:p-6">

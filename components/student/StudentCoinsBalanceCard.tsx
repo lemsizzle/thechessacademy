@@ -3,7 +3,7 @@
 import { Card } from "@/components/Card";
 import { useEffect, useState } from "react";
 
-export function StudentCoinsBalanceCard({ lifetimeXp = 0 }: { lifetimeXp?: number }) {
+export function StudentCoinsBalanceCard({ lifetimeXp = 0, rewardRefreshKey }: { lifetimeXp?: number; rewardRefreshKey?: string }) {
   const [coins, setCoins] = useState<number | null>(null);
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export function StudentCoinsBalanceCard({ lifetimeXp = 0 }: { lifetimeXp?: numbe
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [rewardRefreshKey]);
 
   return (
     <Card className="p-4">

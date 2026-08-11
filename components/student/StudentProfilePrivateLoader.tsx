@@ -10,6 +10,7 @@ import { allBadges } from "@/data/badges";
 import { studentLichessAccounts as seedAccounts } from "@/data/lichessSync";
 import { students as seedStudents } from "@/data/students";
 import { getCurrentStudentUser } from "@/lib/auth/getCurrentUser";
+import { getStudentXpWithLichess } from "@/lib/lichessXp";
 import { ADMIN_STORE_UPDATED_EVENT, readAdminStore } from "@/lib/mockStorage";
 import { STUDENT_LICHESS_FULL_SYNC_EVENT } from "@/lib/studentLichessFullSync";
 import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
@@ -102,10 +103,12 @@ export function StudentProfilePrivateLoader() {
 
   if (!loaded) return <Card className="p-4 text-sm text-slate-300">Loading student dashboard...</Card>;
   if (!student) return <Card className="p-4 text-sm text-slate-300">No student record found. Try logging out and logging in with Lichess again.</Card>;
+  const lifetimeXp = getStudentXpWithLichess(student, account).totalXp;
+  const rewardRefreshKey = account?.updatedAt ?? "no-lichess-account";
   return (
     <div className="space-y-5">
-      <StudentDashboardAvatar studentId={student.id} studentName={student.name} lifetimeXp={student.totalXp} />
-      <StudentCoinsBalanceCard lifetimeXp={student.totalXp} />
+      <StudentDashboardAvatar studentId={student.id} studentName={student.name} lifetimeXp={lifetimeXp} rewardRefreshKey={rewardRefreshKey} />
+      <StudentCoinsBalanceCard lifetimeXp={lifetimeXp} rewardRefreshKey={rewardRefreshKey} />
       <StudentProfileSettings student={student} />
       <LinkedLichessCard account={account} />
       <StudentProfile

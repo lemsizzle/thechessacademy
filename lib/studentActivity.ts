@@ -105,11 +105,19 @@ export function buildStudentActivityItems({
     });
   }
 
-  for (const transaction of coinTransactions?.filter((item) => item.studentId === student.id) ?? []) {
-    const mirrorsXp = transaction.amount > 0 && ["xp_event", "lichess_xp", "xp_backfill"].includes(transaction.sourceType);
+  const studentCoinTransactions = coinTransactions?.filter((item) => item.studentId === student.id) ?? [];
+  const hasLichessRewardTransactions = studentCoinTransactions.some((transaction) => (
+    transaction.amount > 0 && transaction.sourceType === "lichess_xp"
+  ));
+
+  for (const transaction of studentCoinTransactions) {
+    const mirrorsXp = transaction.amount > 0 && ["xp_event", "xp_backfill", "xp_initial_backfill"].includes(transaction.sourceType);
     if (mirrorsXp) continue;
+    const isLichessReward = transaction.amount > 0 && transaction.sourceType === "lichess_xp";
     const spent = transaction.amount < 0 || transaction.transactionType === "spend";
-    const title = spent
+    const title = isLichessReward
+      ? "Lichess XP and coins earned"
+      : spent
       ? "Academy Coins spent"
       : transaction.transactionType === "refund"
         ? "Academy Coins refunded"
@@ -118,15 +126,19 @@ export function buildStudentActivityItems({
           : "Academy Coins earned";
     items.push({
       id: `coin-${transaction.id}`,
-      kind: "coin",
+      kind: isLichessReward ? "xp" : "coin",
       title,
-      detail: `${transaction.amount >= 0 ? "+" : ""}${transaction.amount.toLocaleString()} coins - ${transaction.description}`,
+      detail: isLichessReward
+        ? `+${transaction.amount.toLocaleString()} XP and +${transaction.amount.toLocaleString()} coins.`
+        : `${transaction.amount >= 0 ? "+" : ""}${transaction.amount.toLocaleString()} coins - ${transaction.description}`,
       createdAt: normalizeDate(transaction.createdAt),
       amount: transaction.amount
     });
   }
 
-  if (lichessAccount) {
+  // The coin ledger contains the actual incremental Lichess reward. Only use
+  // cumulative category summaries when that durable ledger is unavailable.
+  if (lichessAccount && !hasLichessRewardTransactions) {
     const xp = getLichessXpBreakdown(lichessAccount);
     if (xp.rapidGamesAfterLogin > 0) {
       items.push({

@@ -94,4 +94,31 @@ describe("Lichess XP and coin activity", () => {
     });
     expect(items[0]?.detail).toContain("Tousled Hair");
   });
+
+  it("shows the durable incremental Lichess reward instead of cumulative activity as a new award", () => {
+    const items = buildStudentActivityItems({
+      student,
+      badges: [],
+      lichessAccount: account,
+      coinTransactions: [{
+        id: "lichess-reward-1",
+        studentId: student.id,
+        amount: 12,
+        transactionType: "earn",
+        sourceType: "lichess_xp",
+        sourceId: "v2:30",
+        description: "Academy Coins earned from cumulative Lichess XP.",
+        idempotencyKey: "lichess-reward-1",
+        createdAt: "2026-07-19T17:10:00.000Z"
+      }]
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "xp",
+      title: "Lichess XP and coins earned",
+      detail: "+12 XP and +12 coins.",
+      amount: 12
+    });
+  });
 });

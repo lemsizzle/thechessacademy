@@ -1,7 +1,12 @@
 import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent, StudentQuestAttempt } from "@/lib/types";
 
 export function newestByDate<T>(items: T[], getDate: (item: T) => string) {
-  return [...items].sort((a, b) => getDate(b).localeCompare(getDate(a)))[0];
+  return [...items].sort((a, b) => {
+    const difference = timeMs(getDate(b)) - timeMs(getDate(a));
+    return Number.isFinite(difference) && difference !== 0
+      ? difference
+      : getDate(b).localeCompare(getDate(a));
+  })[0];
 }
 
 function timeMs(value?: string) {
@@ -61,6 +66,74 @@ function bestProgressForQuest(items: LichessQuestProgress[], quest: Quest) {
 export function findAttemptForPeriod(attempts: StudentQuestAttempt[], period?: { sourcePeriodStart: string; sourcePeriodEnd: string }) {
   if (!period) return undefined;
   return attempts.find((attempt) => periodMatchesAttempt(period, attempt));
+}
+
+export function isQuestCompletionCurrent({
+  studentId,
+  questId,
+  attempts,
+  completions,
+  now = Date.now()
+}: {
+  studentId?: string;
+  questId: string;
+  attempts: StudentQuestAttempt[];
+  completions: QuestCompletionEvent[];
+  now?: number;
+}) {
+  const questAttempts = attempts.filter((item) => (
+    item.questId === questId
+    && (!studentId || item.studentId === studentId)
+    && timeMs(item.expiresAt) > now
+  ));
+  const questCompletions = completions.filter((item) => (
+    item.questId === questId
+    && (!studentId || item.studentId === studentId)
+  ));
+
+  return questAttempts.some((attempt) => (
+    attempt.status === "completed"
+    || questCompletions.some((completion) => periodMatchesAttempt(completion, attempt))
+  ));
+}
+
+export type QuestLifecycleState = "available" | "active" | "completed";
+
+export function selectQuestLifecycle({
+  studentId,
+  quest,
+  attempts,
+  completions,
+  now = Date.now()
+}: {
+  studentId: string;
+  quest: Quest;
+  attempts: StudentQuestAttempt[];
+  completions: QuestCompletionEvent[];
+  now?: number;
+}): { state: QuestLifecycleState; attempt?: StudentQuestAttempt; completion?: QuestCompletionEvent } {
+  const questAttempts = attempts
+    .filter((attempt) => (
+      attempt.studentId === studentId
+      && attempt.questId === quest.id
+      && timeMs(attempt.expiresAt) > now
+    ))
+    .sort((a, b) => timeMs(b.startedAt) - timeMs(a.startedAt));
+  const questCompletions = completions.filter((completion) => (
+    completion.studentId === studentId && completion.questId === quest.id
+  ));
+
+  for (const attempt of questAttempts) {
+    const completion = selectQuestCompletion({ quest, completions: questCompletions, attempt });
+    if (attempt.status === "completed" || completion) {
+      return { state: "completed", attempt, completion };
+    }
+  }
+
+  const activeAttempt = questAttempts.find((attempt) => attempt.status === "active");
+  return activeAttempt
+    ? { state: "active", attempt: activeAttempt }
+    : { state: "available" };
 }
 
 export function selectQuestProgress({
@@ -128,4 +201,26 @@ export function selectPendingQuestAward({
     attempt ? questAwards.filter((item) => periodMatchesAttempt(item, attempt)) : questAwards,
     (item) => item.createdAt
   );
+}
+
+export function selectQuestTrackingForAttempt({
+  quest,
+  attempt,
+  completions,
+  awards,
+  progress
+}: {
+  quest: Quest;
+  attempt?: StudentQuestAttempt;
+  completions: QuestCompletionEvent[];
+  awards: PendingQuestAward[];
+  progress: LichessQuestProgress[];
+}) {
+  if (!attempt) return {};
+
+  const completion = selectQuestCompletion({ quest, completions, attempt });
+  const award = selectPendingQuestAward({ quest, awards, attempt });
+  const selectedProgress = selectQuestProgress({ quest, progress, completion, attempt });
+
+  return { completion, award, progress: selectedProgress };
 }
