@@ -1,6 +1,7 @@
 import { Chess } from "chess.js";
 import { completeClockMove, clockAt, expiredClockColor, type RunningClock } from "@/chess/game/clock";
 import { fromChessJsColor, oppositeColor } from "@/chess/game/config";
+import { canColorPossiblyCheckmate } from "@/chess/game/rules";
 import type { ChessColor, GameMove, GameResultReason, PromotionPiece } from "@/chess/types";
 import type { LiveGameRecord, LiveMoveInput } from "@/chess/live/types";
 
@@ -123,5 +124,8 @@ export function timeoutCompletion(game: LiveGameRecord, nowMs: number): LiveGame
   const current = liveClockAt(game, nowMs);
   if (!current) return null;
   const expired = expiredClockColor(current);
-  return expired ? { winnerColor: oppositeColor(expired), reason: "timeout" } : null;
+  if (!expired) return null;
+  const candidateWinner = oppositeColor(expired);
+  const chess = replayLiveMoves(game.initial_fen, game.moves);
+  return { winnerColor: canColorPossiblyCheckmate(chess, candidateWinner) ? candidateWinner : null, reason: "timeout" };
 }

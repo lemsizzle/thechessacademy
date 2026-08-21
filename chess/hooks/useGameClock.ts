@@ -26,8 +26,19 @@ export function useGameClock() {
   }, []);
 
   useEffect(() => {
-    const interval = window.setInterval(() => refresh(), 100);
-    return () => window.clearInterval(interval);
+    let timeout: number;
+    const tick = () => {
+      const snapshot = refresh();
+      const activeMs = snapshot?.activeColor === "white" ? snapshot.whiteMs : snapshot?.blackMs;
+      const delay = activeMs !== undefined && activeMs < 10_000
+        ? 100
+        : activeMs !== undefined
+          ? Math.max(100, Math.min(1_000, activeMs % 1_000 || 1_000))
+          : 1_000;
+      timeout = window.setTimeout(tick, delay);
+    };
+    timeout = window.setTimeout(tick, 100);
+    return () => window.clearTimeout(timeout);
   }, [refresh]);
 
   const reset = useCallback((control: TimeControl) => {
@@ -44,7 +55,17 @@ export function useGameClock() {
     const running = runningRef.current;
     const control = controlRef.current;
     if (!running || !control) return null;
-    const next = completeClockMove(running, mover, control.incrementMs, Date.now());
+    const now = Date.now();
+    const current = clockAt(running, now);
+    const expired = expiredClockColor(current);
+    if (expired) {
+      runningRef.current = null;
+      displayRef.current = current;
+      setDisplay(current);
+      setExpiredColor(expired);
+      return null;
+    }
+    const next = completeClockMove(running, mover, control.incrementMs, now);
     runningRef.current = next;
     const snapshot = { whiteMs: next.whiteMs, blackMs: next.blackMs, activeColor: next.activeColor };
     displayRef.current = snapshot;

@@ -56,6 +56,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=replace_with_supabase_anon_key
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=replace_with_supabase_publishable_key_if_used
 SUPABASE_SERVICE_ROLE_KEY=replace_with_server_only_service_role_key
 PUZZLE_SESSION_SECRET=replace_with_a_long_random_puzzle_session_secret
+STUDENT_SESSION_SECRET=replace_with_a_long_random_student_session_secret
 ```
 
 OpenAI-ready value:
@@ -93,6 +94,7 @@ Server-only secrets must not use the `NEXT_PUBLIC_` prefix. Keep these server-on
 
 - `ADMIN_PASSWORD`
 - `ADMIN_SESSION_SECRET`
+- `STUDENT_SESSION_SECRET`
 - `CRON_SECRET`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `PUZZLE_SESSION_SECRET`

@@ -40,7 +40,10 @@ function outcomeText(reason: GameResultReason, result: GameOutcome["result"]) {
   if (reason === "fifty_move_rule") return ["Draw by fifty-move rule", "Fifty moves passed without a pawn move or capture."];
   if (reason === "insufficient_material") return ["Draw by insufficient material", "There is not enough material left to checkmate."];
   if (reason === "resignation") return result === "win" ? ["Victory by resignation", "The computer resigned."] : ["Game resigned", "You resigned this game."];
-  if (reason === "timeout") return result === "win" ? ["Victory on time", "The computer's clock ran out."] : ["Time expired", "Your clock ran out."];
+  if (reason === "timeout") {
+    if (result === "draw") return ["Draw on time", "The clock expired, but the opponent had no possible checkmate."];
+    return result === "win" ? ["Victory on time", "The computer's clock ran out."] : ["Time expired", "Your clock ran out."];
+  }
   return ["Draw", "The game ended in a draw."];
 }
 
@@ -61,6 +64,29 @@ export function detectBoardOutcome(chess: Chess, humanColor: ChessColor): GameOu
   if (chess.isInsufficientMaterial()) return createOutcome("insufficient_material", null, humanColor);
   if (chess.isDraw()) return createOutcome("draw", null, humanColor);
   return null;
+}
+
+export function canColorPossiblyCheckmate(chess: Chess, color: ChessColor) {
+  const pieces = chess.board().flatMap((rank) => rank.filter((piece) => piece !== null));
+  const own = pieces.filter((piece) => fromChessJsColor(piece.color) === color);
+  const opponent = pieces.filter((piece) => fromChessJsColor(piece.color) !== color);
+  const ownNonKings = own.filter((piece) => piece.type !== "k");
+  if (!ownNonKings.length) return false;
+
+  const onlyKingAndOneKnight = ownNonKings.length === 1 && ownNonKings[0].type === "n";
+  const opponentOnlyKingAndQueens = opponent.every((piece) => piece.type === "k" || piece.type === "q");
+  if (onlyKingAndOneKnight && opponentOnlyKingAndQueens) return false;
+
+  const onlyKingAndBishops = ownNonKings.every((piece) => piece.type === "b");
+  if (onlyKingAndBishops) {
+    const bishopSquareColors = new Set(pieces
+      .filter((piece) => piece.type === "b")
+      .map((piece) => (piece.square.charCodeAt(0) - 97 + Number(piece.square[1])) % 2));
+    const opponentHasKnightOrPawn = opponent.some((piece) => piece.type === "n" || piece.type === "p");
+    if (bishopSquareColors.size < 2 && !opponentHasKnightOrPawn) return false;
+  }
+
+  return true;
 }
 
 export function undoComputerTurn(chess: Chess, humanColor: ChessColor) {

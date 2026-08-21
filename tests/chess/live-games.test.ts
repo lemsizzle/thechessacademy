@@ -87,6 +87,19 @@ describe("live chess game rules", () => {
     expect(timeoutCompletion(game, now)).toEqual({ winnerColor: "black", reason: "timeout" });
   });
 
+  it("draws on time when the opponent has no possible checkmate", () => {
+    const fen = "7k/8/8/8/8/8/7Q/7K w - - 0 1";
+    const game = record({ initial_fen: fen, current_fen: fen, moves: [], white_ms: 1_000, black_ms: 5_000 });
+    expect(timeoutCompletion(game, Date.parse("2026-08-21T12:00:02.000Z"))).toEqual({ winnerColor: null, reason: "timeout" });
+  });
+
+  it("counts a lone minor as mating material only when the flagged side can help block", () => {
+    const bareKingFen = "7k/8/8/8/8/8/6B1/7K w - - 0 1";
+    const blockingKnightFen = "7k/8/8/8/8/8/6B1/6nK w - - 0 1";
+    expect(timeoutCompletion(record({ initial_fen: bareKingFen, current_fen: bareKingFen, moves: [], white_ms: 1_000, black_ms: 5_000 }), Date.parse("2026-08-21T12:00:02.000Z"))).toEqual({ winnerColor: null, reason: "timeout" });
+    expect(timeoutCompletion(record({ initial_fen: blockingKnightFen, current_fen: blockingKnightFen, moves: [], white_ms: 1_000, black_ms: 5_000 }), Date.parse("2026-08-21T12:00:02.000Z"))).toEqual({ winnerColor: "black", reason: "timeout" });
+  });
+
   it("requires timeout claims before accepting moves after flag fall", () => {
     const game = record({ white_ms: 500, clock_started_at: "2026-08-21T12:00:00.000Z" });
     expect(() => applyLiveMove(game, WHITE_ID, { from: "e2", to: "e4", version: 1 }, Date.parse("2026-08-21T12:00:01Z"))).toThrow(LiveGameRuleError);

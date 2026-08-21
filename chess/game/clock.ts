@@ -18,6 +18,7 @@ export function clockAt(clock: RunningClock, now: number): ClockSnapshot {
 
 export function completeClockMove(clock: RunningClock, mover: ChessColor, incrementMs: number, now: number): RunningClock {
   const current = clockAt(clock, now);
+  if (expiredClockColor(current)) throw new Error("The clock has expired.");
   const next = {
     ...current,
     activeColor: oppositeColor(mover),

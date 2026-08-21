@@ -55,4 +55,35 @@ describe("completed game validation", () => {
     });
     expect(game.resultReason).toBe("resignation");
   });
+
+  it("rejects a timeout without a logically expired clock", () => {
+    const fen = new Chess().fen();
+    expect(() => validateCompletedGame({
+      ...checkmatePayload(),
+      result: "win",
+      resultReason: "timeout",
+      winnerColor: "white",
+      initialFen: fen,
+      finalFen: fen,
+      moves: [],
+      finalClock: { whiteMs: 600_000, blackMs: 600_000 },
+      completedAt: "2026-08-15T01:00:01.000Z"
+    })).toThrow(/clock|timeout/i);
+  });
+
+  it("normalizes a timeout draw when the opponent cannot possibly checkmate", () => {
+    const fen = "7k/8/8/8/8/8/7Q/7K w - - 0 1";
+    const game = validateCompletedGame({
+      ...checkmatePayload(),
+      result: "draw",
+      resultReason: "timeout",
+      winnerColor: null,
+      initialFen: fen,
+      finalFen: fen,
+      moves: [],
+      finalClock: { whiteMs: 0, blackMs: 5_000 },
+      completedAt: "2026-08-15T01:10:00.000Z"
+    });
+    expect(game.result).toBe("draw");
+  });
 });

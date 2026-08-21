@@ -144,16 +144,14 @@ async function persistCompletedPlayers(game: LiveGameRecord) {
     { playerId: game.white_player_id, playerColor: "white" as const, opponentId: game.black_player_id, opponentName: players.get(game.black_player_id)?.name ?? "Student" },
     { playerId: game.black_player_id, playerColor: "black" as const, opponentId: game.white_player_id, opponentName: players.get(game.white_player_id)?.name ?? "Student" }
   ];
-  for (const entry of entries) {
-    const { data: existing, error: existingError } = await serviceClient()
-      .from("internal_chess_games")
-      .select("id")
-      .eq("source_live_game_id", game.id)
-      .eq("player_id", entry.playerId)
-      .maybeSingle();
-    if (existingError) throw new LiveGameServerError(existingError.message, 500);
-    if (existing) continue;
-    const { error } = await serviceClient().from("internal_chess_games").insert({
+  const { data: existing, error: existingError } = await serviceClient()
+    .from("internal_chess_games")
+    .select("player_id")
+    .eq("source_live_game_id", game.id)
+    .in("player_id", entries.map((entry) => entry.playerId));
+  if (existingError) throw new LiveGameServerError(existingError.message, 500);
+  const existingIds = new Set((existing ?? []).map((row) => String(row.player_id)));
+  const missing = entries.filter((entry) => !existingIds.has(entry.playerId)).map((entry) => ({
       player_id: entry.playerId,
       opponent_type: "student",
       opponent_id: entry.opponentId,
@@ -170,9 +168,10 @@ async function persistCompletedPlayers(game: LiveGameRecord) {
       started_at: game.started_at,
       completed_at: game.completed_at,
       source_live_game_id: game.id
-    });
-    if (error && error.code !== "23505") throw new LiveGameServerError(error.message, 500);
-  }
+  }));
+  if (!missing.length) return;
+  const { error } = await serviceClient().from("internal_chess_games").insert(missing);
+  if (error && error.code !== "23505") throw new LiveGameServerError(error.message, 500);
 }
 
 async function updateWithVersion(game: LiveGameRecord, update: Record<string, unknown>) {

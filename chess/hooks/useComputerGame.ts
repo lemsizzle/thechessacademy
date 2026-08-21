@@ -3,7 +3,7 @@
 import { Chess } from "chess.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { chessJsColor, fromChessJsColor, oppositeColor } from "@/chess/game/config";
-import { createOutcome, detectBoardOutcome, gameMoves, hasHumanMove, promotionOptions, resultHeader, tryMove, undoComputerTurn } from "@/chess/game/rules";
+import { canColorPossiblyCheckmate, createOutcome, detectBoardOutcome, gameMoves, hasHumanMove, promotionOptions, resultHeader, tryMove, undoComputerTurn } from "@/chess/game/rules";
 import { useChessSounds } from "@/chess/hooks/useChessSounds";
 import { useGameClock } from "@/chess/hooks/useGameClock";
 import { useStockfish } from "@/chess/hooks/useStockfish";
@@ -104,6 +104,10 @@ export function useComputerGame() {
     const move = tryMove(chess, { from, to, promotion });
     if (!move) return false;
     const snapshot = completeClockMove(config.humanColor);
+    if (config.timeControl.initialMs !== null && !snapshot) {
+      chess.undo();
+      return false;
+    }
     clockHistoryRef.current.push(snapshot);
     engineRequestFenRef.current = null;
     syncPosition(move);
@@ -151,6 +155,10 @@ export function useComputerGame() {
       if (!move) throw new Error("Stockfish returned an illegal move.");
       const engineColor = oppositeColor(config.humanColor);
       const snapshot = completeClockMove(engineColor);
+      if (config.timeControl.initialMs !== null && !snapshot) {
+        chessRef.current.undo();
+        return;
+      }
       clockHistoryRef.current.push(snapshot);
       syncPosition(move);
       playMoveSound(Boolean(move.captured));
@@ -167,7 +175,9 @@ export function useComputerGame() {
 
   useEffect(() => {
     if (!config || !expiredColor || outcomeRef.current) return;
-    finishGame(createOutcome("timeout", oppositeColor(expiredColor), config.humanColor));
+    const candidateWinner = oppositeColor(expiredColor);
+    const winnerColor = canColorPossiblyCheckmate(chessRef.current, candidateWinner) ? candidateWinner : null;
+    finishGame(createOutcome("timeout", winnerColor, config.humanColor));
   }, [config, expiredColor, finishGame]);
 
   useEffect(() => {
@@ -187,6 +197,7 @@ export function useComputerGame() {
       finalFen: chess.fen(),
       pgn: chess.pgn(),
       moves: gameMoves(chess).map(({ from, to, promotion }) => ({ from, to, promotion })),
+      finalClock: clockDisplay ? { whiteMs: clockDisplay.whiteMs, blackMs: clockDisplay.blackMs } : null,
       startedAt: startedAtRef.current,
       completedAt: completedAtRef.current
     };
@@ -206,7 +217,7 @@ export function useComputerGame() {
       setSaveStatus("failed");
       setSaveMessage(error instanceof Error ? error.message : "Completed game could not be saved.");
     });
-  }, [config, outcome]);
+  }, [clockDisplay, config, outcome]);
 
   const resign = useCallback(() => {
     if (!config || outcomeRef.current) return;

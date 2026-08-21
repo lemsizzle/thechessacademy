@@ -1,6 +1,6 @@
 import { Chess } from "chess.js";
 import { BOT_DIFFICULTIES, TIME_CONTROLS, oppositeColor } from "@/chess/game/config";
-import { detectBoardOutcome, resultHeader } from "@/chess/game/rules";
+import { canColorPossiblyCheckmate, detectBoardOutcome, resultHeader } from "@/chess/game/rules";
 import type { ChessColor, GameMove, GameOutcome, GameResult, GameResultReason, PromotionPiece } from "@/chess/types";
 
 const RESULT_REASONS = new Set<GameResultReason>([
@@ -22,6 +22,7 @@ export type CompletedGamePayload = {
   finalFen: string;
   pgn: string;
   moves: Array<Pick<GameMove, "from" | "to" | "promotion">>;
+  finalClock: { whiteMs: number; blackMs: number } | null;
   startedAt: string;
   completedAt: string;
 };
@@ -99,6 +100,20 @@ export function validateCompletedGame(input: unknown) {
   }
 
   if (String(body.finalFen ?? "") !== chess.fen()) throw new Error("Final position does not match the move list.");
+  if (resultReason === "timeout") {
+    if (control.initialMs === null) throw new Error("A no-clock game cannot end on time.");
+    const finalClock = objectValue(body.finalClock);
+    const whiteMs = Number(finalClock.whiteMs);
+    const blackMs = Number(finalClock.blackMs);
+    if (!Number.isFinite(whiteMs) || !Number.isFinite(blackMs) || whiteMs < 0 || blackMs < 0 || (whiteMs <= 0) === (blackMs <= 0)) {
+      throw new Error("Invalid final clock state.");
+    }
+    if (completedAt.getTime() - startedAt.getTime() < control.initialMs) throw new Error("The timeout occurred before the clock could expire.");
+    const expiredColor: ChessColor = whiteMs <= 0 ? "white" : "black";
+    const candidateWinner = oppositeColor(expiredColor);
+    const expectedWinner = canColorPossiblyCheckmate(chess, candidateWinner) ? candidateWinner : null;
+    if (winnerColor !== expectedWinner) throw new Error("The timeout result does not match the final position and clock.");
+  }
   if (BOARD_REASONS.has(resultReason)) {
     const detected = detectBoardOutcome(chess, playerColor);
     if (!detected || detected.reason !== resultReason || detected.result !== result || detected.winnerColor !== winnerColor) {

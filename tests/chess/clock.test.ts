@@ -18,6 +18,7 @@ describe("reusable chess clock", () => {
     expect(snapshot.whiteMs).toBe(0);
     expect(expiredClockColor(snapshot)).toBe("white");
     expect(formatClock(snapshot.whiteMs)).toBe("0:00.0");
+    expect(() => completeClockMove({ whiteMs: 1_000, blackMs: 5_000, activeColor: "white", startedAt: 2_000 }, "white", 5_000, 3_500)).toThrow("expired");
   });
 
   it("disables clock state for no-clock games", () => {

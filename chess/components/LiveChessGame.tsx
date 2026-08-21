@@ -56,6 +56,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   const [boardArrows, setBoardArrows] = useState<Array<{ startSquare: string; endSquare: string; color: string }>>([]);
   const [boardCircles, setBoardCircles] = useState<Array<{ square: string; color: string }>>([]);
   const claimedVersion = useRef<number | null>(null);
+  const claimRetryAt = useRef(0);
 
   const receiveGame = useCallback((next: LiveGameSnapshot) => {
     setGame(next);
@@ -117,9 +118,21 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
 
   useEffect(() => {
     if (!game || game.status !== "active" || game.clocks.whiteMs === null) return;
-    const interval = window.setInterval(() => setNowMs(Date.now()), 100);
-    return () => window.clearInterval(interval);
-  }, [game?.status, game?.clocks.whiteMs]);
+    let timeout: number;
+    const tick = () => {
+      const nextNow = Date.now();
+      setNowMs(nextNow);
+      const remaining = clockValue(game, game.activeColor, nextNow, serverOffsetMs);
+      const delay = remaining !== null && remaining < 10_000
+        ? 100
+        : remaining !== null
+          ? Math.max(100, Math.min(1_000, remaining % 1_000 || 1_000))
+          : 1_000;
+      timeout = window.setTimeout(tick, delay);
+    };
+    timeout = window.setTimeout(tick, 100);
+    return () => window.clearTimeout(timeout);
+  }, [game, serverOffsetMs]);
 
   useEffect(() => {
     setBoardArrows([]);
@@ -127,6 +140,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
     setAnnotationStart(null);
     setPendingPromotion(null);
     claimedVersion.current = null;
+    claimRetryAt.current = 0;
   }, [game?.fen, game?.version]);
 
   const displayedClocks = useMemo(() => game ? {
@@ -149,6 +163,10 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
       receiveGame(body.game);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Game action failed.");
+      if (action === "claim_timeout") {
+        claimedVersion.current = null;
+        claimRetryAt.current = Date.now() + 3_000;
+      }
       if (action !== "offer_draw") void refresh();
     } finally {
       setPending(false);
@@ -157,7 +175,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   }, [game, pending, receiveGame, refresh]);
 
   useEffect(() => {
-    if (!game || game.status !== "active" || claimedVersion.current === game.version) return;
+    if (!game || game.status !== "active" || claimedVersion.current === game.version || Date.now() < claimRetryAt.current) return;
     const activeClock = displayedClocks[game.activeColor];
     if (activeClock !== 0) return;
     claimedVersion.current = game.version;
