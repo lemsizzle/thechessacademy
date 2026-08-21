@@ -26,8 +26,9 @@ describe("student session cookies", () => {
   it("rejects unsigned and tampered session payloads", () => {
     const { value } = sessionCookie();
     const [payload, signature] = value.split(".");
+    const tamperedSignature = `${signature.startsWith("A") ? "B" : "A"}${signature.slice(1)}`;
     expect(readStudentSession({ get: () => ({ value: payload }) })).toBeNull();
     expect(readStudentSession({ get: () => ({ value: `${payload.slice(0, -1)}A.${signature}` }) })).toBeNull();
-    expect(readStudentSession({ get: () => ({ value: `${payload}.${signature.slice(0, -1)}A` }) })).toBeNull();
+    expect(readStudentSession({ get: () => ({ value: `${payload}.${tamperedSignature}` }) })).toBeNull();
   });
 });

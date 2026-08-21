@@ -168,6 +168,20 @@ remain available through the existing authorized single-game analysis route;
 the history response exposes only a calculated move count. Every displayed row
 links to the existing game analysis board.
 
+## Teacher chess performance
+
+The teacher can open `/admin/chess-performance` to review internal play across
+the active roster. The server-rendered dashboard reports unique completed games,
+computer/live mode totals, 30-day activity, class-level participation, and each
+student's W–D–L, win rate, last game, and mode split. A completed live game is
+stored once per player for personal history, but the teacher summary deduplicates
+those two records by `source_live_game_id`.
+
+The page reads lightweight fields in bounded 1,000-row batches through the
+server-only service client. It has no browser database client or public API.
+Teacher actions link to the existing student editor and authorized analysis
+route, and active students with no saved games remain visible for coaching.
+
 The migration is committed but is not automatically applied by application
 startup. Apply it through the normal reviewed Supabase migration workflow before
 testing completed-game persistence in an environment.
