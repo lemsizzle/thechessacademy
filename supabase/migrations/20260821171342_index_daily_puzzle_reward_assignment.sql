@@ -1,0 +1,2 @@
+create index student_daily_puzzle_rewards_daily_puzzle_idx
+on public.student_daily_puzzle_rewards(puzzle_date, puzzle_id);

@@ -1,5 +1,6 @@
 import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { academyPuzzleDate, dailyPuzzlePivot } from "@/lib/puzzle-training/daily";
 import { lichessPuzzleThemes, puzzleLevelRatingRange, type ChessPuzzleRow, type PuzzleLevelSlug, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 const puzzleSelect = "id,lichess_puzzle_id,initial_fen,moves,start_mode,accepted_moves,source_kind,source_study_id,source_chapter_id,source_node_id,teacher_prompt,rating,rating_deviation,popularity,number_of_plays,themes,game_url,opening_tags,random_key,is_active";
@@ -25,6 +26,76 @@ export async function getTrainingPuzzle(puzzleId: string) {
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data as ChessPuzzleRow | null;
+}
+
+async function getDailyPuzzleAssignment(puzzleDate: string) {
+  const { data, error } = await serviceClient()
+    .from("daily_chess_puzzles")
+    .select("puzzle_id")
+    .eq("puzzle_date", puzzleDate)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as { puzzle_id: string } | null)?.puzzle_id ?? null;
+}
+
+async function dailyPuzzleCandidate(pivot: number, afterPivot: boolean) {
+  let query = serviceClient()
+    .from("chess_puzzles")
+    .select(puzzleSelect)
+    .eq("is_active", true)
+    .eq("source_kind", "lichess")
+    .gte("rating", 600)
+    .lte("rating", 2200)
+    .order("random_key", { ascending: true })
+    .limit(1);
+  query = afterPivot ? query.gte("random_key", pivot) : query.lt("random_key", pivot);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return ((data ?? [])[0] as ChessPuzzleRow | undefined) ?? null;
+}
+
+export async function getDailyTrainingPuzzle(studentId: string) {
+  const puzzleDate = academyPuzzleDate();
+  let puzzleId = await getDailyPuzzleAssignment(puzzleDate);
+
+  if (!puzzleId) {
+    const pivot = dailyPuzzlePivot(puzzleDate);
+    const candidate = await dailyPuzzleCandidate(pivot, true) ?? await dailyPuzzleCandidate(pivot, false);
+    if (!candidate) return null;
+    const { error } = await serviceClient()
+      .from("daily_chess_puzzles")
+      .upsert({ puzzle_date: puzzleDate, puzzle_id: candidate.id }, { onConflict: "puzzle_date", ignoreDuplicates: true });
+    if (error) throw new Error(error.message);
+    puzzleId = await getDailyPuzzleAssignment(puzzleDate);
+  }
+
+  if (!puzzleId) return null;
+  const puzzle = await getTrainingPuzzle(puzzleId);
+  if (!puzzle) return null;
+  const { data: reward, error: rewardError } = await serviceClient()
+    .from("student_daily_puzzle_rewards")
+    .select("id")
+    .eq("student_id", studentId)
+    .eq("puzzle_date", puzzleDate)
+    .maybeSingle();
+  if (rewardError) throw new Error(rewardError.message);
+  return { puzzle, puzzleDate, rewardClaimed: Boolean(reward) };
+}
+
+export async function awardDailyTrainingPuzzle(studentId: string, puzzleId: string, puzzleDate: string) {
+  if (puzzleDate !== academyPuzzleDate()) throw new Error("This Puzzle of the Day has expired.");
+  const { data, error } = await serviceClient().rpc("award_daily_puzzle", {
+    p_student_id: studentId,
+    p_puzzle_id: puzzleId,
+    p_puzzle_date: puzzleDate
+  });
+  if (error) throw new Error(error.message);
+  const result = data as { awarded?: boolean; xpAwarded?: number; coinsAwarded?: number } | null;
+  return {
+    awarded: result?.awarded === true,
+    xpAwarded: Number(result?.xpAwarded ?? 0),
+    coinsAwarded: Number(result?.coinsAwarded ?? 0)
+  };
 }
 
 async function candidateQuery(theme: Exclude<PuzzleThemeSlug, "mixed">, level: PuzzleLevelSlug, pivot: number, afterPivot: boolean) {

@@ -2,11 +2,11 @@ import type { LichessQuestProgress, Quest } from "@/lib/types";
 import { questProgressIdentity } from "@/lib/quests/questProgressIdentity";
 
 function hasFreshSyncError(progress: LichessQuestProgress) {
-  return /sync did not return fresh data|sync paused|rate-limited|rate limit reached|requires the student's Lichess login token/i.test(progress.evidence);
+  return /sync did not return fresh data|sync paused|rate-limited|rate limit reached|requires the student's Lichess login token|quest activity could not be read/i.test(progress.evidence);
 }
 
 function shouldKeepHighWaterMark(quest?: Quest) {
-  return quest?.conditionType !== "puzzle_accuracy_threshold" && quest?.conditionType !== "rating_peak";
+  return quest?.conditionType !== "puzzle_accuracy_threshold" && quest?.conditionType !== "internal_puzzle_accuracy_threshold" && quest?.conditionType !== "rating_peak";
 }
 
 function mergeOneProgress(previous: LichessQuestProgress | undefined, next: LichessQuestProgress, quest?: Quest) {

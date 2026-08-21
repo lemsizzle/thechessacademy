@@ -9,6 +9,7 @@ import {
   tryAddFast,
   type ImportCandidate
 } from "../../lib/puzzle-training/importSampling";
+import { lichessPuzzleThemes } from "../../lib/puzzle-training/types";
 
 function candidate(id: string, themes: string[]): ImportCandidate {
   return { lichess_puzzle_id: id, themes };
@@ -23,14 +24,14 @@ describe("fast puzzle selection", () => {
     expect(counts).toMatchObject({ fork: 1, pin: 1 });
   });
 
-  it("does not exceed any theme cap or add duplicate IDs", () => {
+  it("can fill an overlapping tactic after another tactic reaches its cap", () => {
     const selected = new Map<string, ImportCandidate>();
     const counts = emptyThemeCounts();
     expect(tryAddFast(candidate("one", ["fork"]), selected, counts, 1)).toBe(true);
     expect(tryAddFast(candidate("one", ["fork"]), selected, counts, 1)).toBe(false);
-    expect(tryAddFast(candidate("two", ["fork", "pin"]), selected, counts, 1)).toBe(false);
+    expect(tryAddFast(candidate("two", ["fork", "pin"]), selected, counts, 1)).toBe(true);
     expect(counts.fork).toBe(1);
-    expect(counts.pin).toBe(0);
+    expect(counts.pin).toBe(1);
   });
 });
 
@@ -48,18 +49,13 @@ describe("bounded reservoir sampling", () => {
   it("unifies overlapping reservoirs without exceeding theme targets", () => {
     const reservoirs = emptyReservoirs<ImportCandidate>();
     const qualifying = emptyThemeCounts();
-    const rows = [
-      candidate("overlap", ["fork", "pin"]),
-      candidate("fork", ["fork"]),
-      candidate("pin", ["pin"]),
-      candidate("skewer-1", ["skewer"]),
-      candidate("skewer-2", ["skewer"]),
-      candidate("mate-1", ["mateIn1"]),
-      candidate("mate-2", ["mateIn1"])
-    ];
+    const rows = lichessPuzzleThemes.flatMap((theme) => [
+      candidate(`${theme}-1`, [theme]),
+      candidate(`${theme}-2`, [theme])
+    ]);
     for (const row of rows) considerForReservoir(row, reservoirs, qualifying, 2, () => 0.99);
     const result = finalizeReservoirs(reservoirs, 2, () => 0.99);
-    expect(result.selected.size).toBeLessThanOrEqual(8);
+    expect(result.selected.size).toBeLessThanOrEqual(lichessPuzzleThemes.length * 2);
     expect(Object.values(result.counts).every((count) => count <= 2)).toBe(true);
     expect(quotasComplete(result.counts, 2)).toBe(true);
   });

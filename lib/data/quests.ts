@@ -45,7 +45,7 @@ function toQuestStatus(value: string | null | undefined, isLive: boolean): Quest
 }
 
 function toQuestSource(value: string | null | undefined): QuestSource | undefined {
-  if (value === "lichess_games" || value === "lichess_puzzles" || value === "lichess_tournaments" || value === "internal_submission" || value === "manual") return value;
+  if (value === "lichess_games" || value === "lichess_puzzles" || value === "lichess_tournaments" || value === "internal_games" || value === "internal_puzzles" || value === "internal_submission" || value === "manual") return value;
   return undefined;
 }
 
@@ -64,6 +64,17 @@ function toQuestConditionType(value: string | null | undefined): QuestConditionT
     "arena_score_threshold",
     "tournament_participation",
     "rating_peak",
+    "internal_games_played_count",
+    "internal_games_won_count",
+    "internal_computer_games_played_count",
+    "internal_computer_games_won_count",
+    "internal_live_games_played_count",
+    "internal_live_games_won_count",
+    "internal_puzzle_attempted_count",
+    "internal_puzzle_solved_count",
+    "internal_puzzle_first_try_count",
+    "internal_puzzle_accuracy_threshold",
+    "internal_puzzle_theme_solved_count",
     "manual"
   ];
   return conditions.find((condition) => condition === value);

@@ -22,7 +22,7 @@ import { ALL_CLASSES, UNASSIGNED_CLASS, getClassGroupNames, getClassRoster, getC
 import { createPendingAwardsFromProgress, getTacticProgressCount } from "@/lib/lichess";
 import { getStudentXpWithLichess, withLichessActivityBaseline } from "@/lib/lichessXp";
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
-import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, questSources, questTacticThemes, questTimeWindows } from "@/lib/quests/questOptions";
+import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, isAutomatedQuestSource, questSources, questTacticThemes, questTimeWindows } from "@/lib/quests/questOptions";
 import { formatCountdown, isQuestAttemptActive } from "@/lib/quests/questAttempts";
 import { formatQuestEvidence } from "@/lib/quests/formatQuestEvidence";
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
@@ -1065,21 +1065,67 @@ export function AdminPanel({
 
   function updateQuestSource(source: QuestSource) {
     const defaultCondition = getConditionsForSource(source)[0]?.value ?? "manual";
+    const automated = isAutomatedQuestSource(source);
     setQuestDraft((quest) => ({
       ...quest,
       source,
-      category: source.startsWith("lichess_") ? "Lichess" : quest.category,
+      category: source.startsWith("lichess_") ? "Lichess" : source.startsWith("internal_") ? "Academy" : quest.category,
       conditionType: defaultCondition,
       timeWindow: source === "lichess_tournaments" ? "tournament" : quest.timeWindow ?? "weekly",
       requiredCount: quest.requiredCount ?? 1,
-      approvalRequired: source.startsWith("lichess_") ? true : quest.approvalRequired,
+      completionUrl: source === "internal_games" ? "/student/play" : source === "internal_puzzles" ? "/student/training" : quest.completionUrl,
+      approvalRequired: automated ? true : quest.approvalRequired,
       isActive: true,
-      isRepeatable: source.startsWith("lichess_") ? true : quest.isRepeatable ?? false,
+      isRepeatable: automated ? true : quest.isRepeatable ?? false,
       cooldownDays: source === "lichess_tournaments" ? 0 : quest.cooldownDays ?? 7
     }));
   }
 
-  function applyQuestPreset(preset: "rated-win" | "blitz-play" | "ten-puzzles") {
+  function applyQuestPreset(preset: "academy-game" | "academy-puzzles" | "rated-win" | "blitz-play" | "ten-puzzles") {
+    if (preset === "academy-game") {
+      setQuestDraft((quest) => ({
+        ...quest,
+        title: quest.title.startsWith("New Quest") ? "Play an Academy Game" : quest.title,
+        description: "Complete a game against the computer or another student inside Chess Academy.",
+        source: "internal_games",
+        conditionType: "internal_games_played_count",
+        category: "Academy",
+        status: "in-progress",
+        isLive: true,
+        completionUrl: "/student/play",
+        timeWindow: "weekly",
+        requiredCount: 1,
+        xpReward: quest.xpReward || 100,
+        approvalRequired: true,
+        isActive: true,
+        isRepeatable: true,
+        cooldownDays: 1
+      }));
+      return;
+    }
+
+    if (preset === "academy-puzzles") {
+      setQuestDraft((quest) => ({
+        ...quest,
+        title: quest.title.startsWith("New Quest") ? "Solve 10 Academy Puzzles" : quest.title,
+        description: "Solve 10 server-verified puzzles inside Chess Academy Puzzle Training.",
+        source: "internal_puzzles",
+        conditionType: "internal_puzzle_solved_count",
+        category: "Academy",
+        status: "in-progress",
+        isLive: true,
+        completionUrl: "/student/training",
+        timeWindow: "weekly",
+        requiredCount: 10,
+        xpReward: quest.xpReward || 100,
+        approvalRequired: true,
+        isActive: true,
+        isRepeatable: true,
+        cooldownDays: 1
+      }));
+      return;
+    }
+
     if (preset === "rated-win") {
       setQuestDraft((quest) => ({
         ...quest,
@@ -1827,7 +1873,7 @@ export function AdminPanel({
                     <p className="mt-2 font-black text-white">{quest.title}</p>
                     <p className="mt-1 line-clamp-2 text-xs text-slate-400">{quest.description}</p>
                     <p className="mt-2 text-xs text-amber-100">{quest.xpReward} XP{rewardBadge ? ` - ${rewardBadge.name}` : ""}</p>
-                    {quest.source?.startsWith("lichess_") && <p className="mt-1 text-xs text-cyan-100">{getQuestConditionLabel(quest.conditionType)} - {quest.requiredCount ?? quest.requiredScore ?? 1} required</p>}
+                    {isAutomatedQuestSource(quest.source) && <p className="mt-1 text-xs text-cyan-100">{getQuestConditionLabel(quest.conditionType)} - {quest.requiredCount ?? quest.requiredScore ?? 1} required</p>}
                   </div>
                   <Button variant={isSelected ? "secondary" : "ghost"} onClick={() => setSelectedQuest(quest.id)}>
                     {isSelected ? "Editing" : "Edit"}
@@ -1842,7 +1888,7 @@ export function AdminPanel({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-black text-white">Edit Selected Quest</h3>
-            <p className="mt-1 text-xs text-slate-400">Manual quests are completed by you. Lichess quests sync activity, then wait for teacher approval before awarding XP.</p>
+            <p className="mt-1 text-xs text-slate-400">Manual quests are completed by you. Automated quests verify saved Academy or Lichess activity inside each student's started quest window.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={saveQuest} disabled={questSaving}>{questSaving ? "Saving..." : "Save Quest"}</Button>
@@ -1875,10 +1921,12 @@ export function AdminPanel({
         </label>
         <div className="grid gap-2 rounded-md border border-cyan-300/15 bg-cyan-300/[0.06] p-3 text-xs font-bold text-slate-300 md:col-span-2">
           <div>
-            <p className="uppercase text-cyan-100">Quick Lichess Goals</p>
+            <p className="uppercase text-cyan-100">Quick Activity Goals</p>
             <p className="mt-1 font-normal text-slate-400">Pick one, then adjust the count or XP if needed.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => applyQuestPreset("academy-game")}>Play an Academy Game</Button>
+            <Button variant="secondary" onClick={() => applyQuestPreset("academy-puzzles")}>Solve Academy Puzzles</Button>
             <Button variant="secondary" onClick={() => applyQuestPreset("rated-win")}>Win 1 Rated Game</Button>
             <Button variant="secondary" onClick={() => applyQuestPreset("blitz-play")}>Play Blitz Games</Button>
             <Button variant="secondary" onClick={() => applyQuestPreset("ten-puzzles")}>Solve 10 Puzzles</Button>
@@ -1889,7 +1937,7 @@ export function AdminPanel({
             {getConditionsForSource(questDraft.source ?? "manual").map((condition) => <option key={condition.value} value={condition.value}>{condition.label}</option>)}
           </select>
         </label>
-        {questDraft.source?.startsWith("lichess_") && (
+        {isAutomatedQuestSource(questDraft.source) && (
           <>
             <label className="grid gap-1 text-xs font-bold text-slate-300">Time Window
               <select className={fieldClass()} value={questDraft.timeWindow ?? "weekly"} onChange={(event) => updateQuestDraft({ timeWindow: event.target.value as QuestTimeWindow })}>
@@ -1904,12 +1952,12 @@ export function AdminPanel({
                 <input className={fieldClass()} type="number" min={0} value={questDraft.requiredScore ?? 0} onChange={(event) => updateQuestDraft({ requiredScore: Math.max(0, Number(event.target.value) || 0) })} />
               </label>
             )}
-            {questDraft.conditionType === "puzzle_accuracy_threshold" && (
+            {(questDraft.conditionType === "puzzle_accuracy_threshold" || questDraft.conditionType === "internal_puzzle_accuracy_threshold") && (
               <label className="grid gap-1 text-xs font-bold text-slate-300">Required Accuracy %
                 <input className={fieldClass()} type="number" min={0} max={100} value={questDraft.requiredAccuracy ?? 80} onChange={(event) => updateQuestDraft({ requiredAccuracy: Math.min(100, Math.max(0, Number(event.target.value) || 0)) })} />
               </label>
             )}
-            {questDraft.conditionType === "puzzle_theme_solved_count" && (
+            {(questDraft.conditionType === "puzzle_theme_solved_count" || questDraft.conditionType === "internal_puzzle_theme_solved_count") && (
               <label className="grid gap-1 text-xs font-bold text-slate-300">Tactic Theme
                 <select className={fieldClass()} value={questDraft.requiredTheme ?? ""} onChange={(event) => updateQuestDraft({ requiredTheme: (event.target.value || undefined) as TacticTheme | undefined })}>
                   <option value="">Any theme</option>
@@ -1947,11 +1995,11 @@ export function AdminPanel({
           <input className={fieldClass()} list="class-groups" value={questDraft.classGroup ?? ""} onChange={(event) => updateQuestDraft({ classGroup: event.target.value })} />
           <datalist id="class-groups">{classGroups.map((group) => <option key={group} value={group} />)}</datalist>
         </label>
-        {questDraft.source?.startsWith("lichess_") && (
+        {isAutomatedQuestSource(questDraft.source) && (
           <div className="grid gap-2 rounded-md border border-white/10 bg-white/5 p-3 text-xs font-bold text-slate-300">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={questDraft.isActive !== false} onChange={(event) => updateQuestDraft({ isActive: event.target.checked })} className="h-4 w-4 accent-cyan-300" />
-              Active for Lichess sync
+              Active for activity refresh
             </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={questDraft.isRepeatable === true} onChange={(event) => updateQuestDraft({ isRepeatable: event.target.checked })} className="h-4 w-4 accent-cyan-300" />

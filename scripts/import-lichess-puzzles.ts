@@ -57,51 +57,53 @@ type ImportMode = "fast" | "sample";
 
 const ZSTD_SKIPPABLE_MAGIC_MIN = 0x184d2a50;
 const ZSTD_SKIPPABLE_MAGIC_MAX = 0x184d2a5f;
+const ZSTD_FRAME_MAGIC = 0xfd2fb528;
+const MAX_SKIPPABLE_FRAME_SIZE = 1024 * 1024;
 
 class StripZstdSkippableFrames extends Transform {
-  private prefix = Buffer.alloc(0);
-  private skipRemaining = 0;
-  private foundFrame = false;
+  private pending = Buffer.alloc(0);
 
   _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback) {
     try {
-      if (this.foundFrame) {
-        this.push(chunk);
-        callback();
-        return;
-      }
-
-      let input = chunk;
-      if (this.skipRemaining > 0) {
-        const skipped = Math.min(this.skipRemaining, input.length);
-        this.skipRemaining -= skipped;
-        input = input.subarray(skipped);
-        if (!input.length) {
-          callback();
-          return;
+      this.pending = Buffer.concat([this.pending, chunk]);
+      while (this.pending.length >= 4) {
+        let skippableIndex = -1;
+        for (let index = 0; index <= this.pending.length - 4; index += 1) {
+          const magic = this.pending.readUInt32LE(index);
+          if (magic >= ZSTD_SKIPPABLE_MAGIC_MIN && magic <= ZSTD_SKIPPABLE_MAGIC_MAX) {
+            skippableIndex = index;
+            break;
+          }
         }
-      }
 
-      this.prefix = Buffer.concat([this.prefix, input]);
-      while (this.prefix.length >= 4) {
-        const magic = this.prefix.readUInt32LE(0);
-        if (magic < ZSTD_SKIPPABLE_MAGIC_MIN || magic > ZSTD_SKIPPABLE_MAGIC_MAX) {
-          this.foundFrame = true;
-          this.push(this.prefix);
-          this.prefix = Buffer.alloc(0);
-          callback();
-          return;
+        if (skippableIndex < 0) {
+          this.push(this.pending.subarray(0, -3));
+          this.pending = this.pending.subarray(-3);
+          break;
         }
-        if (this.prefix.length < 8) break;
-        const frameSize = this.prefix.readUInt32LE(4);
-        const totalSize = 8 + frameSize;
-        if (this.prefix.length >= totalSize) {
-          this.prefix = this.prefix.subarray(totalSize);
+
+        if (skippableIndex > 0) {
+          this.push(this.pending.subarray(0, skippableIndex));
+          this.pending = this.pending.subarray(skippableIndex);
+        }
+        if (this.pending.length < 8) break;
+
+        const frameSize = this.pending.readUInt32LE(4);
+        const frameEnd = 8 + frameSize;
+        if (frameSize > MAX_SKIPPABLE_FRAME_SIZE) {
+          this.push(this.pending.subarray(0, 1));
+          this.pending = this.pending.subarray(1);
           continue;
         }
-        this.skipRemaining = totalSize - this.prefix.length;
-        this.prefix = Buffer.alloc(0);
-        break;
+        if (this.pending.length < frameEnd + 4) break;
+
+        if (this.pending.readUInt32LE(frameEnd) !== ZSTD_FRAME_MAGIC) {
+          this.push(this.pending.subarray(0, 1));
+          this.pending = this.pending.subarray(1);
+          continue;
+        }
+
+        this.pending = this.pending.subarray(frameEnd);
       }
       callback();
     } catch (error) {
@@ -110,10 +112,7 @@ class StripZstdSkippableFrames extends Transform {
   }
 
   _flush(callback: TransformCallback) {
-    if (!this.foundFrame && (this.prefix.length || this.skipRemaining)) {
-      callback(new Error("The Zstandard file ended before a puzzle-data frame was found."));
-      return;
-    }
+    if (this.pending.length) this.push(this.pending);
     callback();
   }
 }
@@ -219,7 +218,7 @@ async function main() {
   const ratingMax = integerEnv("PUZZLE_IMPORT_RATING_MAX", 2200);
   const minimumPopularity = integerEnv("PUZZLE_IMPORT_MIN_POPULARITY", 70);
   const minimumPlays = integerEnv("PUZZLE_IMPORT_MIN_PLAYS", 50);
-  const perTheme = Math.max(1, integerEnv("PUZZLE_IMPORT_PER_THEME", 2500));
+  const perTheme = Math.max(1, integerEnv("PUZZLE_IMPORT_PER_THEME", 1000));
   const batchSize = Math.min(500, Math.max(250, integerEnv("PUZZLE_IMPORT_BATCH_SIZE", 250)));
   const progressEvery = Math.max(1000, integerEnv("PUZZLE_IMPORT_PROGRESS_EVERY", 50_000));
 

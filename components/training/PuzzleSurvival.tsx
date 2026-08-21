@@ -7,18 +7,12 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { legalDestinations, parseUciMove } from "@/lib/puzzle-training/engine";
-import { parsePuzzleLevel, parsePuzzleTheme, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
+import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 const SESSION_LENGTH = 10;
 const STARTING_LIVES = 3;
-
-const themes: Array<{ id: PuzzleThemeSlug; name: string; description: string }> = [
-  { id: "mixed", name: "Mixed", description: "A shuffled selection of every academy tactic." },
-  { id: "fork", name: "Forks", description: "One piece attacks two or more targets at once." },
-  { id: "pin", name: "Pins", description: "A piece cannot safely move because something more valuable is behind it." },
-  { id: "skewer", name: "Skewers", description: "A valuable piece must move, exposing another piece behind it." },
-  { id: "mateIn1", name: "Mate in 1", description: "Find the move that checkmates immediately." }
-];
+const MOVE_ANIMATION_MS = 120;
+const OPPONENT_REPLY_DELAY_MS = 140;
 
 const levels: Array<{ id: PuzzleLevelSlug; name: string; rating: string }> = [
   { id: "all", name: "All levels", rating: "600–2200" },
@@ -29,6 +23,7 @@ const levels: Array<{ id: PuzzleLevelSlug; name: string; rating: string }> = [
 ];
 
 type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "summary" | "error";
+type TrainingMode = "session" | "daily";
 
 function formatTime(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
@@ -41,11 +36,36 @@ function percentage(solved: number, mistakes: number) {
   return total ? Math.round((solved / total) * 100) : 100;
 }
 
+function PuzzleTimer({ running }: { running: boolean }) {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => setSeconds((value) => value + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [running]);
+
+  return formatTime(seconds);
+}
+
+function optimisticMoveFen(fen: string, from: string, to: string) {
+  try {
+    const chess = new Chess(fen);
+    const piece = chess.get(from as Square);
+    const promotes = piece?.type === "p" && (to.endsWith("1") || to.endsWith("8"));
+    chess.move({ from, to, ...(promotes ? { promotion: "q" } : {}) });
+    return chess.fen();
+  } catch {
+    return null;
+  }
+}
+
 export function PuzzleSurvival() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedTheme, setSelectedTheme] = useState<PuzzleThemeSlug>(() => parsePuzzleTheme(searchParams.get("theme")));
   const [selectedLevel, setSelectedLevel] = useState<PuzzleLevelSlug>(() => parsePuzzleLevel(searchParams.get("level")));
+  const [trainingMode, setTrainingMode] = useState<TrainingMode>("session");
   const [phase, setPhase] = useState<TrainerPhase>("select");
   const [puzzle, setPuzzle] = useState<PublicTrainingPuzzle | null>(null);
   const [positionFen, setPositionFen] = useState("");
@@ -59,7 +79,6 @@ export function PuzzleSurvival() {
   const [hintDestination, setHintDestination] = useState<string | null>(null);
   const [message, setMessage] = useState("Choose a training theme to begin.");
   const [error, setError] = useState("");
-  const [elapsed, setElapsed] = useState(0);
   const [lives, setLives] = useState(STARTING_LIVES);
   const [completed, setCompleted] = useState(0);
   const [solved, setSolved] = useState(0);
@@ -73,12 +92,6 @@ export function PuzzleSurvival() {
   const sessionId = useRef(crypto.randomUUID());
   const moveLocked = useRef(false);
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (phase !== "turn" && phase !== "reply") return;
-    const timer = window.setInterval(() => setElapsed((value) => value + 1), 1000);
-    return () => window.clearInterval(timer);
-  }, [phase]);
 
   useEffect(() => () => {
     if (replyTimer.current) clearTimeout(replyTimer.current);
@@ -104,15 +117,16 @@ export function PuzzleSurvival() {
     setHintDestination(null);
   }
 
-  async function loadPuzzle() {
+  async function loadPuzzle(mode = trainingMode) {
+    setTrainingMode(mode);
     setPhase("loading");
     setError("");
     setMessage("Preparing the next position...");
-    setElapsed(0);
     setCompletion(null);
     clearBoardMarks();
     moveLocked.current = false;
     const query = new URLSearchParams({ theme: selectedTheme, level: selectedLevel, sessionId: sessionId.current });
+    if (mode === "daily") query.set("daily", "1");
     if (recentPuzzleIds.current.length) query.set("exclude", recentPuzzleIds.current.slice(-10).join(","));
 
     try {
@@ -132,6 +146,7 @@ export function PuzzleSurvival() {
   }
 
   function startSession() {
+    setTrainingMode("session");
     sessionId.current = crypto.randomUUID();
     recentPuzzleIds.current = [];
     setLives(STARTING_LIVES);
@@ -142,7 +157,22 @@ export function PuzzleSurvival() {
     setSolveTimes([]);
     setCurrentStreak(0);
     setBestStreak(0);
-    void loadPuzzle();
+    void loadPuzzle("session");
+  }
+
+  function startDailyPuzzle() {
+    sessionId.current = crypto.randomUUID();
+    recentPuzzleIds.current = [];
+    setTrainingMode("daily");
+    setLives(STARTING_LIVES);
+    setCompleted(0);
+    setSolved(0);
+    setFirstTrySolves(0);
+    setIncorrectAttempts(0);
+    setSolveTimes([]);
+    setCurrentStreak(0);
+    setBestStreak(0);
+    void loadPuzzle("daily");
   }
 
   async function finishFailedAttempt(failedToken: string) {
@@ -193,9 +223,19 @@ export function PuzzleSurvival() {
     }
 
     moveLocked.current = true;
+    const previousFen = positionFen;
+    const optimisticFen = optimisticMoveFen(previousFen, from, to);
+    if (!optimisticFen) {
+      moveLocked.current = false;
+      return false;
+    }
     setSelectedSquare(null);
     setLegalSquares([]);
     setIncorrectSquare(null);
+    setCorrectMove(null);
+    setLastMove([from, to]);
+    setPositionFen(optimisticFen);
+    setMessage("Checking move...");
     try {
       const response = await fetch("/api/student/puzzle-training/move", {
         method: "POST",
@@ -211,6 +251,8 @@ export function PuzzleSurvival() {
         setIncorrectAttempts((value) => value + 1);
         setCurrentStreak(0);
         setLives(remainingLives);
+        setPositionFen(result.positionFen);
+        setLastMove(null);
         setIncorrectSquare(to);
         setMessage(`Incorrect destination. ${Math.max(remainingLives, 0)} ${remainingLives === 1 ? "chance" : "chances"} left.`);
         window.setTimeout(() => setIncorrectSquare(null), 700);
@@ -223,7 +265,6 @@ export function PuzzleSurvival() {
       }
 
       setCorrectMove([from, to]);
-      setLastMove([from, to]);
       if (result.studentFen) setPositionFen(result.studentFen);
       setMessage(result.message);
 
@@ -238,7 +279,7 @@ export function PuzzleSurvival() {
         setSolveTimes((values) => [...values, result.completion!.elapsedSeconds]);
         if (result.completion.mistakes === 0 && result.completion.hintsUsed === 0) setFirstTrySolves((value) => value + 1);
         setCompletion(result.completion);
-        setPhase(nextCompleted >= SESSION_LENGTH ? "summary" : "solved");
+        setPhase(trainingMode === "daily" || nextCompleted >= SESSION_LENGTH ? "summary" : "solved");
         moveLocked.current = false;
         return true;
       }
@@ -254,9 +295,12 @@ export function PuzzleSurvival() {
         setMessage("Your turn. Continue the solution.");
         setPhase("turn");
         moveLocked.current = false;
-      }, 500);
+      }, OPPONENT_REPLY_DELAY_MS);
       return true;
     } catch (moveError) {
+      setPositionFen(previousFen);
+      setLastMove(null);
+      setCorrectMove(null);
       setError(moveError instanceof Error ? moveError.message : "Move could not be checked.");
       setMessage("The move was not submitted. Try again.");
       moveLocked.current = false;
@@ -321,7 +365,7 @@ export function PuzzleSurvival() {
     position: positionFen || undefined,
     boardOrientation: puzzle?.orientation ?? "white",
     showNotation: true,
-    animationDurationInMs: 350,
+    animationDurationInMs: MOVE_ANIMATION_MS,
     showAnimations: true,
     allowDragging: phase === "turn",
     allowDragOffBoard: false,
@@ -334,29 +378,38 @@ export function PuzzleSurvival() {
     canDragPiece: ({ piece }) => phase === "turn" && !moveLocked.current && piece.pieceType.startsWith(puzzle?.orientation === "black" ? "b" : "w"),
     onSquareClick: ({ square }) => handleSquareClick(square),
     onPieceDrop: ({ sourceSquare, targetSquare }) => {
-      if (targetSquare) void submitMove(sourceSquare, targetSquare);
-      return false;
+      if (!targetSquare || !legalDestinations(positionFen, sourceSquare).includes(targetSquare)) return false;
+      void submitMove(sourceSquare, targetSquare);
+      return true;
     }
   };
 
   const averageTime = solveTimes.length ? Math.round(solveTimes.reduce((sum, value) => sum + value, 0) / solveTimes.length) : 0;
-  const selectedThemeName = themes.find((theme) => theme.id === selectedTheme)?.name ?? "Mixed";
+  const selectedThemeOption = puzzleThemeOptions.find((theme) => theme.id === selectedTheme);
+  const selectedThemeName = selectedThemeOption?.name ?? "Mixed tactics";
   const selectedLevelName = levels.find((level) => level.id === selectedLevel)?.name ?? "All levels";
 
   if (phase === "select") {
     return (
       <div className="space-y-5">
-        <div>
-          <p className="mb-3 text-xs font-black uppercase tracking-wide text-cyan-100">1. Choose a tactic</p>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" role="radiogroup" aria-label="Puzzle theme">
-          {themes.map((theme) => (
-            <button key={theme.id} type="button" role="radio" aria-checked={selectedTheme === theme.id} onClick={() => chooseTheme(theme.id)} className={`min-h-32 rounded-lg border p-4 text-left transition active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${selectedTheme === theme.id ? "border-amber-300 bg-amber-300/12 shadow-gold" : "border-white/10 bg-slate-950/58 hover:border-cyan-200/40 hover:bg-cyan-300/5"}`}>
-              <span className="text-base font-black text-white">{theme.name}</span>
-              <span className="mt-2 block text-sm leading-5 text-slate-400">{theme.description}</span>
-            </button>
-          ))}
-        </div>
-        </div>
+        <Card className="overflow-hidden border-amber-300/35 bg-gradient-to-br from-amber-300/15 via-slate-950/75 to-fuchsia-400/10 p-5 shadow-gold">
+          <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
+            <div>
+              <div className="flex flex-wrap items-center gap-2"><span className="text-2xl" aria-hidden="true">♛</span><p className="text-xs font-black uppercase tracking-[0.16em] text-amber-200">Puzzle of the Day</p><span className="rounded-full border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-[10px] font-black uppercase text-amber-100">Changes daily</span></div>
+              <h2 className="mt-3 text-2xl font-black text-white">One challenge. Bonus rewards.</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Solve today&apos;s shared Academy puzzle to earn <strong className="text-amber-100">10 XP</strong> and <strong className="text-amber-100">10 Academy Coins</strong>. The reward can be claimed once each day.</p>
+            </div>
+            <Button type="button" onClick={startDailyPuzzle}>Play Today&apos;s Puzzle</Button>
+          </div>
+        </Card>
+        <div className="grid gap-5 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.2fr)]">
+          <div>
+            <label htmlFor="puzzle-theme" className="mb-3 block text-xs font-black uppercase tracking-wide text-cyan-100">1. Choose a tactic</label>
+            <select id="puzzle-theme" value={selectedTheme} onChange={(event) => chooseTheme(event.target.value as PuzzleThemeSlug)} className="w-full rounded-lg border border-cyan-200/30 bg-slate-950 px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-cyan-200 focus:ring-2 focus:ring-cyan-200/30">
+              {puzzleThemeOptions.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
+            </select>
+            <p className="mt-3 text-sm leading-5 text-slate-400">{selectedThemeOption?.description}</p>
+          </div>
         <div>
           <p className="mb-3 text-xs font-black uppercase tracking-wide text-cyan-100">2. Choose a level</p>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5" role="radiogroup" aria-label="Puzzle level">
@@ -367,6 +420,7 @@ export function PuzzleSurvival() {
               </button>
             ))}
           </div>
+        </div>
         </div>
         <Card className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
           <div>
@@ -383,14 +437,15 @@ export function PuzzleSurvival() {
   if (phase === "summary") {
     return (
       <Card className="p-6">
-        <p className="text-xs font-black uppercase text-amber-200">Session Complete</p>
-        <h2 className="mt-2 text-3xl font-black text-white">Academy Training Report</h2>
+        <p className="text-xs font-black uppercase text-amber-200">{trainingMode === "daily" ? "Daily Challenge Complete" : "Session Complete"}</p>
+        <h2 className="mt-2 text-3xl font-black text-white">{trainingMode === "daily" ? "Puzzle of the Day" : "Academy Training Report"}</h2>
+        {completion?.dailyReward && <div className={`mt-5 rounded-lg border p-4 ${completion.dailyReward.awarded ? "border-emerald-300/40 bg-emerald-300/10 text-emerald-100" : "border-cyan-200/30 bg-cyan-300/10 text-cyan-100"}`}><p className="font-black">{completion.dailyReward.awarded ? `Reward claimed: +${completion.dailyReward.xpAwarded} XP and +${completion.dailyReward.coinsAwarded} Academy Coins` : "Today’s reward was already claimed. Nice practice replay!"}</p></div>}
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {[['Solved', solved], ['First try', firstTrySolves], ['Mistakes', incorrectAttempts], ['Accuracy', `${percentage(solved, incorrectAttempts)}%`], ['Average', formatTime(averageTime)], ['Best streak', bestStreak]].map(([label, value]) => (
             <div key={String(label)} className="rounded-md border border-white/10 bg-white/5 p-3"><p className="text-xs font-bold uppercase text-slate-500">{label}</p><p className="mt-1 text-2xl font-black text-white">{value}</p></div>
           ))}
         </div>
-        <div className="mt-6 flex flex-wrap gap-3"><Button type="button" onClick={startSession}>Train Again</Button><Button type="button" variant="ghost" onClick={() => setPhase("select")}>Choose Theme</Button></div>
+        <div className="mt-6 flex flex-wrap gap-3"><Button type="button" onClick={trainingMode === "daily" ? startDailyPuzzle : startSession}>{trainingMode === "daily" ? "Play Again" : "Train Again"}</Button><Button type="button" variant="ghost" onClick={() => setPhase("select")}>Back to Puzzles</Button></div>
       </Card>
     );
   }
@@ -399,7 +454,7 @@ export function PuzzleSurvival() {
     <div className="space-y-5">
       <Card className="overflow-hidden">
         <div className="grid grid-cols-3 divide-x divide-white/10 sm:grid-cols-6">
-          {[['Puzzle', `${Math.min(completed + 1, SESSION_LENGTH)}/${SESSION_LENGTH}`], ['Lives', `${lives}/${STARTING_LIVES}`], ['Timer', formatTime(elapsed)], ['Accuracy', `${percentage(solved, incorrectAttempts)}%`], ['Streak', currentStreak], ['Best', bestStreak]].map(([label, value]) => (
+          {[['Puzzle', trainingMode === "daily" ? "Daily" : `${Math.min(completed + 1, SESSION_LENGTH)}/${SESSION_LENGTH}`], ['Lives', `${lives}/${STARTING_LIVES}`], ['Timer', <PuzzleTimer key={`${sessionId.current}:${puzzle?.id ?? "loading"}`} running={phase === "turn" || phase === "reply"} />], ['Accuracy', `${percentage(solved, incorrectAttempts)}%`], ['Streak', currentStreak], ['Best', bestStreak]].map(([label, value]) => (
             <div key={String(label)} className="p-3 text-center"><p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{label}</p><p className="mt-1 text-lg font-black text-white sm:text-2xl">{value}</p></div>
           ))}
         </div>
@@ -412,7 +467,8 @@ export function PuzzleSurvival() {
 
         <div className="space-y-4">
           <Card className="p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-xs font-black uppercase text-cyan-100">{selectedThemeName}</span><span className="rounded border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-xs font-black uppercase text-amber-100">{selectedLevelName}</span></div><span className="text-xs font-bold text-slate-400">{puzzle ? `${puzzle.sideToMove} to move` : "Loading"}</span></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-xs font-black uppercase text-cyan-100">{trainingMode === "daily" ? "Puzzle of the Day" : selectedThemeName}</span>{trainingMode === "session" && <span className="rounded border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-xs font-black uppercase text-amber-100">{selectedLevelName}</span>}</div><span className="text-xs font-bold text-slate-400">{puzzle ? `${puzzle.sideToMove} to move` : "Loading"}</span></div>
+            {puzzle?.daily && <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${puzzle.daily.rewardClaimed ? "border-cyan-200/25 bg-cyan-300/5 text-cyan-100" : "border-amber-200/35 bg-amber-300/10 text-amber-100"}`}>{puzzle.daily.rewardClaimed ? "Reward already claimed today — replay for practice." : `Available reward: +${puzzle.daily.xp} XP and +${puzzle.daily.coins} Academy Coins`}</div>}
             <h2 className="mt-4 text-2xl font-black text-white">{phase === "reply" ? "Opponent reply" : phase === "solved" ? "Puzzle complete" : puzzle?.prompt || "Find the best move"}</h2>
             <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${phase === "solved" ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : error ? "border-fuchsia-300/50 bg-fuchsia-300/10 text-fuchsia-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">{error || message}</div>
             {phase === "turn" && <div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => void requestHint()}>Hint</Button><Button type="button" variant="ghost" onClick={() => void exitTraining()}>Exit Training</Button></div>}

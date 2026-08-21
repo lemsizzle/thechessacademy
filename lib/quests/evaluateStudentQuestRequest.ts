@@ -7,6 +7,8 @@ import { approveQuestAward } from "@/lib/quests/approveQuestAward";
 import { createPendingQuestAwards } from "@/lib/quests/createPendingQuestAward";
 import { evaluateQuestRules } from "@/lib/quests/evaluateQuestRules";
 import { getActiveQuestAttempt, getAttemptQuestWindow } from "@/lib/quests/questAttempts";
+import { loadInternalQuestGames, loadInternalQuestPuzzles } from "@/lib/quests/internalQuestActivityServer";
+import type { InternalQuestGameActivity, InternalQuestPuzzleActivity } from "@/lib/quests/evaluateInternalQuest";
 import { getQuestWindow, type QuestWindow } from "@/lib/quests/timeWindows";
 import type { ArenaTournamentResult, LichessActivitySnapshot, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt } from "@/lib/types";
 
@@ -41,10 +43,9 @@ function getEvaluationWindow(input: EvaluateRequest, quest: Quest, attempt: Stud
 }
 
 function mergeWindows(windows: Array<ReturnType<typeof getQuestWindow>>) {
-  return {
-    start: new Date(Math.min(...windows.map((window) => window.start.getTime()))),
-    end: new Date(Math.max(...windows.map((window) => window.end.getTime())))
-  };
+  const start = new Date(Math.min(...windows.map((window) => window.start.getTime())));
+  const end = new Date(Math.max(...windows.map((window) => window.end.getTime())));
+  return { start, end, label: `${start.toISOString()} to ${end.toISOString()}` };
 }
 
 function isInsideWindow(value: string, window: ReturnType<typeof getQuestWindow>) {
@@ -63,10 +64,12 @@ function getAccountActivityWindow(account?: StudentLichessAccount): QuestWindow 
 export async function evaluateStudentQuestRequest(
   input: EvaluateRequest,
   cookieStore: { get: (name: string) => { value: string } | undefined },
-  { allowPuzzleToken = false, skipPuzzleQuestsWithoutToken = false } = {}
+  { allowPuzzleToken = false, skipPuzzleQuestsWithoutToken = false, skipLichessActivity = false } = {}
 ) {
   const gamesByQuest: Record<string, Awaited<ReturnType<typeof fetchStudentGamesForWindow>>> = {};
   const puzzlesByQuest: Record<string, Awaited<ReturnType<typeof fetchStudentPuzzleActivityForWindow>>> = {};
+  const internalGamesByQuest: Record<string, InternalQuestGameActivity[]> = {};
+  const internalPuzzlesByQuest: Record<string, InternalQuestPuzzleActivity[]> = {};
   const modeByQuest: Record<string, "connected" | "mock"> = {};
   const fetchErrorsByQuest: Record<string, string> = {};
   const snapshots: LichessActivitySnapshot[] = [];
@@ -76,11 +79,15 @@ export async function evaluateStudentQuestRequest(
   let retryAfterSeconds = 0;
   const encryptedToken = cookieStore.get(LICHESS_TOKEN_COOKIE)?.value;
   const token = allowPuzzleToken && encryptedToken ? decryptLichessToken(encryptedToken) : null;
-  const activityWindow = getAccountActivityWindow(input.account);
+  const activityWindow = skipLichessActivity ? undefined : getAccountActivityWindow(input.account);
   const evaluatedQuestIds = new Set<string>();
-  const eligibleQuests = input.quests.filter((item) => item.isActive !== false && item.source?.startsWith("lichess_"));
+  const eligibleQuests = skipLichessActivity
+    ? []
+    : input.quests.filter((item) => item.isActive !== false && item.source?.startsWith("lichess_"));
   const gameQuests: Quest[] = [];
   const puzzleQuests: Quest[] = [];
+  const internalGameQuests: Quest[] = [];
+  const internalPuzzleQuests: Quest[] = [];
 
   for (const quest of eligibleQuests) {
     const attempt = getActiveQuestAttempt(input.questAttempts ?? [], input.studentId, quest.id);
@@ -93,6 +100,71 @@ export async function evaluateStudentQuestRequest(
     windowsByQuest[quest.id] = window;
     if (quest.source === "lichess_games") gameQuests.push(quest);
     if (quest.source === "lichess_puzzles") puzzleQuests.push(quest);
+  }
+
+  for (const quest of input.quests.filter((item) => item.isActive !== false && (item.source === "internal_games" || item.source === "internal_puzzles"))) {
+    const attempt = getActiveQuestAttempt(input.questAttempts ?? [], input.studentId, quest.id);
+    if (!attempt && quest.timeWindow !== "all_time") continue;
+    const window = attempt ? getAttemptQuestWindow(attempt) : getQuestWindow(quest.timeWindow, input.timeZone);
+    windowsByQuest[quest.id] = window;
+    evaluatedQuestIds.add(quest.id);
+    modeByQuest[quest.id] = "connected";
+    if (quest.source === "internal_games") internalGameQuests.push(quest);
+    if (quest.source === "internal_puzzles") internalPuzzleQuests.push(quest);
+  }
+
+  if (internalGameQuests.length) {
+    const mergedWindow = mergeWindows(internalGameQuests.map((quest) => windowsByQuest[quest.id]));
+    try {
+      const games = await loadInternalQuestGames(input.studentId, mergedWindow);
+      for (const quest of internalGameQuests) {
+        const window = windowsByQuest[quest.id];
+        internalGamesByQuest[quest.id] = games.filter((game) => isInsideWindow(game.completedAt, window));
+        snapshots.push({
+          id: `quest-snapshot-${input.studentId}-${quest.id}-${window.start.toISOString()}`,
+          studentId: input.studentId,
+          source: "internal_games",
+          periodStart: window.start.toISOString(),
+          periodEnd: window.end.toISOString(),
+          data: { games: internalGamesByQuest[quest.id] },
+          mode: "connected",
+          createdAt: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Academy game activity could not be read.";
+      for (const quest of internalGameQuests) {
+        internalGamesByQuest[quest.id] = [];
+        fetchErrorsByQuest[quest.id] = message;
+      }
+    }
+  }
+
+  if (internalPuzzleQuests.length) {
+    const mergedWindow = mergeWindows(internalPuzzleQuests.map((quest) => windowsByQuest[quest.id]));
+    try {
+      const attempts = await loadInternalQuestPuzzles(input.studentId, mergedWindow);
+      for (const quest of internalPuzzleQuests) {
+        const window = windowsByQuest[quest.id];
+        internalPuzzlesByQuest[quest.id] = attempts.filter((attempt) => isInsideWindow(attempt.attemptedAt, window));
+        snapshots.push({
+          id: `quest-snapshot-${input.studentId}-${quest.id}-${window.start.toISOString()}`,
+          studentId: input.studentId,
+          source: "internal_puzzles",
+          periodStart: window.start.toISOString(),
+          periodEnd: window.end.toISOString(),
+          data: { attempts: internalPuzzlesByQuest[quest.id] },
+          mode: "connected",
+          createdAt: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Academy puzzle activity could not be read.";
+      for (const quest of internalPuzzleQuests) {
+        internalPuzzlesByQuest[quest.id] = [];
+        fetchErrorsByQuest[quest.id] = message;
+      }
+    }
   }
 
   const gameWindowsByPerf = new Map<LichessGamePerfType, Array<ReturnType<typeof getQuestWindow>>>();
@@ -270,6 +342,8 @@ export async function evaluateStudentQuestRequest(
     quests: evaluatedQuests,
     gamesByQuest,
     puzzlesByQuest,
+    internalGamesByQuest,
+    internalPuzzlesByQuest,
     arenaResults: input.arenaResults ?? [],
     account: syncedAccount,
     modeByQuest,

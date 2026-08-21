@@ -218,7 +218,14 @@ export type ClassGroup = {
 
 export type QuestStatus = "available" | "in-progress" | "completed";
 export type QuestType = "weekly" | "boss";
-export type QuestSource = "lichess_games" | "lichess_puzzles" | "lichess_tournaments" | "internal_submission" | "manual";
+export type QuestSource =
+  | "lichess_games"
+  | "lichess_puzzles"
+  | "lichess_tournaments"
+  | "internal_games"
+  | "internal_puzzles"
+  | "internal_submission"
+  | "manual";
 export type QuestConditionType =
   | "rated_win_count"
   | "rated_games_played_count"
@@ -233,6 +240,17 @@ export type QuestConditionType =
   | "arena_score_threshold"
   | "tournament_participation"
   | "rating_peak"
+  | "internal_games_played_count"
+  | "internal_games_won_count"
+  | "internal_computer_games_played_count"
+  | "internal_computer_games_won_count"
+  | "internal_live_games_played_count"
+  | "internal_live_games_won_count"
+  | "internal_puzzle_attempted_count"
+  | "internal_puzzle_solved_count"
+  | "internal_puzzle_first_try_count"
+  | "internal_puzzle_accuracy_threshold"
+  | "internal_puzzle_theme_solved_count"
   | "manual";
 export type QuestTimeWindow = "daily" | "weekly" | "monthly" | "tournament" | "all_time" | "custom";
 

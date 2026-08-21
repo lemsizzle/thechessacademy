@@ -2,6 +2,7 @@ import "server-only";
 
 import { mapSupabaseQuest, type QuestRow } from "@/lib/data/quests";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isAutomatedQuestSource } from "@/lib/quests/questOptions";
 import type { Quest } from "@/lib/types";
 
 const questSelect = "id,title,description,type,status,is_live,xp_reward,badge_reward_id,completion_url,class_group,category,source,condition_type,time_window,required_count,required_score,required_accuracy,required_theme,approval_required,is_active,is_repeatable,cooldown_days,created_at,updated_at";
@@ -36,10 +37,10 @@ function questPayload(quest: Quest) {
 function validateQuest(quest: Quest) {
   if (!quest.id?.trim()) throw new Error("Quest id is required.");
   if (!quest.title?.trim()) throw new Error("Quest title is required.");
-  if (quest.source?.startsWith("lichess_") && !quest.conditionType) {
-    throw new Error("Choose a Lichess goal before saving this quest.");
+  if (isAutomatedQuestSource(quest.source) && !quest.conditionType) {
+    throw new Error("Choose an activity goal before saving this quest.");
   }
-  if (quest.conditionType === "puzzle_theme_solved_count" && !quest.requiredTheme) {
+  if ((quest.conditionType === "puzzle_theme_solved_count" || quest.conditionType === "internal_puzzle_theme_solved_count") && !quest.requiredTheme) {
     throw new Error("Choose a required tactic theme for this quest.");
   }
 }

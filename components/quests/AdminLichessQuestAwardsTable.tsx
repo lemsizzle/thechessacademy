@@ -9,6 +9,7 @@ import { quests as seedQuests } from "@/data/quests";
 import { students as seedStudents } from "@/data/students";
 import { persistStudentXpChange } from "@/lib/adminXpClient";
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
+import { isAutomatedQuestSource } from "@/lib/quests/questOptions";
 import { approveQuestAward } from "@/lib/quests/approveQuestAward";
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
 import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
@@ -79,7 +80,7 @@ export function AdminLichessQuestAwardsTable() {
       const store = readAdminStore();
       const nextStudents = store.students ?? seedStudents;
       const accounts = store.studentLichessAccounts ?? seedAccounts;
-      const quests = (store.quests ?? seedQuests).filter((quest) => quest.isActive !== false && quest.source?.startsWith("lichess_"));
+      const quests = (store.quests ?? seedQuests).filter((quest) => quest.isActive !== false && isAutomatedQuestSource(quest.source));
       const response = await fetch("/api/lichess/quests/evaluate/all", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

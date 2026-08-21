@@ -8,6 +8,7 @@ import { getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/g
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
+import { isAutomatedQuestSource } from "@/lib/quests/questOptions";
 import { saveStudentLichessAccount } from "@/lib/studentLichessAccountStore";
 import type { LichessActivitySnapshot, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingQuestAward, QuestCompletionEvent, StudentLichessAccount, StudentUser } from "@/lib/types";
 
@@ -150,7 +151,7 @@ async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult
     id: `lichess-log-${Date.now()}`,
     studentId: user.studentId,
     level: account ? "info" : "warning",
-    message: "Lichess profile checked. Quest activity sync is running from one shared flow.",
+    message: "Quest activity refresh is running from one shared flow.",
     createdAt: syncDate
   };
   updateAdminStore({
@@ -162,7 +163,7 @@ async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult
   });
   store = readAdminStore();
 
-  const rules = (store.quests ?? seedQuests).filter((quest) => quest.isActive !== false && quest.source?.startsWith("lichess_"));
+  const rules = (store.quests ?? seedQuests).filter((quest) => quest.isActive !== false && isAutomatedQuestSource(quest.source));
   const response = await fetch(`/api/lichess/quests/evaluate/student/${encodeURIComponent(user.studentId)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -178,10 +179,8 @@ async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult
     })
   });
   const data = await response.json() as QuestEvaluationResponse & { progressError?: string };
-  if (!response.ok || !data.progress || !data.newAwards) throw new Error(data.error ?? "Could not sync Lichess progress.");
-  if (data.message) {
-    throw new Error(data.message);
-  }
+  if (!response.ok || !data.progress || !data.newAwards) throw new Error(data.error ?? "Could not refresh quest progress.");
+  const syncNotice = data.message;
 
   const autoApprovedAwards = data.autoApprovedAwards ?? [];
   const autoCompletions = data.autoCompletions ?? [];
@@ -218,7 +217,7 @@ async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult
     questCompletionEvents: [...autoCompletions, ...(store.questCompletionEvents ?? [])],
     studentQuestAttempts: nextQuestAttempts,
     questXpEvents: [...(data.xpEvents?.length ? data.xpEvents : autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today }))), ...(store.questXpEvents ?? [])],
-    questActivityEvents: [...autoApprovedAwards.map((award) => ({ id: `activity-${award.id}`, title: "Lichess quest auto-completed", detail: `${award.title} awarded ${award.xpAmount} XP.`, createdAt: today })), ...(store.questActivityEvents ?? [])],
+    questActivityEvents: [...autoApprovedAwards.map((award) => ({ id: `activity-${award.id}`, title: "Quest auto-completed", detail: `${award.title} awarded ${award.xpAmount} XP.`, createdAt: today })), ...(store.questActivityEvents ?? [])],
     students: nextStudents,
     lichessActivitySnapshots: [...(data.snapshots ?? []), ...(store.lichessActivitySnapshots ?? [])]
   });
@@ -241,7 +240,8 @@ async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult
     approvalCount: data.newAwards.length,
     badgeAwardCount,
     message: [
-      `${data.progress.length} Lichess quests checked.`,
+      `${data.progress.length} automated quests checked.`,
+      syncNotice ?? "",
       `${autoCompletions.length} auto-completed${autoCompletions.length > 0 ? (data.xpError ? ", but XP could not be saved to Supabase" : " with XP") : ""}.`,
       data.progressError ? "Quest progress could not be saved to Supabase." : "",
       data.lichessCoinsAwarded ? `${data.lichessCoinsAwarded} Academy Coins added with Lichess XP.` : "",

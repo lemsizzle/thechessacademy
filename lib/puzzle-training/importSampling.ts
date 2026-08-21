@@ -33,7 +33,7 @@ export class BoundedIdTracker {
 }
 
 export function emptyThemeCounts(): ThemeCounts {
-  return { fork: 0, pin: 0, skewer: 0, mateIn1: 0 };
+  return Object.fromEntries(lichessPuzzleThemes.map((theme) => [theme, 0])) as ThemeCounts;
 }
 
 export function targetThemesFor(candidate: Pick<ImportCandidate, "themes">) {
@@ -47,16 +47,17 @@ export function quotasComplete(counts: ThemeCounts, limit: number) {
 export function tryAddFast<T extends ImportCandidate>(candidate: T, selected: Map<string, T>, counts: ThemeCounts, limit: number) {
   if (selected.has(candidate.lichess_puzzle_id)) return false;
   const themes = targetThemesFor(candidate);
-  if (!themes.length || themes.some((theme) => counts[theme] >= limit)) return false;
+  const themesStillNeeded = themes.filter((theme) => counts[theme] < limit);
+  if (!themesStillNeeded.length) return false;
   selected.set(candidate.lichess_puzzle_id, candidate);
-  for (const theme of themes) counts[theme] += 1;
+  for (const theme of themesStillNeeded) counts[theme] += 1;
   return true;
 }
 
 export type ThemeReservoirs<T extends ImportCandidate> = Record<LichessPuzzleTheme, T[]>;
 
 export function emptyReservoirs<T extends ImportCandidate>(): ThemeReservoirs<T> {
-  return { fork: [], pin: [], skewer: [], mateIn1: [] };
+  return Object.fromEntries(lichessPuzzleThemes.map((theme) => [theme, [] as T[]])) as unknown as ThemeReservoirs<T>;
 }
 
 export function considerForReservoir<T extends ImportCandidate>(
@@ -107,9 +108,10 @@ export function finalizeReservoirs<T extends ImportCandidate>(reservoirs: ThemeR
         indexes[theme] += 1;
         if (selected.has(candidate.lichess_puzzle_id)) continue;
         const candidateThemes = targetThemesFor(candidate);
-        if (candidateThemes.some((candidateTheme) => counts[candidateTheme] >= limit)) continue;
+        const themesStillNeeded = candidateThemes.filter((candidateTheme) => counts[candidateTheme] < limit);
+        if (!themesStillNeeded.length) continue;
         selected.set(candidate.lichess_puzzle_id, candidate);
-        for (const candidateTheme of candidateThemes) counts[candidateTheme] += 1;
+        for (const candidateTheme of themesStillNeeded) counts[candidateTheme] += 1;
         madeProgress = true;
         break;
       }

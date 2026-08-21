@@ -2,6 +2,7 @@ import type { ArenaTournamentResult, LichessQuestProgress, Quest, StudentLichess
 import { getQuestWindow, type QuestWindow } from "@/lib/quests/timeWindows";
 import { evaluateLichessGameQuest } from "@/lib/quests/evaluateLichessGameQuest";
 import { evaluateLichessPuzzleQuest } from "@/lib/quests/evaluateLichessPuzzleQuest";
+import { evaluateInternalGameQuest, evaluateInternalPuzzleQuest, type InternalQuestGameActivity, type InternalQuestPuzzleActivity } from "@/lib/quests/evaluateInternalQuest";
 import { getLichessXpBreakdown } from "@/lib/lichessXp";
 import type { LichessQuestGame, LichessQuestPuzzleActivity } from "@/lib/types";
 
@@ -10,6 +11,8 @@ type EvaluationInput = {
   quests: Quest[];
   gamesByQuest: Record<string, LichessQuestGame[]>;
   puzzlesByQuest: Record<string, LichessQuestPuzzleActivity[]>;
+  internalGamesByQuest?: Record<string, InternalQuestGameActivity[]>;
+  internalPuzzlesByQuest?: Record<string, InternalQuestPuzzleActivity[]>;
   arenaResults: ArenaTournamentResult[];
   account?: StudentLichessAccount;
   modeByQuest: Record<string, "connected" | "mock">;
@@ -28,6 +31,14 @@ export function evaluateQuestRules(input: EvaluationInput) {
     if (quest.source === "lichess_puzzles") {
       const window = input.windowsByQuest?.[quest.id] ?? getQuestWindow(quest.timeWindow, input.timeZone);
       return [evaluateLichessPuzzleQuest(input.studentId, quest, window, input.puzzlesByQuest[quest.id] ?? [], input.modeByQuest[quest.id] ?? "mock", input.fetchErrorsByQuest?.[quest.id])];
+    }
+    if (quest.source === "internal_games") {
+      const window = input.windowsByQuest?.[quest.id] ?? getQuestWindow(quest.timeWindow, input.timeZone);
+      return [evaluateInternalGameQuest(input.studentId, quest, window, input.internalGamesByQuest?.[quest.id] ?? [], input.fetchErrorsByQuest?.[quest.id])];
+    }
+    if (quest.source === "internal_puzzles") {
+      const window = input.windowsByQuest?.[quest.id] ?? getQuestWindow(quest.timeWindow, input.timeZone);
+      return [evaluateInternalPuzzleQuest(input.studentId, quest, window, input.internalPuzzlesByQuest?.[quest.id] ?? [], input.fetchErrorsByQuest?.[quest.id])];
     }
     if (quest.source === "lichess_tournaments") {
       return input.arenaResults

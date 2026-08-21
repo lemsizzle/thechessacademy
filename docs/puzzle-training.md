@@ -1,6 +1,6 @@
 # Puzzle Training
 
-The student puzzle trainer at `/student/training` combines curated positions from the official Lichess open puzzle database with teacher-authored Study exercises. Students can filter sessions by tactic (Mixed, Fork, Pin, Skewer, or Mate in 1) and by puzzle level.
+The student puzzle trainer at `/student/training` combines curated positions from the official Lichess open puzzle database with teacher-authored Study exercises. Students can play one shared Puzzle of the Day for 10 XP and 10 Academy Coins, or filter survival sessions by a dropdown of official Lichess tactic identifiers and by puzzle level.
 
 | Level | Lichess puzzle rating |
 | --- | ---: |
@@ -18,6 +18,7 @@ The student puzzle trainer at `/student/training` combines curated positions fro
 - Teacher-authored positions start directly from the Study FEN, preserve up to eight accepted first moves, and display the teacher's prompt.
 - Puzzle answers never enter browser code. The server sends a signed state token and validates each submitted move.
 - A session contains up to 10 puzzles. Three incorrect moves end survival mode.
+- The Puzzle of the Day is pinned on first access for the current Asia/Bangkok date. Its signed answer token can award the daily 10 XP and 10 Academy Coins only once per student and date.
 - Completed and unfinished attempts are written to `student_puzzle_attempts` by server routes using the Supabase service role.
 
 ## Database setup
@@ -83,7 +84,7 @@ These optional server-side values tune the curated pool:
 | `PUZZLE_IMPORT_RATING_MAX` | `2200` | Highest puzzle rating |
 | `PUZZLE_IMPORT_MIN_POPULARITY` | `70` | Minimum community popularity |
 | `PUZZLE_IMPORT_MIN_PLAYS` | `50` | Minimum number of attempts |
-| `PUZZLE_IMPORT_PER_THEME` | `2500` | Target rows for each supported theme |
+| `PUZZLE_IMPORT_PER_THEME` | `1000` | Target rows for each supported theme |
 | `PUZZLE_IMPORT_BATCH_SIZE` | `250` | Supabase upsert batch size |
 | `PUZZLE_IMPORT_PROGRESS_EVERY` | `50000` | Scanned rows between console updates |
 

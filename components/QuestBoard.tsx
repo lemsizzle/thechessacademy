@@ -3,14 +3,15 @@
 import { EmptyState } from "@/components/EmptyState";
 import { QuestCard } from "@/components/QuestCard";
 import type { Badge, Quest } from "@/lib/types";
+import { isAutomatedQuestSource } from "@/lib/quests/questOptions";
 import { useMockAdminState } from "@/lib/useMockAdminState";
 
-export function QuestBoard({ excludeLichess = false, initialQuests, badges }: { excludeLichess?: boolean; initialQuests?: Quest[]; badges?: Badge[] }) {
+export function QuestBoard({ excludeAutomated = false, initialQuests, badges }: { excludeAutomated?: boolean; initialQuests?: Quest[]; badges?: Badge[] }) {
   const { quests: adminQuests } = useMockAdminState();
   const quests = initialQuests ?? adminQuests;
   const visibleQuests = quests.filter((quest) => (
     (quest.isLive === true || quest.status === "completed")
-    && (!excludeLichess || !quest.source?.startsWith("lichess_"))
+    && (!excludeAutomated || !isAutomatedQuestSource(quest.source))
   ));
 
   if (!visibleQuests.length) {

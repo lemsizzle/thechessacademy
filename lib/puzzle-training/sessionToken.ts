@@ -7,6 +7,7 @@ export type PuzzleSessionToken = {
   studentId: string;
   sessionId: string;
   selectedTheme: PuzzleThemeSlug;
+  dailyDate?: string;
   nextMoveIndex: number;
   startedAt: string;
   incorrectMoveCount: number;

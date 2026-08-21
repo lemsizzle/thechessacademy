@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validatePuzzleMove } from "@/lib/puzzle-training/engine";
 import { assertPuzzleTokenStudent, createPuzzleSessionToken, readPuzzleSessionToken } from "@/lib/puzzle-training/sessionToken";
-import { getTrainingPuzzle, requirePuzzleStudent, saveTrainingAttempt } from "@/lib/puzzle-training/server";
+import { awardDailyTrainingPuzzle, getTrainingPuzzle, requirePuzzleStudent, saveTrainingAttempt } from "@/lib/puzzle-training/server";
 import type { PuzzleMoveInput } from "@/lib/puzzle-training/types";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    const student = await requirePuzzleStudent();
-    const body = await request.json() as { token?: string; move?: PuzzleMoveInput };
+    const [student, body] = await Promise.all([
+      requirePuzzleStudent(),
+      request.json() as Promise<{ token?: string; move?: PuzzleMoveInput }>
+    ]);
     if (!body.token || !body.move?.from || !body.move?.to) return NextResponse.json({ error: "Puzzle token and move are required." }, { status: 400 });
     const payload = readPuzzleSessionToken(body.token);
     assertPuzzleTokenStudent(payload, student.studentId);
@@ -45,20 +47,24 @@ export async function POST(request: NextRequest) {
         hintsUsed: payload.hintsUsed,
         startedAt: payload.startedAt
       });
+      const dailyReward = payload.dailyDate
+        ? await awardDailyTrainingPuzzle(student.studentId, puzzle.id, payload.dailyDate)
+        : undefined;
       return NextResponse.json({
         accepted: true,
         completed: true,
         token,
         studentFen: validation.studentFen,
         positionFen: validation.positionFen,
-        message: "Puzzle solved!",
+        message: dailyReward?.awarded ? "Puzzle solved! You earned 10 XP and 10 Academy Coins." : "Puzzle solved!",
         completion: {
           themes: puzzle.themes,
           rating: puzzle.rating,
           gameUrl: puzzle.game_url,
           mistakes: payload.incorrectMoveCount,
           hintsUsed: payload.hintsUsed,
-          elapsedSeconds: saved.elapsedSeconds
+          elapsedSeconds: saved.elapsedSeconds,
+          dailyReward
         }
       });
     }

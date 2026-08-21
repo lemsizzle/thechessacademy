@@ -46,20 +46,8 @@ export async function POST(request: Request) {
   for (const student of body.students.slice(0, 50)) {
     const state = await getLichessSyncState(student.studentId);
     const cooldownSeconds = getCooldownSeconds(state);
-    if (cooldownSeconds > 0) {
-      evaluations.push({
-        studentId: student.studentId,
-        progress: [],
-        newAwards: [],
-        autoApprovedAwards: [],
-        autoCompletions: [],
-        rateLimited: true,
-        cooldownSeconds,
-        message: `Lichess rate limit reached for ${student.username}. Try again in ${formatCooldown(cooldownSeconds)}.`
-      });
-      continue;
-    }
-    await recordLichessSyncAttempt(student.studentId, student.username);
+    const lichessCoolingDown = cooldownSeconds > 0;
+    if (!lichessCoolingDown) await recordLichessSyncAttempt(student.studentId, student.username);
     const storedAccount = await getStoredLichessAccount(student.studentId);
     const candidateAccount = storedAccount ?? student.account;
     const trustedAccount = candidateAccount && state?.createdAt && !storedAccount
@@ -75,10 +63,13 @@ export async function POST(request: Request) {
         completionEvents: body.completionEvents,
         questAttempts: (body.questAttempts ?? []).filter((attempt) => attempt.studentId === student.studentId),
         timeZone: body.timeZone
-      }, cookieStore, { skipPuzzleQuestsWithoutToken: true });
+      }, cookieStore, {
+        skipPuzzleQuestsWithoutToken: true,
+        skipLichessActivity: lichessCoolingDown
+      });
     if (result.rateLimited) {
       await recordLichessSyncRateLimit(student.studentId, student.username, "Lichess rate limit reached while syncing quest activity.", result.retryAfterSeconds || 60);
-    } else {
+    } else if (!lichessCoolingDown) {
       await recordLichessSyncSuccess(student.studentId, student.username, result.requestCount ?? 0);
     }
     let lichessCoinsAwarded = 0;
@@ -93,7 +84,17 @@ export async function POST(request: Request) {
         coinError = error instanceof Error ? error.message : "Academy Coins could not be updated.";
       }
     }
-    evaluations.push({ studentId: student.studentId, ...result, lichessCoinsAwarded, coinError });
+    evaluations.push({
+      studentId: student.studentId,
+      ...result,
+      rateLimited: result.rateLimited || lichessCoolingDown,
+      ...(lichessCoolingDown ? {
+        cooldownSeconds,
+        message: `Academy quest progress refreshed for ${student.username}. Lichess can refresh again in ${formatCooldown(cooldownSeconds)}.`
+      } : {}),
+      lichessCoinsAwarded,
+      coinError
+    });
   }
   return NextResponse.json({ evaluations });
 }

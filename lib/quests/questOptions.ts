@@ -2,6 +2,8 @@ import type { QuestConditionType, QuestSource, QuestTimeWindow, TacticTheme } fr
 
 export const questSources: Array<{ value: QuestSource; label: string; description: string }> = [
   { value: "manual", label: "Manual / Teacher", description: "Teacher completes this from the dashboard." },
+  { value: "internal_games", label: "Academy Games", description: "Checks completed computer and student-vs-student games played inside this website." },
+  { value: "internal_puzzles", label: "Academy Puzzles", description: "Checks server-verified puzzle attempts completed inside Puzzle Training." },
   { value: "lichess_games", label: "Lichess Games", description: "Checks rated games after the student first logs in." },
   { value: "lichess_puzzles", label: "Lichess Puzzles", description: "Checks puzzle activity from the connected Lichess account." },
   { value: "lichess_tournaments", label: "Lichess Arena", description: "Checks imported Arena tournament results." }
@@ -9,6 +11,17 @@ export const questSources: Array<{ value: QuestSource; label: string; descriptio
 
 export const questConditions: Array<{ value: QuestConditionType; label: string; source: QuestSource; countLabel: string }> = [
   { value: "manual", label: "Manual completion", source: "manual", countLabel: "Required Count" },
+  { value: "internal_games_played_count", label: "Play Academy games", source: "internal_games", countLabel: "Completed Games" },
+  { value: "internal_games_won_count", label: "Win Academy games", source: "internal_games", countLabel: "Game Wins" },
+  { value: "internal_computer_games_played_count", label: "Play vs computer", source: "internal_games", countLabel: "Computer Games" },
+  { value: "internal_computer_games_won_count", label: "Win vs computer", source: "internal_games", countLabel: "Computer Wins" },
+  { value: "internal_live_games_played_count", label: "Play student-vs-student games", source: "internal_games", countLabel: "Live Games" },
+  { value: "internal_live_games_won_count", label: "Win student-vs-student games", source: "internal_games", countLabel: "Live Wins" },
+  { value: "internal_puzzle_attempted_count", label: "Attempt Academy puzzles", source: "internal_puzzles", countLabel: "Puzzle Attempts" },
+  { value: "internal_puzzle_solved_count", label: "Solve Academy puzzles", source: "internal_puzzles", countLabel: "Solved Puzzles" },
+  { value: "internal_puzzle_first_try_count", label: "Solve Academy puzzles first try", source: "internal_puzzles", countLabel: "First-Try Solves" },
+  { value: "internal_puzzle_accuracy_threshold", label: "Reach Academy puzzle accuracy", source: "internal_puzzles", countLabel: "Puzzle Attempts" },
+  { value: "internal_puzzle_theme_solved_count", label: "Solve an Academy tactic theme", source: "internal_puzzles", countLabel: "Theme Puzzles" },
   { value: "rated_win_count", label: "Win rated games", source: "lichess_games", countLabel: "Rated Wins" },
   { value: "rated_games_played_count", label: "Play rated games", source: "lichess_games", countLabel: "Rated Games" },
   { value: "rapid_win_count", label: "Win rated rapid games", source: "lichess_games", countLabel: "Rapid Wins" },
@@ -42,4 +55,16 @@ export function getQuestCountLabel(conditionType?: QuestConditionType) {
 
 export function getConditionsForSource(source?: QuestSource) {
   return questConditions.filter((condition) => condition.source === (source ?? "manual"));
+}
+
+export function isLichessQuestSource(source?: QuestSource) {
+  return source?.startsWith("lichess_") === true;
+}
+
+export function isInternalQuestSource(source?: QuestSource) {
+  return source === "internal_games" || source === "internal_puzzles";
+}
+
+export function isAutomatedQuestSource(source?: QuestSource) {
+  return isLichessQuestSource(source) || isInternalQuestSource(source);
 }

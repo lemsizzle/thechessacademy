@@ -8,6 +8,7 @@ import { getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/g
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
 import { createStudentQuestAttempt } from "@/lib/quests/questAttempts";
+import { isAutomatedQuestSource } from "@/lib/quests/questOptions";
 import { findAttemptForPeriod, selectQuestCompletion, selectQuestLifecycle, selectQuestProgress, selectQuestTrackingForAttempt } from "@/lib/quests/selectQuestProgress";
 import { STUDENT_LICHESS_FULL_SYNC_EVENT, syncStudentLichessEverything } from "@/lib/studentLichessFullSync";
 import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent, StudentQuestAttempt, StudentUser } from "@/lib/types";
@@ -20,7 +21,7 @@ export function StudentLichessQuestList() {
   const [completions, setCompletions] = useState<QuestCompletionEvent[]>([]);
   const [attempts, setAttempts] = useState<StudentQuestAttempt[]>([]);
   const [now, setNow] = useState(Date.now());
-  const [message, setMessage] = useState("Use one Lichess sync to refresh ratings, games, puzzles, quests, and badge checks.");
+  const [message, setMessage] = useState("Refresh once to check saved Academy games, Academy puzzles, and connected Lichess activity.");
   const [syncing, setSyncing] = useState(false);
   const [currentUser, setCurrentUser] = useState<StudentUser | null>(null);
 
@@ -92,7 +93,7 @@ export function StudentLichessQuestList() {
         return localQuest ? { ...localQuest, ...quest, completionUrl: quest.completionUrl ?? localQuest.completionUrl } : quest;
       });
       const visibleQuests = mergedQuests.filter((quest) => (
-        quest.source?.startsWith("lichess_")
+        isAutomatedQuestSource(quest.source)
         && quest.isActive !== false
         && (quest.isLive || visibleQuestIds.has(quest.id))
       ));
@@ -125,7 +126,7 @@ export function StudentLichessQuestList() {
     const loadedServerQuests = await refreshServerQuests(visibleQuestIds, localQuests);
     if (!loadedServerQuests) {
       setQuests(localQuests.filter((quest) => (
-        quest.source?.startsWith("lichess_")
+        isAutomatedQuestSource(quest.source)
         && quest.isActive !== false
         && (quest.isLive || visibleQuestIds.has(quest.id))
       )));
@@ -176,7 +177,7 @@ export function StudentLichessQuestList() {
       setMessage(result.message);
       void load();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not sync Lichess.");
+      setMessage(error instanceof Error ? error.message : "Could not refresh quest activity.");
     } finally {
       setSyncing(false);
     }
@@ -265,10 +266,10 @@ export function StudentLichessQuestList() {
             <h2 className="font-black text-white">Quest Board</h2>
             <p className="mt-1 text-sm text-slate-400">{message}</p>
           </div>
-          <Button onClick={evaluate} disabled={syncing} variant="secondary">{syncing ? "Syncing..." : "Sync Lichess"}</Button>
+          <Button onClick={evaluate} disabled={syncing} variant="secondary">{syncing ? "Refreshing..." : "Refresh Quest Progress"}</Button>
         </div>
         {availableQuests.length === 0 && activeQuests.length === 0 && completedQuests.length === 0 && (
-          <Card className="p-4 text-sm text-slate-300">No live Lichess quests are available right now.</Card>
+          <Card className="p-4 text-sm text-slate-300">No live automated quests are available right now.</Card>
         )}
       </section>
       {activeQuests.length > 0 && (
