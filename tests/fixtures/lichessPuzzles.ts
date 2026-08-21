@@ -4,6 +4,13 @@ function puzzle(overrides: Partial<ChessPuzzleRow> & Pick<ChessPuzzleRow, "initi
   return {
     id: crypto.randomUUID(),
     lichess_puzzle_id: crypto.randomUUID().slice(0, 8),
+    start_mode: "after_setup",
+    accepted_moves: [],
+    source_kind: "lichess",
+    source_study_id: null,
+    source_chapter_id: null,
+    source_node_id: null,
+    teacher_prompt: "",
     rating: 1200,
     rating_deviation: 75,
     popularity: 90,

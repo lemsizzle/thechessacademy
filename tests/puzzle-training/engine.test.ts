@@ -6,6 +6,7 @@ import {
   legalDestinations,
   parseUciMove,
   prepareLichessPuzzle,
+  prepareTrainingPuzzle,
   replayPuzzleToIndex,
   validateLichessPuzzle,
   validatePuzzleMove
@@ -19,6 +20,16 @@ import {
   promotionPuzzle,
   skewerPuzzle
 } from "../fixtures/lichessPuzzles";
+
+const studyPuzzle = {
+  ...forkPuzzle,
+  initial_fen: new Chess().fen(),
+  moves: ["e2e4"],
+  start_mode: "direct" as const,
+  accepted_moves: ["e2e4", "d2d4"],
+  source_kind: "study" as const,
+  teacher_prompt: "Claim the center."
+};
 
 describe("official Lichess puzzle semantics", () => {
   it("loads the source FEN and validates the complete sequence", () => {
@@ -76,6 +87,21 @@ describe("official Lichess puzzle semantics", () => {
     const chess = new Chess(forkPuzzle.initial_fen);
     applyUciMove(chess, "e8e7");
     expect(legalDestinations(chess.fen(), "e5")).toContain("c6");
+  });
+});
+
+describe("teacher-authored Study puzzle semantics", () => {
+  it("starts directly from the authored position", () => {
+    const prepared = prepareTrainingPuzzle(studyPuzzle);
+    expect(prepared.displayFen).toBe(new Chess().fen());
+    expect(prepared.firstStudentMove).toBe("e2e4");
+  });
+
+  it("accepts any teacher-approved move without mutating the puzzle", () => {
+    expect(validatePuzzleMove(studyPuzzle, 0, { from: "e2", to: "e4" })).toMatchObject({ accepted: true, completed: true });
+    expect(validatePuzzleMove(studyPuzzle, 0, { from: "d2", to: "d4" })).toMatchObject({ accepted: true, completed: true });
+    expect(validatePuzzleMove(studyPuzzle, 0, { from: "c2", to: "c4" })).toMatchObject({ accepted: false, completed: false, nextMoveIndex: 0 });
+    expect(studyPuzzle.moves).toEqual(["e2e4"]);
   });
 });
 

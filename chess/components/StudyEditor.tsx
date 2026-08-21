@@ -11,6 +11,7 @@ import { AddPositionChapterDialog } from "@/chess/components/AddPositionChapterD
 import { StudyMembersDialog } from "@/chess/components/StudyMembersDialog";
 import { StudyAssignmentsDialog } from "@/chess/components/StudyAssignmentsDialog";
 import { StudyReviewAssignments } from "@/chess/components/StudyReviewAssignments";
+import { GuidedExerciseProgress } from "@/chess/components/GuidedExerciseProgress";
 
 type StudyData = { id: string; title: string; description: string; visibility: string; ownerKind: string; accessRole: "owner" | "editor" | "viewer"; updatedAt: string };
 type PendingSave = { tree: AnalysisTree; version: number };
@@ -159,7 +160,8 @@ export function StudyEditor({ studyId, basePath, initialChapterId }: { studyId: 
       </div>
     </Card>
     {basePath === "/student" ? <StudyReviewAssignments studyId={studyId} /> : null}
-    <AnalysisWorkspace key={active.id} initialTree={active.tree} title={active.title} subtitle={`${active.tree.nodes[active.tree.rootId].childrenIds.length ? "Game line with variations" : "Blank analysis board"} · chapter ${chapters.indexOf(active) + 1} of ${chapters.length}`} editable={editable} saveStatus={saveStatus} saveMessage={saveStatus === "saved" ? "All changes saved" : error} onTreeChange={(tree) => queueTree(active.id, tree)} canManageReferenceEvaluations={basePath === "/admin" && editable} canManageGuidedExercises={basePath === "/admin" && editable} guidedStudentMode={basePath === "/student"} actions={<Button variant="ghost" href={`/api/chess/studies/${encodeURIComponent(studyId)}/chapters/${encodeURIComponent(active.id)}/pgn`}>Export PGN</Button>} />
+    {basePath === "/admin" ? <GuidedExerciseProgress studyId={studyId} /> : null}
+    <AnalysisWorkspace key={active.id} initialTree={active.tree} title={active.title} subtitle={`${active.tree.nodes[active.tree.rootId].childrenIds.length ? "Game line with variations" : "Blank analysis board"} · chapter ${chapters.indexOf(active) + 1} of ${chapters.length}`} editable={editable} saveStatus={saveStatus} saveMessage={saveStatus === "saved" ? "All changes saved" : error} onTreeChange={(tree) => queueTree(active.id, tree)} canManageReferenceEvaluations={basePath === "/admin" && editable} canManageGuidedExercises={basePath === "/admin" && editable} guidedStudentMode={basePath === "/student"} guidedExerciseContext={{ studyId, chapterId: active.id }} actions={<Button variant="ghost" href={`/api/chess/studies/${encodeURIComponent(studyId)}/chapters/${encodeURIComponent(active.id)}/pgn`}>Export PGN</Button>} />
     {addGameOpen && <AddGameChapterDialog studyId={studyId} onClose={() => setAddGameOpen(false)} onAdded={(chapter) => {
       versionsRef.current.set(chapter.id, chapter.version);
       setChapters((items) => [...items, chapter]);

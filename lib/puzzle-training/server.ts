@@ -2,7 +2,7 @@ import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { lichessPuzzleThemes, type ChessPuzzleRow, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
-const puzzleSelect = "id,lichess_puzzle_id,initial_fen,moves,rating,rating_deviation,popularity,number_of_plays,themes,game_url,opening_tags,random_key,is_active";
+const puzzleSelect = "id,lichess_puzzle_id,initial_fen,moves,start_mode,accepted_moves,source_kind,source_study_id,source_chapter_id,source_node_id,teacher_prompt,rating,rating_deviation,popularity,number_of_plays,themes,game_url,opening_tags,random_key,is_active";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function serviceClient() {

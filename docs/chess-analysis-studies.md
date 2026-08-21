@@ -34,15 +34,18 @@
 3. `20260815101000_index_chess_study_source_games.sql`
 4. `20260816020000_create_chess_review_assignments.sql`
 5. `20260821090000_extend_chess_review_feedback.sql`
+6. `20260821130208_persist_guided_exercise_progress.sql`
+7. `20260821133000_index_guided_exercise_foreign_keys.sql`
 
 ## Phase status
 
 - PGN import/export with headers, comments, NAGs, nested variations, results, and starting FEN is implemented.
 - FEN-based chapter creation and source metadata is implemented.
-- Teacher UI and owner-protected APIs for adding editors/viewers are implemented; the authenticated teacher-browser smoke test remains outstanding.
-- Optional node-level evaluation snapshots for teacher-authored reference lines are implemented; the authenticated teacher-browser Save/Remove smoke test remains outstanding.
+- Teacher UI and owner-protected APIs for adding, changing, and removing editors/viewers are implemented and browser-verified.
+- Optional node-level evaluation snapshots for teacher-authored reference lines are implemented; authenticated teacher Save/Remove is browser-verified.
 - Teacher review assignments support whole-study or chapter scope, prompts, gated teacher answers, student written responses, teacher approve/return feedback, reset, and automatic viewer access.
-- The Phase 5B application code, tests, production build, live migration, catalog constraints, privileges, and authenticated student submit/return/resubmit/approve workflow are verified. The teacher-authenticated UI smoke test remains outstanding.
-- Teachers can author position-level guess-the-move exercises from legal SAN/UCI choices. Student attempts run on the shared study board, keep the saved tree unchanged, and unlock engine/reference analysis only after a correct move. The authenticated student solve/reset workflow is browser-verified; the teacher authoring UI still needs an authenticated teacher-browser smoke test.
+- The Phase 5B application code, tests, production build, live migration, catalog constraints, privileges, and complete authenticated student/teacher review workflow are verified.
+- Teachers can author position-level guess-the-move exercises from legal SAN/UCI choices. Student attempts run on the shared study board, keep the saved tree unchanged, unlock engine/reference analysis after a correct move, persist server-verified results, and appear in teacher reporting. Authenticated student and teacher create/edit/remove workflows are browser-verified.
+- A teacher can publish any guided position to Puzzle Training. Teacher-authored puzzles start directly from the Study FEN, retain every accepted answer, show the teacher prompt, and use the same signed server-side validation and attempt history as imported puzzles.
 
 See `docs/chess-roadmap.md` for the durable phase tracker and evidence gates.

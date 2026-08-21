@@ -1,12 +1,13 @@
 # Puzzle Training
 
-The student puzzle trainer at `/student/training` uses curated positions from the official Lichess open puzzle database. It supports Mixed, Fork, Pin, Skewer, and Mate in 1 sessions.
+The student puzzle trainer at `/student/training` combines curated positions from the official Lichess open puzzle database with teacher-authored Study exercises. It supports Mixed, Fork, Pin, Skewer, and Mate in 1 sessions.
 
 ## How it works
 
 - `react-chessboard` renders consistent SVG chess pieces and supports drag-and-drop and click-to-move.
 - `chess.js` loads FEN positions, checks legal moves, and replays the official solution.
 - Lichess stores the position **before** the opponent's setup move. The app applies `moves[0]`, then waits for the student's first answer at `moves[1]`.
+- Teacher-authored positions start directly from the Study FEN, preserve up to eight accepted first moves, and display the teacher's prompt.
 - Puzzle answers never enter browser code. The server sends a signed state token and validates each submitted move.
 - A session contains up to 10 puzzles. Three incorrect moves end survival mode.
 - Completed and unfinished attempts are written to `student_puzzle_attempts` by server routes using the Supabase service role.
@@ -16,6 +17,11 @@ The student puzzle trainer at `/student/training` uses curated positions from th
 Run the migration in Supabase before enabling the feature:
 
 `supabase/migrations/20260718121302_puzzle_training_tables.sql`
+
+Study conversion and persisted guided-attempt reporting additionally require:
+
+- `supabase/migrations/20260821130208_persist_guided_exercise_progress.sql`
+- `supabase/migrations/20260821133000_index_guided_exercise_foreign_keys.sql`
 
 Add a private Vercel environment variable:
 
@@ -117,6 +123,6 @@ npm run lint
 npm run build
 ```
 
-The tests cover setup-move semantics, board orientation, correct and incorrect moves, opponent replies, multi-move completion, theme filters, promotions, alternate mate-in-one answers, SVG piece coverage, token tampering, fast quota selection, overlap handling, bounded duplicate tracking, and reservoir sampling.
+The tests cover setup-move semantics, direct teacher-authored positions, multiple accepted Study moves, board orientation, correct and incorrect moves, opponent replies, multi-move completion, theme filters, promotions, alternate mate-in-one answers, guided-progress aggregation, SVG piece coverage, token tampering, fast quota selection, overlap handling, bounded duplicate tracking, and reservoir sampling.
 
 Puzzle source: [Lichess open puzzle database](https://database.lichess.org/#puzzles). Preserve its source/license attribution when presenting or redistributing the data.

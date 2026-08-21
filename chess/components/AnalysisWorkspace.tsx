@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
 import { NAG_VALUES, type AnalysisNag, type AnalysisShape, type AnalysisTree, type GuidedExercise } from "@/chess/analysis/types";
-import { addAnalysisMove, deleteVariation, evaluateGuidedMove, firstNodeId, lastMainlineNodeId, nextNodeId, previousNodeId, promoteVariation, toggleNag, updateNodeAnnotations, updateNodeGuidedExercise } from "@/chess/analysis/tree";
+import { addAnalysisMove, deleteVariation, firstNodeId, lastMainlineNodeId, nextNodeId, previousNodeId, promoteVariation, toggleNag, updateNodeAnnotations, updateNodeGuidedExercise } from "@/chess/analysis/tree";
 import { useAnalysisEngine } from "@/chess/hooks/useAnalysisEngine";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -25,6 +25,7 @@ type Props = {
   canManageReferenceEvaluations?: boolean;
   canManageGuidedExercises?: boolean;
   guidedStudentMode?: boolean;
+  guidedExerciseContext?: { studyId: string; chapterId: string };
 };
 
 function displayPly(ply: number, san: string | null) {
@@ -56,10 +57,20 @@ function scoreLabel(score: number | null, mate: number | null) {
   return `${score >= 0 ? "+" : ""}${(score / 100).toFixed(2)}`;
 }
 
-function GuidedExerciseEditor({ fen, exercise, onSave }: { fen: string; exercise: GuidedExercise | null; onSave: (exercise: GuidedExercise | null) => void }) {
+function GuidedExerciseEditor({ fen, exercise, canPublish, onSave, onPublish, onUnpublish }: {
+  fen: string;
+  exercise: GuidedExercise | null;
+  canPublish: boolean;
+  onSave: (exercise: GuidedExercise | null) => void;
+  onPublish?: (theme: "fork" | "pin" | "skewer" | "mateIn1") => Promise<void>;
+  onUnpublish?: () => Promise<void>;
+}) {
   const [prompt, setPrompt] = useState(exercise?.prompt ?? "");
   const [expectedMoves, setExpectedMoves] = useState<string[]>(exercise?.expectedMovesUci ?? []);
   const [successMessage, setSuccessMessage] = useState(exercise?.successMessage ?? "");
+  const [trainingTheme, setTrainingTheme] = useState<"fork" | "pin" | "skewer" | "mateIn1">("fork");
+  const [trainingStatus, setTrainingStatus] = useState("");
+  const [trainingBusy, setTrainingBusy] = useState(false);
   const legalMoves = useMemo(() => new Chess(fen).moves({ verbose: true }).map((move) => ({
     uci: `${move.from}${move.to}${move.promotion ?? ""}`,
     san: move.san
@@ -106,10 +117,33 @@ function GuidedExerciseEditor({ fen, exercise, onSave }: { fen: string; exercise
       </label>
       <button type="submit" disabled={!canSave} className="w-full rounded-md border border-violet-200/30 bg-violet-300/15 px-3 py-2 text-sm font-black text-violet-100 disabled:cursor-not-allowed disabled:opacity-40">{exercise ? "Save exercise" : "Create exercise"}</button>
     </form>
+    {exercise && onPublish && onUnpublish && <div className="mt-4 border-t border-white/10 pt-4">
+      <p className="text-xs font-black uppercase text-cyan-200">Puzzle Training</p>
+      <p className="mt-1 text-xs leading-5 text-slate-400">Publish this position into the reusable training pool. Every accepted exercise move remains valid.</p>
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <select aria-label="Puzzle Training theme" value={trainingTheme} onChange={(event) => setTrainingTheme(event.target.value as typeof trainingTheme)} className="min-w-0 flex-1 rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm font-bold text-white">
+          <option value="fork">Fork</option><option value="pin">Pin</option><option value="skewer">Skewer</option><option value="mateIn1">Mate in 1</option>
+        </select>
+        <button type="button" disabled={!canPublish || trainingBusy} className="rounded-md border border-cyan-200/30 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40" onClick={() => void (async () => {
+          setTrainingBusy(true); setTrainingStatus("");
+          try { await onPublish(trainingTheme); setTrainingStatus("Published to Puzzle Training."); }
+          catch (error) { setTrainingStatus(error instanceof Error ? error.message : "Puzzle could not be published."); }
+          finally { setTrainingBusy(false); }
+        })()}>{trainingBusy ? "Working…" : "Publish / update"}</button>
+        <button type="button" disabled={trainingBusy} className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-300 disabled:opacity-40" onClick={() => void (async () => {
+          setTrainingBusy(true); setTrainingStatus("");
+          try { await onUnpublish(); setTrainingStatus("Removed from Puzzle Training."); }
+          catch (error) { setTrainingStatus(error instanceof Error ? error.message : "Puzzle could not be removed."); }
+          finally { setTrainingBusy(false); }
+        })()}>Remove from training</button>
+      </div>
+      {trainingStatus && <p className="mt-2 text-xs font-bold text-slate-300" aria-live="polite">{trainingStatus}</p>}
+      {!canPublish && <p className="mt-2 text-xs text-amber-200">Wait for the exercise to finish saving before publishing.</p>}
+    </div>}
   </Card>;
 }
 
-export function AnalysisWorkspace({ initialTree, title, subtitle, editable = true, saveStatus = "idle", saveMessage = "", onTreeChange, actions, gameMode = false, canManageReferenceEvaluations = false, canManageGuidedExercises = false, guidedStudentMode = false }: Props) {
+export function AnalysisWorkspace({ initialTree, title, subtitle, editable = true, saveStatus = "idle", saveMessage = "", onTreeChange, actions, gameMode = false, canManageReferenceEvaluations = false, canManageGuidedExercises = false, guidedStudentMode = false, guidedExerciseContext }: Props) {
   const [tree, setTree] = useState(initialTree);
   const [activeId, setActiveId] = useState(initialTree.rootId);
   const [orientation, setOrientation] = useState<"white" | "black">("white");
@@ -118,11 +152,14 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   const [annotationStart, setAnnotationStart] = useState<string | null>(null);
   const [shapeStyle, setShapeStyle] = useState<BoardAnnotationStyle>("primary");
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
-  const [guidedResult, setGuidedResult] = useState<{ status: "correct" | "incorrect"; attemptedUci: string; attemptedSan: string } | null>(null);
+  const [guidedResult, setGuidedResult] = useState<{ status: "correct" | "incorrect"; attemptedUci: string; attemptedSan: string; successMessage: string } | null>(null);
   const [guidedFen, setGuidedFen] = useState<string | null>(null);
+  const [guidedBusy, setGuidedBusy] = useState(false);
+  const [guidedError, setGuidedError] = useState("");
   const activeButtonRef = useRef<HTMLButtonElement | null>(null);
   const moveTreeRef = useRef<HTMLDivElement | null>(null);
   const originalTreeRef = useRef(initialTree);
+  const guidedRequestRef = useRef(0);
   const engine = useAnalysisEngine();
   const node = tree.nodes[activeId] ?? tree.nodes[tree.rootId];
   const rows = useMemo(() => treeRows(tree), [tree]);
@@ -131,9 +168,12 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   const displayFen = guidedFen ?? node.fen;
 
   function selectPosition(nextId: string) {
+    guidedRequestRef.current += 1;
     setActiveId(nextId);
     setGuidedResult(null);
     setGuidedFen(null);
+    setGuidedBusy(false);
+    setGuidedError("");
     setPendingPromotion(null);
   }
 
@@ -196,18 +236,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
       return;
     }
     if (guidedExercise) {
-      try {
-        const attempt = evaluateGuidedMove(node.fen, guidedExercise, from, to, promotion);
-        if (attempt.correct) {
-          setGuidedResult({ status: "correct", attemptedUci: attempt.uci, attemptedSan: attempt.san });
-          setGuidedFen(attempt.fen);
-        } else {
-          setGuidedResult({ status: "incorrect", attemptedUci: attempt.uci, attemptedSan: attempt.san });
-          setGuidedFen(null);
-        }
-      } catch {
-        // The board only offers legal destinations, so an invalid drop is ignored.
-      }
+      void submitGuidedMove(from, to, promotion);
       return;
     }
     if (!editable) return;
@@ -217,6 +246,41 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
     } catch {
       // The board only offers legal destinations, so an invalid drop is ignored.
     }
+  }
+
+  async function submitGuidedMove(from: string, to: string, promotion?: "q" | "r" | "b" | "n") {
+    if (!guidedExerciseContext || guidedBusy) return;
+    const requestId = ++guidedRequestRef.current;
+    setGuidedBusy(true);
+    setGuidedError("");
+    setGuidedResult(null);
+    try {
+      const response = await fetch(`/api/chess/studies/${encodeURIComponent(guidedExerciseContext.studyId)}/guided-attempts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chapterId: guidedExerciseContext.chapterId, nodeId: activeId, move: { from, to, promotion } })
+      });
+      const body = await response.json().catch(() => ({})) as { attempt?: { correct: boolean; attemptedUci: string; attemptedSan: string; fen: string; successMessage: string }; error?: string };
+      if (!response.ok || !body.attempt) throw new Error(body.error ?? "Attempt could not be checked.");
+      if (requestId !== guidedRequestRef.current) return;
+      setGuidedResult({ status: body.attempt.correct ? "correct" : "incorrect", attemptedUci: body.attempt.attemptedUci, attemptedSan: body.attempt.attemptedSan, successMessage: body.attempt.successMessage });
+      setGuidedFen(body.attempt.correct ? body.attempt.fen : null);
+    } catch (error) {
+      if (requestId === guidedRequestRef.current) setGuidedError(error instanceof Error ? error.message : "Attempt could not be checked.");
+    } finally {
+      if (requestId === guidedRequestRef.current) setGuidedBusy(false);
+    }
+  }
+
+  async function changeTrainingPublication(method: "POST" | "DELETE", theme?: "fork" | "pin" | "skewer" | "mateIn1") {
+    if (!guidedExerciseContext) throw new Error("Study context is unavailable.");
+    const response = await fetch(`/api/chess/studies/${encodeURIComponent(guidedExerciseContext.studyId)}/training-puzzles`, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chapterId: guidedExerciseContext.chapterId, nodeId: activeId, theme })
+    });
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    if (!response.ok) throw new Error(body.error ?? "Puzzle Training could not be updated.");
   }
 
   function updateShapes(shapes: AnalysisShape[]) {
@@ -320,11 +384,13 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
             <p className="text-xs font-black uppercase tracking-wide text-violet-200">Guess the move</p>
             <p className="mt-1 font-bold leading-6 text-white">{guidedExercise.prompt}</p>
             <div className="mt-3" aria-live="polite">
-              {!guidedResult && <p className="text-sm text-slate-300">Play your answer directly on the board.</p>}
+              {!guidedResult && !guidedBusy && <p className="text-sm text-slate-300">Play your answer directly on the board.</p>}
+              {guidedBusy && <p className="text-sm font-bold text-cyan-100">Checking and saving your move…</p>}
+              {guidedError && <p className="rounded-md border border-rose-300/25 bg-rose-300/10 p-3 text-sm font-bold text-rose-100">{guidedError}</p>}
               {guidedResult?.status === "incorrect" && <p className="rounded-md border border-amber-300/25 bg-amber-300/10 p-3 text-sm font-bold text-amber-100"><span className="font-black">{guidedResult.attemptedSan}</span> is legal, but it is not the move this exercise is looking for. Try again.</p>}
-              {guidedResult?.status === "correct" && <div className="rounded-md border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm text-emerald-50"><p className="font-black">Correct — {guidedResult.attemptedSan}!</p>{guidedExercise.successMessage && <p className="mt-1 leading-5">{guidedExercise.successMessage}</p>}</div>}
+              {guidedResult?.status === "correct" && <div className="rounded-md border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm text-emerald-50"><p className="font-black">Correct — {guidedResult.attemptedSan}!</p>{guidedResult.successMessage && <p className="mt-1 leading-5">{guidedResult.successMessage}</p>}</div>}
             </div>
-            {guidedResult && <button type="button" className="mt-3 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-200 hover:bg-white/10" onClick={() => { setGuidedResult(null); setGuidedFen(null); }}>Reset attempt</button>}
+            {(guidedResult || guidedError) && <button type="button" className="mt-3 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-200 hover:bg-white/10" onClick={() => { setGuidedResult(null); setGuidedFen(null); setGuidedError(""); }}>Reset attempt</button>}
           </Card>}
           <div className="flex min-w-0 overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
             {engineOn && (
@@ -340,7 +406,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
                 fen={displayFen}
                 orientation={orientation}
                 humanColor={moveColor}
-                interactive={guidedExercise ? guidedResult?.status !== "correct" : editable}
+                interactive={guidedExercise ? guidedResult?.status !== "correct" && !guidedBusy : editable}
                 lastMove={lastMove}
                 onMove={makeMove}
                 arrows={arrows}
@@ -404,7 +470,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
             </div>}
           </Card>
 
-          {canManageGuidedExercises && <GuidedExerciseEditor key={activeId} fen={node.fen} exercise={node.guidedExercise ?? null} onSave={(exercise) => commitTree(updateNodeGuidedExercise(tree, activeId, exercise))} />}
+          {canManageGuidedExercises && <GuidedExerciseEditor key={activeId} fen={node.fen} exercise={node.guidedExercise ?? null} canPublish={saveStatus !== "saving" && saveStatus !== "error"} onSave={(exercise) => commitTree(updateNodeGuidedExercise(tree, activeId, exercise))} onPublish={guidedExerciseContext ? (theme) => changeTrainingPublication("POST", theme) : undefined} onUnpublish={guidedExerciseContext ? () => changeTrainingPublication("DELETE") : undefined} />}
 
           <Card className="p-4">
             <div className="flex items-center justify-between"><h3 className="font-black text-white">Move tree</h3><span className="text-xs text-slate-500">← → Home End</span></div>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prepareLichessPuzzle } from "@/lib/puzzle-training/engine";
+import { firstStudentMoveIndex, prepareTrainingPuzzle } from "@/lib/puzzle-training/engine";
 import { createPuzzleSessionToken } from "@/lib/puzzle-training/sessionToken";
 import { requirePuzzleStudent, selectTrainingPuzzle } from "@/lib/puzzle-training/server";
 import { parsePuzzleTheme } from "@/lib/puzzle-training/types";
@@ -20,14 +20,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "No imported puzzles are available for this theme yet." }, { status: 404 });
     }
 
-    const prepared = prepareLichessPuzzle(puzzle.initial_fen, puzzle.moves);
+    const prepared = prepareTrainingPuzzle(puzzle);
     const token = createPuzzleSessionToken({
       version: 1,
       puzzleId: puzzle.id,
       studentId: student.studentId,
       sessionId,
       selectedTheme: theme,
-      nextMoveIndex: 1,
+      nextMoveIndex: firstStudentMoveIndex(puzzle),
       startedAt: new Date().toISOString(),
       incorrectMoveCount: 0,
       hintsUsed: 0
@@ -39,6 +39,8 @@ export async function GET(request: NextRequest) {
         displayFen: prepared.displayFen,
         orientation: prepared.orientation,
         sideToMove: prepared.sideToMove,
+        prompt: puzzle.teacher_prompt,
+        sourceKind: puzzle.source_kind,
         token
       }
     });

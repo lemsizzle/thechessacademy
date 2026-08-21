@@ -4,12 +4,21 @@ export const lichessPuzzleThemes = ["fork", "pin", "skewer", "mateIn1"] as const
 export type PuzzleThemeSlug = typeof puzzleThemeSlugs[number];
 export type LichessPuzzleTheme = typeof lichessPuzzleThemes[number];
 export type BoardOrientation = "white" | "black";
+export type PuzzleStartMode = "after_setup" | "direct";
+export type PuzzleSourceKind = "lichess" | "study";
 
 export type ChessPuzzleRow = {
   id: string;
   lichess_puzzle_id: string;
   initial_fen: string;
   moves: string[];
+  start_mode: PuzzleStartMode;
+  accepted_moves: string[];
+  source_kind: PuzzleSourceKind;
+  source_study_id: string | null;
+  source_chapter_id: string | null;
+  source_node_id: string | null;
+  teacher_prompt: string;
   rating: number | null;
   rating_deviation: number | null;
   popularity: number | null;
@@ -26,6 +35,8 @@ export type PublicTrainingPuzzle = {
   displayFen: string;
   orientation: BoardOrientation;
   sideToMove: "White" | "Black";
+  prompt: string;
+  sourceKind: PuzzleSourceKind;
   token: string;
 };
 

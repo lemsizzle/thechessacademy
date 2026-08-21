@@ -35,8 +35,26 @@ export function prepareLichessPuzzle(initialFen: string, moves: string[]) {
   };
 }
 
+export function firstStudentMoveIndex(puzzle: Pick<ChessPuzzleRow, "start_mode">) {
+  return puzzle.start_mode === "direct" ? 0 : 1;
+}
+
+export function prepareTrainingPuzzle(puzzle: Pick<ChessPuzzleRow, "initial_fen" | "moves" | "start_mode">) {
+  if (puzzle.start_mode === "after_setup") return prepareLichessPuzzle(puzzle.initial_fen, puzzle.moves);
+  if (!puzzle.moves.length) throw new Error("Puzzle has no student solution move.");
+  const chess = new Chess(puzzle.initial_fen);
+  return {
+    displayFen: chess.fen(),
+    orientation: chess.turn() === "w" ? "white" as const : "black" as const,
+    sideToMove: chess.turn() === "w" ? "White" as const : "Black" as const,
+    firstStudentMove: puzzle.moves[0]
+  };
+}
+
 export function replayPuzzleToIndex(puzzle: Pick<ChessPuzzleRow, "initial_fen" | "moves">, nextMoveIndex: number) {
-  if (nextMoveIndex < 1 || nextMoveIndex >= puzzle.moves.length || nextMoveIndex % 2 === 0) {
+  const startMode = "start_mode" in puzzle ? puzzle.start_mode : "after_setup";
+  const firstIndex = startMode === "direct" ? 0 : 1;
+  if (nextMoveIndex < firstIndex || nextMoveIndex >= puzzle.moves.length || (nextMoveIndex - firstIndex) % 2 !== 0) {
     throw new Error("Puzzle token is not on a student move.");
   }
   const chess = new Chess(puzzle.initial_fen);
@@ -63,8 +81,10 @@ export function validatePuzzleMove(puzzle: ChessPuzzleRow, nextMoveIndex: number
   }
 
   const candidateUci = `${candidateMove.from}${candidateMove.to}${candidateMove.promotion ?? ""}`;
-  const alternateMate = nextMoveIndex === 1 && puzzle.themes.includes("mateIn1") && chess.isCheckmate();
-  if (candidateUci !== expectedUci && !alternateMate) {
+  const firstIndex = firstStudentMoveIndex(puzzle);
+  const acceptedStudyMove = nextMoveIndex === firstIndex && puzzle.start_mode === "direct" && puzzle.accepted_moves.includes(candidateUci);
+  const alternateMate = nextMoveIndex === firstIndex && puzzle.themes.includes("mateIn1") && chess.isCheckmate();
+  if (candidateUci !== expectedUci && !acceptedStudyMove && !alternateMate) {
     return { accepted: false, completed: false, positionFen: replayPuzzleToIndex(puzzle, nextMoveIndex).fen(), nextMoveIndex };
   }
 

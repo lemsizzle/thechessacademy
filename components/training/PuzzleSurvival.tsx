@@ -109,7 +109,7 @@ export function PuzzleSurvival() {
       setPositionFen(data.puzzle.displayFen);
       setToken(data.puzzle.token);
       recentPuzzleIds.current = [...recentPuzzleIds.current, data.puzzle.id].slice(-20);
-      setMessage("Your turn. Find the best move.");
+      setMessage(data.puzzle.prompt || "Your turn. Find the best move.");
       setPhase("turn");
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Puzzle could not be loaded.");
@@ -346,7 +346,7 @@ export function PuzzleSurvival() {
           </div>
           <Button type="button" onClick={startSession}>Start {selectedThemeName}</Button>
         </Card>
-        <p className="text-xs text-slate-500">Puzzle data from the Lichess open database.</p>
+        <p className="text-xs text-slate-500">Training combines teacher-authored Academy positions with puzzles from the Lichess open database.</p>
       </div>
     );
   }
@@ -384,7 +384,7 @@ export function PuzzleSurvival() {
         <div className="space-y-4">
           <Card className="p-5">
             <div className="flex flex-wrap items-center justify-between gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-xs font-black uppercase text-cyan-100">{selectedThemeName}</span><span className="text-xs font-bold text-slate-400">{puzzle ? `${puzzle.sideToMove} to move` : "Loading"}</span></div>
-            <h2 className="mt-4 text-2xl font-black text-white">{phase === "reply" ? "Opponent reply" : phase === "solved" ? "Puzzle complete" : "Find the best move"}</h2>
+            <h2 className="mt-4 text-2xl font-black text-white">{phase === "reply" ? "Opponent reply" : phase === "solved" ? "Puzzle complete" : puzzle?.prompt || "Find the best move"}</h2>
             <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${phase === "solved" ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : error ? "border-fuchsia-300/50 bg-fuchsia-300/10 text-fuchsia-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">{error || message}</div>
             {phase === "turn" && <div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => void requestHint()}>Hint</Button><Button type="button" variant="ghost" onClick={() => void exitTraining()}>Exit Training</Button></div>}
             {phase === "solved" && <Button type="button" onClick={() => void loadPuzzle()} className="mt-4">Next Puzzle</Button>}
@@ -399,7 +399,7 @@ export function PuzzleSurvival() {
             </Card>
           )}
 
-          <p className="text-xs text-slate-500">Puzzle data from the Lichess open database.</p>
+          <p className="text-xs text-slate-500">{puzzle?.sourceKind === "study" ? "Teacher-authored Chess Academy position." : "Puzzle data from the Lichess open database."}</p>
         </div>
       </div>
     </div>
