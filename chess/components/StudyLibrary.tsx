@@ -60,7 +60,7 @@ export function StudyLibrary({ basePath }: { basePath: "/student" | "/admin" }) 
     {loading ? <Card className="p-6 text-sm text-slate-300">Loading studies and completed games…</Card> : <>
       {basePath === "/student" ? <section>
         <div className="mb-3 flex items-end justify-between"><div><p className="text-xs font-black uppercase text-amber-200">Teacher reviews</p><h2 className="text-xl font-black text-white">Assigned to you</h2></div><span className="text-xs text-slate-500">{assignments.filter((assignment) => assignment.status === "assigned" || assignment.status === "returned").length} to answer</span></div>
-        <ReviewAssignmentCards initialAssignments={assignments} basePath="/student" emptyMessage="No teacher reviews have been assigned yet." />
+        <ReviewAssignmentCards initialAssignments={assignments} basePath="/student" emptyMessage="No teacher reviews have been assigned yet." onAssignmentUpdated={(updated) => setAssignments((current) => current.map((assignment) => assignment.id === updated.id ? updated : assignment))} />
       </section> : null}
       <section>
         <div className="mb-3 flex items-end justify-between"><div><p className="text-xs font-black uppercase text-cyan-200">Studies</p><h2 className="text-xl font-black text-white">Saved analysis</h2></div><span className="text-xs text-slate-500">{studies.length} total</span></div>

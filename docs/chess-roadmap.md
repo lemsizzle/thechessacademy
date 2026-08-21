@@ -74,7 +74,7 @@ Evidence: analysis-tree validation tests, student read-only rendering, TypeScrip
 
 Evidence: `20260816020000_create_chess_review_assignments.sql`, review-assignment unit tests, live database catalog/constraint checks, and a student-browser assign/open/complete/reopen/answer-gating workflow on 2026-08-16. Remaining evidence gate: perform the teacher-browser create/reset/remove flow when an authenticated teacher session is available.
 
-### 5B. Student response and teacher feedback: implemented and database-verified; authenticated browser smoke test pending
+### 5B. Student response and teacher feedback: implemented and student-browser verified; teacher-session smoke test pending
 
 - A student can submit a required written answer of up to 4,000 characters and revise it after a teacher return.
 - The review lifecycle is `assigned → submitted → approved` or `assigned → submitted → returned → submitted`; teachers can also reset reviewed work to `assigned`.
@@ -82,9 +82,9 @@ Evidence: `20260816020000_create_chess_review_assignments.sql`, review-assignmen
 - The existing completion timestamp is retained as the submission timestamp. A separate review timestamp records approve/return decisions, and legacy `completed` rows migrate to `approved`.
 - Student and teacher interfaces expose the response, feedback, status, and available actions without realtime editing.
 
-Evidence on 2026-08-21: 95 automated tests, TypeScript, and the production build pass. `20260816020000_create_chess_review_assignments.sql` and `20260821090000_extend_chess_review_feedback.sql` are recorded in the live migration history. Catalog checks confirm the response/feedback columns, four-state workflow constraints, RLS, denied browser-role access, and service-role CRUD access. An exact temporary fixture completed `assigned → submitted → returned → submitted → approved`; its study, membership, and assignment rows were then removed and verified absent. Supabase advisors reported no review-assignment findings.
+Evidence on 2026-08-21: 95 automated tests, TypeScript, and the production build pass. `20260816020000_create_chess_review_assignments.sql` and `20260821090000_extend_chess_review_feedback.sql` are recorded in the live migration history. Catalog checks confirm the response/feedback columns, four-state workflow constraints, RLS, denied browser-role access, and service-role CRUD access. An authenticated `hi` student-browser fixture completed submit, gated-answer reveal, returned feedback, revision, resubmit, and approved rendering without console errors. That run exposed and fixed the stale “to answer” counter by synchronizing card updates with the library state. The exact temporary study, membership, and assignment rows were removed and verified absent. Supabase advisors reported no review-assignment findings.
 
-Remaining evidence gates: exercise submit/return/resubmit/approve through the authenticated student UI/API and perform the teacher-browser create/review/reset/remove smoke tests from 5A/5B. The 2026-08-21 in-app-browser attempt was blocked by its localhost URL policy after an initial connection-refused screen; no alternate browser bypass was used.
+Remaining evidence gate: perform the teacher-browser create/review/reset/remove smoke tests from 5A/5B. Neither the in-app browser nor the connected Brave session had an authenticated localhost teacher session during the 2026-08-21 verification run.
 
 ## Next phase after Phase 5
 

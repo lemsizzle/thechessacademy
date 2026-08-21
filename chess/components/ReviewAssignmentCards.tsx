@@ -12,10 +12,11 @@ function assignmentStatusStyle(status: ReviewAssignment["status"]) {
   return "border-amber-300/30 bg-amber-300/10 text-amber-100";
 }
 
-export function ReviewAssignmentCards({ initialAssignments, basePath, emptyMessage }: {
+export function ReviewAssignmentCards({ initialAssignments, basePath, emptyMessage, onAssignmentUpdated }: {
   initialAssignments: ReviewAssignment[];
   basePath: "/student" | "/admin";
   emptyMessage?: string;
+  onAssignmentUpdated?: (assignment: ReviewAssignment) => void;
 }) {
   const [assignments, setAssignments] = useState(initialAssignments);
   const [responses, setResponses] = useState<Record<string, string>>(() => Object.fromEntries(initialAssignments.map((assignment) => [assignment.id, assignment.studentResponse])));
@@ -34,6 +35,7 @@ export function ReviewAssignmentCards({ initialAssignments, basePath, emptyMessa
       const body = await response.json().catch(() => ({})) as { assignment?: ReviewAssignment; error?: string };
       if (!response.ok || !body.assignment) throw new Error(body.error ?? "Your answer could not be submitted.");
       setAssignments((current) => current.map((item) => item.id === assignment.id ? body.assignment! : item));
+      onAssignmentUpdated?.(body.assignment);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Your answer could not be submitted.");
     } finally {

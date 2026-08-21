@@ -42,6 +42,6 @@
 - Teacher UI and owner-protected APIs for adding editors/viewers are implemented; the authenticated teacher-browser smoke test remains outstanding.
 - Optional node-level evaluation snapshots for teacher-authored reference lines are implemented; the authenticated teacher-browser Save/Remove smoke test remains outstanding.
 - Teacher review assignments support whole-study or chapter scope, prompts, gated teacher answers, student written responses, teacher approve/return feedback, reset, and automatic viewer access.
-- The Phase 5B application code, tests, production build, live migration, catalog constraints, privileges, and database state transitions are verified. The authenticated submit/return/resubmit/approve student-browser workflow and teacher-authenticated UI smoke test remain outstanding.
+- The Phase 5B application code, tests, production build, live migration, catalog constraints, privileges, and authenticated student submit/return/resubmit/approve workflow are verified. The teacher-authenticated UI smoke test remains outstanding.
 
 See `docs/chess-roadmap.md` for the durable phase tracker and evidence gates.
