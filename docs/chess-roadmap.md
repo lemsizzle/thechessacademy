@@ -106,3 +106,14 @@ Evidence on 2026-08-21: 103 automated tests, TypeScript, and the production buil
 - New tables and source metadata are RLS-enabled, browser-denied, service-role-only, indexed, and live in the Supabase migration history.
 
 Evidence on 2026-08-21: 103 automated tests, TypeScript, lint, and the production build pass. Both migrations are applied. Supabase advisors report no unindexed foreign keys introduced by this phase. An authenticated student played an incorrect then correct guided move, the teacher report showed `Solved` with `2 (1 incorrect)`, the teacher publish/update/unpublish controls persisted both accepted moves, and the student solved the teacher-authored position in Puzzle Training on the first try. Authenticated teacher smoke tests also closed the outstanding sharing, reference-evaluation, review, and exercise-authoring evidence gates. All deterministic smoke-test rows were removed and verified absent.
+
+## Phase 8 — Student-vs-student live games: complete
+
+- Authenticated students can create a private 12-character challenge, choose a supported time control and color, share the code, or join another student's waiting challenge.
+- Every move, clock transition, draw action, resignation, cancellation, and timeout claim is revalidated by authenticated Next.js routes against the canonical server-only game row. Optimistic versions prevent two serverless requests from advancing the same position.
+- Supabase Broadcast sends only a minimal invalidation event on a high-entropy capability topic. Participants then refetch the complete snapshot through the authenticated API; browser roles have no direct table privileges and a polling fallback covers disconnects.
+- Reloading or reconnecting restores the position, move history, draw offer, and timestamp-based clocks. The server, rather than the browser, decides flag fall and game results.
+- Completed games generate normalized PGN and create one existing `internal_chess_games` history row for each player, so both students can reuse the established analysis and Study workflows.
+- The responsive game page reuses the academy board, promotion chooser, clocks, move history, and Lichess-style local drawing tools.
+
+Evidence on 2026-08-21: 109 automated tests across 22 files, TypeScript, and the production build pass. The migration is recorded in the live Supabase history. RLS and explicit privilege checks deny `anon` and `authenticated` table access while `service_role` retains server CRUD. Supabase advisors report no Phase 8 security findings or unindexed foreign keys. An authenticated browser created a challenge; a controlled second student joined; Broadcast updated both join and move state; both students played; a draw offer was accepted; two completed-game history rows and PGN were verified; a page reload restored the result; the mobile lobby had no horizontal overflow; and all exact smoke-test rows were removed and verified absent.

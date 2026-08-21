@@ -21,10 +21,38 @@ The reusable implementation lives under `chess/`:
   game storage.
 - `types/`: shared contracts used across the layers.
 
-Future game modes should reuse `AcademyChessboard`, the `game/` helpers, clock
-logic, result types, and the common move representation. Multiplayer should
-replace the computer-turn adapter, puzzle mode should replace its move
-acceptance policy, and review should consume the stored move/FEN/PGN data.
+New game modes reuse `AcademyChessboard`, the `game/` helpers, clock logic,
+result types, and the common move representation. Live multiplayer replaces the
+computer-turn adapter with authenticated server actions and durable canonical
+state. Puzzle mode replaces its move acceptance policy, and review consumes the
+stored move/FEN/PGN data.
+
+## Live student games
+
+Private student challenges live under `/student/play/live`. A creator chooses a
+color and one of the established time controls, then shares a 12-character
+code. The second authenticated student joins that waiting game; a student can
+never join their own challenge.
+
+`live_chess_games` is the single source of truth. Its move list, current FEN,
+active color, timestamped clock base, draw offer, result, and optimistic version
+are only readable or writable by the service role. Next.js routes recheck the
+custom Lichess session against the active student row and replay every move with
+chess.js before a version-guarded update. Browser roles have no table grants and
+an explicit deny policy provides defense in depth.
+
+The database broadcasts a small `game_changed` invalidation on a topic derived
+from the game UUID and a separate random UUID. Only participating students
+receive that capability topic from the authenticated snapshot route. The event
+contains no position, player identity, or secret; clients refetch the canonical
+snapshot. A three-second polling fallback plus focus refresh makes the page
+resumable when WebSockets are unavailable.
+
+Clocks use the same absolute timestamp model as computer games. The stored
+remaining times describe the instant at `clock_started_at`; clients render the
+countdown locally, but a move or timeout claim is accepted only after the server
+recomputes elapsed time. Completed live games generate normalized PGN and one
+`internal_chess_games` row per player, keyed idempotently by the source live game.
 
 ## Board and rules
 
