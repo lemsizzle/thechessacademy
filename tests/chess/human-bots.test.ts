@@ -84,15 +84,15 @@ describe("Stockfish MultiPV parsing", () => {
 });
 
 describe("human-like computer profiles", () => {
-  it("defines academy personalities and the So_Pawny mirror backed by 5-10 analysis lines", () => {
+  it("defines academy personalities and the Sir Lem mirror backed by 5-10 analysis lines", () => {
     expect(BOT_DIFFICULTIES.map((profile) => profile.name)).toEqual([
-      "Pawny", "Zippy Knight", "Benny Bishop", "Rocky Rook", "Quinn Queen", "So_Pawny"
+      "Pawny", "Zippy Knight", "Benny Bishop", "Rocky Rook", "Quinn Queen", "Sir Lem"
     ]);
     expect(BOT_DIFFICULTIES.every((profile) => profile.multiPv >= 5 && profile.multiPv <= 10)).toBe(true);
     expect(BOT_DIFFICULTIES.map((profile) => profile.estimatedRating)).toEqual([375, 575, 775, 975, 1225, 1600]);
   });
 
-  it("gives the So_Pawny mirror its sampled e4 and Pirc opening preferences", () => {
+  it("gives the Sir Lem mirror its sampled e4 and Pirc opening preferences", () => {
     const opening = scoreHumanCandidates(new Chess().fen(), [candidate("e2e4", 1, 0), candidate("g1f3", 2, 0)], bot("so-pawny"));
     const afterE4 = new Chess();
     afterE4.move("e4");
@@ -102,7 +102,7 @@ describe("human-like computer profiles", () => {
     expect(score(pirc, "d7d6")).toBeGreaterThan(score(pirc, "e7e5"));
   });
 
-  it("keeps every So_Pawny opening-book continuation legal", () => {
+  it("keeps every Sir Lem opening-book continuation legal", () => {
     for (const rule of bot("so-pawny").openingBook ?? []) {
       const chess = new Chess();
       for (const move of rule.after) expect(() => playUci(chess, move)).not.toThrow();

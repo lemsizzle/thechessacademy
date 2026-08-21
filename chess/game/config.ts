@@ -131,7 +131,7 @@ export const BOT_DIFFICULTIES: BotDifficulty[] = [
   },
   {
     id: "so-pawny",
-    name: "So_Pawny",
+    name: "Sir Lem",
     title: "Founder’s Mirror",
     estimatedRating: 1600,
     multiPv: 10,
