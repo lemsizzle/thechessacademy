@@ -15,6 +15,12 @@ export type SavedEngineEvaluation = {
   savedAt: string;
 };
 
+export type GuidedExercise = {
+  prompt: string;
+  expectedMovesUci: string[];
+  successMessage: string;
+};
+
 export type AnalysisNode = {
   id: string;
   parentId: string | null;
@@ -29,6 +35,7 @@ export type AnalysisNode = {
   nags: AnalysisNag[];
   shapes: AnalysisShape[];
   referenceEvaluation?: SavedEngineEvaluation | null;
+  guidedExercise?: GuidedExercise | null;
 };
 
 export type AnalysisTree = {

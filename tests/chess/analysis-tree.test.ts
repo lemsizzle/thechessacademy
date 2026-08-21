@@ -1,6 +1,6 @@
 import { Chess } from "chess.js";
 import { describe, expect, it } from "vitest";
-import { addAnalysisMove, createAnalysisTree, deleteVariation, lastMainlineNodeId, nextNodeId, previousNodeId, promoteVariation, updateNodeAnnotations, validateAnalysisTree } from "@/chess/analysis/tree";
+import { addAnalysisMove, createAnalysisTree, deleteVariation, evaluateGuidedMove, lastMainlineNodeId, nextNodeId, previousNodeId, promoteVariation, updateNodeAnnotations, updateNodeGuidedExercise, validateAnalysisTree } from "@/chess/analysis/tree";
 import type { CompletedGameMove } from "@/chess/analysis/types";
 
 function originalLine() {
@@ -90,5 +90,44 @@ describe("analysis move tree", () => {
       nodes: { ...tree.nodes, [e4]: { ...tree.nodes[e4], referenceEvaluation: { engine: "unknown", scoreWhiteCp: null, mateWhite: null, depth: 0, pvUci: [], pvSan: "", savedAt: "never" } } }
     };
     expect(() => validateAnalysisTree(corrupted)).toThrow("reference evaluation");
+  });
+
+  it("persists a guided exercise with multiple legal expected moves", () => {
+    let tree = createAnalysisTree(new Chess().fen(), originalLine());
+    tree = updateNodeGuidedExercise(tree, tree.rootId, {
+      prompt: "Choose a strong first move.",
+      expectedMovesUci: ["e2e4", "d2d4"],
+      successMessage: "Both moves claim space in the center."
+    });
+    const restored = validateAnalysisTree(JSON.parse(JSON.stringify(tree)));
+    expect(restored.nodes[tree.rootId].guidedExercise).toEqual({
+      prompt: "Choose a strong first move.",
+      expectedMovesUci: ["e2e4", "d2d4"],
+      successMessage: "Both moves claim space in the center."
+    });
+  });
+
+  it("rejects illegal or duplicate guided exercise moves", () => {
+    const tree = createAnalysisTree(new Chess().fen(), originalLine());
+    const illegal = updateNodeGuidedExercise(tree, tree.rootId, {
+      prompt: "Find a move.", expectedMovesUci: ["e2e5"], successMessage: ""
+    });
+    expect(() => validateAnalysisTree(illegal)).toThrow("illegal expected move");
+
+    const duplicate = updateNodeGuidedExercise(tree, tree.rootId, {
+      prompt: "Find a move.", expectedMovesUci: ["e2e4", "e2e4"], successMessage: ""
+    });
+    expect(() => validateAnalysisTree(duplicate)).toThrow("guided exercise moves");
+  });
+
+  it("scores guided attempts without changing the saved tree", () => {
+    const tree = createAnalysisTree(new Chess().fen(), originalLine());
+    const serializedBefore = JSON.stringify(tree);
+    const exercise = { prompt: "Play in the center.", expectedMovesUci: ["e2e4"], successMessage: "Good." };
+    const correct = evaluateGuidedMove(tree.nodes[tree.rootId].fen, exercise, "e2", "e4");
+    const retry = evaluateGuidedMove(tree.nodes[tree.rootId].fen, exercise, "d2", "d4");
+    expect(correct).toMatchObject({ correct: true, uci: "e2e4", san: "e4" });
+    expect(retry).toMatchObject({ correct: false, uci: "d2d4", san: "d4" });
+    expect(JSON.stringify(tree)).toBe(serializedBefore);
   });
 });

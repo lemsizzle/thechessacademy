@@ -1,5 +1,5 @@
 import { Chess } from "chess.js";
-import { NAG_VALUES, type AnalysisNag, type AnalysisNode, type AnalysisShape, type AnalysisTree, type CompletedGameMove } from "@/chess/analysis/types";
+import { NAG_VALUES, type AnalysisNag, type AnalysisNode, type AnalysisShape, type AnalysisTree, type CompletedGameMove, type GuidedExercise } from "@/chess/analysis/types";
 
 const SQUARE = /^[a-h][1-8]$/;
 const UCI = /^([a-h][1-8])([a-h][1-8])([qrbn])?$/;
@@ -136,6 +136,20 @@ export function updateNodeAnnotations(tree: AnalysisTree, nodeIdValue: string, p
   return { ...tree, nodes: { ...tree.nodes, [nodeIdValue]: { ...node, ...patch } } };
 }
 
+export function updateNodeGuidedExercise(tree: AnalysisTree, nodeIdValue: string, exercise: GuidedExercise | null) {
+  const node = tree.nodes[nodeIdValue];
+  if (!node) throw new Error("Analysis position was not found.");
+  return { ...tree, nodes: { ...tree.nodes, [nodeIdValue]: { ...node, guidedExercise: exercise } } };
+}
+
+export function evaluateGuidedMove(fen: string, exercise: GuidedExercise, from: string, to: string, promotion?: "q" | "r" | "b" | "n") {
+  const chess = new Chess(fen);
+  const move = chess.move({ from, to, promotion });
+  if (!move) throw new Error("That move is not legal in this position.");
+  const uci = `${from}${to}${promotion ?? ""}`;
+  return { correct: exercise.expectedMovesUci.includes(uci), uci, san: move.san, fen: chess.fen() };
+}
+
 export function toggleNag(nags: AnalysisNag[], nag: AnalysisNag) {
   return nags.includes(nag) ? nags.filter((value) => value !== nag) : [...nags, nag];
 }
@@ -171,6 +185,16 @@ export function validateAnalysisTree(input: unknown): AnalysisTree {
       if (!Array.isArray(reference.pvUci) || !reference.pvUci.length || reference.pvUci.length > 32 || reference.pvUci.some((move) => typeof move !== "string" || !UCI.test(move))) throw new Error("Invalid reference evaluation line.");
       if (typeof reference.pvSan !== "string" || reference.pvSan.length > 2000 || !reference.pvSan.trim()) throw new Error("Invalid reference evaluation notation.");
       if (typeof reference.savedAt !== "string" || !reference.savedAt || Number.isNaN(Date.parse(reference.savedAt))) throw new Error("Invalid reference evaluation timestamp.");
+    }
+    const exercise = node.guidedExercise;
+    if (exercise !== undefined && exercise !== null) {
+      if (typeof exercise !== "object" || typeof exercise.prompt !== "string" || !exercise.prompt.trim() || exercise.prompt.length > 500) throw new Error("Invalid guided exercise prompt.");
+      if (typeof exercise.successMessage !== "string" || exercise.successMessage.length > 1000) throw new Error("Invalid guided exercise feedback.");
+      if (!Array.isArray(exercise.expectedMovesUci) || exercise.expectedMovesUci.length < 1 || exercise.expectedMovesUci.length > 8) throw new Error("Invalid guided exercise moves.");
+      const expectedMoves = new Set(exercise.expectedMovesUci);
+      if (expectedMoves.size !== exercise.expectedMovesUci.length || exercise.expectedMovesUci.some((move) => typeof move !== "string" || !UCI.test(move))) throw new Error("Invalid guided exercise moves.");
+      const legalMoves = new Set(new Chess(node.fen).moves({ verbose: true }).map((move) => `${move.from}${move.to}${move.promotion ?? ""}`));
+      if (exercise.expectedMovesUci.some((move) => !legalMoves.has(move))) throw new Error("Guided exercise contains an illegal expected move.");
     }
     for (const shape of node.shapes) {
       if (shape.type === "arrow" && (!SQUARE.test(shape.from) || !SQUARE.test(shape.to))) throw new Error("Invalid analysis arrow.");

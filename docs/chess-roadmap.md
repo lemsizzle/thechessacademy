@@ -86,6 +86,13 @@ Evidence on 2026-08-21: 95 automated tests, TypeScript, and the production build
 
 Remaining evidence gate: perform the teacher-browser create/review/reset/remove smoke tests from 5A/5B. Neither the in-app browser nor the connected Brave session had an authenticated localhost teacher session during the 2026-08-21 verification run.
 
-## Next phase after Phase 5
+## Phase 6 — Guided move exercises: implemented and student-browser verified; teacher-session smoke test pending
 
-Interactive teaching from Studies: select a position, define one or more expected moves, and reuse the analysis board for a guided guess-the-move exercise before general puzzle conversion.
+- A teacher can select any Study position, write a prompt and optional success explanation, and choose up to eight accepted moves from the complete legal-move list. Move choices display both SAN and UCI.
+- Exercises live on the position inside the existing versioned `AnalysisTree` JSONB document, so they inherit chapter autosave, optimistic concurrency, sharing, and authorization without another table or migration.
+- Server-side tree validation rejects empty prompts, duplicate or malformed moves, and moves that are not legal from the selected position FEN.
+- On student Study routes, an exercise turns the shared board into guess-the-move mode. Incorrect legal moves leave the position in place for another try; a correct move animates on the board and reveals the teacher explanation.
+- Engine lines and saved teacher references stay locked until the student solves the active exercise. Moving to another position or resetting clears the session-only attempt state and never changes the saved move tree.
+- Exercise diamonds in the move tree make authored positions easy to find.
+
+Evidence on 2026-08-21: 98 automated tests, TypeScript, and the production build pass. An authenticated student-browser fixture verified the locked answer state, an incorrect legal move and retry, a correct move and board update, success-explanation reveal, engine/reference unlock, reset behavior, the move-tree exercise marker, and an empty warning/error console. The exact temporary Study fixture was removed afterward. Remaining evidence gate: create, edit, and remove an exercise through an authenticated teacher browser. General puzzle conversion and attempt-history persistence remain future work.
