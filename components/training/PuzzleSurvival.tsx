@@ -11,7 +11,6 @@ import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrai
 
 const SESSION_LENGTH = 10;
 const STARTING_LIVES = 3;
-const MOVE_ANIMATION_MS = 120;
 const OPPONENT_REPLY_DELAY_MS = 140;
 
 const levels: Array<{ id: PuzzleLevelSlug; name: string; rating: string }> = [
@@ -365,8 +364,8 @@ export function PuzzleSurvival() {
     position: positionFen || undefined,
     boardOrientation: puzzle?.orientation ?? "white",
     showNotation: true,
-    animationDurationInMs: MOVE_ANIMATION_MS,
-    showAnimations: true,
+    animationDurationInMs: 0,
+    showAnimations: false,
     allowDragging: phase === "turn",
     allowDragOffBoard: false,
     allowAutoScroll: false,

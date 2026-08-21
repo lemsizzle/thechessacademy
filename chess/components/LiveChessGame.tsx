@@ -8,7 +8,7 @@ import { GameDialog } from "@/chess/components/GameDialog";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
-import { promotionOptions } from "@/chess/game/rules";
+import { promotionOptions, tryMove } from "@/chess/game/rules";
 import { oppositeColor } from "@/chess/game/config";
 import type { LiveGameAction, LiveGameSnapshot } from "@/chess/live/types";
 import type { ChessColor, PromotionPiece } from "@/chess/types";
@@ -44,6 +44,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   const [game, setGame] = useState<LiveGameSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
+  const [optimisticFen, setOptimisticFen] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [connection, setConnection] = useState<"connecting" | "live" | "polling">("connecting");
   const [orientation, setOrientation] = useState<ChessColor>("white");
@@ -184,6 +185,9 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
 
   const sendMove = useCallback(async (from: string, to: string, promotion?: PromotionPiece) => {
     if (!game || pending) return;
+    const chess = new Chess(game.fen);
+    if (!tryMove(chess, { from, to, promotion })) return;
+    setOptimisticFen(chess.fen());
     setPending(true);
     setError("");
     try {
@@ -195,9 +199,11 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
       const body = await response.json() as GameResponse;
       if (!response.ok || !body.game) throw new Error(body.error || "Move could not be played.");
       receiveGame(body.game);
+      setOptimisticFen(null);
     } catch (caught) {
+      setOptimisticFen(null);
       setError(caught instanceof Error ? caught.message : "Move could not be played.");
-      void refresh();
+      await refresh();
     } finally {
       setPending(false);
       setPendingPromotion(null);
@@ -281,7 +287,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
         <div className="mx-auto min-w-0 space-y-3" style={boardColumnStyle}>
           <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} />
           <div className="aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
-            <AcademyChessboard fen={game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} boardId={`live-game-${game.id}`} />
+            <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} boardId={`live-game-${game.id}`} />
           </div>
           <PlayerPanel name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} />
         </div>

@@ -5,7 +5,7 @@ import { Chessboard, type ChessboardOptions } from "react-chessboard";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { annotationColorForModifiers, BOARD_ANNOTATION_COLORS } from "@/chess/components/boardAnnotations";
 import { chessJsColor } from "@/chess/game/config";
-import { checkedKingSquare, legalMovesFrom } from "@/chess/game/rules";
+import { boardDropAction, checkedKingSquare, legalMovesFrom } from "@/chess/game/rules";
 import type { ChessColor } from "@/chess/types";
 
 type Props = {
@@ -101,8 +101,8 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
     position: fen,
     boardOrientation: orientation,
     showNotation: true,
-    animationDurationInMs: 220,
-    showAnimations: true,
+    animationDurationInMs: 0,
+    showAnimations: false,
     allowDragging: interactive && !annotationMode,
     allowDragOffBoard: false,
     allowAutoScroll: false,
@@ -146,7 +146,10 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
       touchAction: "none",
       boxShadow: "0 0 42px rgba(34,211,238,.2)"
     },
-    canDragPiece: ({ piece }) => interactive && !annotationMode && piece.pieceType.startsWith(chessJsColor(humanColor)),
+    canDragPiece: ({ piece }) => interactive
+      && !annotationMode
+      && chess.turn() === chessJsColor(humanColor)
+      && piece.pieceType.startsWith(chessJsColor(humanColor)),
     onSquareClick: ({ square }) => selectOrMove(square),
     onSquareMouseDown: ({ square }, event) => {
       if (event.button === 2) {
@@ -167,8 +170,11 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
       onCircleToggle?.(square, color);
     },
     onPieceDrop: ({ sourceSquare, targetSquare }) => {
-      if (interactive && targetSquare) onMove(sourceSquare, targetSquare);
-      return false;
+      if (!interactive || !targetSquare) return false;
+      const action = boardDropAction(chess, sourceSquare, targetSquare);
+      if (action === "illegal") return false;
+      onMove(sourceSquare, targetSquare);
+      return action === "move";
     }
   };
 

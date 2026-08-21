@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Chess } from "chess.js";
-import { createOutcome, detectBoardOutcome, legalMovesFrom, promotionOptions, tryMove, undoComputerTurn } from "@/chess/game/rules";
+import { boardDropAction, createOutcome, detectBoardOutcome, legalMovesFrom, promotionOptions, tryMove, undoComputerTurn } from "@/chess/game/rules";
 
 describe("internal chess rules", () => {
   it("accepts legal moves and rejects illegal moves", () => {
@@ -9,6 +9,15 @@ describe("internal chess rules", () => {
     expect(tryMove(chess, { from: "e2", to: "e5" })).toBeNull();
     expect(chess.fen()).toBe(new Chess().fen());
     expect(tryMove(chess, { from: "e2", to: "e4" })?.san).toBe("e4");
+  });
+
+  it("accepts legal board drops immediately while holding promotions for a choice", () => {
+    const opening = new Chess();
+    expect(boardDropAction(opening, "e2", "e4")).toBe("move");
+    expect(boardDropAction(opening, "e2", "e5")).toBe("illegal");
+
+    const promotion = new Chess("8/P7/8/8/8/8/8/k6K w - - 0 1");
+    expect(boardDropAction(promotion, "a7", "a8")).toBe("promotion");
   });
 
   it("uses chess.js castling rules", () => {

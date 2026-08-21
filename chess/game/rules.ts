@@ -14,6 +14,12 @@ export function promotionOptions(chess: Chess, from: string, to: string): Promot
   return [...new Set(options)];
 }
 
+export function boardDropAction(chess: Chess, from: string, to: string): "move" | "promotion" | "illegal" {
+  const matchingMoves = legalMovesFrom(chess, from).filter((move) => move.to === to);
+  if (!matchingMoves.length) return "illegal";
+  return matchingMoves.some((move) => move.promotion) ? "promotion" : "move";
+}
+
 export function tryMove(chess: Chess, input: MoveInput): Move | null {
   try {
     return chess.move(input);
