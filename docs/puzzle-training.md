@@ -1,6 +1,14 @@
 # Puzzle Training
 
-The student puzzle trainer at `/student/training` combines curated positions from the official Lichess open puzzle database with teacher-authored Study exercises. It supports Mixed, Fork, Pin, Skewer, and Mate in 1 sessions.
+The student puzzle trainer at `/student/training` combines curated positions from the official Lichess open puzzle database with teacher-authored Study exercises. Students can filter sessions by tactic (Mixed, Fork, Pin, Skewer, or Mate in 1) and by puzzle level.
+
+| Level | Lichess puzzle rating |
+| --- | ---: |
+| All levels | 600–2200 |
+| Beginner | 600–999 |
+| Improver | 1000–1399 |
+| Intermediate | 1400–1799 |
+| Advanced | 1800–2200 |
 
 ## How it works
 
@@ -61,7 +69,7 @@ npm run import:lichess-puzzles -- "C:\Users\momin\Documents\Chess Academy web ap
 npm run import:lichess-puzzles -- "C:\Users\momin\Documents\Chess Academy web app\data\lichess\lichess_db_puzzle.csv.zst" --sample
 ```
 
-Node.js 22 decompresses the Zstandard archive directly, so no separate `zstd` application is required. The importer streams decompression and CSV parsing, filters as it reads, validates retained solutions with `chess.js`, and upserts batches by `lichess_puzzle_id`. Rerunning the same command updates matching IDs instead of creating duplicates.
+Node.js 22 or newer decompresses the Zstandard archive directly, so no separate `zstd` application is required. The importer supports the current Lichess CSV format, including its optional `DailyDate` column, streams decompression and CSV parsing, filters as it reads, validates retained solutions with `chess.js`, and upserts batches by `lichess_puzzle_id`. Rerunning the same command updates matching IDs instead of creating duplicates.
 
 The import workflow uses existing lockfile-pinned project packages: `@supabase/supabase-js`, `chess.js`, `csv-parse`, `dotenv`, and `tsx`. No archive is sent to GitHub, Vercel, Supabase Storage, or the public app.
 

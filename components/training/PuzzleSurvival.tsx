@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { legalDestinations, parseUciMove } from "@/lib/puzzle-training/engine";
-import { parsePuzzleTheme, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
+import { parsePuzzleLevel, parsePuzzleTheme, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 const SESSION_LENGTH = 10;
 const STARTING_LIVES = 3;
@@ -18,6 +18,14 @@ const themes: Array<{ id: PuzzleThemeSlug; name: string; description: string }> 
   { id: "pin", name: "Pins", description: "A piece cannot safely move because something more valuable is behind it." },
   { id: "skewer", name: "Skewers", description: "A valuable piece must move, exposing another piece behind it." },
   { id: "mateIn1", name: "Mate in 1", description: "Find the move that checkmates immediately." }
+];
+
+const levels: Array<{ id: PuzzleLevelSlug; name: string; rating: string }> = [
+  { id: "all", name: "All levels", rating: "600–2200" },
+  { id: "beginner", name: "Beginner", rating: "600–999" },
+  { id: "improver", name: "Improver", rating: "1000–1399" },
+  { id: "intermediate", name: "Intermediate", rating: "1400–1799" },
+  { id: "advanced", name: "Advanced", rating: "1800–2200" }
 ];
 
 type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "summary" | "error";
@@ -37,6 +45,7 @@ export function PuzzleSurvival() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedTheme, setSelectedTheme] = useState<PuzzleThemeSlug>(() => parsePuzzleTheme(searchParams.get("theme")));
+  const [selectedLevel, setSelectedLevel] = useState<PuzzleLevelSlug>(() => parsePuzzleLevel(searchParams.get("level")));
   const [phase, setPhase] = useState<TrainerPhase>("select");
   const [puzzle, setPuzzle] = useState<PublicTrainingPuzzle | null>(null);
   const [positionFen, setPositionFen] = useState("");
@@ -77,7 +86,12 @@ export function PuzzleSurvival() {
 
   function chooseTheme(theme: PuzzleThemeSlug) {
     setSelectedTheme(theme);
-    router.replace(`/student/training?theme=${theme}`, { scroll: false });
+    router.replace(`/student/training?theme=${theme}&level=${selectedLevel}`, { scroll: false });
+  }
+
+  function chooseLevel(level: PuzzleLevelSlug) {
+    setSelectedLevel(level);
+    router.replace(`/student/training?theme=${selectedTheme}&level=${level}`, { scroll: false });
   }
 
   function clearBoardMarks() {
@@ -98,7 +112,7 @@ export function PuzzleSurvival() {
     setCompletion(null);
     clearBoardMarks();
     moveLocked.current = false;
-    const query = new URLSearchParams({ theme: selectedTheme, sessionId: sessionId.current });
+    const query = new URLSearchParams({ theme: selectedTheme, level: selectedLevel, sessionId: sessionId.current });
     if (recentPuzzleIds.current.length) query.set("exclude", recentPuzzleIds.current.slice(-10).join(","));
 
     try {
@@ -327,10 +341,13 @@ export function PuzzleSurvival() {
 
   const averageTime = solveTimes.length ? Math.round(solveTimes.reduce((sum, value) => sum + value, 0) / solveTimes.length) : 0;
   const selectedThemeName = themes.find((theme) => theme.id === selectedTheme)?.name ?? "Mixed";
+  const selectedLevelName = levels.find((level) => level.id === selectedLevel)?.name ?? "All levels";
 
   if (phase === "select") {
     return (
       <div className="space-y-5">
+        <div>
+          <p className="mb-3 text-xs font-black uppercase tracking-wide text-cyan-100">1. Choose a tactic</p>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" role="radiogroup" aria-label="Puzzle theme">
           {themes.map((theme) => (
             <button key={theme.id} type="button" role="radio" aria-checked={selectedTheme === theme.id} onClick={() => chooseTheme(theme.id)} className={`min-h-32 rounded-lg border p-4 text-left transition active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${selectedTheme === theme.id ? "border-amber-300 bg-amber-300/12 shadow-gold" : "border-white/10 bg-slate-950/58 hover:border-cyan-200/40 hover:bg-cyan-300/5"}`}>
@@ -339,12 +356,24 @@ export function PuzzleSurvival() {
             </button>
           ))}
         </div>
+        </div>
+        <div>
+          <p className="mb-3 text-xs font-black uppercase tracking-wide text-cyan-100">2. Choose a level</p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5" role="radiogroup" aria-label="Puzzle level">
+            {levels.map((level) => (
+              <button key={level.id} type="button" role="radio" aria-checked={selectedLevel === level.id} onClick={() => chooseLevel(level.id)} className={`rounded-lg border px-4 py-3 text-left transition active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${selectedLevel === level.id ? "border-cyan-200 bg-cyan-300/12 shadow-[0_0_24px_rgba(34,211,238,.12)]" : "border-white/10 bg-slate-950/58 hover:border-cyan-200/40 hover:bg-cyan-300/5"}`}>
+                <span className="block text-sm font-black text-white">{level.name}</span>
+                <span className="mt-1 block text-xs font-bold text-slate-400">Rating {level.rating}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         <Card className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
           <div>
             <p className="text-xs font-black uppercase text-cyan-100">Survival Session</p>
             <p className="mt-1 text-sm text-slate-300">Solve up to {SESSION_LENGTH} puzzles. Three incorrect moves end the run.</p>
           </div>
-          <Button type="button" onClick={startSession}>Start {selectedThemeName}</Button>
+          <Button type="button" onClick={startSession}>Start {selectedLevel === "all" ? "" : `${selectedLevelName} `}{selectedThemeName}</Button>
         </Card>
         <p className="text-xs text-slate-500">Training combines teacher-authored Academy positions with puzzles from the Lichess open database.</p>
       </div>
@@ -383,7 +412,7 @@ export function PuzzleSurvival() {
 
         <div className="space-y-4">
           <Card className="p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-xs font-black uppercase text-cyan-100">{selectedThemeName}</span><span className="text-xs font-bold text-slate-400">{puzzle ? `${puzzle.sideToMove} to move` : "Loading"}</span></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-xs font-black uppercase text-cyan-100">{selectedThemeName}</span><span className="rounded border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-xs font-black uppercase text-amber-100">{selectedLevelName}</span></div><span className="text-xs font-bold text-slate-400">{puzzle ? `${puzzle.sideToMove} to move` : "Loading"}</span></div>
             <h2 className="mt-4 text-2xl font-black text-white">{phase === "reply" ? "Opponent reply" : phase === "solved" ? "Puzzle complete" : puzzle?.prompt || "Find the best move"}</h2>
             <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${phase === "solved" ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : error ? "border-fuchsia-300/50 bg-fuchsia-300/10 text-fuchsia-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">{error || message}</div>
             {phase === "turn" && <div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => void requestHint()}>Hint</Button><Button type="button" variant="ghost" onClick={() => void exitTraining()}>Exit Training</Button></div>}

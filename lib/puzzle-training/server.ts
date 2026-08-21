@@ -1,6 +1,6 @@
 import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
-import { lichessPuzzleThemes, type ChessPuzzleRow, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
+import { lichessPuzzleThemes, puzzleLevelRatingRange, type ChessPuzzleRow, type PuzzleLevelSlug, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 const puzzleSelect = "id,lichess_puzzle_id,initial_fen,moves,start_mode,accepted_moves,source_kind,source_study_id,source_chapter_id,source_node_id,teacher_prompt,rating,rating_deviation,popularity,number_of_plays,themes,game_url,opening_tags,random_key,is_active";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -27,7 +27,7 @@ export async function getTrainingPuzzle(puzzleId: string) {
   return data as ChessPuzzleRow | null;
 }
 
-async function candidateQuery(theme: Exclude<PuzzleThemeSlug, "mixed">, pivot: number, afterPivot: boolean) {
+async function candidateQuery(theme: Exclude<PuzzleThemeSlug, "mixed">, level: PuzzleLevelSlug, pivot: number, afterPivot: boolean) {
   let query = serviceClient()
     .from("chess_puzzles")
     .select(puzzleSelect)
@@ -35,22 +35,24 @@ async function candidateQuery(theme: Exclude<PuzzleThemeSlug, "mixed">, pivot: n
     .contains("themes", [theme])
     .order("random_key", { ascending: true })
     .limit(40);
+  const ratingRange = puzzleLevelRatingRange(level);
+  if (ratingRange) query = query.gte("rating", ratingRange.minimum).lte("rating", ratingRange.maximum);
   query = afterPivot ? query.gte("random_key", pivot) : query.lt("random_key", pivot);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []) as ChessPuzzleRow[];
 }
 
-export async function selectTrainingPuzzle(studentId: string, selectedTheme: PuzzleThemeSlug, excludedIds: string[]) {
+export async function selectTrainingPuzzle(studentId: string, selectedTheme: PuzzleThemeSlug, selectedLevel: PuzzleLevelSlug, excludedIds: string[]) {
   const actualTheme = selectedTheme === "mixed"
     ? lichessPuzzleThemes[Math.floor(Math.random() * lichessPuzzleThemes.length)]
     : selectedTheme;
   const pivot = Math.random();
-  let candidates = await candidateQuery(actualTheme, pivot, true);
-  if (candidates.length < 10) candidates = [...candidates, ...await candidateQuery(actualTheme, pivot, false)];
+  let candidates = await candidateQuery(actualTheme, selectedLevel, pivot, true);
+  if (candidates.length < 10) candidates = [...candidates, ...await candidateQuery(actualTheme, selectedLevel, pivot, false)];
   if (!candidates.length && selectedTheme === "mixed") {
     for (const fallbackTheme of lichessPuzzleThemes) {
-      candidates = await candidateQuery(fallbackTheme, Math.random(), true);
+      candidates = await candidateQuery(fallbackTheme, selectedLevel, Math.random(), true);
       if (candidates.length) break;
     }
   }

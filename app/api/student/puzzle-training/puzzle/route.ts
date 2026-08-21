@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { firstStudentMoveIndex, prepareTrainingPuzzle } from "@/lib/puzzle-training/engine";
 import { createPuzzleSessionToken } from "@/lib/puzzle-training/sessionToken";
 import { requirePuzzleStudent, selectTrainingPuzzle } from "@/lib/puzzle-training/server";
-import { parsePuzzleTheme } from "@/lib/puzzle-training/types";
+import { parsePuzzleLevel, parsePuzzleTheme } from "@/lib/puzzle-training/types";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +12,13 @@ export async function GET(request: NextRequest) {
   try {
     const student = await requirePuzzleStudent();
     const theme = parsePuzzleTheme(request.nextUrl.searchParams.get("theme"));
+    const level = parsePuzzleLevel(request.nextUrl.searchParams.get("level"));
     const excluded = (request.nextUrl.searchParams.get("exclude") ?? "").split(",").filter(Boolean);
     const requestedSessionId = request.nextUrl.searchParams.get("sessionId") ?? "";
     const sessionId = UUID_PATTERN.test(requestedSessionId) ? requestedSessionId : crypto.randomUUID();
-    const puzzle = await selectTrainingPuzzle(student.studentId, theme, excluded);
+    const puzzle = await selectTrainingPuzzle(student.studentId, theme, level, excluded);
     if (!puzzle) {
-      return NextResponse.json({ error: "No imported puzzles are available for this theme yet." }, { status: 404 });
+      return NextResponse.json({ error: "No imported puzzles match this level and tactic yet." }, { status: 404 });
     }
 
     const prepared = prepareTrainingPuzzle(puzzle);

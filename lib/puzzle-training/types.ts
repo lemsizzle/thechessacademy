@@ -1,8 +1,10 @@
 export const puzzleThemeSlugs = ["mixed", "fork", "pin", "skewer", "mateIn1"] as const;
 export const lichessPuzzleThemes = ["fork", "pin", "skewer", "mateIn1"] as const;
+export const puzzleLevelSlugs = ["all", "beginner", "improver", "intermediate", "advanced"] as const;
 
 export type PuzzleThemeSlug = typeof puzzleThemeSlugs[number];
 export type LichessPuzzleTheme = typeof lichessPuzzleThemes[number];
+export type PuzzleLevelSlug = typeof puzzleLevelSlugs[number];
 export type BoardOrientation = "white" | "black";
 export type PuzzleStartMode = "after_setup" | "direct";
 export type PuzzleSourceKind = "lichess" | "study";
@@ -68,4 +70,23 @@ export type PuzzleMoveResult = {
 
 export function parsePuzzleTheme(value: string | null): PuzzleThemeSlug {
   return puzzleThemeSlugs.includes(value as PuzzleThemeSlug) ? value as PuzzleThemeSlug : "mixed";
+}
+
+export function parsePuzzleLevel(value: string | null): PuzzleLevelSlug {
+  return puzzleLevelSlugs.includes(value as PuzzleLevelSlug) ? value as PuzzleLevelSlug : "all";
+}
+
+export function puzzleLevelRatingRange(level: PuzzleLevelSlug) {
+  switch (level) {
+    case "beginner":
+      return { minimum: 600, maximum: 999 };
+    case "improver":
+      return { minimum: 1000, maximum: 1399 };
+    case "intermediate":
+      return { minimum: 1400, maximum: 1799 };
+    case "advanced":
+      return { minimum: 1800, maximum: 2200 };
+    default:
+      return null;
+  }
 }

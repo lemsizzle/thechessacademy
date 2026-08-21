@@ -33,7 +33,8 @@ const headers = [
   "NbPlays",
   "Themes",
   "GameUrl",
-  "OpeningTags"
+  "OpeningTags",
+  "DailyDate"
 ] as const;
 
 type CsvPuzzle = Partial<Record<typeof headers[number], string>>;

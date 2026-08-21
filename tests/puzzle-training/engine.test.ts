@@ -11,6 +11,7 @@ import {
   validateLichessPuzzle,
   validatePuzzleMove
 } from "../../lib/puzzle-training/engine";
+import { parsePuzzleLevel, puzzleLevelRatingRange } from "../../lib/puzzle-training/types";
 import {
   alternateMatePuzzle,
   forkPuzzle,
@@ -119,5 +120,22 @@ describe("theme filtering", () => {
 
   it("keeps every supported tactic in mixed mode", () => {
     expect(filterPuzzlesByTheme(puzzles, "mixed")).toHaveLength(4);
+  });
+});
+
+describe("level filtering", () => {
+  it.each([
+    ["beginner", { minimum: 600, maximum: 999 }],
+    ["improver", { minimum: 1000, maximum: 1399 }],
+    ["intermediate", { minimum: 1400, maximum: 1799 }],
+    ["advanced", { minimum: 1800, maximum: 2200 }]
+  ] as const)("maps %s to a non-overlapping rating range", (level, expected) => {
+    expect(puzzleLevelRatingRange(level)).toEqual(expected);
+  });
+
+  it("uses all levels for missing or invalid query values", () => {
+    expect(parsePuzzleLevel(null)).toBe("all");
+    expect(parsePuzzleLevel("grandmaster")).toBe("all");
+    expect(puzzleLevelRatingRange("all")).toBeNull();
   });
 });
