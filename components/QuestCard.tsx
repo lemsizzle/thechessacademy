@@ -1,14 +1,14 @@
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { badges as mockBadges } from "@/data/badges";
-import { getSafeExternalUrl } from "@/lib/resources";
+import { getSafeQuestLink } from "@/lib/quests/questLinks";
 import type { Badge, Quest } from "@/lib/types";
 
 export function QuestCard({ quest, badges = mockBadges }: { quest: Quest; badges?: Badge[] }) {
   const badge = badges.find((item) => item.id === quest.badgeRewardId);
   const status = quest.status.replace("-", " ");
   const isLive = quest.isLive === true && quest.status !== "completed";
-  const completionUrl = getSafeExternalUrl(quest.completionUrl);
+  const completionLink = getSafeQuestLink(quest.completionUrl);
   return (
     <Card className={`relative overflow-hidden p-4 ${isLive ? "border-cyan-200/50 shadow-[0_0_34px_rgba(34,211,238,0.24)]" : ""}`}>
       {isLive && <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-300 via-amber-200 to-fuchsia-300" />}
@@ -26,9 +26,9 @@ export function QuestCard({ quest, badges = mockBadges }: { quest: Quest; badges
         <span className="rounded bg-cyan-300/10 px-2 py-1 text-cyan-100">{quest.xpReward} XP</span>
         {badge && <span className="rounded bg-amber-300/10 px-2 py-1 text-amber-100">{badge.name}</span>}
       </div>
-      {completionUrl && (
+      {completionLink && (
         <div className="mt-4">
-          <Button href={completionUrl} variant="secondary" target="_blank" rel="noopener noreferrer">
+          <Button href={completionLink.href} variant="secondary" target={completionLink.external ? "_blank" : undefined} rel={completionLink.external ? "noopener noreferrer" : undefined}>
             Open Quest Link
           </Button>
         </div>
