@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { readStudentSession } from "@/lib/auth/session";
+import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { lichessPuzzleThemes, type ChessPuzzleRow, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
@@ -13,25 +12,7 @@ function serviceClient() {
 }
 
 export async function requirePuzzleStudent() {
-  const session = readStudentSession(await cookies());
-  if (!session || !session.onboardingCompleted || !UUID_PATTERN.test(session.studentId)) {
-    throw new Error("Student log in required.");
-  }
-
-  const { data, error } = await serviceClient()
-    .from("students")
-    .select("id,lichess_id,lichess_username,is_active")
-    .eq("id", session.studentId)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("Student profile no longer exists.");
-  const row = data as { id: string; lichess_id: string | null; lichess_username: string | null };
-  const sameLichessId = Boolean(row.lichess_id && row.lichess_id === session.lichessUserId);
-  const sameUsername = Boolean(row.lichess_username && row.lichess_username.toLowerCase() === session.lichessUsername.toLowerCase());
-  if (!sameLichessId && !sameUsername) throw new Error("Student session does not match this profile.");
-  return session;
+  return requireActiveStudent();
 }
 
 export async function getTrainingPuzzle(puzzleId: string) {
