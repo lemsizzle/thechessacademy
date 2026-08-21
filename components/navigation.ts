@@ -19,6 +19,7 @@ const exploreLinks: NavLink[] = [
 
 const studentExploreLinks: NavLink[] = [
   { href: "/student/play", label: "Play", icon: "\u265E" },
+  { href: "/student/play/history", label: "Game History", icon: "\u{1F4CA}" },
   { href: "/student/studies", label: "Studies", icon: "\u{1F4D3}" },
   { href: "/student/training", label: "Puzzle Training", icon: "\u{1F9E9}" },
   { href: "/student/leaderboard", label: "Leaderboard", icon: "\u{1F3C6}" },

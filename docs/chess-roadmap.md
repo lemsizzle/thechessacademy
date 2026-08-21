@@ -1,6 +1,6 @@
 # Internal Chess Roadmap
 
-Last verified: 2026-08-21
+Last verified: 2026-08-22
 
 This is the durable phase tracker for the Chess Academy's reusable internal chess system. Update it when requirements or priorities change. A phase is marked complete only after its code, automated checks, and relevant live workflow have been verified.
 
@@ -117,3 +117,20 @@ Evidence on 2026-08-21: 103 automated tests, TypeScript, lint, and the productio
 - The responsive game page reuses the academy board, promotion chooser, clocks, move history, and Lichess-style local drawing tools.
 
 Evidence on 2026-08-21: 109 automated tests across 22 files, TypeScript, and the production build pass. The migration is recorded in the live Supabase history. RLS and explicit privilege checks deny `anon` and `authenticated` table access while `service_role` retains server CRUD. Supabase advisors report no Phase 8 security findings or unindexed foreign keys. An authenticated browser created a challenge; a controlled second student joined; Broadcast updated both join and move state; both students played; a draw offer was accepted; two completed-game history rows and PGN were verified; a page reload restored the result; the mobile lobby had no horizontal overflow; and all exact smoke-test rows were removed and verified absent.
+
+## Phase 9 — Student game history and performance: complete
+
+- Completed computer and live games appear in one newest-first student record.
+- Lifetime W–D–L, win rate, and computer/live totals are calculated server-side.
+- Opponent and result filters use stable, bounded database pagination.
+- Every record opens the existing authorized analysis board without exposing
+  full PGN or database credentials in the history response.
+- The history page is available from both the student navigation and Play hub.
+
+Evidence on 2026-08-22: 125 automated tests across 24 files, TypeScript, and the
+production build pass. An authenticated student browser loaded three completed
+computer wins matching the live database aggregate, filtered to an empty loss
+record, returned to wins, and opened a listed game on the authorized analysis
+board. Both Play-hub and sidebar links rendered, the desktop layout was visually
+checked, responsive classes were reviewed for phone layouts, and a clean page
+load produced no browser-console errors.

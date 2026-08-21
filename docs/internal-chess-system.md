@@ -153,6 +153,21 @@ RLS is enabled. `public`, `anon`, and `authenticated` have no table privileges,
 and explicit deny policies provide defense in depth. Only `service_role` has
 table privileges. No service key or student identity is exposed to the browser.
 
+## Student game history and performance
+
+Authenticated students can open `/student/play/history` from both the Play page
+and student navigation. The view combines completed computer and live games in
+one newest-first record, with opponent-type and result filters, stable
+pagination, lifetime wins/draws/losses, win rate, and computer/live totals.
+
+`/api/student/chess-history` derives the student identity exclusively from the
+signed HTTP-only session. Its service-role query selects only the lightweight
+list fields needed by the page, applies filters and pagination in Postgres, and
+uses exact head counts for the lifetime summary. Full FEN, PGN, and move arrays
+remain available through the existing authorized single-game analysis route;
+the history response exposes only a calculated move count. Every displayed row
+links to the existing game analysis board.
+
 The migration is committed but is not automatically applied by application
 startup. Apply it through the normal reviewed Supabase migration workflow before
 testing completed-game persistence in an environment.
