@@ -127,6 +127,7 @@ export type PuzzleMoveResult = {
   positionFen: string;
   opponentMove?: string;
   completion?: PuzzleCompletionDetails;
+  nextPuzzle?: PublicTrainingPuzzle;
   message: string;
 };
 

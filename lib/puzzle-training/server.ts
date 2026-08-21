@@ -5,6 +5,18 @@ import { lichessPuzzleThemes, puzzleLevelRatingRange, type ChessPuzzleRow, type 
 
 const puzzleSelect = "id,lichess_puzzle_id,initial_fen,moves,start_mode,accepted_moves,source_kind,source_study_id,source_chapter_id,source_node_id,teacher_prompt,rating,rating_deviation,popularity,number_of_plays,themes,game_url,opening_tags,random_key,is_active";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PUZZLE_CACHE_TTL_MS = 5 * 60 * 1000;
+const PUZZLE_CACHE_MAX_ENTRIES = 256;
+const trainingPuzzleCache = new Map<string, { expiresAt: number; puzzle: ChessPuzzleRow }>();
+
+function rememberTrainingPuzzle(puzzle: ChessPuzzleRow) {
+  if (trainingPuzzleCache.size >= PUZZLE_CACHE_MAX_ENTRIES) {
+    const oldestKey = trainingPuzzleCache.keys().next().value as string | undefined;
+    if (oldestKey) trainingPuzzleCache.delete(oldestKey);
+  }
+  trainingPuzzleCache.set(puzzle.id, { expiresAt: Date.now() + PUZZLE_CACHE_TTL_MS, puzzle });
+  return puzzle;
+}
 
 function serviceClient() {
   const client = getSupabaseServiceClient();
@@ -18,6 +30,9 @@ export async function requirePuzzleStudent() {
 
 export async function getTrainingPuzzle(puzzleId: string) {
   if (!UUID_PATTERN.test(puzzleId)) return null;
+  const cached = trainingPuzzleCache.get(puzzleId);
+  if (cached && cached.expiresAt > Date.now()) return cached.puzzle;
+  if (cached) trainingPuzzleCache.delete(puzzleId);
   const { data, error } = await serviceClient()
     .from("chess_puzzles")
     .select(puzzleSelect)
@@ -25,7 +40,8 @@ export async function getTrainingPuzzle(puzzleId: string) {
     .eq("is_active", true)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return data as ChessPuzzleRow | null;
+  const puzzle = data as ChessPuzzleRow | null;
+  return puzzle ? rememberTrainingPuzzle(puzzle) : null;
 }
 
 async function getDailyPuzzleAssignment(puzzleDate: string) {
@@ -143,7 +159,7 @@ export async function selectTrainingPuzzle(studentId: string, selectedTheme: Puz
   const seen = new Set(((attempts ?? []) as Array<{ puzzle_id: string }>).map((attempt) => attempt.puzzle_id));
   const unseen = pool.filter((puzzle) => !seen.has(puzzle.id));
   const preferred = unseen.length ? unseen : pool;
-  return preferred[Math.floor(Math.random() * preferred.length)];
+  return rememberTrainingPuzzle(preferred[Math.floor(Math.random() * preferred.length)]);
 }
 
 export async function saveTrainingAttempt(input: {

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { firstStudentMoveIndex, prepareTrainingPuzzle } from "@/lib/puzzle-training/engine";
-import { createPuzzleSessionToken } from "@/lib/puzzle-training/sessionToken";
+import { preparePublicTrainingPuzzle } from "@/lib/puzzle-training/publicPuzzle";
 import { getDailyTrainingPuzzle, requirePuzzleStudent, selectTrainingPuzzle } from "@/lib/puzzle-training/server";
-import { DAILY_PUZZLE_COINS, DAILY_PUZZLE_XP } from "@/lib/puzzle-training/daily";
 import { parsePuzzleLevel, parsePuzzleTheme } from "@/lib/puzzle-training/types";
 
 export const dynamic = "force-dynamic";
@@ -24,36 +22,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "No imported puzzles match this level and tactic yet." }, { status: 404 });
     }
 
-    const prepared = prepareTrainingPuzzle(puzzle);
-    const token = createPuzzleSessionToken({
-      version: 1,
-      puzzleId: puzzle.id,
-      studentId: student.studentId,
-      sessionId,
-      selectedTheme: theme,
-      dailyDate: daily?.puzzleDate,
-      nextMoveIndex: firstStudentMoveIndex(puzzle),
-      startedAt: new Date().toISOString(),
-      incorrectMoveCount: 0,
-      hintsUsed: 0
-    });
-
     return NextResponse.json({
-      puzzle: {
-        id: puzzle.id,
-        displayFen: prepared.displayFen,
-        orientation: prepared.orientation,
-        sideToMove: prepared.sideToMove,
-        prompt: puzzle.teacher_prompt,
-        sourceKind: puzzle.source_kind,
-        token,
-        daily: daily ? {
-          date: daily.puzzleDate,
-          rewardClaimed: daily.rewardClaimed,
-          xp: DAILY_PUZZLE_XP,
-          coins: DAILY_PUZZLE_COINS
-        } : null
-      }
+      puzzle: preparePublicTrainingPuzzle({
+        puzzle,
+        studentId: student.studentId,
+        sessionId,
+        selectedTheme: theme,
+        daily
+      })
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Puzzle training is unavailable.";

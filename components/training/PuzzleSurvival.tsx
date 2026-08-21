@@ -11,7 +11,9 @@ import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrai
 
 const SESSION_LENGTH = 10;
 const STARTING_LIVES = 3;
-const OPPONENT_REPLY_DELAY_MS = 140;
+const OPPONENT_REPLY_DELAY_MS = 40;
+const AUTO_ADVANCE_DELAY_MS = 140;
+const AUTO_ADVANCE_STORAGE_KEY = "academy-puzzles-auto-advance";
 
 const levels: Array<{ id: PuzzleLevelSlug; name: string; rating: string }> = [
   { id: "all", name: "All levels", rating: "600–2200" },
@@ -59,12 +61,34 @@ function optimisticMoveFen(fen: string, from: string, to: string) {
   }
 }
 
+function AutoAdvanceSwitch({ checked, onChange, compact = false }: { checked: boolean; onChange: (checked: boolean) => void; compact?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between gap-4 ${compact ? "rounded-md border border-white/10 bg-white/5 px-3 py-2" : ""}`}>
+      <div>
+        <p className="text-sm font-black text-white">Auto-advance</p>
+        {!compact && <p className="mt-1 text-xs text-slate-400">Open the next puzzle automatically after a correct solution.</p>}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label="Automatically move to the next puzzle"
+        onClick={() => onChange(!checked)}
+        className={`relative h-7 w-12 shrink-0 rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${checked ? "border-cyan-200 bg-cyan-300" : "border-white/20 bg-slate-700"}`}
+      >
+        <span className={`absolute left-0 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : "translate-x-1"}`} />
+      </button>
+    </div>
+  );
+}
+
 export function PuzzleSurvival() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedTheme, setSelectedTheme] = useState<PuzzleThemeSlug>(() => parsePuzzleTheme(searchParams.get("theme")));
   const [selectedLevel, setSelectedLevel] = useState<PuzzleLevelSlug>(() => parsePuzzleLevel(searchParams.get("level")));
   const [trainingMode, setTrainingMode] = useState<TrainingMode>("session");
+  const [autoAdvance, setAutoAdvance] = useState(false);
   const [phase, setPhase] = useState<TrainerPhase>("select");
   const [puzzle, setPuzzle] = useState<PublicTrainingPuzzle | null>(null);
   const [positionFen, setPositionFen] = useState("");
@@ -91,10 +115,24 @@ export function PuzzleSurvival() {
   const sessionId = useRef(crypto.randomUUID());
   const moveLocked = useRef(false);
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => {
-    if (replyTimer.current) clearTimeout(replyTimer.current);
+  useEffect(() => {
+    setAutoAdvance(window.localStorage.getItem(AUTO_ADVANCE_STORAGE_KEY) === "true");
+    return () => {
+      if (replyTimer.current) clearTimeout(replyTimer.current);
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    };
   }, []);
+
+  function updateAutoAdvance(enabled: boolean) {
+    setAutoAdvance(enabled);
+    window.localStorage.setItem(AUTO_ADVANCE_STORAGE_KEY, String(enabled));
+    if (!enabled && advanceTimer.current) {
+      clearTimeout(advanceTimer.current);
+      advanceTimer.current = null;
+    }
+  }
 
   function chooseTheme(theme: PuzzleThemeSlug) {
     setSelectedTheme(theme);
@@ -116,6 +154,19 @@ export function PuzzleSurvival() {
     setHintDestination(null);
   }
 
+  function showPuzzle(nextPuzzle: PublicTrainingPuzzle) {
+    setError("");
+    setCompletion(null);
+    clearBoardMarks();
+    setPuzzle(nextPuzzle);
+    setPositionFen(nextPuzzle.displayFen);
+    setToken(nextPuzzle.token);
+    recentPuzzleIds.current = [...recentPuzzleIds.current, nextPuzzle.id].slice(-20);
+    setMessage(nextPuzzle.prompt || "Your turn. Find the best move.");
+    setPhase("turn");
+    moveLocked.current = false;
+  }
+
   async function loadPuzzle(mode = trainingMode) {
     setTrainingMode(mode);
     setPhase("loading");
@@ -132,12 +183,7 @@ export function PuzzleSurvival() {
       const response = await fetch(`/api/student/puzzle-training/puzzle?${query}`, { cache: "no-store" });
       const data = await response.json() as { puzzle?: PublicTrainingPuzzle; error?: string };
       if (!response.ok || !data.puzzle) throw new Error(data.error ?? "Puzzle could not be loaded.");
-      setPuzzle(data.puzzle);
-      setPositionFen(data.puzzle.displayFen);
-      setToken(data.puzzle.token);
-      recentPuzzleIds.current = [...recentPuzzleIds.current, data.puzzle.id].slice(-20);
-      setMessage(data.puzzle.prompt || "Your turn. Find the best move.");
-      setPhase("turn");
+      showPuzzle(data.puzzle);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Puzzle could not be loaded.");
       setPhase("error");
@@ -239,7 +285,13 @@ export function PuzzleSurvival() {
       const response = await fetch("/api/student/puzzle-training/move", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, move: { from, to } })
+        body: JSON.stringify({
+          token,
+          move: { from, to },
+          requestNextPuzzle: autoAdvance && trainingMode === "session" && completed + 1 < SESSION_LENGTH,
+          nextLevel: selectedLevel,
+          excludePuzzleIds: recentPuzzleIds.current
+        })
       });
       const result = await response.json() as PuzzleMoveResult & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Move could not be checked.");
@@ -278,8 +330,16 @@ export function PuzzleSurvival() {
         setSolveTimes((values) => [...values, result.completion!.elapsedSeconds]);
         if (result.completion.mistakes === 0 && result.completion.hintsUsed === 0) setFirstTrySolves((value) => value + 1);
         setCompletion(result.completion);
-        setPhase(trainingMode === "daily" || nextCompleted >= SESSION_LENGTH ? "summary" : "solved");
+        const sessionFinished = trainingMode === "daily" || nextCompleted >= SESSION_LENGTH;
+        setPhase(sessionFinished ? "summary" : "solved");
         moveLocked.current = false;
+        if (!sessionFinished && autoAdvance && result.nextPuzzle) {
+          setMessage("Correct! Loading the next puzzle...");
+          advanceTimer.current = setTimeout(() => {
+            advanceTimer.current = null;
+            showPuzzle(result.nextPuzzle!);
+          }, AUTO_ADVANCE_DELAY_MS);
+        }
         return true;
       }
 
@@ -421,12 +481,15 @@ export function PuzzleSurvival() {
           </div>
         </div>
         </div>
-        <Card className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
+        <Card className="flex flex-col items-start justify-between gap-4 p-5 lg:flex-row lg:items-center">
           <div>
             <p className="text-xs font-black uppercase text-cyan-100">Survival Session</p>
             <p className="mt-1 text-sm text-slate-300">Solve up to {SESSION_LENGTH} puzzles. Three incorrect moves end the run.</p>
           </div>
-          <Button type="button" onClick={startSession}>Start {selectedLevel === "all" ? "" : `${selectedLevelName} `}{selectedThemeName}</Button>
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center lg:w-auto">
+            <AutoAdvanceSwitch checked={autoAdvance} onChange={updateAutoAdvance} />
+            <Button type="button" onClick={startSession}>Start {selectedLevel === "all" ? "" : `${selectedLevelName} `}{selectedThemeName}</Button>
+          </div>
         </Card>
         <p className="text-xs text-slate-500">Training combines teacher-authored Academy positions with puzzles from the Lichess open database.</p>
       </div>
@@ -468,6 +531,7 @@ export function PuzzleSurvival() {
           <Card className="p-5">
             <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-xs font-black uppercase text-cyan-100">{trainingMode === "daily" ? "Puzzle of the Day" : selectedThemeName}</span>{trainingMode === "session" && <span className="rounded border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-xs font-black uppercase text-amber-100">{selectedLevelName}</span>}</div><span className="text-xs font-bold text-slate-400">{puzzle ? `${puzzle.sideToMove} to move` : "Loading"}</span></div>
             {puzzle?.daily && <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${puzzle.daily.rewardClaimed ? "border-cyan-200/25 bg-cyan-300/5 text-cyan-100" : "border-amber-200/35 bg-amber-300/10 text-amber-100"}`}>{puzzle.daily.rewardClaimed ? "Reward already claimed today — replay for practice." : `Available reward: +${puzzle.daily.xp} XP and +${puzzle.daily.coins} Academy Coins`}</div>}
+            {trainingMode === "session" && <div className="mt-4"><AutoAdvanceSwitch checked={autoAdvance} onChange={updateAutoAdvance} compact /></div>}
             <h2 className="mt-4 text-2xl font-black text-white">{phase === "reply" ? "Opponent reply" : phase === "solved" ? "Puzzle complete" : puzzle?.prompt || "Find the best move"}</h2>
             <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${phase === "solved" ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : error ? "border-fuchsia-300/50 bg-fuchsia-300/10 text-fuchsia-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">{error || message}</div>
             {phase === "turn" && <div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => void requestHint()}>Hint</Button><Button type="button" variant="ghost" onClick={() => void exitTraining()}>Exit Training</Button></div>}
