@@ -20,6 +20,10 @@ function sequenceRandom(...values: number[]) {
   return () => values[Math.min(index++, values.length - 1)];
 }
 
+function playUci(chess: Chess, uci: string) {
+  return chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), ...(uci[4] ? { promotion: uci[4] } : {}) });
+}
+
 describe("Stockfish MultiPV parsing", () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -80,12 +84,33 @@ describe("Stockfish MultiPV parsing", () => {
 });
 
 describe("human-like computer profiles", () => {
-  it("defines five child-oriented personalities backed by 5-10 analysis lines", () => {
+  it("defines academy personalities and the So_Pawny mirror backed by 5-10 analysis lines", () => {
     expect(BOT_DIFFICULTIES.map((profile) => profile.name)).toEqual([
-      "Pawny", "Zippy Knight", "Benny Bishop", "Rocky Rook", "Quinn Queen"
+      "Pawny", "Zippy Knight", "Benny Bishop", "Rocky Rook", "Quinn Queen", "So_Pawny"
     ]);
     expect(BOT_DIFFICULTIES.every((profile) => profile.multiPv >= 5 && profile.multiPv <= 10)).toBe(true);
-    expect(BOT_DIFFICULTIES.map((profile) => profile.estimatedRating)).toEqual([375, 575, 775, 975, 1225]);
+    expect(BOT_DIFFICULTIES.map((profile) => profile.estimatedRating)).toEqual([375, 575, 775, 975, 1225, 1600]);
+  });
+
+  it("gives the So_Pawny mirror its sampled e4 and Pirc opening preferences", () => {
+    const opening = scoreHumanCandidates(new Chess().fen(), [candidate("e2e4", 1, 0), candidate("g1f3", 2, 0)], bot("so-pawny"));
+    const afterE4 = new Chess();
+    afterE4.move("e4");
+    const pirc = scoreHumanCandidates(afterE4.fen(), [candidate("d7d6", 1, 0), candidate("e7e5", 2, 0)], bot("so-pawny"), { moveHistory: ["e2e4"] });
+    const score = (list: typeof opening, uci: string) => list.find((item) => item.candidate.uci === uci)?.totalScore ?? -Infinity;
+    expect(score(opening, "e2e4")).toBeGreaterThan(score(opening, "g1f3"));
+    expect(score(pirc, "d7d6")).toBeGreaterThan(score(pirc, "e7e5"));
+  });
+
+  it("keeps every So_Pawny opening-book continuation legal", () => {
+    for (const rule of bot("so-pawny").openingBook ?? []) {
+      const chess = new Chess();
+      for (const move of rule.after) expect(() => playUci(chess, move)).not.toThrow();
+      for (const choice of rule.moves) {
+        const position = new Chess(chess.fen());
+        expect(() => playUci(position, choice.uci)).not.toThrow();
+      }
+    }
   });
 
   it("makes Pawny favor beginner pawn habits while Benny favors development", () => {

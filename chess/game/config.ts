@@ -128,6 +128,46 @@ export const BOT_DIFFICULTIES: BotDifficulty[] = [
       pawnMoves: -10, edgePawns: -38, earlyQueen: -74, repeatedPiece: -48, unforcedKing: -175
     },
     description: "A balanced club player with natural development, short calculation, and human mistakes."
+  },
+  {
+    id: "so-pawny",
+    name: "So_Pawny",
+    title: "Founder’s Mirror",
+    estimatedRating: 1600,
+    multiPv: 10,
+    thinkTimeMs: 620,
+    tacticalAwareness: 0.92,
+    complexitySensitivity: 0.58,
+    qualityDiscipline: 0.78,
+    selectionTemperature: 28,
+    maxPlausibleCpLoss: 190,
+    errorBands: [
+      { minCpLoss: 0, maxCpLoss: 25, weight: 50, complexityMultiplier: 0 },
+      { minCpLoss: 25, maxCpLoss: 60, weight: 25, complexityMultiplier: 0.2 },
+      { minCpLoss: 60, maxCpLoss: 120, weight: 18, complexityMultiplier: 0.8 },
+      { minCpLoss: 120, maxCpLoss: 190, weight: 7, complexityMultiplier: 1.7 }
+    ],
+    personality: {
+      checks: 58, captures: 42, threats: 62, development: 38, center: 46,
+      castling: 30, safety: 20, defense: 25, simplification: -30, knights: 22,
+      pawnMoves: 18, edgePawns: 25, earlyQueen: -65, repeatedPiece: 18, unforcedKing: -105
+    },
+    openingBook: [
+      { after: [], moves: [{ uci: "e2e4", bonus: 100 }, { uci: "e2e3", bonus: 82 }, { uci: "d2d4", bonus: 58 }, { uci: "c2c4", bonus: 42 }] },
+      { after: ["e2e4"], moves: [{ uci: "d7d6", bonus: 110 }, { uci: "e7e5", bonus: 45 }, { uci: "c7c5", bonus: 38 }] },
+      { after: ["d2d4"], moves: [{ uci: "d7d6", bonus: 100 }, { uci: "g8f6", bonus: 58 }, { uci: "e7e6", bonus: 36 }] },
+      { after: ["c2c4"], moves: [{ uci: "d7d6", bonus: 92 }, { uci: "g8f6", bonus: 54 }, { uci: "e7e5", bonus: 34 }] },
+      { after: ["e2e4", "d7d6"], moves: [{ uci: "d2d4", bonus: 86 }, { uci: "g1f3", bonus: 50 }] },
+      { after: ["e2e4", "e7e5"], moves: [{ uci: "g1f3", bonus: 90 }] },
+      { after: ["e2e4", "e7e5", "g1f3", "b8c6"], moves: [{ uci: "d2d4", bonus: 105 }, { uci: "f1c4", bonus: 65 }] },
+      { after: ["e2e4", "e7e5", "g1f3"], moves: [{ uci: "g8f6", bonus: 105 }, { uci: "b8c6", bonus: 52 }] },
+      { after: ["e2e4", "e7e5", "g1f3", "g8f6"], moves: [{ uci: "f3e5", bonus: 72 }] },
+      { after: ["e2e4", "e7e5", "g1f3", "g8f6", "f3e5"], moves: [{ uci: "b8c6", bonus: 112 }, { uci: "d7d6", bonus: 48 }] },
+      { after: ["e2e4", "e7e5", "g1f3", "g8f6", "f3e5", "b8c6", "e5c6"], moves: [{ uci: "d7c6", bonus: 118 }] },
+      { after: ["e2e4", "d7d6", "d2d4", "g8f6"], moves: [{ uci: "b1c3", bonus: 86 }] },
+      { after: ["e2e4", "d7d6", "d2d4", "g8f6", "b1c3"], moves: [{ uci: "g7g6", bonus: 105 }] }
+    ],
+    description: "Modeled from 300 public games: 1.e4/1.e3, Pirc setups, Scotch ideas, pawn storms, and tactical attacks."
   }
 ];
 

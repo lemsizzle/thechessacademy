@@ -9,6 +9,7 @@ import { GameSetup } from "@/chess/components/GameSetup";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
+import { VictoryCelebration } from "@/chess/components/VictoryCelebration";
 import { useComputerGame } from "@/chess/hooks/useComputerGame";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -208,20 +209,23 @@ export function VsComputerGame() {
       )}
 
       {game.outcome && game.resultOpen && (
-        <GameDialog
-          title={game.outcome.title}
-          description={game.outcome.message}
-          primaryLabel="New Game"
-          onPrimary={game.leaveGame}
-          secondaryLabel="Review Board"
-          onSecondary={() => game.setResultOpen(false)}
-        >
-          <div className={`mt-4 rounded-lg border p-4 text-center ${game.outcome.result === "win" ? "border-emerald-300/35 bg-emerald-300/10" : game.outcome.result === "loss" ? "border-rose-300/35 bg-rose-300/10" : "border-cyan-200/35 bg-cyan-300/10"}`}>
-            <p className="text-3xl font-black text-white">{game.outcome.result === "win" ? "Victory!" : game.outcome.result === "loss" ? "Good game!" : "Draw"}</p>
-          </div>
-          {game.savedGameId && <Button className="mt-3 w-full" variant="secondary" href={`/student/play/game/${game.savedGameId}/analysis`}>Analyze Game</Button>}
-          {game.savedGameId && <Button className="mt-2 w-full" variant="ghost" type="button" onClick={() => setAddStudyOpen(true)}>Add to Study</Button>}
-        </GameDialog>
+        <>
+          {game.outcome.result === "win" ? <VictoryCelebration /> : null}
+          <GameDialog
+            title={game.outcome.title}
+            description={game.outcome.message}
+            primaryLabel="New Game"
+            onPrimary={game.leaveGame}
+            secondaryLabel="Review Board"
+            onSecondary={() => game.setResultOpen(false)}
+          >
+            <div className={`mt-4 rounded-lg border p-4 text-center ${game.outcome.result === "win" ? "border-emerald-300/35 bg-emerald-300/10" : game.outcome.result === "loss" ? "border-rose-300/35 bg-rose-300/10" : "border-cyan-200/35 bg-cyan-300/10"}`}>
+              <p className="text-3xl font-black text-white">{game.outcome.result === "win" ? "Victory!" : game.outcome.result === "loss" ? "Good game!" : "Draw"}</p>
+            </div>
+            {game.savedGameId && <Button className="mt-3 w-full" variant="secondary" href={`/student/play/game/${game.savedGameId}/analysis`}>Analyze Game</Button>}
+            {game.savedGameId && <Button className="mt-2 w-full" variant="ghost" type="button" onClick={() => setAddStudyOpen(true)}>Add to Study</Button>}
+          </GameDialog>
+        </>
       )}
       {addStudyOpen && game.savedGameId && completedTree && <AddToStudyDialog gameId={game.savedGameId} gameTitle={`Game vs ${config.bot.name}`} analysisTree={completedTree} basePath="/student" onClose={() => setAddStudyOpen(false)} />}
     </div>

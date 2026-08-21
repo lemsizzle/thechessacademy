@@ -8,6 +8,7 @@ import { GameDialog } from "@/chess/components/GameDialog";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
+import { VictoryCelebration } from "@/chess/components/VictoryCelebration";
 import { promotionOptions, tryMove } from "@/chess/game/rules";
 import { oppositeColor } from "@/chess/game/config";
 import type { LiveGameAction, LiveGameSnapshot } from "@/chess/live/types";
@@ -269,6 +270,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
 
   return (
     <div className="space-y-4">
+      {game.status === "completed" && game.winnerColor === viewerColor ? <VictoryCelebration /> : null}
       {game.status === "waiting" ? (
         <Card className="p-5 text-center sm:p-6">
           <p className="text-xs font-black uppercase tracking-wider text-amber-200">Private challenge code</p>

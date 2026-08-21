@@ -12,6 +12,15 @@ const colorChoices: Array<{ id: PlayerColorChoice; label: string; symbol: string
   { id: "random", label: "Random", symbol: "◈" }
 ];
 
+const botSymbols: Record<string, string> = {
+  pawny: "♙",
+  knight: "♘",
+  bishop: "♗",
+  rook: "♖",
+  queen: "♕",
+  "so-pawny": "♚"
+};
+
 export function GameSetup({ onStart }: { onStart: (config: ComputerGameConfig) => void }) {
   const [bot, setBot] = useState<BotDifficulty>(BOT_DIFFICULTIES[0]);
   const [color, setColor] = useState<PlayerColorChoice>("white");
@@ -28,10 +37,10 @@ export function GameSetup({ onStart }: { onStart: (config: ComputerGameConfig) =
         <div className="min-w-0 p-4 sm:p-6">
           <fieldset>
             <legend className="text-sm font-black uppercase tracking-wider text-slate-300">Opponent</legend>
-            <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-5">
-              {BOT_DIFFICULTIES.map((difficulty, index) => (
+            <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
+              {BOT_DIFFICULTIES.map((difficulty) => (
                 <button key={difficulty.id} type="button" onClick={() => setBot(difficulty)} aria-pressed={bot.id === difficulty.id} className={`h-full min-h-36 min-w-0 rounded-lg border p-3 text-left transition active:scale-[.99] sm:min-h-44 sm:p-4 ${bot.id === difficulty.id ? "border-amber-300 bg-amber-300/12 shadow-gold" : "border-white/10 bg-slate-950/60 hover:border-cyan-200/35 hover:bg-cyan-300/5"}`}>
-                  <span className="text-2xl sm:text-3xl" aria-hidden="true">{["♙", "♘", "♗", "♖", "♕"][index]}</span>
+                  <span className="text-2xl sm:text-3xl" aria-hidden="true">{botSymbols[difficulty.id] ?? "♟"}</span>
                   <span className="mt-2 block text-base font-black text-white sm:text-lg">{difficulty.name}</span>
                   <span className="block break-words text-[11px] font-bold uppercase leading-4 text-cyan-200 sm:text-xs sm:leading-5">{difficulty.title} · ~{difficulty.estimatedRating}</span>
                   <span className="mt-2 hidden text-pretty text-xs leading-5 text-slate-400 sm:block">{difficulty.description}</span>

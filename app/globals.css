@@ -47,3 +47,53 @@ textarea {
   background: rgba(148, 163, 184, 0.25);
   border-radius: 999px;
 }
+
+@keyframes academy-confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -8vh, 0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--academy-confetti-drift), 112vh, 0) rotate(var(--academy-confetti-rotation));
+  }
+}
+
+@keyframes academy-victory-banner {
+  0% { opacity: 0; transform: translate(-50%, -24px) scale(.72); }
+  18% { opacity: 1; transform: translate(-50%, 0) scale(1.08); }
+  28% { transform: translate(-50%, 0) scale(1); }
+  78% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -10px) scale(.96); }
+}
+
+@keyframes academy-victory-glow {
+  0%, 100% { opacity: 0; }
+  24%, 68% { opacity: 1; }
+}
+
+.academy-confetti {
+  animation-name: academy-confetti-fall;
+  animation-timing-function: cubic-bezier(.15, .75, .3, 1);
+  animation-fill-mode: both;
+}
+
+.academy-victory-banner {
+  animation: academy-victory-banner 3.1s ease-out both;
+}
+
+.academy-victory-glow {
+  animation: academy-victory-glow 2.8s ease-out both;
+  background: radial-gradient(circle at 50% 22%, rgba(250, 204, 21, .22), transparent 36rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .academy-confetti,
+  .academy-victory-glow,
+  .academy-victory-banner {
+    display: none;
+  }
+}

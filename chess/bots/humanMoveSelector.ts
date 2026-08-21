@@ -209,6 +209,12 @@ function personalityScore(bot: BotDifficulty, features: CandidateFeatures) {
   );
 }
 
+function openingBookBonus(bot: BotDifficulty, uci: string, context: BotMoveContext) {
+  const rule = bot.openingBook?.find((entry) => entry.after.length === context.moveHistory.length
+    && entry.after.every((move, index) => move === context.moveHistory[index]));
+  return rule?.moves.find((move) => move.uci === uci)?.bonus ?? 0;
+}
+
 export function scoreHumanCandidates(
   fen: string,
   candidates: StockfishCandidate[],
@@ -225,7 +231,7 @@ export function scoreHumanCandidates(
   return uniqueCandidates.map((candidate): ScoredHumanCandidate => {
     const cpLoss = Math.max(0, bestScore - engineScore(candidate));
     const features = candidateFeatures(chess, legalMoves.get(candidate.uci) as Move, context);
-    const humanScore = personalityScore(bot, features);
+    const humanScore = personalityScore(bot, features) + openingBookBonus(bot, candidate.uci, context);
     return {
       candidate,
       cpLoss,

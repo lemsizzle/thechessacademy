@@ -29,6 +29,11 @@ export type BotPersonality = {
   unforcedKing: number;
 };
 
+export type BotOpeningRule = {
+  after: string[];
+  moves: Array<{ uci: string; bonus: number }>;
+};
+
 export type BotDifficulty = {
   id: string;
   name: string;
@@ -43,6 +48,7 @@ export type BotDifficulty = {
   maxPlausibleCpLoss: number;
   errorBands: BotErrorBand[];
   personality: BotPersonality;
+  openingBook?: BotOpeningRule[];
   description: string;
 };
 
