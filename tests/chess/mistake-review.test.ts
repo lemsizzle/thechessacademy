@@ -33,7 +33,16 @@ describe("learn from your mistakes", () => {
       bestMoveSan: "Bxh7+",
       replyLineSan: "Nxe4 Qe2",
       centipawnLoss: 140
-    })).toBe("e4 gives up about 1.4 pawns of evaluation. It allows the engine continuation Nxe4 Qe2. A stronger forcing check was available.");
+    })).toBe("After e4, your opponent can win material with Nxe4. That gives your opponent a clear advantage—about the value of one pawn. Before choosing a move, look at every check. A strong check was available here.");
+  });
+
+  it("uses beginner-friendly language instead of raw engine terminology", () => {
+    expect(explainMistake({
+      playedMoveSan: "Qe8",
+      bestMoveSan: "Qf8",
+      replyLineSan: "Re1 Qf7 Re7 Kg8",
+      centipawnLoss: 270
+    })).toBe("After Qe8, your opponent can activate a rook with Re1. That gives your opponent a big advantage—about the value of three pawns. Try to find a move that stops Re1 while keeping your pieces safe and active.");
   });
 
   it("accepts near-equal engine alternatives instead of demanding one exact move", () => {
@@ -75,7 +84,7 @@ describe("learn from your mistakes", () => {
       bestMoveSan: "d4",
       centipawnLoss: 230,
       severity: "blunder",
-      explanation: expect.stringContaining("keep the position stable")
+      explanation: expect.stringContaining("keeping your pieces safe and active")
     });
     expect(blackPuzzles).toHaveLength(0);
   });

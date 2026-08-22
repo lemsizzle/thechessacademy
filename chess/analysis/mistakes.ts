@@ -96,21 +96,48 @@ export function explainMistake({
   replyLineSan: string;
   centipawnLoss: number;
 }) {
-  const swing = centipawnLoss >= 10_000
-    ? "causes a decisive swing in the position"
-    : `gives up about ${(centipawnLoss / 100).toFixed(1)} pawns of evaluation`;
-  const replyPreview = replyLineSan.trim().split(/\s+/).slice(0, 4).join(" ");
-  const consequence = replyPreview ? ` It allows the engine continuation ${replyPreview}.` : "";
-  const missedIdea = bestMoveSan.includes("#")
-    ? "A forced checkmate was available instead."
+  const firstReply = replyLineSan.trim().split(/\s+/)[0] ?? "";
+  const replyIdea = firstReply.includes("#")
+    ? `checkmate with ${firstReply}`
+    : firstReply.includes("+")
+      ? `check your king with ${firstReply}`
+      : firstReply.includes("x")
+        ? `win material with ${firstReply}`
+        : /^O-O/.test(firstReply)
+          ? `castle with ${firstReply} and make their king safer`
+          : firstReply.startsWith("R")
+            ? `activate a rook with ${firstReply}`
+            : firstReply.startsWith("Q")
+              ? `activate the queen with ${firstReply}`
+              : firstReply.startsWith("B")
+                ? `activate a bishop with ${firstReply}`
+                : firstReply.startsWith("N")
+                  ? `improve a knight with ${firstReply}`
+                  : firstReply
+                    ? `play ${firstReply} and improve their position`
+                    : "get a much easier position";
+  const consequence = `After ${playedMoveSan}, your opponent can ${replyIdea}.`;
+  const advantage = centipawnLoss >= 10_000
+      ? "This may decide the game."
+    : (() => {
+        const pawnValue = Math.max(1, Math.round(centipawnLoss / 100));
+        const pawnWords = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+        const amount = pawnValue === 1 ? "one pawn" : `${pawnWords[pawnValue] ?? "several"} pawns`;
+        const size = centipawnLoss >= 250 ? "big" : "clear";
+        return `That gives your opponent a ${size} advantage—about the value of ${amount}.`;
+      })();
+  const tip = bestMoveSan.includes("#")
+    ? "Look at every check—you had a way to checkmate."
     : bestMoveSan.includes("+")
-      ? "A stronger forcing check was available."
+      ? "Before choosing a move, look at every check. A strong check was available here."
       : bestMoveSan.includes("x")
-        ? "A stronger capture was available."
+        ? "Before choosing a move, look for safe captures. A strong capture was available here."
         : /^O-O/.test(bestMoveSan)
-          ? "Securing the king was more urgent."
-          : "A more accurate move was needed to keep the position stable.";
-  return `${playedMoveSan} ${swing}.${consequence} ${missedIdea}`;
+          ? "Your king needs safety here. Look for a chance to castle."
+          : firstReply
+            ? `Try to find a move that stops ${firstReply} while keeping your pieces safe and active.`
+            : "Try to keep your pieces protected and make it harder for your opponent to attack.";
+  return `${consequence} ${advantage} ${tip}`;
 }
 
 export function buildMistakePuzzles(
