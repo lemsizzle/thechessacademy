@@ -7,22 +7,15 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { AutoAdvanceSwitch, PuzzleModeSetup, type PuzzleModeChoice } from "@/components/training/PuzzleModeSetup";
 import { legalDestinations, parseUciMove } from "@/lib/puzzle-training/engine";
-import { nextWoodpeckerStep, SURVIVAL_PUZZLE_LIMIT, WOODPECKER_ROUND_COUNT, WOODPECKER_SET_SIZE, WOODPECKER_SET_SIZE_OPTIONS } from "@/lib/puzzle-training/modes";
+import { nextWoodpeckerStep, PUZZLE_DIFFICULTY_OPTIONS, SURVIVAL_PUZZLE_LIMIT, survivalDifficultyForPuzzle, WOODPECKER_ROUND_COUNT, WOODPECKER_SET_SIZE } from "@/lib/puzzle-training/modes";
 import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 const STARTING_LIVES = 3;
 const OPPONENT_REPLY_DELAY_MS = 40;
 const AUTO_ADVANCE_DELAY_MS = 140;
 const AUTO_ADVANCE_STORAGE_KEY = "academy-puzzles-auto-advance";
-
-const levels: Array<{ id: PuzzleLevelSlug; name: string; rating: string }> = [
-  { id: "all", name: "All levels", rating: "600–2200" },
-  { id: "beginner", name: "Beginner", rating: "600–999" },
-  { id: "improver", name: "Improver", rating: "1000–1399" },
-  { id: "intermediate", name: "Intermediate", rating: "1400–1799" },
-  { id: "advanced", name: "Advanced", rating: "1800–2200" }
-];
 
 type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "summary" | "error";
 type TrainingMode = "survival" | "woodpecker" | "daily";
@@ -62,32 +55,12 @@ function optimisticMoveFen(fen: string, from: string, to: string) {
   }
 }
 
-function AutoAdvanceSwitch({ checked, onChange, compact = false }: { checked: boolean; onChange: (checked: boolean) => void; compact?: boolean }) {
-  return (
-    <div className={`flex items-center justify-between gap-4 ${compact ? "rounded-md border border-white/10 bg-white/5 px-3 py-2" : ""}`}>
-      <div>
-        <p className="text-sm font-black text-white">Auto-advance</p>
-        {!compact && <p className="mt-1 text-xs text-slate-400">Open the next puzzle automatically after a correct solution.</p>}
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label="Automatically move to the next puzzle"
-        onClick={() => onChange(!checked)}
-        className={`relative h-7 w-12 shrink-0 rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${checked ? "border-cyan-200 bg-cyan-300" : "border-white/20 bg-slate-700"}`}
-      >
-        <span className={`absolute left-0 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : "translate-x-1"}`} />
-      </button>
-    </div>
-  );
-}
-
 export function PuzzleSurvival() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedTheme, setSelectedTheme] = useState<PuzzleThemeSlug>(() => parsePuzzleTheme(searchParams.get("theme")));
   const [selectedLevel, setSelectedLevel] = useState<PuzzleLevelSlug>(() => parsePuzzleLevel(searchParams.get("level")));
+  const [setupMode, setSetupMode] = useState<PuzzleModeChoice>("survival");
   const [trainingMode, setTrainingMode] = useState<TrainingMode>("survival");
   const [woodpeckerSetSize, setWoodpeckerSetSize] = useState<number>(WOODPECKER_SET_SIZE);
   const [autoAdvance, setAutoAdvance] = useState(false);
@@ -182,7 +155,7 @@ export function PuzzleSurvival() {
     moveLocked.current = false;
   }
 
-  async function loadPuzzle(mode = trainingMode, requestedPuzzleId?: string) {
+  async function loadPuzzle(mode = trainingMode, requestedPuzzleId?: string, survivalPuzzleNumber = completed + 1) {
     setTrainingMode(mode);
     requestedPuzzleIdRef.current = requestedPuzzleId ?? null;
     setPhase("loading");
@@ -191,7 +164,8 @@ export function PuzzleSurvival() {
     setCompletion(null);
     clearBoardMarks();
     moveLocked.current = false;
-    const query = new URLSearchParams({ theme: selectedTheme, level: selectedLevel, sessionId: sessionId.current });
+    const requestedLevel = mode === "survival" ? survivalDifficultyForPuzzle(survivalPuzzleNumber).level : selectedLevel;
+    const query = new URLSearchParams({ theme: selectedTheme, level: requestedLevel, sessionId: sessionId.current });
     if (mode === "daily") query.set("daily", "1");
     if (requestedPuzzleId) query.set("puzzleId", requestedPuzzleId);
     const excludedPuzzleIds = mode === "woodpecker" && woodpeckerRoundRef.current === 1
@@ -235,7 +209,7 @@ export function PuzzleSurvival() {
     recentPuzzleIds.current = [];
     resetWoodpeckerProgress();
     resetTrainingStats();
-    void loadPuzzle("survival");
+    void loadPuzzle("survival", undefined, 1);
   }
 
   function startWoodpecker() {
@@ -357,7 +331,7 @@ export function PuzzleSurvival() {
           token,
           move: { from, to },
           requestNextPuzzle: autoAdvance && trainingMode === "survival" && completed + 1 < SURVIVAL_PUZZLE_LIMIT,
-          nextLevel: selectedLevel,
+          nextLevel: trainingMode === "survival" ? survivalDifficultyForPuzzle(completed + 2).level : selectedLevel,
           excludePuzzleIds: recentPuzzleIds.current
         })
       });
@@ -529,85 +503,37 @@ export function PuzzleSurvival() {
   const averageTime = solveTimes.length ? Math.round(solveTimes.reduce((sum, value) => sum + value, 0) / solveTimes.length) : 0;
   const selectedThemeOption = puzzleThemeOptions.find((theme) => theme.id === selectedTheme);
   const selectedThemeName = selectedThemeOption?.name ?? "Mixed tactics";
-  const selectedLevelName = levels.find((level) => level.id === selectedLevel)?.name ?? "All levels";
+  const selectedLevelName = PUZZLE_DIFFICULTY_OPTIONS.find((level) => level.id === selectedLevel)?.name ?? "Any difficulty";
+  const visibleSurvivalPuzzleNumber = phase === "solved" ? Math.max(1, completed) : completed + 1;
+  const survivalDifficulty = survivalDifficultyForPuzzle(visibleSurvivalPuzzleNumber);
+  const activeDifficultyName = trainingMode === "survival" ? survivalDifficulty.name : selectedLevelName;
   const summaryEyebrow = trainingMode === "daily" ? "Daily Challenge Complete" : trainingMode === "woodpecker" ? "Woodpecker Set Complete" : "Survival Run Complete";
   const summaryTitle = trainingMode === "daily" ? "Puzzle of the Day" : trainingMode === "woodpecker" ? "Woodpecker Training Report" : "Academy Training Report";
   const primaryProgress = trainingMode === "daily"
     ? "Daily"
     : trainingMode === "woodpecker"
       ? `${Math.min(woodpeckerIndex + 1, activeWoodpeckerSetSize.current)}/${activeWoodpeckerSetSize.current}`
-      : `${Math.min(completed + 1, SURVIVAL_PUZZLE_LIMIT)}/${SURVIVAL_PUZZLE_LIMIT}`;
+      : `${Math.min(visibleSurvivalPuzzleNumber, SURVIVAL_PUZZLE_LIMIT)}/${SURVIVAL_PUZZLE_LIMIT}`;
   const secondaryMetric: [string, string] = trainingMode === "woodpecker"
     ? ["Round", `${woodpeckerRound}/${WOODPECKER_ROUND_COUNT}`]
     : ["Lives", `${lives}/${STARTING_LIVES}`];
 
   if (phase === "select") {
     return (
-      <div className="space-y-5">
-        <Card className="overflow-hidden border-amber-300/35 bg-gradient-to-br from-amber-300/15 via-slate-950/75 to-fuchsia-400/10 p-5 shadow-gold">
-          <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
-            <div>
-              <div className="flex flex-wrap items-center gap-2"><span className="text-2xl" aria-hidden="true">♛</span><p className="text-xs font-black uppercase tracking-[0.16em] text-amber-200">Puzzle of the Day</p><span className="rounded-full border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-[10px] font-black uppercase text-amber-100">Changes daily</span></div>
-              <h2 className="mt-3 text-2xl font-black text-white">One challenge. Bonus rewards.</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Solve today&apos;s shared Academy puzzle to earn <strong className="text-amber-100">10 XP</strong> and <strong className="text-amber-100">10 Academy Coins</strong>. The reward can be claimed once each day.</p>
-            </div>
-            <Button type="button" onClick={startDailyPuzzle}>Play Today&apos;s Puzzle</Button>
-          </div>
-        </Card>
-        <div className="grid gap-5 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.2fr)]">
-          <div>
-            <label htmlFor="puzzle-theme" className="mb-3 block text-xs font-black uppercase tracking-wide text-cyan-100">1. Choose a tactic</label>
-            <select id="puzzle-theme" value={selectedTheme} onChange={(event) => chooseTheme(event.target.value as PuzzleThemeSlug)} className="w-full rounded-lg border border-cyan-200/30 bg-slate-950 px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-cyan-200 focus:ring-2 focus:ring-cyan-200/30">
-              {puzzleThemeOptions.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
-            </select>
-            <p className="mt-3 text-sm leading-5 text-slate-400">{selectedThemeOption?.description}</p>
-          </div>
-        <div>
-          <p className="mb-3 text-xs font-black uppercase tracking-wide text-cyan-100">2. Choose a level</p>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5" role="radiogroup" aria-label="Puzzle level">
-            {levels.map((level) => (
-              <button key={level.id} type="button" role="radio" aria-checked={selectedLevel === level.id} onClick={() => chooseLevel(level.id)} className={`rounded-lg border px-4 py-3 text-left transition active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${selectedLevel === level.id ? "border-cyan-200 bg-cyan-300/12 shadow-[0_0_24px_rgba(34,211,238,.12)]" : "border-white/10 bg-slate-950/58 hover:border-cyan-200/40 hover:bg-cyan-300/5"}`}>
-                <span className="block text-sm font-black text-white">{level.name}</span>
-                <span className="mt-1 block text-xs font-bold text-slate-400">Rating {level.rating}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="flex h-full flex-col items-start p-5">
-            <p className="text-xs font-black uppercase text-cyan-100">Survival Session</p>
-            <h2 className="mt-2 text-xl font-black text-white">How far can you go?</h2>
-            <p className="mt-2 flex-1 text-sm leading-6 text-slate-300">Solve up to {SURVIVAL_PUZZLE_LIMIT} puzzles. Three incorrect moves end the run.</p>
-            <Button type="button" onClick={startSurvival} className="mt-5">Start Survival</Button>
-          </Card>
-          <Card className="flex h-full flex-col items-start border-amber-300/30 bg-gradient-to-br from-amber-300/10 to-slate-950/70 p-5">
-            <p className="text-xs font-black uppercase text-amber-200">Woodpecker Method</p>
-            <h2 className="mt-2 text-xl font-black text-white">Repeat until patterns become automatic.</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-300">Choose one tactic and build a set at the size that fits your training time. You&apos;ll repeat that exact set for {WOODPECKER_ROUND_COUNT} rounds.</p>
-            <div className="mt-4 grid w-full gap-3 sm:grid-cols-2">
-              <div>
-                <label htmlFor="woodpecker-theme" className="mb-2 block text-xs font-black uppercase text-amber-100">Theme</label>
-                <select id="woodpecker-theme" value={selectedTheme} onChange={(event) => chooseTheme(event.target.value as PuzzleThemeSlug)} className="w-full rounded-lg border border-amber-200/25 bg-slate-950 px-3 py-2.5 text-sm font-bold text-white outline-none transition focus:border-amber-200 focus:ring-2 focus:ring-amber-200/30">
-                  {puzzleThemeOptions.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="woodpecker-set-size" className="mb-2 block text-xs font-black uppercase text-amber-100">Puzzles in set</label>
-                <select id="woodpecker-set-size" value={woodpeckerSetSize} onChange={(event) => setWoodpeckerSetSize(Number(event.target.value))} className="w-full rounded-lg border border-amber-200/25 bg-slate-950 px-3 py-2.5 text-sm font-bold text-white outline-none transition focus:border-amber-200 focus:ring-2 focus:ring-amber-200/30">
-                  {WOODPECKER_SET_SIZE_OPTIONS.map((size) => <option key={size} value={size}>{size} puzzles</option>)}
-                </select>
-              </div>
-            </div>
-            <p className="mt-3 flex-1 text-xs leading-5 text-slate-400">Wrong moves are retries, not lost lives.</p>
-            <Button type="button" onClick={startWoodpecker} className="mt-5">Start {selectedThemeName} Woodpecker</Button>
-          </Card>
-        </div>
-        <Card className="p-5">
-          <AutoAdvanceSwitch checked={autoAdvance} onChange={updateAutoAdvance} />
-        </Card>
-        <p className="text-xs text-slate-500">Training combines teacher-authored Academy positions with puzzles from the Lichess open database.</p>
-      </div>
+      <PuzzleModeSetup
+        selectedMode={setupMode}
+        onModeChange={setSetupMode}
+        selectedTheme={selectedTheme}
+        onThemeChange={chooseTheme}
+        selectedLevel={selectedLevel}
+        onLevelChange={chooseLevel}
+        woodpeckerSetSize={woodpeckerSetSize}
+        onWoodpeckerSetSizeChange={setWoodpeckerSetSize}
+        autoAdvance={autoAdvance}
+        onAutoAdvanceChange={updateAutoAdvance}
+        onStart={setupMode === "survival" ? startSurvival : startWoodpecker}
+        onDailyPuzzle={startDailyPuzzle}
+      />
     );
   }
 
@@ -644,7 +570,7 @@ export function PuzzleSurvival() {
 
         <div className="space-y-4">
           <Card className="p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-xs font-black uppercase text-cyan-100">{trainingMode === "daily" ? "Puzzle of the Day" : trainingMode === "woodpecker" ? "Woodpecker Method" : selectedThemeName}</span>{trainingMode !== "daily" && <span className="rounded border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-xs font-black uppercase text-amber-100">{selectedLevelName}</span>}</div><span className="text-xs font-bold text-slate-400">{puzzle ? `${puzzle.sideToMove} to move` : "Loading"}</span></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-xs font-black uppercase text-cyan-100">{trainingMode === "daily" ? "Puzzle of the Day" : selectedThemeName}</span>{trainingMode !== "daily" && <span className="rounded border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-xs font-black uppercase text-amber-100">{activeDifficultyName}</span>}</div><span className="text-xs font-bold text-slate-400">{puzzle ? `${puzzle.sideToMove} to move` : "Loading"}</span></div>
             {puzzle?.daily && <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${puzzle.daily.rewardClaimed ? "border-cyan-200/25 bg-cyan-300/5 text-cyan-100" : "border-amber-200/35 bg-amber-300/10 text-amber-100"}`}>{puzzle.daily.rewardClaimed ? "Reward already claimed today — replay for practice." : `Available reward: +${puzzle.daily.xp} XP and +${puzzle.daily.coins} Academy Coins`}</div>}
             {trainingMode !== "daily" && <div className="mt-4"><AutoAdvanceSwitch checked={autoAdvance} onChange={updateAutoAdvance} compact /></div>}
             <h2 className="mt-4 text-2xl font-black text-white">{phase === "reply" ? "Opponent reply" : phase === "solved" ? "Puzzle complete" : puzzle?.prompt || "Find the best move"}</h2>

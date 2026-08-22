@@ -128,7 +128,8 @@ describe("level filtering", () => {
     ["beginner", { minimum: 600, maximum: 999 }],
     ["improver", { minimum: 1000, maximum: 1399 }],
     ["intermediate", { minimum: 1400, maximum: 1799 }],
-    ["advanced", { minimum: 1800, maximum: 2200 }]
+    ["advanced", { minimum: 1800, maximum: 1999 }],
+    ["expert", { minimum: 2000, maximum: 2200 }]
   ] as const)("maps %s to a non-overlapping rating range", (level, expected) => {
     expect(puzzleLevelRatingRange(level)).toEqual(expected);
   });

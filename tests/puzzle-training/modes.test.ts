@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   nextWoodpeckerStep,
+  PUZZLE_DIFFICULTY_OPTIONS,
   SURVIVAL_PUZZLE_LIMIT,
+  survivalDifficultyForPuzzle,
+  SURVIVAL_DIFFICULTY_STAGES,
   WOODPECKER_MAX_SET_SIZE,
   WOODPECKER_ROUND_COUNT,
   WOODPECKER_SET_SIZE,
@@ -11,6 +14,28 @@ import {
 describe("puzzle training modes", () => {
   it("allows a survival run to reach 50 puzzles", () => {
     expect(SURVIVAL_PUZZLE_LIMIT).toBe(50);
+  });
+
+  it("progresses Survival from very easy to expert in ten-puzzle stages", () => {
+    expect(SURVIVAL_DIFFICULTY_STAGES).toHaveLength(5);
+    expect(survivalDifficultyForPuzzle(1).level).toBe("beginner");
+    expect(survivalDifficultyForPuzzle(10).level).toBe("beginner");
+    expect(survivalDifficultyForPuzzle(11).level).toBe("improver");
+    expect(survivalDifficultyForPuzzle(21).level).toBe("intermediate");
+    expect(survivalDifficultyForPuzzle(31).level).toBe("advanced");
+    expect(survivalDifficultyForPuzzle(41).level).toBe("expert");
+    expect(survivalDifficultyForPuzzle(50).level).toBe("expert");
+  });
+
+  it("offers every fixed difficulty in Woodpecker mode", () => {
+    expect(PUZZLE_DIFFICULTY_OPTIONS.map((option) => option.id)).toEqual([
+      "all",
+      "beginner",
+      "improver",
+      "intermediate",
+      "advanced",
+      "expert"
+    ]);
   });
 
   it("uses a minimum Woodpecker set size of 20 puzzles", () => {

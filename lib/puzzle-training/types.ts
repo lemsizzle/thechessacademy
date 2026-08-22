@@ -24,7 +24,7 @@ export const lichessPuzzleThemes = [
   "kingsideAttack"
 ] as const;
 export const puzzleThemeSlugs = ["mixed", ...lichessPuzzleThemes] as const;
-export const puzzleLevelSlugs = ["all", "beginner", "improver", "intermediate", "advanced"] as const;
+export const puzzleLevelSlugs = ["all", "beginner", "improver", "intermediate", "advanced", "expert"] as const;
 
 export type PuzzleThemeSlug = typeof puzzleThemeSlugs[number];
 export type LichessPuzzleTheme = typeof lichessPuzzleThemes[number];
@@ -148,7 +148,9 @@ export function puzzleLevelRatingRange(level: PuzzleLevelSlug) {
     case "intermediate":
       return { minimum: 1400, maximum: 1799 };
     case "advanced":
-      return { minimum: 1800, maximum: 2200 };
+      return { minimum: 1800, maximum: 1999 };
+    case "expert":
+      return { minimum: 2000, maximum: 2200 };
     default:
       return null;
   }
