@@ -4,6 +4,7 @@ import { Chess, type Square } from "chess.js";
 import { Chessboard, type ChessboardOptions } from "react-chessboard";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { annotationColorForModifiers, BOARD_ANNOTATION_COLORS } from "@/chess/components/boardAnnotations";
+import { BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
 import { chessJsColor } from "@/chess/game/config";
 import { boardDropAction, checkedKingSquare, legalMovesFrom } from "@/chess/game/rules";
 import type { ChessColor } from "@/chess/types";
@@ -101,8 +102,7 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
     position: fen,
     boardOrientation: orientation,
     showNotation: true,
-    animationDurationInMs: 0,
-    showAnimations: false,
+    ...BOARD_MOTION_OPTIONS,
     allowDragging: interactive && !annotationMode,
     allowDragOffBoard: false,
     allowAutoScroll: false,

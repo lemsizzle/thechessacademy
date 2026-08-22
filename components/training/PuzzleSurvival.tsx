@@ -4,6 +4,7 @@ import { Chess, type Square } from "chess.js";
 import { Chessboard, type ChessboardOptions } from "react-chessboard";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { legalDestinations, parseUciMove } from "@/lib/puzzle-training/engine";
@@ -424,8 +425,7 @@ export function PuzzleSurvival() {
     position: positionFen || undefined,
     boardOrientation: puzzle?.orientation ?? "white",
     showNotation: true,
-    animationDurationInMs: 0,
-    showAnimations: false,
+    ...BOARD_MOTION_OPTIONS,
     allowDragging: phase === "turn",
     allowDragOffBoard: false,
     allowAutoScroll: false,
