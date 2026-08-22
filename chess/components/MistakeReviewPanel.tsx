@@ -36,7 +36,7 @@ export function MistakeReviewPanel(props: Props) {
     </div>
     <div className="p-4">
       {props.status === "idle" && <>
-        <p className="text-sm leading-6 text-slate-300">Stockfish will review the original game, find your evaluation drops, and turn each one into a private retry puzzle.</p>
+        <p className="text-sm leading-6 text-slate-300">Stockfish will review the original game, find your mistakes and blunders, and turn each one into a private retry puzzle.</p>
         <button type="button" onClick={props.onScan} className="mt-4 w-full rounded-md bg-[#7fa650] px-4 py-3 text-sm font-black text-white shadow hover:bg-[#8bb45a]">Request a computer analysis</button>
       </>}
 
@@ -54,13 +54,13 @@ export function MistakeReviewPanel(props: Props) {
 
       {props.status === "ready" && props.activeIndex === null && <>
         {props.puzzles.length ? <>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            {(["inaccuracy", "mistake", "blunder"] as const).map((severity) => <div key={severity} className={`rounded-md px-2 py-3 ${severityStyle[severity]}`}><p className="text-xl font-black">{counts[severity]}</p><p className="text-[10px] font-black uppercase">{severity}{counts[severity] === 1 ? "" : "s"}</p></div>)}
+          <div className="grid grid-cols-2 gap-2 text-center">
+            {(["mistake", "blunder"] as const).map((severity) => <div key={severity} className={`rounded-md px-2 py-3 ${severityStyle[severity]}`}><p className="text-xl font-black">{counts[severity]}</p><p className="text-[10px] font-black uppercase">{severity}{counts[severity] === 1 ? "" : "s"}</p></div>)}
           </div>
           <p className="mt-3 text-sm leading-5 text-slate-300">Retry the position before each error and find the stronger move yourself.</p>
           <button type="button" onClick={() => props.onOpen(0)} className="mt-4 w-full rounded-md bg-[#7fa650] px-4 py-3 text-sm font-black text-white hover:bg-[#8bb45a]">Practice {props.puzzles.length} mistake{props.puzzles.length === 1 ? "" : "s"}</button>
         </> : <>
-          <div className="rounded-md border border-emerald-300/20 bg-emerald-300/10 p-4 text-center"><p className="text-2xl">✓</p><p className="mt-1 font-black text-emerald-100">No significant mistakes found</p><p className="mt-1 text-xs text-slate-400">Stockfish found no evaluation loss of half a pawn or more in your moves.</p></div>
+          <div className="rounded-md border border-emerald-300/20 bg-emerald-300/10 p-4 text-center"><p className="text-2xl">✓</p><p className="mt-1 font-black text-emerald-100">No significant mistakes found</p><p className="mt-1 text-xs text-slate-400">Stockfish found no mistakes or blunders in your moves.</p></div>
           <button type="button" onClick={props.onScan} className="mt-3 w-full rounded-md border border-white/10 px-3 py-2 text-xs font-black text-slate-300 hover:bg-white/5">Analyze again</button>
         </>}
       </>}
@@ -68,7 +68,7 @@ export function MistakeReviewPanel(props: Props) {
       {props.status === "ready" && props.activeIndex !== null && props.activePuzzle && <div aria-live="polite">
         <div className="flex items-center justify-between gap-3"><span className={`rounded px-2 py-1 text-[10px] font-black uppercase ${severityStyle[props.activePuzzle.severity]}`}>{props.activePuzzle.severity}</span><span className="text-xs font-bold text-slate-400">Puzzle {props.activeIndex + 1} of {props.puzzles.length}</span></div>
         <p className="mt-3 text-lg font-black text-white">You played {props.activePuzzle.playedMoveSan}</p>
-        <p className="mt-1 text-sm text-slate-300">Find the best move instead. Play it on the board.</p>
+        <p className="mt-1 text-sm text-slate-300">The red arrow shows the move played in the game. Find the best move instead.</p>
         {!props.result && <p className="mt-3 rounded-md bg-black/20 p-3 text-xs text-slate-400">Move {props.activePuzzle.moveNumber} · about {(props.activePuzzle.centipawnLoss / 100).toFixed(1)} pawns lost</p>}
         {props.result?.status === "incorrect" && <div className="mt-3 rounded-md border border-amber-300/25 bg-amber-300/10 p-3"><p className="text-sm font-black text-amber-100">{props.result.attemptedSan} is not the best move. Try again.</p><button type="button" onClick={props.onReveal} className="mt-2 text-xs font-black text-amber-50 underline underline-offset-2">View the solution</button></div>}
         {(props.result?.status === "correct" || props.result?.status === "revealed") && <div className="mt-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 p-3"><p className="text-sm font-black text-emerald-100">{props.result.status === "correct" ? `Correct — ${props.result.attemptedSan}!` : `Best move: ${props.activePuzzle.bestMoveSan}`}</p>{props.activePuzzle.bestLineSan && <p className="mt-1 text-xs leading-5 text-emerald-50">Best line: {props.activePuzzle.bestLineSan}</p>}</div>}

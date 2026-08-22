@@ -86,4 +86,16 @@ describe("learn from your mistakes", () => {
     }));
     expect(buildMistakePuzzles(tree, evaluations, "white")).toEqual([]);
   });
+
+  it("excludes inaccuracies from the retry puzzles", () => {
+    const tree = gameLine();
+    const [root, whiteMove, ...remainingIds] = mainlineNodeIds(tree);
+    const evaluations = [
+      evaluation(root, 80, "d2d4"),
+      evaluation(whiteMove, 0, "e7e5"),
+      ...remainingIds.map((id) => evaluation(id, 0, "a2a3"))
+    ];
+
+    expect(buildMistakePuzzles(tree, evaluations, "white")).toEqual([]);
+  });
 });

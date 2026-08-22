@@ -110,7 +110,7 @@ export function buildMistakePuzzles(
     if (beforeCp === null || afterCp === null) continue;
     const loss = Math.max(0, Math.round(reviewColor === "white" ? beforeCp - afterCp : afterCp - beforeCp));
     const severity = classifyCentipawnLoss(loss);
-    if (!severity) continue;
+    if (!severity || severity === "inaccuracy") continue;
 
     puzzles.push({
       id: `mistake-${afterNode.id}`,

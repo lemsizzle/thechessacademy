@@ -351,10 +351,19 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
     .map((shape) => ({ startSquare: shape.from, endSquare: shape.to, color: BOARD_ANNOTATION_COLORS[shape.style] }));
   const circles = node.shapes.filter((shape): shape is Extract<AnalysisShape, { type: "circle" }> => shape.type === "circle")
     .map((shape) => ({ square: shape.square, color: BOARD_ANNOTATION_COLORS[shape.style] }));
-  const lastMove = guidedResult?.status === "correct"
-    ? [guidedResult.attemptedUci.slice(0, 2), guidedResult.attemptedUci.slice(2, 4)] as [string, string]
-    : mistakeReview.result?.status === "correct" || mistakeReview.result?.status === "revealed"
+  const mistakeArrow = mistakeReview.activePuzzle
+    ? [{
+        startSquare: mistakeReview.activePuzzle.playedMoveUci.slice(0, 2),
+        endSquare: mistakeReview.activePuzzle.playedMoveUci.slice(2, 4),
+        color: BOARD_ANNOTATION_COLORS.danger
+      }]
+    : [];
+  const lastMove = mistakeReviewActive
+    ? mistakeReview.result?.status === "correct" || mistakeReview.result?.status === "revealed"
       ? [mistakeReview.activePuzzle!.bestMoveUci.slice(0, 2), mistakeReview.activePuzzle!.bestMoveUci.slice(2, 4)] as [string, string]
+      : null
+    : guidedResult?.status === "correct"
+    ? [guidedResult.attemptedUci.slice(0, 2), guidedResult.attemptedUci.slice(2, 4)] as [string, string]
     : node.uci ? [node.uci.slice(0, 2), node.uci.slice(2, 4)] as [string, string] : null;
   const moveColor = displayFen.split(" ")[1] === "w" ? "white" : "black";
   const topLine = engine.lines[0];
@@ -430,7 +439,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
                 interactive={mistakeReviewActive ? mistakeReview.result?.status !== "correct" && mistakeReview.result?.status !== "revealed" : guidedExercise ? guidedResult?.status !== "correct" && !guidedBusy : editable}
                 lastMove={lastMove}
                 onMove={makeMove}
-                arrows={mistakeReviewActive ? [] : arrows}
+                arrows={mistakeReviewActive ? mistakeArrow : arrows}
                 circles={mistakeReviewActive ? [] : circles}
                 annotationMode={annotationMode}
                 onAnnotationSquare={annotationSquare}
