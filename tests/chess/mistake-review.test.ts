@@ -1,6 +1,6 @@
 import { Chess } from "chess.js";
 import { describe, expect, it } from "vitest";
-import { buildMistakePuzzles, classifyCentipawnLoss, equivalentEngineMoves, evaluationAsCentipawns, explainMistake, mainlineNodeIds, type PositionEvaluation } from "@/chess/analysis/mistakes";
+import { buildMistakePuzzles, classifyCentipawnLoss, equivalentEngineMoves, evaluationAsCentipawns, explainBestMove, explainMistake, mainlineNodeIds, type PositionEvaluation } from "@/chess/analysis/mistakes";
 import type { StockfishCandidate } from "@/chess/types";
 import { createAnalysisTree } from "@/chess/analysis/tree";
 import type { CompletedGameMove } from "@/chess/analysis/types";
@@ -27,6 +27,15 @@ function evaluation(nodeId: string, scoreWhiteCp: number, bestMoveUci: string): 
 }
 
 describe("learn from your mistakes", () => {
+  it("explains why the best move works in beginner language", () => {
+    expect(explainBestMove({
+      fen: "8/8/1p6/2B5/8/8/8/4K2k w - - 0 1",
+      bestMoveUci: "c5b6",
+      bestMoveSan: "Bxb6",
+      bestLineSan: "Bxb6 Kh2 c4"
+    })).toBe("Bxb6 captures a pawn and keeps your pieces active. After Kh2, c4 keeps the plan going.");
+  });
+
   it("explains the missed idea, engine reply, and evaluation loss", () => {
     expect(explainMistake({
       playedMoveSan: "e4",
@@ -84,7 +93,8 @@ describe("learn from your mistakes", () => {
       bestMoveSan: "d4",
       centipawnLoss: 230,
       severity: "blunder",
-      explanation: expect.stringContaining("keeping your pieces safe and active")
+      explanation: expect.stringContaining("keeping your pieces safe and active"),
+      solutionExplanation: expect.stringContaining("d4 improves your position")
     });
     expect(blackPuzzles).toHaveLength(0);
   });

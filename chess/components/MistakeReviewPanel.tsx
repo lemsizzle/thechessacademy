@@ -75,7 +75,14 @@ export function MistakeReviewPanel(props: Props) {
         </div>
         {!props.result && <p className="mt-3 rounded-md bg-black/20 p-3 text-xs text-slate-400">Move {props.activePuzzle.moveNumber} · about {(props.activePuzzle.centipawnLoss / 100).toFixed(1)} pawns lost</p>}
         {props.result?.status === "incorrect" && <div className="mt-3 rounded-md border border-amber-300/25 bg-amber-300/10 p-3"><p className="text-sm font-black text-amber-100">{props.result.attemptedSan} is not the best move. Try again.</p><button type="button" onClick={props.onReveal} className="mt-2 text-xs font-black text-amber-50 underline underline-offset-2">View the solution</button></div>}
-        {(props.result?.status === "correct" || props.result?.status === "revealed") && <div className="mt-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 p-3"><p className="text-sm font-black text-emerald-100">{props.result.status === "correct" ? `Correct — ${props.result.attemptedSan}!` : `Best move: ${props.activePuzzle.bestMoveSan}`}</p>{props.activePuzzle.bestLineSan && <p className="mt-1 text-xs leading-5 text-emerald-50">Best line: {props.activePuzzle.bestLineSan}</p>}</div>}
+        {(props.result?.status === "correct" || props.result?.status === "revealed") && <div className="mt-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 p-3">
+          <p className="text-sm font-black text-emerald-100">{props.result.status === "correct" ? `Correct — ${props.result.attemptedSan}!` : `Best move: ${props.activePuzzle.bestMoveSan}`}</p>
+          <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-emerald-200">Why this move works</p>
+          <p className="mt-1 text-sm leading-5 text-emerald-50">{props.result.status === "correct" && props.result.attemptedSan !== props.activePuzzle.bestMoveSan
+            ? `${props.result.attemptedSan} is also a strong move. It avoids the problem from the game and keeps your position active.`
+            : props.activePuzzle.solutionExplanation}</p>
+          {props.activePuzzle.bestLineSan && <p className="mt-2 text-xs leading-5 text-emerald-100/80">Best line: {props.activePuzzle.bestLineSan}</p>}
+        </div>}
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button type="button" disabled={props.activeIndex === 0} onClick={() => props.onGoTo(props.activeIndex! - 1)} className="rounded-md border border-white/10 px-3 py-2 text-xs font-black text-slate-300 disabled:opacity-30">Previous</button>
           {props.activeIndex < props.puzzles.length - 1 ? <button type="button" onClick={() => props.onGoTo(props.activeIndex! + 1)} className="rounded-md bg-[#7fa650] px-3 py-2 text-xs font-black text-white">Next puzzle</button> : <button type="button" onClick={props.onClose} className="rounded-md bg-[#7fa650] px-3 py-2 text-xs font-black text-white">Finish review</button>}

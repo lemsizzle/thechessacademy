@@ -31,6 +31,7 @@ export type MistakePuzzle = {
   acceptedMovesUci: string[];
   bestLineSan: string;
   explanation: string;
+  solutionExplanation: string;
   centipawnLoss: number;
   severity: MistakeSeverity;
 };
@@ -140,6 +141,50 @@ export function explainMistake({
   return `${consequence} ${advantage} ${tip}`;
 }
 
+export function explainBestMove({
+  fen,
+  bestMoveUci,
+  bestMoveSan,
+  bestLineSan
+}: {
+  fen: string;
+  bestMoveUci: string;
+  bestMoveSan: string;
+  bestLineSan: string;
+}) {
+  const pieceNames = { p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king" } as const;
+  let capturedPiece: string | null = null;
+  try {
+    const match = /^([a-h][1-8])([a-h][1-8])([qrbn])?$/.exec(bestMoveUci);
+    const move = match ? new Chess(fen).move({ from: match[1], to: match[2], promotion: match[3] }) : null;
+    capturedPiece = move?.captured ? pieceNames[move.captured] : null;
+  } catch {
+    capturedPiece = null;
+  }
+
+  const reason = bestMoveSan.includes("#")
+    ? `${bestMoveSan} is best because it checkmates the king and ends the game.`
+    : bestMoveSan.includes("=")
+      ? `${bestMoveSan} is best because it promotes your pawn to a stronger piece.`
+      : capturedPiece && bestMoveSan.includes("+")
+        ? `${bestMoveSan} captures a ${capturedPiece} and checks the king, so your opponent must respond.`
+        : capturedPiece
+          ? `${bestMoveSan} captures a ${capturedPiece} and keeps your pieces active.`
+          : bestMoveSan.includes("+")
+            ? `${bestMoveSan} checks the king, so your opponent must respond right away.`
+            : /^O-O/.test(bestMoveSan)
+              ? `${bestMoveSan} makes your king safer and brings your rook into the game.`
+              : /^[NBRQ]/.test(bestMoveSan)
+                ? `${bestMoveSan} puts your piece on a more useful square and improves your position.`
+                : `${bestMoveSan} improves your position and makes your opponent's plan harder.`;
+  const lineMoves = bestLineSan.trim().split(/\s+/);
+  const reply = lineMoves[1];
+  const followUp = lineMoves[2];
+  if (!reply || !followUp) return reason;
+  const check = followUp.includes("+") || followUp.includes("#") ? " with check" : "";
+  return `${reason} After ${reply}, ${followUp} keeps the plan going${check}.`;
+}
+
 export function buildMistakePuzzles(
   tree: AnalysisTree,
   evaluations: PositionEvaluation[],
@@ -188,6 +233,12 @@ export function buildMistakePuzzles(
         bestMoveSan,
         replyLineSan: after.bestLineSan,
         centipawnLoss: loss
+      }),
+      solutionExplanation: explainBestMove({
+        fen: beforeNode.fen,
+        bestMoveUci: before.bestMoveUci,
+        bestMoveSan,
+        bestLineSan: before.bestLineSan
       }),
       centipawnLoss: loss,
       severity
