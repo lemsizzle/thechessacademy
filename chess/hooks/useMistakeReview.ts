@@ -49,7 +49,7 @@ function playUci(fen: string, uci: string) {
   }
 }
 
-export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "black") {
+export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "black", reviewGameId?: string) {
   const serviceRef = useRef<AnalysisStockfishService | null>(null);
   const scanRef = useRef(0);
   const [status, setStatus] = useState<"idle" | "scanning" | "ready" | "error">("idle");
@@ -59,6 +59,7 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [result, setResult] = useState<PuzzleResult>(null);
   const [displayFen, setDisplayFen] = useState<string | null>(null);
+  const [queueSave, setQueueSave] = useState<{ status: "idle" | "saving" | "saved" | "error"; message: string }>({ status: "idle", message: "" });
 
   const cancel = useCallback(() => {
     scanRef.current += 1;
@@ -80,6 +81,7 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
     setActiveIndex(null);
     setResult(null);
     setDisplayFen(null);
+    setQueueSave({ status: "idle", message: "" });
     setProgress({ current: 0, total: ids.length });
     const evaluations: PositionEvaluation[] = [];
     try {
@@ -93,8 +95,29 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
         setProgress({ current: index + 1, total: ids.length });
       }
       if (request !== scanRef.current) return;
-      setPuzzles(buildMistakePuzzles(tree, evaluations, reviewColor));
+      const nextPuzzles = buildMistakePuzzles(tree, evaluations, reviewColor);
+      setPuzzles(nextPuzzles);
       setStatus("ready");
+      if (reviewGameId) {
+        setQueueSave({ status: "saving", message: "Adding these positions to your personal review queue…" });
+        try {
+          const response = await fetch("/api/student/adaptive-review/items", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ gameId: reviewGameId, puzzles: nextPuzzles })
+          });
+          const body = await response.json().catch(() => ({})) as { saved?: number; error?: string };
+          if (!response.ok) throw new Error(body.error ?? "The review queue could not be updated.");
+          setQueueSave({
+            status: "saved",
+            message: nextPuzzles.length
+              ? `${body.saved ?? nextPuzzles.length} position${nextPuzzles.length === 1 ? "" : "s"} added to Adaptive Training.`
+              : "Your review queue is up to date; no significant mistakes were found."
+          });
+        } catch (saveError) {
+          setQueueSave({ status: "error", message: saveError instanceof Error ? saveError.message : "The review queue could not be updated." });
+        }
+      }
     } catch (cause) {
       if (request !== scanRef.current) return;
       setStatus("error");
@@ -105,7 +128,7 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
         serviceRef.current = null;
       }
     }
-  }, [cancel, reviewColor, tree]);
+  }, [cancel, reviewColor, reviewGameId, tree]);
 
   const open = useCallback((index = 0) => {
     if (!puzzles[index]) return;
@@ -160,6 +183,6 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
   const activePuzzle = activeIndex === null ? null : puzzles[activeIndex] ?? null;
   return {
     status, progress, error, puzzles, activeIndex, activePuzzle, result,
-    displayFen, scan, cancel, open, close, goTo, submitMove, reveal
+    displayFen, queueSave, scan, cancel, open, close, goTo, submitMove, reveal
   };
 }

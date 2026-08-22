@@ -3,7 +3,7 @@ import type { QuestConditionType, QuestSource, QuestTimeWindow, TacticTheme } fr
 export const questSources: Array<{ value: QuestSource; label: string; description: string }> = [
   { value: "manual", label: "Manual / Teacher", description: "Teacher completes this from the dashboard." },
   { value: "internal_games", label: "Academy Games", description: "Checks completed computer and student-vs-student games played inside this website." },
-  { value: "internal_puzzles", label: "Academy Puzzles", description: "Checks server-verified puzzle attempts completed inside Puzzle Training." },
+  { value: "internal_puzzles", label: "Academy Puzzles", description: "Checks server-verified Puzzle Training attempts and adaptive game-mistake reviews." },
   { value: "lichess_games", label: "Lichess Games", description: "Checks rated games after the student first logs in." },
   { value: "lichess_puzzles", label: "Lichess Puzzles", description: "Checks puzzle activity from the connected Lichess account." },
   { value: "lichess_tournaments", label: "Lichess Arena", description: "Checks imported Arena tournament results." }

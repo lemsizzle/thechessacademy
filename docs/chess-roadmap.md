@@ -191,19 +191,50 @@ resolved by the follow-up migration.
 - A student can request an on-device Stockfish review from any completed-game
   analysis page. The engine remains off until requested and evaluates only the
   immutable original game line.
-- Evaluation losses are classified as inaccuracies, mistakes, or blunders and
-  converted into private retry positions from the student's board orientation.
-- The board locks unrelated engine lines and annotations during practice,
-  accepts legal retry moves, provides immediate feedback, and can reveal the
-  best move and principal variation.
+- Evaluation losses are classified by familiar thresholds; mistakes and
+  blunders are converted into private retry positions from the student's board
+  orientation, while inaccuracies are intentionally excluded for now.
+- The board locks unrelated engine lines during practice while retaining local
+  drawing tools, accepts legal retry moves, provides beginner-friendly feedback,
+  and can reveal the best move and principal variation.
 - MultiPV alternatives within 0.35 pawns of the best engine move are accepted,
   avoiding false failures when several moves are practically equivalent.
 - Scans are cancellable, stale results cannot replace a newer request, workers
-  terminate after completion or navigation, and no engine depth stream or
-  practice data is written to the database.
+  terminate after completion or navigation, and no engine depth stream is
+  written to the database. Phase 13 persists only the finished review positions.
 
 Evidence on 2026-08-22: mistake classification, color normalization, forced-mate
 normalization, original-line filtering, equivalent-move acceptance, ordered
 MultiPV output, hard cancellation, terminal positions, TypeScript, the complete
 automated suite, and the production build pass. The original game remains the
 review source even after temporary analysis variations are created or promoted.
+
+## Phase 13 — Adaptive mistake training: implemented; deployment verification pending
+
+- Completed-game analysis now saves each mistake or blunder as one private,
+  student-owned review position without changing the immutable original game.
+- A server-verified spaced-repetition schedule returns missed positions after a
+  short delay and widens successful reviews through 1, 3, 7, and 14 days before
+  marking the idea mastered. Revealed answers return the next day.
+- Puzzle Training includes a personal cross-device queue with due, learning,
+  review, mastery, and accuracy summaries, the original red move arrow, instant
+  legal moves, beginner explanations, and a link back to the source game.
+- Every attempt is retained in an immutable ledger. Completed mistake reviews
+  are included in existing Academy Puzzle quest activity, so teachers can use
+  the current quest rewards, XP, coins, and badge workflow without a parallel
+  reward system.
+- Teachers have a roster-wide Adaptive Training report showing positions, due
+  work, learning/mastered totals, accuracy, attempt counts, and last review.
+- Both tables and the atomic scheduling function are server-only, RLS-enabled,
+  explicitly denied to browser roles, foreign-key indexed, and authorized by
+  the existing verified Lichess session routes.
+
+Evidence on 2026-08-22: 161 automated tests across 33 files, TypeScript, and the
+production build pass. Migration `add_adaptive_mistake_training` is recorded in
+the live Supabase history. A rollback-only database exercise verified the
+scheduler transition and attempt ledger; catalog checks verified RLS and exact
+browser/service privileges. Supabase advisors reported no Phase 13 security or
+missing-index findings. The local unauthenticated browser path redirects safely
+without an error overlay or console errors. Final authenticated production UI
+verification remains pending until these application changes are pushed and
+deployed.

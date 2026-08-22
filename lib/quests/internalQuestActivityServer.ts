@@ -68,7 +68,7 @@ export async function loadInternalQuestPuzzles(studentId: string, window: QuestW
     rows.push(...page);
     if (page.length < PAGE_SIZE) break;
   }
-  return rows.map((row): InternalQuestPuzzleActivity => ({
+  const puzzleAttempts = rows.map((row): InternalQuestPuzzleActivity => ({
     id: row.id,
     attemptedAt: row.attempted_at,
     solved: row.solved,
@@ -76,4 +76,30 @@ export async function loadInternalQuestPuzzles(studentId: string, window: QuestW
     selectedTheme: row.selected_theme,
     themes: puzzleThemes(row)
   }));
+
+  const reviewAttempts: Array<{ id: string; attempted_at: string; outcome: "correct" | "incorrect" | "revealed" }> = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await serviceClient()
+      .from("adaptive_review_attempts")
+      .select("id,attempted_at,outcome")
+      .eq("student_id", studentId)
+      .gte("attempted_at", window.start.toISOString())
+      .lte("attempted_at", window.end.toISOString())
+      .order("attempted_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as typeof reviewAttempts;
+    reviewAttempts.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+
+  return [...puzzleAttempts, ...reviewAttempts.map((row): InternalQuestPuzzleActivity => ({
+    id: row.id,
+    attemptedAt: row.attempted_at,
+    solved: row.outcome === "correct",
+    firstTryCorrect: false,
+    selectedTheme: "gameReview",
+    themes: []
+  }))].sort((left, right) => left.attemptedAt.localeCompare(right.attemptedAt));
 }

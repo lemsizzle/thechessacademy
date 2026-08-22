@@ -29,6 +29,7 @@ type Props = {
   guidedStudentMode?: boolean;
   guidedExerciseContext?: { studyId: string; chapterId: string };
   reviewColor?: "white" | "black";
+  reviewGameId?: string;
 };
 
 function displayPly(ply: number, san: string | null) {
@@ -146,7 +147,7 @@ function GuidedExerciseEditor({ fen, exercise, canPublish, onSave, onPublish, on
   </Card>;
 }
 
-export function AnalysisWorkspace({ initialTree, title, subtitle, editable = true, saveStatus = "idle", saveMessage = "", onTreeChange, actions, gameMode = false, canManageReferenceEvaluations = false, canManageGuidedExercises = false, guidedStudentMode = false, guidedExerciseContext, reviewColor }: Props) {
+export function AnalysisWorkspace({ initialTree, title, subtitle, editable = true, saveStatus = "idle", saveMessage = "", onTreeChange, actions, gameMode = false, canManageReferenceEvaluations = false, canManageGuidedExercises = false, guidedStudentMode = false, guidedExerciseContext, reviewColor, reviewGameId }: Props) {
   const [tree, setTree] = useState(initialTree);
   const [activeId, setActiveId] = useState(initialTree.rootId);
   const [orientation, setOrientation] = useState<"white" | "black">(reviewColor ?? "white");
@@ -166,7 +167,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   const originalTreeRef = useRef(initialTree);
   const guidedRequestRef = useRef(0);
   const engine = useAnalysisEngine();
-  const mistakeReview = useMistakeReview(originalTreeRef.current, reviewColor);
+  const mistakeReview = useMistakeReview(originalTreeRef.current, reviewColor, reviewGameId);
   const node = tree.nodes[activeId] ?? tree.nodes[tree.rootId];
   const rows = useMemo(() => treeRows(tree), [tree]);
   const moveRows = useMemo(() => mainlineMoveRows(tree), [tree]);
@@ -494,6 +495,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
             activeIndex={mistakeReview.activeIndex}
             activePuzzle={mistakeReview.activePuzzle}
             result={mistakeReview.result}
+            queueSave={mistakeReview.queueSave}
             onScan={mistakeReview.scan}
             onCancel={mistakeReview.cancel}
             onOpen={mistakeReview.open}

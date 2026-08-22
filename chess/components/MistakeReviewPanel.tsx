@@ -11,6 +11,7 @@ type Props = {
   activeIndex: number | null;
   activePuzzle: MistakePuzzle | null;
   result: { status: "incorrect" | "correct" | "revealed"; attemptedSan: string } | null;
+  queueSave?: { status: "idle" | "saving" | "saved" | "error"; message: string };
   onScan: () => void;
   onCancel: () => void;
   onOpen: (index?: number) => void;
@@ -53,6 +54,7 @@ export function MistakeReviewPanel(props: Props) {
       </>}
 
       {props.status === "ready" && props.activeIndex === null && <>
+        {props.queueSave?.message && <p className={`mb-3 rounded-md border p-3 text-xs font-bold ${props.queueSave.status === "error" ? "border-rose-300/25 bg-rose-300/10 text-rose-100" : props.queueSave.status === "saved" ? "border-violet-300/25 bg-violet-300/10 text-violet-100" : "border-white/10 bg-white/5 text-slate-300"}`}>{props.queueSave.message}</p>}
         {props.puzzles.length ? <>
           <div className="grid grid-cols-2 gap-2 text-center">
             {(["mistake", "blunder"] as const).map((severity) => <div key={severity} className={`rounded-md px-2 py-3 ${severityStyle[severity]}`}><p className="text-xl font-black">{counts[severity]}</p><p className="text-[10px] font-black uppercase">{severity}{counts[severity] === 1 ? "" : "s"}</p></div>)}

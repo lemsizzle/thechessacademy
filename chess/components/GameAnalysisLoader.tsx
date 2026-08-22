@@ -36,6 +36,7 @@ export function GameAnalysisLoader({ gameId, basePath }: { gameId: string; baseP
     initialTree={analysisTree}
     gameMode
     reviewColor={game.playerColor}
+    reviewGameId={basePath === "/student" ? game.id : undefined}
     title={`You vs ${game.opponentName}`}
     subtitle={`${new Date(game.completedAt).toLocaleString()} · ${game.result.toUpperCase()} by ${game.resultReason.replaceAll("_", " ")} · ${game.timeControl.name ?? "Game"}`}
     actions={<>
