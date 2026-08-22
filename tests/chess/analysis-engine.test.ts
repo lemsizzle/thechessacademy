@@ -57,4 +57,13 @@ describe("analysis Stockfish service", () => {
     expect(WaitingWorker.latest.terminated).toBe(true);
     service.terminate();
   });
+
+  it("returns no lines for a finished position without starting a worker", async () => {
+    const worker = vi.fn();
+    vi.stubGlobal("Worker", worker);
+    const service = new AnalysisStockfishService();
+    await expect(service.analyze("rnbqkbnr/ppppp2p/5p2/6pQ/3PP3/8/PPP2PPP/RNB1KBNR b KQkq - 1 3", 50)).resolves.toEqual([]);
+    expect(worker).not.toHaveBeenCalled();
+    service.terminate();
+  });
 });

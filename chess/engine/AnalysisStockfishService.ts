@@ -1,5 +1,6 @@
 import { parseStockfishInfo, StockfishCancelledError } from "@/chess/engine/StockfishService";
 import type { StockfishCandidate } from "@/chess/types";
+import { Chess } from "chess.js";
 
 const WORKER_URL = "/vendor/stockfish/stockfish-18-lite-single.js";
 
@@ -69,6 +70,8 @@ export class AnalysisStockfishService {
 
   async analyze(fen: string, movetime = 900) {
     this.stop();
+    const position = new Chess(fen);
+    if (position.isGameOver()) return [];
     await this.ready();
     const worker = this.worker;
     if (!worker) throw new Error("Stockfish analysis is unavailable.");

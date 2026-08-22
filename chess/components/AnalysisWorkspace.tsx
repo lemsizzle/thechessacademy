@@ -10,6 +10,8 @@ import { useAnalysisEngine } from "@/chess/hooks/useAnalysisEngine";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { annotationStyleForColor, BOARD_ANNOTATION_COLORS, type BoardAnnotationStyle } from "@/chess/components/boardAnnotations";
+import { MistakeReviewPanel } from "@/chess/components/MistakeReviewPanel";
+import { useMistakeReview } from "@/chess/hooks/useMistakeReview";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type Props = {
@@ -26,6 +28,7 @@ type Props = {
   canManageGuidedExercises?: boolean;
   guidedStudentMode?: boolean;
   guidedExerciseContext?: { studyId: string; chapterId: string };
+  reviewColor?: "white" | "black";
 };
 
 function displayPly(ply: number, san: string | null) {
@@ -143,7 +146,7 @@ function GuidedExerciseEditor({ fen, exercise, canPublish, onSave, onPublish, on
   </Card>;
 }
 
-export function AnalysisWorkspace({ initialTree, title, subtitle, editable = true, saveStatus = "idle", saveMessage = "", onTreeChange, actions, gameMode = false, canManageReferenceEvaluations = false, canManageGuidedExercises = false, guidedStudentMode = false, guidedExerciseContext }: Props) {
+export function AnalysisWorkspace({ initialTree, title, subtitle, editable = true, saveStatus = "idle", saveMessage = "", onTreeChange, actions, gameMode = false, canManageReferenceEvaluations = false, canManageGuidedExercises = false, guidedStudentMode = false, guidedExerciseContext, reviewColor }: Props) {
   const [tree, setTree] = useState(initialTree);
   const [activeId, setActiveId] = useState(initialTree.rootId);
   const [orientation, setOrientation] = useState<"white" | "black">("white");
@@ -161,11 +164,13 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   const originalTreeRef = useRef(initialTree);
   const guidedRequestRef = useRef(0);
   const engine = useAnalysisEngine();
+  const mistakeReview = useMistakeReview(tree, reviewColor);
   const node = tree.nodes[activeId] ?? tree.nodes[tree.rootId];
   const rows = useMemo(() => treeRows(tree), [tree]);
   const guidedExercise = guidedStudentMode ? node.guidedExercise ?? null : null;
   const guidedLocked = Boolean(guidedExercise && guidedResult?.status !== "correct");
-  const displayFen = guidedFen ?? node.fen;
+  const mistakeReviewActive = Boolean(mistakeReview.activePuzzle);
+  const displayFen = mistakeReview.displayFen ?? guidedFen ?? node.fen;
 
   function selectPosition(nextId: string) {
     guidedRequestRef.current += 1;
@@ -199,7 +204,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   }, [activeId, tree.rootId]);
 
   useEffect(() => {
-    if (!engineOn || guidedLocked) {
+    if (!engineOn || guidedLocked || mistakeReviewActive) {
       engine.stop();
       engine.clear();
       return;
@@ -209,7 +214,17 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
       window.clearTimeout(timer);
       engine.stop();
     };
-  }, [engineOn, guidedLocked, node.fen]);
+  }, [engineOn, guidedLocked, mistakeReviewActive, node.fen]);
+
+  useEffect(() => {
+    const puzzle = mistakeReview.activePuzzle;
+    if (!puzzle) return;
+    setActiveId(puzzle.beforeNodeId);
+    setOrientation(reviewColor ?? puzzle.color);
+    setGuidedResult(null);
+    setGuidedFen(null);
+    setPendingPromotion(null);
+  }, [mistakeReview.activePuzzle?.id, reviewColor]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -229,10 +244,14 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   }, [activeId, tree]);
 
   function makeMove(from: string, to: string, promotion?: "q" | "r" | "b" | "n") {
-    const chess = new Chess(node.fen);
+    const chess = new Chess(displayFen);
     const promotionNeeded = chess.moves({ square: from as never, verbose: true }).some((move) => move.to === to && Boolean(move.promotion));
     if (promotionNeeded && !promotion) {
       setPendingPromotion({ from, to });
+      return;
+    }
+    if (mistakeReviewActive) {
+      mistakeReview.submitMove(from, to, promotion);
       return;
     }
     if (guidedExercise) {
@@ -334,8 +353,10 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
     .map((shape) => ({ square: shape.square, color: BOARD_ANNOTATION_COLORS[shape.style] }));
   const lastMove = guidedResult?.status === "correct"
     ? [guidedResult.attemptedUci.slice(0, 2), guidedResult.attemptedUci.slice(2, 4)] as [string, string]
+    : mistakeReview.result?.status === "correct" || mistakeReview.result?.status === "revealed"
+      ? [mistakeReview.activePuzzle!.bestMoveUci.slice(0, 2), mistakeReview.activePuzzle!.bestMoveUci.slice(2, 4)] as [string, string]
     : node.uci ? [node.uci.slice(0, 2), node.uci.slice(2, 4)] as [string, string] : null;
-  const moveColor = node.fen.split(" ")[1] === "w" ? "white" : "black";
+  const moveColor = displayFen.split(" ")[1] === "w" ? "white" : "black";
   const topLine = engine.lines[0];
   const evaluation = topLine?.scoreWhiteCp ?? 0;
   const whitePercent = topLine?.mateWhite !== null && topLine?.mateWhite !== undefined
@@ -356,8 +377,8 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
         </div>
       </div>
 
-      <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,680px)_minmax(320px,1fr)]">
-        <div className="mx-auto w-full max-w-[680px] min-w-0 space-y-3">
+      <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,720px)_minmax(360px,520px)] xl:justify-center">
+        <div className="mx-auto w-full max-w-[720px] min-w-0 space-y-3">
           <div className="flex flex-wrap gap-2" aria-label="Board tools">
             <Button type="button" aria-pressed={annotationMode === null} variant={annotationMode === null ? "secondary" : "ghost"} onClick={() => { setAnnotationMode(null); setAnnotationStart(null); }}>Move pieces</Button>
             <Button type="button" aria-pressed={annotationMode === "arrow"} variant={annotationMode === "arrow" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("arrow"); setAnnotationStart(null); }}>Draw arrow</Button>
@@ -392,7 +413,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
             </div>
             {(guidedResult || guidedError) && <button type="button" className="mt-3 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-200 hover:bg-white/10" onClick={() => { setGuidedResult(null); setGuidedFen(null); setGuidedError(""); }}>Reset attempt</button>}
           </Card>}
-          <div className="flex min-w-0 overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
+          <div className="flex min-w-0 overflow-hidden rounded-lg border border-[#3b3936] bg-[#1f1e1b] p-1 shadow-2xl sm:p-2">
             {engineOn && (
               <div className="relative mr-1 w-7 shrink-0 overflow-hidden rounded bg-slate-800" aria-label={`Evaluation ${scoreLabel(topLine?.scoreWhiteCp ?? null, topLine?.mateWhite ?? null)}`}>
                 <div className="absolute inset-x-0 bottom-0 bg-slate-100 transition-[height] duration-300" style={{ height: `${whitePercent}%` }} />
@@ -406,14 +427,14 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
                 fen={displayFen}
                 orientation={orientation}
                 humanColor={moveColor}
-                interactive={guidedExercise ? guidedResult?.status !== "correct" && !guidedBusy : editable}
+                interactive={mistakeReviewActive ? mistakeReview.result?.status !== "correct" && mistakeReview.result?.status !== "revealed" : guidedExercise ? guidedResult?.status !== "correct" && !guidedBusy : editable}
                 lastMove={lastMove}
                 onMove={makeMove}
-                arrows={arrows}
-                circles={circles}
+                arrows={mistakeReviewActive ? [] : arrows}
+                circles={mistakeReviewActive ? [] : circles}
                 annotationMode={annotationMode}
                 onAnnotationSquare={annotationSquare}
-                allowDrawingArrows={editable}
+                allowDrawingArrows={editable && !mistakeReviewActive}
                 onArrowsChange={(next) => {
                   updateShapes([
                     ...node.shapes.filter((shape) => shape.type !== "arrow"),
@@ -438,12 +459,27 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
         </div>
 
         <aside className="min-w-0 space-y-4 xl:sticky xl:top-4">
+          {gameMode && reviewColor && <MistakeReviewPanel
+            status={mistakeReview.status}
+            progress={mistakeReview.progress}
+            error={mistakeReview.error}
+            puzzles={mistakeReview.puzzles}
+            activeIndex={mistakeReview.activeIndex}
+            activePuzzle={mistakeReview.activePuzzle}
+            result={mistakeReview.result}
+            onScan={mistakeReview.scan}
+            onCancel={mistakeReview.cancel}
+            onOpen={mistakeReview.open}
+            onClose={mistakeReview.close}
+            onGoTo={mistakeReview.goTo}
+            onReveal={mistakeReview.reveal}
+          />}
           <Card className="p-4">
             <div className="flex items-center justify-between gap-3">
               <div><p className="text-xs font-black uppercase text-cyan-200">Local Stockfish</p><h3 className="font-black text-white">Engine analysis</h3></div>
-              <button type="button" role="switch" aria-checked={engineOn && !guidedLocked} disabled={guidedLocked} onClick={() => setEngineOn((value) => !value)} className={`rounded-full border px-4 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-50 ${engineOn && !guidedLocked ? "border-emerald-300/50 bg-emerald-300/15 text-emerald-100" : "border-white/10 bg-white/5 text-slate-300"}`}>{guidedLocked ? "LOCKED" : engineOn ? "ON" : "OFF"}</button>
+              <button type="button" role="switch" aria-checked={engineOn && !guidedLocked && !mistakeReviewActive} disabled={guidedLocked || mistakeReviewActive} onClick={() => setEngineOn((value) => !value)} className={`rounded-full border px-4 py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-50 ${engineOn && !guidedLocked && !mistakeReviewActive ? "border-emerald-300/50 bg-emerald-300/15 text-emerald-100" : "border-white/10 bg-white/5 text-slate-300"}`}>{guidedLocked || mistakeReviewActive ? "LOCKED" : engineOn ? "ON" : "OFF"}</button>
             </div>
-            {guidedLocked ? <p className="mt-3 text-xs leading-5 text-slate-400">Engine lines and teacher references unlock after you solve this position.</p> : !engineOn && <p className="mt-3 text-xs leading-5 text-slate-400">Off by default. Analysis runs only in this browser and is never sent to a chess service.</p>}
+            {guidedLocked || mistakeReviewActive ? <p className="mt-3 text-xs leading-5 text-slate-400">Engine lines are hidden while you solve the position.</p> : !engineOn && <p className="mt-3 text-xs leading-5 text-slate-400">Off by default. Analysis runs only in this browser and is never sent to a chess service.</p>}
             {!guidedLocked && node.referenceEvaluation && <div className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3">
               <div className="flex items-start justify-between gap-3">
                 <div><p className="text-xs font-black uppercase tracking-wide text-amber-200">Teacher reference</p><p className="mt-1 font-mono text-sm font-black text-white">{scoreLabel(node.referenceEvaluation.scoreWhiteCp, node.referenceEvaluation.mateWhite)} <span className="font-sans text-xs font-normal text-slate-400">depth {node.referenceEvaluation.depth}</span></p></div>
