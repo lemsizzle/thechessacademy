@@ -321,12 +321,11 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
               <div>
                 <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Live game</p>
                 <h2 className="mt-1 text-xl font-black text-white">{opponent ? `vs ${opponent.name}` : "Waiting challenge"}</h2>
-                <p className="mt-1 text-xs font-bold text-slate-400">{game.rated ? "Rated" : "Casual"}{game.matchmaking ? " · matchmade" : ""}</p>
+                <p className="mt-1 text-xs font-bold text-slate-400">{game.matchmaking ? "Academy match" : "Private challenge"} · {game.timeControl.name}</p>
               </div>
               <span className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${connection === "live" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{connection === "live" ? "Live" : connection}</span>
             </div>
             <p className="mt-4 rounded-md border border-white/10 bg-white/5 p-3 text-sm font-bold leading-5 text-slate-200" aria-live="polite">{statusText}</p>
-            {game.ratingChange ? <p className={`mt-3 rounded-md border p-3 text-sm font-black ${game.ratingChange.change >= 0 ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100" : "border-rose-300/30 bg-rose-300/10 text-rose-100"}`}>Rating {game.ratingChange.change >= 0 ? "+" : ""}{game.ratingChange.change} · {game.ratingChange.before} → {game.ratingChange.after}</p> : null}
             {game.status === "completed" && game.rematchRequestedBy && game.rematchRequestedBy !== game.viewer.id ? <p className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3 text-sm font-bold text-amber-100">Your opponent wants a rematch.</p> : null}
             {opponentOfferedDraw ? (
               <div className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3">
@@ -349,7 +348,6 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
               {game.status === "active" ? <Button type="button" variant="ghost" disabled={pending || Boolean(game.drawOfferedBy)} onClick={() => void sendAction("offer_draw")}>{viewerOfferedDraw ? "Draw Offered" : "Offer Draw"}</Button> : null}
               {game.status === "active" ? <Button type="button" variant="ghost" className="border-rose-300/25 text-rose-100" disabled={pending} onClick={() => setConfirmation("resign")}>⚑ Resign</Button> : null}
               {game.status === "completed" ? <Button type="button" disabled={rematchPending} onClick={() => void requestRematch()}>{rematchPending ? "Requesting..." : game.rematchRequestedBy === game.viewer.id ? "Rematch Requested" : "Play Rematch"}</Button> : null}
-              {game.status === "completed" ? <Button href="/student/play/ratings" variant="ghost">Chess Ratings</Button> : null}
             </div>
             <div className="mt-4 border-t border-white/10 pt-4">
               <p className="mb-2 text-xs font-black uppercase tracking-wider text-cyan-200">Board drawings</p>

@@ -1,6 +1,5 @@
-import { ChessRatingDashboard } from "@/chess/components/ChessRatingDashboard";
-import { StudentPortalShell } from "@/components/student/StudentPortalShell";
+import { redirect } from "next/navigation";
 
 export default function StudentChessRatingsPage() {
-  return <StudentPortalShell title="Academy Chess Ratings" subtitle="Track your internal PvP rating, rated-game history, and leaderboard position."><ChessRatingDashboard /></StudentPortalShell>;
+  redirect("/student/play");
 }

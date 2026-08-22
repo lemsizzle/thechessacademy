@@ -44,6 +44,5 @@ export type MatchmakingStatus = {
   ticketId: string | null;
   gameId: string | null;
   timeControlId: string | null;
-  rated: boolean | null;
   queuedAt: string | null;
 };

@@ -17,8 +17,8 @@ export default function StudentPlayPage() {
             <Button href="/student/play/live" className="shrink-0">Open Live Games</Button>
           </Card>
           <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6 lg:flex-col lg:items-start">
-            <div><p className="text-xs font-black uppercase tracking-wider text-cyan-200">Academy rating</p><h2 className="mt-1 text-2xl font-black text-white">Climb the PvP leaderboard</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Play rated classmates, review every rating change, and track your Academy rank.</p></div>
-            <Button href="/student/play/ratings" variant="secondary" className="shrink-0">View Chess Ratings</Button>
+            <div><p className="text-xs font-black uppercase tracking-wider text-cyan-200">Keep learning</p><h2 className="mt-1 text-2xl font-black text-white">Play without pressure</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Every game is practice. Focus on thoughtful moves, try new ideas, and use the analysis board to learn from the result.</p></div>
+            <Button href="/student/play/live" variant="secondary" className="shrink-0">Find a Game</Button>
           </Card>
           <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6 lg:flex-col lg:items-start">
             <div>

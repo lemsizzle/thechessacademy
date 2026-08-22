@@ -57,22 +57,25 @@ recomputes elapsed time. Completed live games generate normalized PGN and one
 
 ## Academy ratings, matchmaking, and rematches
 
-Timed live challenges can be rated or casual. Rated completion calls the
-service-only `apply_live_chess_rating` database function after normal game
-persistence. It locks the game and both rating profiles, uses a starting rating
-of 1200, applies K=40 for the first ten rated games and K=24 thereafter, writes
-two immutable ledger events, and stamps the source game. That stamp plus a
-unique game/student ledger index makes retries safe.
+Timed live challenges update a teacher-only rating ledger automatically. Rating
+status, values, changes, and rankings are not returned by student APIs or shown
+in the student interface. Completion calls the service-only
+`apply_live_chess_rating` database function after normal game persistence. It
+locks the game and both rating profiles, uses a starting rating of 1200, applies
+K=40 for the first ten games and K=24 thereafter, writes two immutable ledger
+events, and stamps the source game. That stamp plus a unique game/student ledger
+index makes retries safe.
 
 Quick matchmaking uses short-lived server-only queue tickets. The transaction
-matches identical clock/rated settings and selects the closest rating with
+matches identical clock settings and privately selects the closest rating with
 `FOR UPDATE SKIP LOCKED`, then marks both tickets and creates the canonical live
 game together. Students may cancel while waiting, and stale tickets expire after
 ten minutes. A completed-game rematch uses a two-party request handshake and
 creates one reversed-color game after both students agree.
 
-Students review their profile, history, and leaderboard at
-`/student/play/ratings`. Teachers review and document moderation changes at
+Students see games, results, history, and analysis without rating language or
+rating data. The former student rating page redirects to Play and its API returns
+no dashboard data. Teachers review and document moderation changes at
 `/admin/chess-ratings`. Browser database roles cannot read or mutate rating,
 ledger, or queue tables; custom-session API routes use the service client after
 student or teacher authorization.

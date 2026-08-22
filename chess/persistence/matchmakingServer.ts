@@ -26,13 +26,12 @@ function timeControl(value: unknown) {
 }
 
 function mapStatus(row: Record<string, unknown> | null): MatchmakingStatus {
-  if (!row) return { status: "idle", ticketId: null, gameId: null, timeControlId: null, rated: null, queuedAt: null };
+  if (!row) return { status: "idle", ticketId: null, gameId: null, timeControlId: null, queuedAt: null };
   return {
     status: (row.ticket_status ?? row.status) as MatchmakingStatus["status"],
     ticketId: String(row.ticket_id ?? row.id),
     gameId: row.game_id ? String(row.game_id) : row.matched_game_id ? String(row.matched_game_id) : null,
     timeControlId: row.time_control_id ? String(row.time_control_id) : null,
-    rated: typeof row.rated === "boolean" ? row.rated : null,
     queuedAt: row.created_at ? String(row.created_at) : null
   };
 }
@@ -40,7 +39,6 @@ function mapStatus(row: Record<string, unknown> | null): MatchmakingStatus {
 export async function enterLiveMatchmaking(studentId: string, input: unknown) {
   const body = input && typeof input === "object" ? input as Record<string, unknown> : {};
   const control = timeControl(body.timeControlId);
-  const rated = body.rated !== false;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { data, error } = await client().rpc("join_live_chess_matchmaking", {
       p_student_id: studentId,
@@ -48,7 +46,7 @@ export async function enterLiveMatchmaking(studentId: string, input: unknown) {
       p_time_control: control,
       p_initial_fen: new Chess().fen(),
       p_challenge_code: challengeCode(),
-      p_rated: rated
+      p_rated: true
     });
     if (!error) return mapStatus((Array.isArray(data) ? data[0] : data) as Record<string, unknown>);
     if (error.code !== "23505") throw new ChessRatingServerError(error.message, 500);

@@ -160,17 +160,17 @@ browser-console errors.
 
 ## Phase 11 — Academy PvP ratings, matchmaking, and rematches: complete
 
-- Students can mark private timed games as rated or casual. Rated games update
-  both players exactly once through a locked, idempotent Elo transaction; the
-  first ten games use a provisional K-factor.
-- Quick matchmaking pairs waiting students by clock, rated mode, and nearest
-  current rating. Queue tickets expire after ten minutes, support cancellation,
+- Timed games update both players exactly once through a locked, idempotent Elo
+  transaction; the first ten games use a provisional K-factor. The resulting
+  values remain teacher-only and are not shown or returned to students.
+- Quick matchmaking pairs waiting students by clock and privately uses the
+  nearest current rating. Queue tickets expire after ten minutes, support cancellation,
   and create the live game transactionally so two requests cannot claim the
   same opponent.
 - Completed opponents can request a rematch. Mutual requests create one new
-  live game with reversed colors and the same clock/rated mode.
-- Students have an internal rating dashboard, immutable change history, and
-  top-50 Academy leaderboard. Live result screens show the exact rating delta.
+  live game with reversed colors, the same clock, and the same internal scoring policy.
+- Students see neutral game, result, history, and analysis screens without
+  rating controls, values, deltas, rankings, or a rating dashboard.
 - Teachers have a server-rendered rating roster and can make documented,
   range-checked adjustments. Each adjustment is retained in the same immutable
   ledger as game changes.
