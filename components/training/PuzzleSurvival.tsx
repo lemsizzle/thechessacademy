@@ -8,9 +8,9 @@ import { BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { legalDestinations, parseUciMove } from "@/lib/puzzle-training/engine";
+import { nextWoodpeckerStep, SURVIVAL_PUZZLE_LIMIT, WOODPECKER_ROUND_COUNT, WOODPECKER_SET_SIZE, WOODPECKER_SET_SIZE_OPTIONS } from "@/lib/puzzle-training/modes";
 import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
-const SESSION_LENGTH = 10;
 const STARTING_LIVES = 3;
 const OPPONENT_REPLY_DELAY_MS = 40;
 const AUTO_ADVANCE_DELAY_MS = 140;
@@ -25,7 +25,7 @@ const levels: Array<{ id: PuzzleLevelSlug; name: string; rating: string }> = [
 ];
 
 type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "summary" | "error";
-type TrainingMode = "session" | "daily";
+type TrainingMode = "survival" | "woodpecker" | "daily";
 
 function formatTime(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
@@ -88,7 +88,8 @@ export function PuzzleSurvival() {
   const searchParams = useSearchParams();
   const [selectedTheme, setSelectedTheme] = useState<PuzzleThemeSlug>(() => parsePuzzleTheme(searchParams.get("theme")));
   const [selectedLevel, setSelectedLevel] = useState<PuzzleLevelSlug>(() => parsePuzzleLevel(searchParams.get("level")));
-  const [trainingMode, setTrainingMode] = useState<TrainingMode>("session");
+  const [trainingMode, setTrainingMode] = useState<TrainingMode>("survival");
+  const [woodpeckerSetSize, setWoodpeckerSetSize] = useState<number>(WOODPECKER_SET_SIZE);
   const [autoAdvance, setAutoAdvance] = useState(false);
   const [phase, setPhase] = useState<TrainerPhase>("select");
   const [puzzle, setPuzzle] = useState<PublicTrainingPuzzle | null>(null);
@@ -113,6 +114,13 @@ export function PuzzleSurvival() {
   const [bestStreak, setBestStreak] = useState(0);
   const [completion, setCompletion] = useState<PuzzleCompletionDetails | null>(null);
   const recentPuzzleIds = useRef<string[]>([]);
+  const woodpeckerPuzzleIds = useRef<string[]>([]);
+  const activeWoodpeckerSetSize = useRef(WOODPECKER_SET_SIZE);
+  const woodpeckerRoundRef = useRef(1);
+  const woodpeckerIndexRef = useRef(0);
+  const requestedPuzzleIdRef = useRef<string | null>(null);
+  const [woodpeckerRound, setWoodpeckerRound] = useState(1);
+  const [woodpeckerIndex, setWoodpeckerIndex] = useState(0);
   const sessionId = useRef(crypto.randomUUID());
   const moveLocked = useRef(false);
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -155,21 +163,28 @@ export function PuzzleSurvival() {
     setHintDestination(null);
   }
 
-  function showPuzzle(nextPuzzle: PublicTrainingPuzzle) {
+  function showPuzzle(nextPuzzle: PublicTrainingPuzzle, mode = trainingMode) {
     setError("");
     setCompletion(null);
     clearBoardMarks();
     setPuzzle(nextPuzzle);
     setPositionFen(nextPuzzle.displayFen);
     setToken(nextPuzzle.token);
+    if (mode === "woodpecker" && woodpeckerRoundRef.current === 1 && woodpeckerPuzzleIds.current.length < activeWoodpeckerSetSize.current) {
+      const nextIndex = woodpeckerPuzzleIds.current.length;
+      woodpeckerPuzzleIds.current = [...woodpeckerPuzzleIds.current, nextPuzzle.id];
+      woodpeckerIndexRef.current = nextIndex;
+      setWoodpeckerIndex(nextIndex);
+    }
     recentPuzzleIds.current = [...recentPuzzleIds.current, nextPuzzle.id].slice(-20);
     setMessage(nextPuzzle.prompt || "Your turn. Find the best move.");
     setPhase("turn");
     moveLocked.current = false;
   }
 
-  async function loadPuzzle(mode = trainingMode) {
+  async function loadPuzzle(mode = trainingMode, requestedPuzzleId?: string) {
     setTrainingMode(mode);
+    requestedPuzzleIdRef.current = requestedPuzzleId ?? null;
     setPhase("loading");
     setError("");
     setMessage("Preparing the next position...");
@@ -178,23 +193,24 @@ export function PuzzleSurvival() {
     moveLocked.current = false;
     const query = new URLSearchParams({ theme: selectedTheme, level: selectedLevel, sessionId: sessionId.current });
     if (mode === "daily") query.set("daily", "1");
-    if (recentPuzzleIds.current.length) query.set("exclude", recentPuzzleIds.current.slice(-10).join(","));
+    if (requestedPuzzleId) query.set("puzzleId", requestedPuzzleId);
+    const excludedPuzzleIds = mode === "woodpecker" && woodpeckerRoundRef.current === 1
+      ? woodpeckerPuzzleIds.current
+      : recentPuzzleIds.current.slice(-10);
+    if (!requestedPuzzleId && excludedPuzzleIds.length) query.set("exclude", excludedPuzzleIds.join(","));
 
     try {
       const response = await fetch(`/api/student/puzzle-training/puzzle?${query}`, { cache: "no-store" });
       const data = await response.json() as { puzzle?: PublicTrainingPuzzle; error?: string };
       if (!response.ok || !data.puzzle) throw new Error(data.error ?? "Puzzle could not be loaded.");
-      showPuzzle(data.puzzle);
+      showPuzzle(data.puzzle, mode);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Puzzle could not be loaded.");
       setPhase("error");
     }
   }
 
-  function startSession() {
-    setTrainingMode("session");
-    sessionId.current = crypto.randomUUID();
-    recentPuzzleIds.current = [];
+  function resetTrainingStats() {
     setLives(STARTING_LIVES);
     setCompleted(0);
     setSolved(0);
@@ -203,22 +219,73 @@ export function PuzzleSurvival() {
     setSolveTimes([]);
     setCurrentStreak(0);
     setBestStreak(0);
-    void loadPuzzle("session");
+  }
+
+  function resetWoodpeckerProgress() {
+    woodpeckerPuzzleIds.current = [];
+    woodpeckerRoundRef.current = 1;
+    woodpeckerIndexRef.current = 0;
+    setWoodpeckerRound(1);
+    setWoodpeckerIndex(0);
+  }
+
+  function startSurvival() {
+    setTrainingMode("survival");
+    sessionId.current = crypto.randomUUID();
+    recentPuzzleIds.current = [];
+    resetWoodpeckerProgress();
+    resetTrainingStats();
+    void loadPuzzle("survival");
+  }
+
+  function startWoodpecker() {
+    setTrainingMode("woodpecker");
+    activeWoodpeckerSetSize.current = woodpeckerSetSize;
+    sessionId.current = crypto.randomUUID();
+    recentPuzzleIds.current = [];
+    resetWoodpeckerProgress();
+    resetTrainingStats();
+    void loadPuzzle("woodpecker");
   }
 
   function startDailyPuzzle() {
     sessionId.current = crypto.randomUUID();
     recentPuzzleIds.current = [];
     setTrainingMode("daily");
-    setLives(STARTING_LIVES);
-    setCompleted(0);
-    setSolved(0);
-    setFirstTrySolves(0);
-    setIncorrectAttempts(0);
-    setSolveTimes([]);
-    setCurrentStreak(0);
-    setBestStreak(0);
+    resetWoodpeckerProgress();
+    resetTrainingStats();
     void loadPuzzle("daily");
+  }
+
+  function advanceTrainingPuzzle() {
+    if (trainingMode !== "woodpecker") {
+      void loadPuzzle(trainingMode);
+      return;
+    }
+
+    if (woodpeckerRoundRef.current === 1 && woodpeckerPuzzleIds.current.length < activeWoodpeckerSetSize.current) {
+      void loadPuzzle("woodpecker");
+      return;
+    }
+
+    const nextStep = nextWoodpeckerStep(
+      woodpeckerRoundRef.current,
+      woodpeckerIndexRef.current,
+      woodpeckerPuzzleIds.current.length
+    );
+    if (nextStep.finished) {
+      setPhase("summary");
+      return;
+    }
+
+    if (nextStep.round !== woodpeckerRoundRef.current) {
+      sessionId.current = crypto.randomUUID();
+    }
+    woodpeckerRoundRef.current = nextStep.round;
+    woodpeckerIndexRef.current = nextStep.puzzleIndex;
+    setWoodpeckerRound(nextStep.round);
+    setWoodpeckerIndex(nextStep.puzzleIndex);
+    void loadPuzzle("woodpecker", woodpeckerPuzzleIds.current[nextStep.puzzleIndex]);
   }
 
   async function finishFailedAttempt(failedToken: string) {
@@ -289,7 +356,7 @@ export function PuzzleSurvival() {
         body: JSON.stringify({
           token,
           move: { from, to },
-          requestNextPuzzle: autoAdvance && trainingMode === "session" && completed + 1 < SESSION_LENGTH,
+          requestNextPuzzle: autoAdvance && trainingMode === "survival" && completed + 1 < SURVIVAL_PUZZLE_LIMIT,
           nextLevel: selectedLevel,
           excludePuzzleIds: recentPuzzleIds.current
         })
@@ -299,13 +366,20 @@ export function PuzzleSurvival() {
       setToken(result.token);
 
       if (!result.accepted) {
-        const remainingLives = lives - 1;
         setIncorrectAttempts((value) => value + 1);
         setCurrentStreak(0);
-        setLives(remainingLives);
         setPositionFen(result.positionFen);
         setLastMove(null);
         setIncorrectSquare(to);
+        if (trainingMode === "woodpecker") {
+          setMessage("Incorrect destination. Resetting the position so you can try again.");
+          window.setTimeout(() => setIncorrectSquare(null), 700);
+          moveLocked.current = false;
+          return false;
+        }
+
+        const remainingLives = lives - 1;
+        setLives(remainingLives);
         setMessage(`Incorrect destination. ${Math.max(remainingLives, 0)} ${remainingLives === 1 ? "chance" : "chances"} left.`);
         window.setTimeout(() => setIncorrectSquare(null), 700);
         if (remainingLives <= 0) {
@@ -331,14 +405,23 @@ export function PuzzleSurvival() {
         setSolveTimes((values) => [...values, result.completion!.elapsedSeconds]);
         if (result.completion.mistakes === 0 && result.completion.hintsUsed === 0) setFirstTrySolves((value) => value + 1);
         setCompletion(result.completion);
-        const sessionFinished = trainingMode === "daily" || nextCompleted >= SESSION_LENGTH;
+        const sessionFinished = trainingMode === "daily"
+          || (trainingMode === "survival" && nextCompleted >= SURVIVAL_PUZZLE_LIMIT)
+          || (trainingMode === "woodpecker"
+            && woodpeckerRoundRef.current >= WOODPECKER_ROUND_COUNT
+            && woodpeckerIndexRef.current >= woodpeckerPuzzleIds.current.length - 1
+            && woodpeckerPuzzleIds.current.length >= activeWoodpeckerSetSize.current);
         setPhase(sessionFinished ? "summary" : "solved");
         moveLocked.current = false;
-        if (!sessionFinished && autoAdvance && result.nextPuzzle) {
+        if (!sessionFinished && autoAdvance) {
           setMessage("Correct! Loading the next puzzle...");
           advanceTimer.current = setTimeout(() => {
             advanceTimer.current = null;
-            showPuzzle(result.nextPuzzle!);
+            if (trainingMode === "survival" && result.nextPuzzle) {
+              showPuzzle(result.nextPuzzle, "survival");
+            } else {
+              advanceTrainingPuzzle();
+            }
           }, AUTO_ADVANCE_DELAY_MS);
         }
         return true;
@@ -447,6 +530,16 @@ export function PuzzleSurvival() {
   const selectedThemeOption = puzzleThemeOptions.find((theme) => theme.id === selectedTheme);
   const selectedThemeName = selectedThemeOption?.name ?? "Mixed tactics";
   const selectedLevelName = levels.find((level) => level.id === selectedLevel)?.name ?? "All levels";
+  const summaryEyebrow = trainingMode === "daily" ? "Daily Challenge Complete" : trainingMode === "woodpecker" ? "Woodpecker Set Complete" : "Survival Run Complete";
+  const summaryTitle = trainingMode === "daily" ? "Puzzle of the Day" : trainingMode === "woodpecker" ? "Woodpecker Training Report" : "Academy Training Report";
+  const primaryProgress = trainingMode === "daily"
+    ? "Daily"
+    : trainingMode === "woodpecker"
+      ? `${Math.min(woodpeckerIndex + 1, activeWoodpeckerSetSize.current)}/${activeWoodpeckerSetSize.current}`
+      : `${Math.min(completed + 1, SURVIVAL_PUZZLE_LIMIT)}/${SURVIVAL_PUZZLE_LIMIT}`;
+  const secondaryMetric: [string, string] = trainingMode === "woodpecker"
+    ? ["Round", `${woodpeckerRound}/${WOODPECKER_ROUND_COUNT}`]
+    : ["Lives", `${lives}/${STARTING_LIVES}`];
 
   if (phase === "select") {
     return (
@@ -481,15 +574,37 @@ export function PuzzleSurvival() {
           </div>
         </div>
         </div>
-        <Card className="flex flex-col items-start justify-between gap-4 p-5 lg:flex-row lg:items-center">
-          <div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="flex h-full flex-col items-start p-5">
             <p className="text-xs font-black uppercase text-cyan-100">Survival Session</p>
-            <p className="mt-1 text-sm text-slate-300">Solve up to {SESSION_LENGTH} puzzles. Three incorrect moves end the run.</p>
-          </div>
-          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center lg:w-auto">
-            <AutoAdvanceSwitch checked={autoAdvance} onChange={updateAutoAdvance} />
-            <Button type="button" onClick={startSession}>Start {selectedLevel === "all" ? "" : `${selectedLevelName} `}{selectedThemeName}</Button>
-          </div>
+            <h2 className="mt-2 text-xl font-black text-white">How far can you go?</h2>
+            <p className="mt-2 flex-1 text-sm leading-6 text-slate-300">Solve up to {SURVIVAL_PUZZLE_LIMIT} puzzles. Three incorrect moves end the run.</p>
+            <Button type="button" onClick={startSurvival} className="mt-5">Start Survival</Button>
+          </Card>
+          <Card className="flex h-full flex-col items-start border-amber-300/30 bg-gradient-to-br from-amber-300/10 to-slate-950/70 p-5">
+            <p className="text-xs font-black uppercase text-amber-200">Woodpecker Method</p>
+            <h2 className="mt-2 text-xl font-black text-white">Repeat until patterns become automatic.</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Choose one tactic and build a set at the size that fits your training time. You&apos;ll repeat that exact set for {WOODPECKER_ROUND_COUNT} rounds.</p>
+            <div className="mt-4 grid w-full gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="woodpecker-theme" className="mb-2 block text-xs font-black uppercase text-amber-100">Theme</label>
+                <select id="woodpecker-theme" value={selectedTheme} onChange={(event) => chooseTheme(event.target.value as PuzzleThemeSlug)} className="w-full rounded-lg border border-amber-200/25 bg-slate-950 px-3 py-2.5 text-sm font-bold text-white outline-none transition focus:border-amber-200 focus:ring-2 focus:ring-amber-200/30">
+                  {puzzleThemeOptions.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="woodpecker-set-size" className="mb-2 block text-xs font-black uppercase text-amber-100">Puzzles in set</label>
+                <select id="woodpecker-set-size" value={woodpeckerSetSize} onChange={(event) => setWoodpeckerSetSize(Number(event.target.value))} className="w-full rounded-lg border border-amber-200/25 bg-slate-950 px-3 py-2.5 text-sm font-bold text-white outline-none transition focus:border-amber-200 focus:ring-2 focus:ring-amber-200/30">
+                  {WOODPECKER_SET_SIZE_OPTIONS.map((size) => <option key={size} value={size}>{size} puzzles</option>)}
+                </select>
+              </div>
+            </div>
+            <p className="mt-3 flex-1 text-xs leading-5 text-slate-400">Wrong moves are retries, not lost lives.</p>
+            <Button type="button" onClick={startWoodpecker} className="mt-5">Start {selectedThemeName} Woodpecker</Button>
+          </Card>
+        </div>
+        <Card className="p-5">
+          <AutoAdvanceSwitch checked={autoAdvance} onChange={updateAutoAdvance} />
         </Card>
         <p className="text-xs text-slate-500">Training combines teacher-authored Academy positions with puzzles from the Lichess open database.</p>
       </div>
@@ -499,15 +614,15 @@ export function PuzzleSurvival() {
   if (phase === "summary") {
     return (
       <Card className="p-6">
-        <p className="text-xs font-black uppercase text-amber-200">{trainingMode === "daily" ? "Daily Challenge Complete" : "Session Complete"}</p>
-        <h2 className="mt-2 text-3xl font-black text-white">{trainingMode === "daily" ? "Puzzle of the Day" : "Academy Training Report"}</h2>
+        <p className="text-xs font-black uppercase text-amber-200">{summaryEyebrow}</p>
+        <h2 className="mt-2 text-3xl font-black text-white">{summaryTitle}</h2>
         {completion?.dailyReward && <div className={`mt-5 rounded-lg border p-4 ${completion.dailyReward.awarded ? "border-emerald-300/40 bg-emerald-300/10 text-emerald-100" : "border-cyan-200/30 bg-cyan-300/10 text-cyan-100"}`}><p className="font-black">{completion.dailyReward.awarded ? `Reward claimed: +${completion.dailyReward.xpAwarded} XP and +${completion.dailyReward.coinsAwarded} Academy Coins` : "Today’s reward was already claimed. Nice practice replay!"}</p></div>}
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {[['Solved', solved], ['First try', firstTrySolves], ['Mistakes', incorrectAttempts], ['Accuracy', `${percentage(solved, incorrectAttempts)}%`], ['Average', formatTime(averageTime)], ['Best streak', bestStreak]].map(([label, value]) => (
             <div key={String(label)} className="rounded-md border border-white/10 bg-white/5 p-3"><p className="text-xs font-bold uppercase text-slate-500">{label}</p><p className="mt-1 text-2xl font-black text-white">{value}</p></div>
           ))}
         </div>
-        <div className="mt-6 flex flex-wrap gap-3"><Button type="button" onClick={trainingMode === "daily" ? startDailyPuzzle : startSession}>{trainingMode === "daily" ? "Play Again" : "Train Again"}</Button><Button type="button" variant="ghost" onClick={() => setPhase("select")}>Back to Puzzles</Button></div>
+        <div className="mt-6 flex flex-wrap gap-3"><Button type="button" onClick={trainingMode === "daily" ? startDailyPuzzle : trainingMode === "woodpecker" ? startWoodpecker : startSurvival}>{trainingMode === "daily" ? "Play Again" : "Train Again"}</Button><Button type="button" variant="ghost" onClick={() => setPhase("select")}>Back to Puzzles</Button></div>
       </Card>
     );
   }
@@ -516,7 +631,7 @@ export function PuzzleSurvival() {
     <div className="space-y-5">
       <Card className="overflow-hidden">
         <div className="grid grid-cols-3 divide-x divide-white/10 sm:grid-cols-6">
-          {[['Puzzle', trainingMode === "daily" ? "Daily" : `${Math.min(completed + 1, SESSION_LENGTH)}/${SESSION_LENGTH}`], ['Lives', `${lives}/${STARTING_LIVES}`], ['Timer', <PuzzleTimer key={`${sessionId.current}:${puzzle?.id ?? "loading"}`} running={phase === "turn" || phase === "reply"} />], ['Accuracy', `${percentage(solved, incorrectAttempts)}%`], ['Streak', currentStreak], ['Best', bestStreak]].map(([label, value]) => (
+          {[["Puzzle", primaryProgress], secondaryMetric, ['Timer', <PuzzleTimer key={`${sessionId.current}:${puzzle?.id ?? "loading"}`} running={phase === "turn" || phase === "reply"} />], ['Accuracy', `${percentage(solved, incorrectAttempts)}%`], ['Streak', currentStreak], ['Best', bestStreak]].map(([label, value]) => (
             <div key={String(label)} className="p-3 text-center"><p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{label}</p><p className="mt-1 text-lg font-black text-white sm:text-2xl">{value}</p></div>
           ))}
         </div>
@@ -529,14 +644,14 @@ export function PuzzleSurvival() {
 
         <div className="space-y-4">
           <Card className="p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-xs font-black uppercase text-cyan-100">{trainingMode === "daily" ? "Puzzle of the Day" : selectedThemeName}</span>{trainingMode === "session" && <span className="rounded border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-xs font-black uppercase text-amber-100">{selectedLevelName}</span>}</div><span className="text-xs font-bold text-slate-400">{puzzle ? `${puzzle.sideToMove} to move` : "Loading"}</span></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-xs font-black uppercase text-cyan-100">{trainingMode === "daily" ? "Puzzle of the Day" : trainingMode === "woodpecker" ? "Woodpecker Method" : selectedThemeName}</span>{trainingMode !== "daily" && <span className="rounded border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-xs font-black uppercase text-amber-100">{selectedLevelName}</span>}</div><span className="text-xs font-bold text-slate-400">{puzzle ? `${puzzle.sideToMove} to move` : "Loading"}</span></div>
             {puzzle?.daily && <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${puzzle.daily.rewardClaimed ? "border-cyan-200/25 bg-cyan-300/5 text-cyan-100" : "border-amber-200/35 bg-amber-300/10 text-amber-100"}`}>{puzzle.daily.rewardClaimed ? "Reward already claimed today — replay for practice." : `Available reward: +${puzzle.daily.xp} XP and +${puzzle.daily.coins} Academy Coins`}</div>}
-            {trainingMode === "session" && <div className="mt-4"><AutoAdvanceSwitch checked={autoAdvance} onChange={updateAutoAdvance} compact /></div>}
+            {trainingMode !== "daily" && <div className="mt-4"><AutoAdvanceSwitch checked={autoAdvance} onChange={updateAutoAdvance} compact /></div>}
             <h2 className="mt-4 text-2xl font-black text-white">{phase === "reply" ? "Opponent reply" : phase === "solved" ? "Puzzle complete" : puzzle?.prompt || "Find the best move"}</h2>
             <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${phase === "solved" ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : error ? "border-fuchsia-300/50 bg-fuchsia-300/10 text-fuchsia-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">{error || message}</div>
             {phase === "turn" && <div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => void requestHint()}>Hint</Button><Button type="button" variant="ghost" onClick={() => void exitTraining()}>Exit Training</Button></div>}
-            {phase === "solved" && <Button type="button" onClick={() => void loadPuzzle()} className="mt-4">Next Puzzle</Button>}
-            {phase === "error" && <div className="mt-4 flex flex-wrap gap-2"><Button type="button" onClick={() => void loadPuzzle()}>Try Again</Button><Button type="button" variant="ghost" onClick={() => setPhase("select")}>Choose Theme</Button></div>}
+            {phase === "solved" && <Button type="button" onClick={advanceTrainingPuzzle} className="mt-4">Next Puzzle</Button>}
+            {phase === "error" && <div className="mt-4 flex flex-wrap gap-2"><Button type="button" onClick={() => void loadPuzzle(trainingMode, requestedPuzzleIdRef.current ?? undefined)}>Try Again</Button><Button type="button" variant="ghost" onClick={() => setPhase("select")}>Choose Theme</Button></div>}
           </Card>
 
           {completion && (

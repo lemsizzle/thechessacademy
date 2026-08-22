@@ -1,6 +1,7 @@
 import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { academyPuzzleDate, dailyPuzzlePivot } from "@/lib/puzzle-training/daily";
+import { WOODPECKER_MAX_SET_SIZE } from "@/lib/puzzle-training/modes";
 import { lichessPuzzleThemes, puzzleLevelRatingRange, type ChessPuzzleRow, type PuzzleLevelSlug, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 const puzzleSelect = "id,lichess_puzzle_id,initial_fen,moves,start_mode,accepted_moves,source_kind,source_study_id,source_chapter_id,source_node_id,teacher_prompt,rating,rating_deviation,popularity,number_of_plays,themes,game_url,opening_tags,random_key,is_active";
@@ -144,7 +145,7 @@ export async function selectTrainingPuzzle(studentId: string, selectedTheme: Puz
     }
   }
 
-  const excluded = new Set(excludedIds.filter((id) => UUID_PATTERN.test(id)).slice(-20));
+  const excluded = new Set(excludedIds.filter((id) => UUID_PATTERN.test(id)).slice(-WOODPECKER_MAX_SET_SIZE));
   const available = candidates.filter((puzzle) => !excluded.has(puzzle.id));
   const pool = available.length ? available : candidates;
   if (!pool.length) return null;

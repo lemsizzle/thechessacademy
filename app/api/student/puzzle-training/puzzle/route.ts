@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { preparePublicTrainingPuzzle } from "@/lib/puzzle-training/publicPuzzle";
-import { getDailyTrainingPuzzle, requirePuzzleStudent, selectTrainingPuzzle } from "@/lib/puzzle-training/server";
+import { getDailyTrainingPuzzle, getTrainingPuzzle, requirePuzzleStudent, selectTrainingPuzzle } from "@/lib/puzzle-training/server";
 import { parsePuzzleLevel, parsePuzzleTheme } from "@/lib/puzzle-training/types";
 
 export const dynamic = "force-dynamic";
@@ -16,8 +16,13 @@ export async function GET(request: NextRequest) {
     const requestedSessionId = request.nextUrl.searchParams.get("sessionId") ?? "";
     const sessionId = UUID_PATTERN.test(requestedSessionId) ? requestedSessionId : crypto.randomUUID();
     const isDaily = request.nextUrl.searchParams.get("daily") === "1";
+    const requestedPuzzleId = request.nextUrl.searchParams.get("puzzleId");
     const daily = isDaily ? await getDailyTrainingPuzzle(student.studentId) : null;
-    const puzzle = isDaily ? daily?.puzzle : await selectTrainingPuzzle(student.studentId, theme, level, excluded);
+    const puzzle = isDaily
+      ? daily?.puzzle
+      : requestedPuzzleId
+        ? await getTrainingPuzzle(requestedPuzzleId)
+        : await selectTrainingPuzzle(student.studentId, theme, level, excluded);
     if (!puzzle) {
       return NextResponse.json({ error: "No imported puzzles match this level and tactic yet." }, { status: 404 });
     }
