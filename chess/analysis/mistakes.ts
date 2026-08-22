@@ -1,5 +1,8 @@
 import { Chess } from "chess.js";
 import type { AnalysisTree } from "@/chess/analysis/types";
+import type { StockfishCandidate } from "@/chess/types";
+
+export const MISTAKE_EQUIVALENT_MOVE_MARGIN_CP = 35;
 
 export type MistakeSeverity = "inaccuracy" | "mistake" | "blunder";
 
@@ -8,6 +11,7 @@ export type PositionEvaluation = {
   scoreWhiteCp: number | null;
   mateWhite: number | null;
   bestMoveUci: string;
+  acceptedMovesUci?: string[];
   bestLineSan: string;
   depth: number;
 };
@@ -24,6 +28,7 @@ export type MistakePuzzle = {
   playedMoveUci: string;
   bestMoveSan: string;
   bestMoveUci: string;
+  acceptedMovesUci: string[];
   bestLineSan: string;
   centipawnLoss: number;
   severity: MistakeSeverity;
@@ -56,6 +61,19 @@ export function classifyCentipawnLoss(loss: number): MistakeSeverity | null {
   return null;
 }
 
+export function equivalentEngineMoves(lines: StockfishCandidate[], marginCp = MISTAKE_EQUIVALENT_MOVE_MARGIN_CP) {
+  const exact = lines.filter((line) => !line.bound).sort((left, right) => left.rank - right.rank);
+  const best = exact[0];
+  if (!best) return [];
+  const accepted = exact.filter((line) => {
+    if (line.uci === best.uci) return true;
+    if (best.mate !== null) return line.mate !== null && Math.sign(line.mate) === Math.sign(best.mate);
+    if (line.mate !== null) return line.mate > 0;
+    return best.scoreCp !== null && line.scoreCp !== null && best.scoreCp - line.scoreCp <= marginCp;
+  });
+  return [...new Set(accepted.map((line) => line.uci))];
+}
+
 function sanForUci(fen: string, uci: string) {
   const match = /^([a-h][1-8])([a-h][1-8])([qrbn])?$/.exec(uci);
   if (!match) return uci;
@@ -84,7 +102,9 @@ export function buildMistakePuzzles(
 
     const before = evaluationByNode.get(beforeNode.id);
     const after = evaluationByNode.get(afterNode.id);
-    if (!before || !after || !before.bestMoveUci || before.bestMoveUci === afterNode.uci) continue;
+    if (!before || !after || !before.bestMoveUci) continue;
+    const acceptedMovesUci = before.acceptedMovesUci?.length ? before.acceptedMovesUci : [before.bestMoveUci];
+    if (acceptedMovesUci.includes(afterNode.uci)) continue;
     const beforeCp = evaluationAsCentipawns(before);
     const afterCp = evaluationAsCentipawns(after);
     if (beforeCp === null || afterCp === null) continue;
@@ -104,6 +124,7 @@ export function buildMistakePuzzles(
       playedMoveUci: afterNode.uci,
       bestMoveSan: sanForUci(beforeNode.fen, before.bestMoveUci),
       bestMoveUci: before.bestMoveUci,
+      acceptedMovesUci,
       bestLineSan: before.bestLineSan,
       centipawnLoss: loss,
       severity

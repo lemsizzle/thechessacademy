@@ -149,7 +149,7 @@ function GuidedExerciseEditor({ fen, exercise, canPublish, onSave, onPublish, on
 export function AnalysisWorkspace({ initialTree, title, subtitle, editable = true, saveStatus = "idle", saveMessage = "", onTreeChange, actions, gameMode = false, canManageReferenceEvaluations = false, canManageGuidedExercises = false, guidedStudentMode = false, guidedExerciseContext, reviewColor }: Props) {
   const [tree, setTree] = useState(initialTree);
   const [activeId, setActiveId] = useState(initialTree.rootId);
-  const [orientation, setOrientation] = useState<"white" | "black">("white");
+  const [orientation, setOrientation] = useState<"white" | "black">(reviewColor ?? "white");
   const [engineOn, setEngineOn] = useState(false);
   const [annotationMode, setAnnotationMode] = useState<"arrow" | "circle" | null>(null);
   const [annotationStart, setAnnotationStart] = useState<string | null>(null);
@@ -164,7 +164,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   const originalTreeRef = useRef(initialTree);
   const guidedRequestRef = useRef(0);
   const engine = useAnalysisEngine();
-  const mistakeReview = useMistakeReview(tree, reviewColor);
+  const mistakeReview = useMistakeReview(originalTreeRef.current, reviewColor);
   const node = tree.nodes[activeId] ?? tree.nodes[tree.rootId];
   const rows = useMemo(() => treeRows(tree), [tree]);
   const guidedExercise = guidedStudentMode ? node.guidedExercise ?? null : null;

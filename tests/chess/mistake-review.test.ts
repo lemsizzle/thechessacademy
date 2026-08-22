@@ -1,6 +1,7 @@
 import { Chess } from "chess.js";
 import { describe, expect, it } from "vitest";
-import { buildMistakePuzzles, classifyCentipawnLoss, evaluationAsCentipawns, mainlineNodeIds, type PositionEvaluation } from "@/chess/analysis/mistakes";
+import { buildMistakePuzzles, classifyCentipawnLoss, equivalentEngineMoves, evaluationAsCentipawns, mainlineNodeIds, type PositionEvaluation } from "@/chess/analysis/mistakes";
+import type { StockfishCandidate } from "@/chess/types";
 import { createAnalysisTree } from "@/chess/analysis/tree";
 import type { CompletedGameMove } from "@/chess/analysis/types";
 
@@ -26,6 +27,11 @@ function evaluation(nodeId: string, scoreWhiteCp: number, bestMoveUci: string): 
 }
 
 describe("learn from your mistakes", () => {
+  it("accepts near-equal engine alternatives instead of demanding one exact move", () => {
+    const line = (uci: string, rank: number, scoreCp: number): StockfishCandidate => ({ uci, rank, scoreCp, mate: null, depth: 12, pv: [uci] });
+    expect(equivalentEngineMoves([line("e2e4", 1, 40), line("d2d4", 2, 18), line("g1f3", 3, -5)])).toEqual(["e2e4", "d2d4"]);
+  });
+
   it("uses familiar inaccuracy, mistake, and blunder thresholds", () => {
     expect(classifyCentipawnLoss(49)).toBeNull();
     expect(classifyCentipawnLoss(50)).toBe("inaccuracy");
@@ -68,6 +74,16 @@ describe("learn from your mistakes", () => {
     const tree = gameLine();
     const ids = mainlineNodeIds(tree);
     const evaluations = ids.map((id, index) => evaluation(id, index === 0 ? 200 : 0, index === 0 ? "e2e4" : "a2a3"));
+    expect(buildMistakePuzzles(tree, evaluations, "white")).toEqual([]);
+  });
+
+  it("does not flag an accepted near-equal alternative", () => {
+    const tree = gameLine();
+    const ids = mainlineNodeIds(tree);
+    const evaluations = ids.map((id, index) => ({
+      ...evaluation(id, index === 0 ? 200 : 0, index === 0 ? "d2d4" : "a2a3"),
+      acceptedMovesUci: index === 0 ? ["d2d4", "e2e4"] : ["a2a3"]
+    }));
     expect(buildMistakePuzzles(tree, evaluations, "white")).toEqual([]);
   });
 });

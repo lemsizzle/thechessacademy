@@ -185,3 +185,25 @@ game creation, rated completion, two rating events, idempotent retry, mutual
 rematch with reversed colors, and teacher adjustment. Supabase security advisors
 reported no Phase 11 finding, and the two rematch foreign-key index findings were
 resolved by the follow-up migration.
+
+## Phase 12 — Learn from your mistakes: complete
+
+- A student can request an on-device Stockfish review from any completed-game
+  analysis page. The engine remains off until requested and evaluates only the
+  immutable original game line.
+- Evaluation losses are classified as inaccuracies, mistakes, or blunders and
+  converted into private retry positions from the student's board orientation.
+- The board locks unrelated engine lines and annotations during practice,
+  accepts legal retry moves, provides immediate feedback, and can reveal the
+  best move and principal variation.
+- MultiPV alternatives within 0.35 pawns of the best engine move are accepted,
+  avoiding false failures when several moves are practically equivalent.
+- Scans are cancellable, stale results cannot replace a newer request, workers
+  terminate after completion or navigation, and no engine depth stream or
+  practice data is written to the database.
+
+Evidence on 2026-08-22: mistake classification, color normalization, forced-mate
+normalization, original-line filtering, equivalent-move acceptance, ordered
+MultiPV output, hard cancellation, terminal positions, TypeScript, the complete
+automated suite, and the production build pass. The original game remains the
+review source even after temporary analysis variations are created or promoted.

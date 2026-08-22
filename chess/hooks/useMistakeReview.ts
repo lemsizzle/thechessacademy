@@ -2,7 +2,7 @@
 
 import { Chess } from "chess.js";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildMistakePuzzles, mainlineNodeIds, type MistakePuzzle, type PositionEvaluation } from "@/chess/analysis/mistakes";
+import { buildMistakePuzzles, equivalentEngineMoves, mainlineNodeIds, type MistakePuzzle, type PositionEvaluation } from "@/chess/analysis/mistakes";
 import type { AnalysisTree } from "@/chess/analysis/types";
 import { AnalysisStockfishService } from "@/chess/engine/AnalysisStockfishService";
 import type { StockfishCandidate } from "@/chess/types";
@@ -22,13 +22,16 @@ function lineToSan(fen: string, pv: string[]) {
   return san.join(" ");
 }
 
-function normalizeEvaluation(nodeId: string, fen: string, line: StockfishCandidate): PositionEvaluation {
+function normalizeEvaluation(nodeId: string, fen: string, lines: StockfishCandidate[]): PositionEvaluation | null {
+  const line = lines[0];
+  if (!line) return null;
   const whiteToMove = fen.split(" ")[1] === "w";
   return {
     nodeId,
     scoreWhiteCp: line.scoreCp === null ? null : whiteToMove ? line.scoreCp : -line.scoreCp,
     mateWhite: line.mate === null ? null : whiteToMove ? line.mate : -line.mate,
     bestMoveUci: line.uci,
+    acceptedMovesUci: equivalentEngineMoves(lines),
     bestLineSan: lineToSan(fen, line.pv),
     depth: line.depth
   };
@@ -84,8 +87,9 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
         if (request !== scanRef.current) return;
         const node = tree.nodes[ids[index]];
         if (!node) continue;
-        const [line] = await service.analyze(node.fen, 350);
-        if (line) evaluations.push(normalizeEvaluation(node.id, node.fen, line));
+        const lines = await service.analyze(node.fen, 350);
+        const evaluation = normalizeEvaluation(node.id, node.fen, lines);
+        if (evaluation) evaluations.push(evaluation);
         setProgress({ current: index + 1, total: ids.length });
       }
       if (request !== scanRef.current) return;
@@ -130,7 +134,7 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
     const uci = `${from}${to}${promotion ?? ""}`;
     const played = playUci(puzzle.fen, uci);
     if (!played) return;
-    if (uci === puzzle.bestMoveUci) {
+    if (puzzle.acceptedMovesUci.includes(uci)) {
       setResult({ status: "correct", attemptedSan: played.san });
       setDisplayFen(played.fen);
     } else {

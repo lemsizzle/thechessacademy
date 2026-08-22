@@ -77,6 +77,22 @@ Students review their profile, history, and leaderboard at
 ledger, or queue tables; custom-session API routes use the service client after
 student or teacher authorization.
 
+## Learn from your mistakes
+
+Completed-game analysis can run an explicit local review of the immutable
+original game line. `useMistakeReview` reuses `AnalysisStockfishService`, scans
+each original position sequentially, normalizes evaluations to White's
+perspective, and turns only the current student's evaluation drops into retry
+positions. Thresholds are 0.50 pawns for an inaccuracy, 1.00 for a mistake, and
+2.00 for a blunder.
+
+The engine already returns three principal variations. Alternatives within
+0.35 pawns of the first line are accepted as correct, as are equivalent
+forced-mate continuations. Practice is session-only: it does not change the
+editable analysis tree, completed game, rating, puzzle statistics, or database.
+Starting a new scan cancels and terminates stale work, and leaving the page
+terminates the worker.
+
 ## Board and rules
 
 `react-chessboard@5.10.0` renders the board. It supports drag-and-drop, click to
