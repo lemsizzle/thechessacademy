@@ -20,6 +20,7 @@ const exploreLinks: NavLink[] = [
 const studentExploreLinks: NavLink[] = [
   { href: "/student/play", label: "Play", icon: "\u265E" },
   { href: "/student/play/history", label: "Game History", icon: "\u{1F4CA}" },
+  { href: "/student/play/ratings", label: "Chess Ratings", icon: "\u{1F3C5}" },
   { href: "/student/studies", label: "Studies", icon: "\u{1F4D3}" },
   { href: "/student/training", label: "Puzzle Training", icon: "\u{1F9E9}" },
   { href: "/student/leaderboard", label: "Leaderboard", icon: "\u{1F3C6}" },
@@ -52,6 +53,7 @@ const teacherSetupLinks: NavLink[] = [
 const teacherToolLinks: NavLink[] = [
   { href: "/admin/game-analyzer", label: "Game Analyzer", icon: "\u{1F50D}" },
   { href: "/admin/chess-performance", label: "Chess Performance", icon: "\u{1F4CA}" },
+  { href: "/admin/chess-ratings", label: "Chess Ratings", icon: "\u{1F3C5}" },
   { href: "/admin/studies", label: "Chess Studies", icon: "\u{1F4D3}" },
   { href: "/admin/activity", label: "Activity", icon: "\u{1F4D2}" }
 ];

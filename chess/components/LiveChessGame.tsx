@@ -16,9 +16,11 @@ import type { ChessColor, PromotionPiece } from "@/chess/types";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 type GameResponse = { ok: boolean; game?: LiveGameSnapshot; error?: string };
 type Confirmation = "cancel" | "resign" | null;
+type RematchResponse = { ok: boolean; rematch?: { status: "waiting" | "matched"; gameId: string | null; source: LiveGameSnapshot }; error?: string };
 
 const boardColumnStyle = {
   width: "min(100%, 700px, max(80px, calc(100dvh - 14.25rem)))"
@@ -42,6 +44,7 @@ function completionText(game: LiveGameSnapshot) {
 }
 
 export function LiveChessGame({ gameId }: { gameId: string }) {
+  const router = useRouter();
   const [game, setGame] = useState<LiveGameSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
@@ -52,6 +55,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
+  const [rematchPending, setRematchPending] = useState(false);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
   const [annotationMode, setAnnotationMode] = useState<"arrow" | "circle" | null>(null);
   const [annotationStart, setAnnotationStart] = useState<string | null>(null);
@@ -144,6 +148,10 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
     claimedVersion.current = null;
     claimRetryAt.current = 0;
   }, [game?.fen, game?.version]);
+
+  useEffect(() => {
+    if (game?.rematchGameId) router.push(`/student/play/live/${game.rematchGameId}`);
+  }, [game?.rematchGameId, router]);
 
   const displayedClocks = useMemo(() => game ? {
     white: clockValue(game, "white", nowMs, serverOffsetMs),
@@ -251,6 +259,19 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
     }
   }
 
+  async function requestRematch() {
+    if (!game || rematchPending) return;
+    setRematchPending(true); setError("");
+    try {
+      const response = await fetch(`/api/student/live-games/${game.id}/rematch`, { method: "POST" });
+      const body = await response.json() as RematchResponse;
+      if (!response.ok || !body.rematch) throw new Error(body.error || "Rematch could not be requested.");
+      receiveGame(body.rematch.source);
+      if (body.rematch.gameId) router.push(`/student/play/live/${body.rematch.gameId}`);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Rematch could not be requested."); }
+    finally { setRematchPending(false); }
+  }
+
   if (loading) return <Card className="p-6 text-sm text-slate-300">Connecting to the live game...</Card>;
   if (!game) return <Card className="p-6"><p className="text-rose-100" role="alert">{error || "Live game could not be loaded."}</p><Button href="/student/play/live" variant="secondary" className="mt-4">Back to Live Games</Button></Card>;
 
@@ -300,10 +321,13 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
               <div>
                 <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Live game</p>
                 <h2 className="mt-1 text-xl font-black text-white">{opponent ? `vs ${opponent.name}` : "Waiting challenge"}</h2>
+                <p className="mt-1 text-xs font-bold text-slate-400">{game.rated ? "Rated" : "Casual"}{game.matchmaking ? " · matchmade" : ""}</p>
               </div>
               <span className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${connection === "live" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{connection === "live" ? "Live" : connection}</span>
             </div>
             <p className="mt-4 rounded-md border border-white/10 bg-white/5 p-3 text-sm font-bold leading-5 text-slate-200" aria-live="polite">{statusText}</p>
+            {game.ratingChange ? <p className={`mt-3 rounded-md border p-3 text-sm font-black ${game.ratingChange.change >= 0 ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100" : "border-rose-300/30 bg-rose-300/10 text-rose-100"}`}>Rating {game.ratingChange.change >= 0 ? "+" : ""}{game.ratingChange.change} · {game.ratingChange.before} → {game.ratingChange.after}</p> : null}
+            {game.status === "completed" && game.rematchRequestedBy && game.rematchRequestedBy !== game.viewer.id ? <p className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3 text-sm font-bold text-amber-100">Your opponent wants a rematch.</p> : null}
             {opponentOfferedDraw ? (
               <div className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3">
                 <p className="text-sm font-bold text-amber-100">Your opponent offered a draw.</p>
@@ -324,6 +348,8 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
               <Button href="/student/play/live" variant="ghost">Live Games</Button>
               {game.status === "active" ? <Button type="button" variant="ghost" disabled={pending || Boolean(game.drawOfferedBy)} onClick={() => void sendAction("offer_draw")}>{viewerOfferedDraw ? "Draw Offered" : "Offer Draw"}</Button> : null}
               {game.status === "active" ? <Button type="button" variant="ghost" className="border-rose-300/25 text-rose-100" disabled={pending} onClick={() => setConfirmation("resign")}>⚑ Resign</Button> : null}
+              {game.status === "completed" ? <Button type="button" disabled={rematchPending} onClick={() => void requestRematch()}>{rematchPending ? "Requesting..." : game.rematchRequestedBy === game.viewer.id ? "Rematch Requested" : "Play Rematch"}</Button> : null}
+              {game.status === "completed" ? <Button href="/student/play/ratings" variant="ghost">Chess Ratings</Button> : null}
             </div>
             <div className="mt-4 border-t border-white/10 pt-4">
               <p className="mb-2 text-xs font-black uppercase tracking-wider text-cyan-200">Board drawings</p>

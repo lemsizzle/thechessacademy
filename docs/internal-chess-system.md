@@ -2,9 +2,10 @@
 
 ## Scope
 
-The first internal chess milestone provides authenticated human-vs-computer
-games at `/student/play`. It is deliberately separated from student-vs-student,
-puzzles, tournaments, ratings, RPG battles, review, and coaching.
+The internal chess system provides authenticated computer play, live
+student-vs-student games, analysis, studies, guided exercises, history,
+performance reporting, and Academy PvP ratings under the student and teacher
+portals.
 
 ## Architecture
 
@@ -53,6 +54,28 @@ remaining times describe the instant at `clock_started_at`; clients render the
 countdown locally, but a move or timeout claim is accepted only after the server
 recomputes elapsed time. Completed live games generate normalized PGN and one
 `internal_chess_games` row per player, keyed idempotently by the source live game.
+
+## Academy ratings, matchmaking, and rematches
+
+Timed live challenges can be rated or casual. Rated completion calls the
+service-only `apply_live_chess_rating` database function after normal game
+persistence. It locks the game and both rating profiles, uses a starting rating
+of 1200, applies K=40 for the first ten rated games and K=24 thereafter, writes
+two immutable ledger events, and stamps the source game. That stamp plus a
+unique game/student ledger index makes retries safe.
+
+Quick matchmaking uses short-lived server-only queue tickets. The transaction
+matches identical clock/rated settings and selects the closest rating with
+`FOR UPDATE SKIP LOCKED`, then marks both tickets and creates the canonical live
+game together. Students may cancel while waiting, and stale tickets expire after
+ten minutes. A completed-game rematch uses a two-party request handshake and
+creates one reversed-color game after both students agree.
+
+Students review their profile, history, and leaderboard at
+`/student/play/ratings`. Teachers review and document moderation changes at
+`/admin/chess-ratings`. Browser database roles cannot read or mutate rating,
+ledger, or queue tables; custom-session API routes use the service client after
+student or teacher authorization.
 
 ## Board and rules
 
@@ -182,9 +205,8 @@ server-only service client. It has no browser database client or public API.
 Teacher actions link to the existing student editor and authorized analysis
 route, and active students with no saved games remain visible for coaching.
 
-The migration is committed but is not automatically applied by application
-startup. Apply it through the normal reviewed Supabase migration workflow before
-testing completed-game persistence in an environment.
+Schema changes are applied through reviewed, timestamped Supabase migrations;
+application startup never mutates the database.
 
 ## Stockfish GPL obligations
 

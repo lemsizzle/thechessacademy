@@ -34,6 +34,12 @@ function record(overrides: Partial<LiveGameRecord> = {}): LiveGameRecord {
     completed_at: null,
     created_at: "2026-08-21T12:00:00.000Z",
     updated_at: "2026-08-21T12:00:00.000Z",
+    rated: false,
+    matchmaking: false,
+    rating_applied_at: null,
+    rematch_requested_by: null,
+    rematch_game_id: null,
+    rematch_of_game_id: null,
     ...overrides
   };
 }

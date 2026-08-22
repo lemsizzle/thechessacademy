@@ -5,6 +5,8 @@ export type LiveGameStatus = "waiting" | "active" | "completed" | "cancelled";
 export type LiveGamePlayer = {
   id: string;
   name: string;
+  rating?: number;
+  provisional?: boolean;
 };
 
 export type LiveGameRecord = {
@@ -33,6 +35,12 @@ export type LiveGameRecord = {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  rated: boolean;
+  matchmaking: boolean;
+  rating_applied_at: string | null;
+  rematch_requested_by: string | null;
+  rematch_game_id: string | null;
+  rematch_of_game_id: string | null;
 };
 
 export type LiveGameSnapshot = {
@@ -58,6 +66,12 @@ export type LiveGameSnapshot = {
   resultReason: GameResultReason | null;
   startedAt: string | null;
   completedAt: string | null;
+  rated: boolean;
+  matchmaking: boolean;
+  rematchRequestedBy: string | null;
+  rematchGameId: string | null;
+  rematchOfGameId: string | null;
+  ratingChange: { before: number; after: number; change: number } | null;
   serverNow: string;
 };
 
@@ -71,6 +85,8 @@ export type LiveGameSummary = {
   activeColor: ChessColor;
   winnerColor: ChessColor | null;
   resultReason: GameResultReason | null;
+  rated: boolean;
+  matchmaking: boolean;
   updatedAt: string;
 };
 

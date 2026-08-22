@@ -157,3 +157,31 @@ filtered the roster to five Saturday Knights students, showed the active
 student's 3–0–0 record, and opened the latest saved game on the authorized
 analysis board with working move controls. The verified flow produced no
 browser-console errors.
+
+## Phase 11 — Academy PvP ratings, matchmaking, and rematches: complete
+
+- Students can mark private timed games as rated or casual. Rated games update
+  both players exactly once through a locked, idempotent Elo transaction; the
+  first ten games use a provisional K-factor.
+- Quick matchmaking pairs waiting students by clock, rated mode, and nearest
+  current rating. Queue tickets expire after ten minutes, support cancellation,
+  and create the live game transactionally so two requests cannot claim the
+  same opponent.
+- Completed opponents can request a rematch. Mutual requests create one new
+  live game with reversed colors and the same clock/rated mode.
+- Students have an internal rating dashboard, immutable change history, and
+  top-50 Academy leaderboard. Live result screens show the exact rating delta.
+- Teachers have a server-rendered rating roster and can make documented,
+  range-checked adjustments. Each adjustment is retained in the same immutable
+  ledger as game changes.
+- Rating profiles, events, and queue tickets are RLS-enabled, denied to browser
+  roles, and callable only through authenticated Next.js routes and
+  service-role-only database functions.
+
+Evidence on 2026-08-22: 147 automated tests across 30 files and TypeScript pass.
+Both Phase 11 migrations are in the live Supabase history. A rollback-only live
+database verification exercised waiting and matched queue states, transactional
+game creation, rated completion, two rating events, idempotent retry, mutual
+rematch with reversed colors, and teacher adjustment. Supabase security advisors
+reported no Phase 11 finding, and the two rematch foreign-key index findings were
+resolved by the follow-up migration.

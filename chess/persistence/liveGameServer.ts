@@ -6,6 +6,7 @@ import { liveClockAt, livePlayerColor, replayLiveMoves, timeoutCompletion, apply
 import type { LiveGameAction, LiveGamePlayer, LiveGameRecord, LiveGameSnapshot, LiveGameSummary, LiveMoveInput } from "@/chess/live/types";
 import type { ChessColor, GameResult, PlayerColorChoice } from "@/chess/types";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { applyRatingForCompletedGame, getChessRatingEvent } from "@/chess/persistence/ratingServer";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CHALLENGE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -64,13 +65,15 @@ async function playerMap(ids: Array<string | null>) {
   const uniqueIds = [...new Set(ids.filter((id): id is string => Boolean(id)))];
   const players = new Map<string, LiveGamePlayer>();
   if (!uniqueIds.length) return players;
-  const { data, error } = await serviceClient()
-    .from("students")
-    .select("id,display_name,lichess_username")
-    .in("id", uniqueIds);
-  if (error) throw new LiveGameServerError(error.message, 500);
-  for (const row of (data ?? []) as Array<{ id: string; display_name: string; lichess_username: string | null }>) {
-    players.set(row.id, { id: row.id, name: row.display_name || row.lichess_username || "Student" });
+  const [studentResult, ratingResult] = await Promise.all([
+    serviceClient().from("students").select("id,display_name,lichess_username").in("id", uniqueIds),
+    serviceClient().from("student_chess_ratings").select("student_id,rating,provisional").in("student_id", uniqueIds)
+  ]);
+  if (studentResult.error) throw new LiveGameServerError(studentResult.error.message, 500);
+  if (ratingResult.error && ratingResult.error.code !== "42P01") throw new LiveGameServerError(ratingResult.error.message, 500);
+  const ratings = new Map((ratingResult.data ?? []).map((row) => [String(row.student_id), { rating: Number(row.rating), provisional: Boolean(row.provisional) }]));
+  for (const row of (studentResult.data ?? []) as Array<{ id: string; display_name: string; lichess_username: string | null }>) {
+    players.set(row.id, { id: row.id, name: row.display_name || row.lichess_username || "Student", ...ratings.get(row.id) });
   }
   return players;
 }
@@ -84,6 +87,9 @@ function assertParticipant(game: LiveGameRecord, studentId: string) {
 async function snapshotFor(game: LiveGameRecord, studentId: string): Promise<LiveGameSnapshot> {
   const viewerColor = assertParticipant(game, studentId);
   const players = await playerMap([game.white_player_id, game.black_player_id]);
+  const ratingChange = game.rated && game.status === "completed" && game.rating_applied_at
+    ? await getChessRatingEvent(studentId, game.id)
+    : null;
   return {
     id: game.id,
     challengeCode: game.challenge_code,
@@ -110,6 +116,12 @@ async function snapshotFor(game: LiveGameRecord, studentId: string): Promise<Liv
     resultReason: game.result_reason,
     startedAt: game.started_at,
     completedAt: game.completed_at,
+    rated: game.rated,
+    matchmaking: game.matchmaking,
+    rematchRequestedBy: game.rematch_requested_by,
+    rematchGameId: game.rematch_game_id,
+    rematchOfGameId: game.rematch_of_game_id,
+    ratingChange,
     serverNow: new Date().toISOString()
   };
 }
@@ -174,6 +186,11 @@ async function persistCompletedPlayers(game: LiveGameRecord) {
   if (error && error.code !== "23505") throw new LiveGameServerError(error.message, 500);
 }
 
+async function persistCompletedOutputs(game: LiveGameRecord) {
+  await persistCompletedPlayers(game);
+  if (game.rated) await applyRatingForCompletedGame(game.id);
+}
+
 async function updateWithVersion(game: LiveGameRecord, update: Record<string, unknown>) {
   const { data, error } = await serviceClient()
     .from("live_chess_games")
@@ -192,6 +209,8 @@ export async function createLiveGame(studentId: string, input: unknown) {
   const control = TIME_CONTROLS.find((item) => item.id === String(body.timeControlId ?? ""));
   if (!control) throw new LiveGameServerError("Choose a valid time control.");
   const creatorColor = resolvePlayerColor(normalizedColorChoice(body.color));
+  const rated = body.rated === true;
+  if (rated && control.initialMs === null) throw new LiveGameServerError("Rated games require a clock.");
   const initialFen = new Chess().fen();
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { data, error } = await serviceClient().from("live_chess_games").insert({
@@ -206,7 +225,8 @@ export async function createLiveGame(studentId: string, input: unknown) {
       current_fen: initialFen,
       active_color: "white",
       white_ms: control.initialMs,
-      black_ms: control.initialMs
+      black_ms: control.initialMs,
+      rated
     }).select("*").maybeSingle();
     if (!error && data) return snapshotFor(normalizeRecord(data), studentId);
     if (error?.code !== "23505") throw new LiveGameServerError(error?.message ?? "Challenge could not be created.", 500);
@@ -237,9 +257,8 @@ export async function joinLiveGame(studentId: string, input: unknown) {
 
 export async function getLiveGame(studentId: string, gameId: string) {
   const game = await loadRecord(gameId);
-  const snapshot = await snapshotFor(game, studentId);
-  if (game.status === "completed") await persistCompletedPlayers(game);
-  return snapshot;
+  if (game.status === "completed") await persistCompletedOutputs(game);
+  return snapshotFor(await loadRecord(gameId), studentId);
 }
 
 export async function listLiveGames(studentId: string): Promise<LiveGameSummary[]> {
@@ -265,6 +284,8 @@ export async function listLiveGames(studentId: string): Promise<LiveGameSummary[
       activeColor: game.active_color,
       winnerColor: game.winner_color,
       resultReason: game.result_reason,
+      rated: game.rated,
+      matchmaking: game.matchmaking,
       updatedAt: game.updated_at
     };
   });
@@ -293,8 +314,8 @@ export async function submitLiveMove(studentId: string, gameId: string, input: u
     const finalGame = { ...game, ...applied.update } as LiveGameRecord;
     const pgn = await pgnFor(finalGame, applied.completion, completedAt);
     const updated = await updateWithVersion(game, { ...applied.update, pgn });
-    await persistCompletedPlayers(updated);
-    return snapshotFor(updated, studentId);
+    await persistCompletedOutputs(updated);
+    return snapshotFor(await loadRecord(updated.id), studentId);
   }
   const updated = await updateWithVersion(game, applied.update);
   return snapshotFor(updated, studentId);
@@ -323,8 +344,8 @@ async function completeByAction(game: LiveGameRecord, completion: LiveGameComple
   const finalGame = { ...game, ...baseUpdate } as LiveGameRecord;
   const pgn = await pgnFor(finalGame, completion, completedAt);
   const updated = await updateWithVersion(game, { ...baseUpdate, pgn });
-  await persistCompletedPlayers(updated);
-  return updated;
+  await persistCompletedOutputs(updated);
+  return loadRecord(updated.id);
 }
 
 export async function performLiveGameAction(studentId: string, gameId: string, input: unknown) {
@@ -364,4 +385,26 @@ export async function performLiveGameAction(studentId: string, gameId: string, i
     updated = await updateWithVersion(game, { draw_offered_by: null, version: game.version + 1 });
   }
   return snapshotFor(updated, studentId);
+}
+
+export async function requestLiveGameRematch(studentId: string, gameId: string) {
+  cleanGameId(gameId);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data, error } = await serviceClient().rpc("request_live_chess_rematch", {
+      p_game_id: gameId,
+      p_student_id: studentId,
+      p_challenge_code: challengeCode()
+    });
+    if (!error) {
+      const result = data as { status: "waiting" | "matched"; gameId: string | null };
+      return {
+        status: result.status,
+        gameId: result.gameId,
+        game: result.gameId ? await getLiveGame(studentId, result.gameId) : null,
+        source: await getLiveGame(studentId, gameId)
+      };
+    }
+    if (error.code !== "23505") throw new LiveGameServerError(error.message, 500);
+  }
+  throw new LiveGameServerError("A rematch could not be created. Try again.", 500);
 }
