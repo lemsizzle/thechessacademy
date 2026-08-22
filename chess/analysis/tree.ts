@@ -221,3 +221,26 @@ export function mainlineIds(tree: AnalysisTree) {
     ids.push(next);
   }
 }
+
+export type MainlineMoveRow = {
+  moveNumber: number;
+  whiteNodeId: string | null;
+  blackNodeId: string | null;
+};
+
+export function mainlineMoveRows(tree: AnalysisTree) {
+  const rows: MainlineMoveRow[] = [];
+  for (const id of mainlineIds(tree).slice(1)) {
+    const node = tree.nodes[id];
+    if (!node) continue;
+    const moveNumber = Math.ceil(node.ply / 2);
+    let row = rows.at(-1);
+    if (!row || row.moveNumber !== moveNumber) {
+      row = { moveNumber, whiteNodeId: null, blackNodeId: null };
+      rows.push(row);
+    }
+    if (node.ply % 2) row.whiteNodeId = id;
+    else row.blackNodeId = id;
+  }
+  return rows;
+}

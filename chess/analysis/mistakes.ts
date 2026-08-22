@@ -30,6 +30,7 @@ export type MistakePuzzle = {
   bestMoveUci: string;
   acceptedMovesUci: string[];
   bestLineSan: string;
+  explanation: string;
   centipawnLoss: number;
   severity: MistakeSeverity;
 };
@@ -84,6 +85,34 @@ function sanForUci(fen: string, uci: string) {
   }
 }
 
+export function explainMistake({
+  playedMoveSan,
+  bestMoveSan,
+  replyLineSan,
+  centipawnLoss
+}: {
+  playedMoveSan: string;
+  bestMoveSan: string;
+  replyLineSan: string;
+  centipawnLoss: number;
+}) {
+  const swing = centipawnLoss >= 10_000
+    ? "causes a decisive swing in the position"
+    : `gives up about ${(centipawnLoss / 100).toFixed(1)} pawns of evaluation`;
+  const replyPreview = replyLineSan.trim().split(/\s+/).slice(0, 4).join(" ");
+  const consequence = replyPreview ? ` It allows the engine continuation ${replyPreview}.` : "";
+  const missedIdea = bestMoveSan.includes("#")
+    ? "A forced checkmate was available instead."
+    : bestMoveSan.includes("+")
+      ? "A stronger forcing check was available."
+      : bestMoveSan.includes("x")
+        ? "A stronger capture was available."
+        : /^O-O/.test(bestMoveSan)
+          ? "Securing the king was more urgent."
+          : "A more accurate move was needed to keep the position stable.";
+  return `${playedMoveSan} ${swing}.${consequence} ${missedIdea}`;
+}
+
 export function buildMistakePuzzles(
   tree: AnalysisTree,
   evaluations: PositionEvaluation[],
@@ -111,6 +140,7 @@ export function buildMistakePuzzles(
     const loss = Math.max(0, Math.round(reviewColor === "white" ? beforeCp - afterCp : afterCp - beforeCp));
     const severity = classifyCentipawnLoss(loss);
     if (!severity || severity === "inaccuracy") continue;
+    const bestMoveSan = sanForUci(beforeNode.fen, before.bestMoveUci);
 
     puzzles.push({
       id: `mistake-${afterNode.id}`,
@@ -122,10 +152,16 @@ export function buildMistakePuzzles(
       fen: beforeNode.fen,
       playedMoveSan: afterNode.san,
       playedMoveUci: afterNode.uci,
-      bestMoveSan: sanForUci(beforeNode.fen, before.bestMoveUci),
+      bestMoveSan,
       bestMoveUci: before.bestMoveUci,
       acceptedMovesUci,
       bestLineSan: before.bestLineSan,
+      explanation: explainMistake({
+        playedMoveSan: afterNode.san,
+        bestMoveSan,
+        replyLineSan: after.bestLineSan,
+        centipawnLoss: loss
+      }),
       centipawnLoss: loss,
       severity
     });

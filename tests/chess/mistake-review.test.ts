@@ -1,6 +1,6 @@
 import { Chess } from "chess.js";
 import { describe, expect, it } from "vitest";
-import { buildMistakePuzzles, classifyCentipawnLoss, equivalentEngineMoves, evaluationAsCentipawns, mainlineNodeIds, type PositionEvaluation } from "@/chess/analysis/mistakes";
+import { buildMistakePuzzles, classifyCentipawnLoss, equivalentEngineMoves, evaluationAsCentipawns, explainMistake, mainlineNodeIds, type PositionEvaluation } from "@/chess/analysis/mistakes";
 import type { StockfishCandidate } from "@/chess/types";
 import { createAnalysisTree } from "@/chess/analysis/tree";
 import type { CompletedGameMove } from "@/chess/analysis/types";
@@ -27,6 +27,15 @@ function evaluation(nodeId: string, scoreWhiteCp: number, bestMoveUci: string): 
 }
 
 describe("learn from your mistakes", () => {
+  it("explains the missed idea, engine reply, and evaluation loss", () => {
+    expect(explainMistake({
+      playedMoveSan: "e4",
+      bestMoveSan: "Bxh7+",
+      replyLineSan: "Nxe4 Qe2",
+      centipawnLoss: 140
+    })).toBe("e4 gives up about 1.4 pawns of evaluation. It allows the engine continuation Nxe4 Qe2. A stronger forcing check was available.");
+  });
+
   it("accepts near-equal engine alternatives instead of demanding one exact move", () => {
     const line = (uci: string, rank: number, scoreCp: number): StockfishCandidate => ({ uci, rank, scoreCp, mate: null, depth: 12, pv: [uci] });
     expect(equivalentEngineMoves([line("e2e4", 1, 40), line("d2d4", 2, 18), line("g1f3", 3, -5)])).toEqual(["e2e4", "d2d4"]);
@@ -65,7 +74,8 @@ describe("learn from your mistakes", () => {
       playedMoveSan: "e4",
       bestMoveSan: "d4",
       centipawnLoss: 230,
-      severity: "blunder"
+      severity: "blunder",
+      explanation: expect.stringContaining("keep the position stable")
     });
     expect(blackPuzzles).toHaveLength(0);
   });

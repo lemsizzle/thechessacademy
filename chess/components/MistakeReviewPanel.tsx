@@ -69,6 +69,10 @@ export function MistakeReviewPanel(props: Props) {
         <div className="flex items-center justify-between gap-3"><span className={`rounded px-2 py-1 text-[10px] font-black uppercase ${severityStyle[props.activePuzzle.severity]}`}>{props.activePuzzle.severity}</span><span className="text-xs font-bold text-slate-400">Puzzle {props.activeIndex + 1} of {props.puzzles.length}</span></div>
         <p className="mt-3 text-lg font-black text-white">You played {props.activePuzzle.playedMoveSan}</p>
         <p className="mt-1 text-sm text-slate-300">The red arrow shows the move played in the game. Find the best move instead.</p>
+        <div className="mt-3 rounded-md border border-rose-300/20 bg-rose-300/10 p-3">
+          <p className="text-[10px] font-black uppercase tracking-wider text-rose-200">Why this was a mistake</p>
+          <p className="mt-1 text-sm leading-5 text-rose-50">{props.activePuzzle.explanation}</p>
+        </div>
         {!props.result && <p className="mt-3 rounded-md bg-black/20 p-3 text-xs text-slate-400">Move {props.activePuzzle.moveNumber} · about {(props.activePuzzle.centipawnLoss / 100).toFixed(1)} pawns lost</p>}
         {props.result?.status === "incorrect" && <div className="mt-3 rounded-md border border-amber-300/25 bg-amber-300/10 p-3"><p className="text-sm font-black text-amber-100">{props.result.attemptedSan} is not the best move. Try again.</p><button type="button" onClick={props.onReveal} className="mt-2 text-xs font-black text-amber-50 underline underline-offset-2">View the solution</button></div>}
         {(props.result?.status === "correct" || props.result?.status === "revealed") && <div className="mt-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 p-3"><p className="text-sm font-black text-emerald-100">{props.result.status === "correct" ? `Correct — ${props.result.attemptedSan}!` : `Best move: ${props.activePuzzle.bestMoveSan}`}</p>{props.activePuzzle.bestLineSan && <p className="mt-1 text-xs leading-5 text-emerald-50">Best line: {props.activePuzzle.bestLineSan}</p>}</div>}

@@ -1,6 +1,6 @@
 import { Chess } from "chess.js";
 import { describe, expect, it } from "vitest";
-import { addAnalysisMove, createAnalysisTree, deleteVariation, evaluateGuidedMove, lastMainlineNodeId, nextNodeId, previousNodeId, promoteVariation, updateNodeAnnotations, updateNodeGuidedExercise, validateAnalysisTree } from "@/chess/analysis/tree";
+import { addAnalysisMove, createAnalysisTree, deleteVariation, evaluateGuidedMove, lastMainlineNodeId, mainlineMoveRows, nextNodeId, previousNodeId, promoteVariation, updateNodeAnnotations, updateNodeGuidedExercise, validateAnalysisTree } from "@/chess/analysis/tree";
 import type { CompletedGameMove } from "@/chess/analysis/types";
 
 function originalLine() {
@@ -23,6 +23,20 @@ describe("analysis move tree", () => {
     expect(previousNodeId(tree, second)).toBe(first);
     expect(tree.nodes[lastMainlineNodeId(tree)].san).toBe("Nf3");
     expect(tree.nodes[lastMainlineNodeId(tree)].fen).toBe(originalLine().at(-1)?.fenAfter);
+  });
+
+  it("pairs white and black moves into one row per move number", () => {
+    const tree = createAnalysisTree(new Chess().fen(), originalLine());
+    const rows = mainlineMoveRows(tree);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => ({
+      moveNumber: row.moveNumber,
+      white: row.whiteNodeId ? tree.nodes[row.whiteNodeId].san : null,
+      black: row.blackNodeId ? tree.nodes[row.blackNodeId].san : null
+    }))).toEqual([
+      { moveNumber: 1, white: "e4", black: "e5" },
+      { moveNumber: 2, white: "Nf3", black: null }
+    ]);
   });
 
   it("supports nested variations without flattening either branch", () => {

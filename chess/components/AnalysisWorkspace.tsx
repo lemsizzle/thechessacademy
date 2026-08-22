@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
 import { NAG_VALUES, type AnalysisNag, type AnalysisShape, type AnalysisTree, type GuidedExercise } from "@/chess/analysis/types";
-import { addAnalysisMove, deleteVariation, firstNodeId, lastMainlineNodeId, nextNodeId, previousNodeId, promoteVariation, toggleNag, updateNodeAnnotations, updateNodeGuidedExercise } from "@/chess/analysis/tree";
+import { addAnalysisMove, deleteVariation, firstNodeId, lastMainlineNodeId, mainlineMoveRows, nextNodeId, previousNodeId, promoteVariation, toggleNag, updateNodeAnnotations, updateNodeGuidedExercise } from "@/chess/analysis/tree";
 import { useAnalysisEngine } from "@/chess/hooks/useAnalysisEngine";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -151,6 +151,8 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   const [activeId, setActiveId] = useState(initialTree.rootId);
   const [orientation, setOrientation] = useState<"white" | "black">(reviewColor ?? "white");
   const [engineOn, setEngineOn] = useState(false);
+  const [showBoardTools, setShowBoardTools] = useState(false);
+  const [showPositionNotes, setShowPositionNotes] = useState(false);
   const [annotationMode, setAnnotationMode] = useState<"arrow" | "circle" | null>(null);
   const [annotationStart, setAnnotationStart] = useState<string | null>(null);
   const [shapeStyle, setShapeStyle] = useState<BoardAnnotationStyle>("primary");
@@ -167,6 +169,9 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   const mistakeReview = useMistakeReview(originalTreeRef.current, reviewColor);
   const node = tree.nodes[activeId] ?? tree.nodes[tree.rootId];
   const rows = useMemo(() => treeRows(tree), [tree]);
+  const moveRows = useMemo(() => mainlineMoveRows(tree), [tree]);
+  const mainlineIds = useMemo(() => new Set(moveRows.flatMap((row) => [row.whiteNodeId, row.blackNodeId].filter((id): id is string => Boolean(id)))), [moveRows]);
+  const variationRows = useMemo(() => rows.filter((row) => !mainlineIds.has(row.id)), [mainlineIds, rows]);
   const guidedExercise = guidedStudentMode ? node.guidedExercise ?? null : null;
   const guidedLocked = Boolean(guidedExercise && guidedResult?.status !== "correct");
   const mistakeReviewActive = Boolean(mistakeReview.activePuzzle);
@@ -239,8 +244,8 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
       event.preventDefault();
       selectPosition(next);
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [activeId, tree]);
 
   function makeMove(from: string, to: string, promotion?: "q" | "r" | "b" | "n") {
@@ -358,6 +363,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
         color: BOARD_ANNOTATION_COLORS.danger
       }]
     : [];
+  const boardArrows = mistakeReviewActive ? [...mistakeArrow, ...arrows] : arrows;
   const lastMove = mistakeReviewActive
     ? mistakeReview.result?.status === "correct" || mistakeReview.result?.status === "revealed"
       ? [mistakeReview.activePuzzle!.bestMoveUci.slice(0, 2), mistakeReview.activePuzzle!.bestMoveUci.slice(2, 4)] as [string, string]
@@ -388,28 +394,37 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
 
       <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,720px)_minmax(360px,520px)] xl:justify-center">
         <div className="mx-auto w-full max-w-[720px] min-w-0 space-y-3">
-          <div className="flex flex-wrap gap-2" aria-label="Board tools">
-            <Button type="button" aria-pressed={annotationMode === null} variant={annotationMode === null ? "secondary" : "ghost"} onClick={() => { setAnnotationMode(null); setAnnotationStart(null); }}>Move pieces</Button>
-            <Button type="button" aria-pressed={annotationMode === "arrow"} variant={annotationMode === "arrow" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("arrow"); setAnnotationStart(null); }}>Draw arrow</Button>
-            <Button type="button" aria-pressed={annotationMode === "circle"} variant={annotationMode === "circle" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("circle"); setAnnotationStart(null); }}>Circle square</Button>
-            <select aria-label="Annotation style" value={shapeStyle} onChange={(event) => setShapeStyle(event.target.value as BoardAnnotationStyle)} className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm font-bold text-white">
-              {Object.keys(BOARD_ANNOTATION_COLORS).map((style) => <option key={style} value={style}>{style}</option>)}
-            </select>
-            <Button type="button" variant="ghost" disabled={!node.shapes.length} onClick={() => updateShapes([])}>Clear marks</Button>
-            <Button type="button" variant="ghost" onClick={() => setOrientation((value) => value === "white" ? "black" : "white")}>Flip board</Button>
-            {gameMode && <Button type="button" variant="ghost" onClick={() => {
-              let id = activeId;
-              while (tree.nodes[id]?.origin === "analysis" && tree.nodes[id]?.parentId) id = tree.nodes[id].parentId!;
-              selectPosition(id);
-            }}>Return to Game Line</Button>}
-            {gameMode && <Button type="button" variant="ghost" onClick={() => {
-              if (window.confirm("Remove all temporary variations and annotations and restore the original game line?")) {
-                commitTree(originalTreeRef.current, originalTreeRef.current.rootId);
-              }
-            }}>Reset Temporary Analysis</Button>}
-          </div>
-          <p className="text-xs text-slate-400">Lichess controls: right-click for a green circle, right-drag for an arrow. Hold Shift/Ctrl for red, Alt/Command for blue, or combine them for yellow.</p>
-          {annotationMode && <p className="text-xs text-cyan-100">{annotationMode === "arrow" ? annotationStart ? "Tap the destination square." : "Tap an arrow’s start square, then its destination. Right-drag also works with a mouse." : "Tap a square to add or remove a circle."}</p>}
+          <Button type="button" variant="ghost" aria-expanded={showBoardTools} aria-controls="analysis-board-tools" onClick={() => {
+            if (showBoardTools) {
+              setAnnotationMode(null);
+              setAnnotationStart(null);
+            }
+            setShowBoardTools(!showBoardTools);
+          }}>{showBoardTools ? "Hide board tools" : "Board tools"}</Button>
+          {showBoardTools ? <div id="analysis-board-tools" className="space-y-2 rounded-lg border border-white/10 bg-slate-950/50 p-3">
+            <div className="flex flex-wrap gap-2" aria-label="Board tools">
+              <Button type="button" aria-pressed={annotationMode === null} variant={annotationMode === null ? "secondary" : "ghost"} onClick={() => { setAnnotationMode(null); setAnnotationStart(null); }}>Move pieces</Button>
+              <Button type="button" aria-pressed={annotationMode === "arrow"} variant={annotationMode === "arrow" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("arrow"); setAnnotationStart(null); }}>Draw arrow</Button>
+              <Button type="button" aria-pressed={annotationMode === "circle"} variant={annotationMode === "circle" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("circle"); setAnnotationStart(null); }}>Circle square</Button>
+              <select aria-label="Annotation style" value={shapeStyle} onChange={(event) => setShapeStyle(event.target.value as BoardAnnotationStyle)} className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm font-bold text-white">
+                {Object.keys(BOARD_ANNOTATION_COLORS).map((style) => <option key={style} value={style}>{style}</option>)}
+              </select>
+              <Button type="button" variant="ghost" disabled={!node.shapes.length} onClick={() => updateShapes([])}>Clear marks</Button>
+              <Button type="button" variant="ghost" onClick={() => setOrientation((value) => value === "white" ? "black" : "white")}>Flip board</Button>
+              {gameMode && <Button type="button" variant="ghost" onClick={() => {
+                let id = activeId;
+                while (tree.nodes[id]?.origin === "analysis" && tree.nodes[id]?.parentId) id = tree.nodes[id].parentId!;
+                selectPosition(id);
+              }}>Return to Game Line</Button>}
+              {gameMode && <Button type="button" variant="ghost" onClick={() => {
+                if (window.confirm("Remove all temporary variations and annotations and restore the original game line?")) {
+                  commitTree(originalTreeRef.current, originalTreeRef.current.rootId);
+                }
+              }}>Reset Temporary Analysis</Button>}
+            </div>
+            <p className="text-xs text-slate-400">Right-click for a circle or right-drag for an arrow. Shift/Ctrl draws red, Alt/Command blue, and both groups yellow.</p>
+            {annotationMode ? <p className="text-xs text-cyan-100">{annotationMode === "arrow" ? annotationStart ? "Tap the destination square." : "Tap an arrow’s start square, then its destination. Right-drag also works with a mouse." : "Tap a square to add or remove a circle."}</p> : null}
+          </div> : null}
           {guidedExercise && <Card className="border-violet-200/25 bg-violet-300/10 p-4">
             <p className="text-xs font-black uppercase tracking-wide text-violet-200">Guess the move</p>
             <p className="mt-1 font-bold leading-6 text-white">{guidedExercise.prompt}</p>
@@ -439,15 +454,18 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
                 interactive={mistakeReviewActive ? mistakeReview.result?.status !== "correct" && mistakeReview.result?.status !== "revealed" : guidedExercise ? guidedResult?.status !== "correct" && !guidedBusy : editable}
                 lastMove={lastMove}
                 onMove={makeMove}
-                arrows={mistakeReviewActive ? mistakeArrow : arrows}
-                circles={mistakeReviewActive ? [] : circles}
+                arrows={boardArrows}
+                circles={circles}
                 annotationMode={annotationMode}
                 onAnnotationSquare={annotationSquare}
-                allowDrawingArrows={editable && !mistakeReviewActive}
+                allowDrawingArrows={editable}
                 onArrowsChange={(next) => {
+                  const userArrows = mistakeReviewActive
+                    ? next.filter((arrow) => !mistakeArrow.some((locked) => locked.startSquare === arrow.startSquare && locked.endSquare === arrow.endSquare && locked.color === arrow.color))
+                    : next;
                   updateShapes([
                     ...node.shapes.filter((shape) => shape.type !== "arrow"),
-                    ...next.map((arrow) => ({
+                    ...userArrows.map((arrow) => ({
                       type: "arrow" as const,
                       from: arrow.startSquare,
                       to: arrow.endSquare,
@@ -520,34 +538,52 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
           <Card className="p-4">
             <div className="flex items-center justify-between"><h3 className="font-black text-white">Move tree</h3><span className="text-xs text-slate-500">← → Home End</span></div>
             <button type="button" ref={activeId === tree.rootId ? activeButtonRef : undefined} onClick={() => selectPosition(tree.rootId)} className={`mt-3 w-full rounded-md px-3 py-2 text-left text-sm font-bold ${activeId === tree.rootId ? "bg-cyan-300/15 text-cyan-100" : "bg-white/5 text-slate-300"}`}>Starting position {tree.nodes[tree.rootId].guidedExercise && <span title="Guided exercise" className="text-violet-300">◆</span>}</button>
-            <div ref={moveTreeRef} className="scrollbar-soft mt-2 max-h-72 space-y-1 overflow-y-auto rounded-md border border-white/10 bg-slate-950/70 p-2" role="tree">
-              {rows.length ? rows.map(({ id, depth, isMain }) => {
+            <div ref={moveTreeRef} className="scrollbar-soft mt-2 max-h-72 space-y-1 overflow-y-auto rounded-md border border-white/10 bg-slate-950/70 p-2" role="tree" aria-keyshortcuts="ArrowLeft ArrowRight Home End">
+              {moveRows.map((row) => <div key={row.moveNumber} role="group" aria-label={`Move ${row.moveNumber}`} className="grid grid-cols-2 gap-1">
+                {[row.whiteNodeId, row.blackNodeId].map((id, column) => {
+                  if (!id) return <span key={`${row.moveNumber}-${column}`} aria-hidden="true" />;
+                  const item = tree.nodes[id];
+                  return <button key={id} type="button" ref={activeId === id ? activeButtonRef : undefined} role="treeitem" aria-selected={activeId === id} onClick={() => selectPosition(id)} className={`min-w-0 rounded px-2 py-1.5 text-left text-sm font-bold ${activeId === id ? "bg-cyan-300/18 text-white" : "text-slate-200 hover:bg-white/5"}`}>
+                    {displayPly(item.ply, item.san)} {item.nags.join("")} {item.comment && <span title="Comment" className="ml-1 text-cyan-300">●</span>} {item.referenceEvaluation && <span title="Teacher reference evaluation" className="text-amber-300">★</span>} {item.guidedExercise && <span title="Guided exercise" className="text-violet-300">◆</span>}
+                  </button>;
+                })}
+              </div>)}
+              {variationRows.length ? <div className="border-t border-white/10 pt-2">
+                <p className="px-2 pb-1 text-[10px] font-black uppercase tracking-wider text-amber-200">Variations</p>
+                {variationRows.map(({ id, depth }) => {
                 const item = tree.nodes[id];
                 const parent = item.parentId ? tree.nodes[item.parentId] : null;
                 const branch = Boolean(parent && parent.childrenIds.length > 1);
                 return <div key={id} className="group flex items-center gap-1" style={{ paddingLeft: `${Math.min(depth, 7) * 14}px` }}>
-                  <button type="button" ref={activeId === id ? activeButtonRef : undefined} role="treeitem" aria-selected={activeId === id} onClick={() => selectPosition(id)} className={`min-w-0 flex-1 rounded px-2 py-1.5 text-left text-sm ${activeId === id ? "bg-cyan-300/18 font-black text-white" : isMain ? "font-bold text-slate-200 hover:bg-white/5" : "text-amber-100 hover:bg-white/5"}`}>
-                    {branch && !isMain && <span className="mr-1 text-amber-300">↳</span>}{displayPly(item.ply, item.san)} {item.nags.join("")} {item.comment && <span title="Comment" className="ml-1 text-cyan-300">●</span>} {item.referenceEvaluation && <span title="Teacher reference evaluation" className="text-amber-300">★</span>} {item.guidedExercise && <span title="Guided exercise" className="text-violet-300">◆</span>}
+                  <button type="button" ref={activeId === id ? activeButtonRef : undefined} role="treeitem" aria-selected={activeId === id} onClick={() => selectPosition(id)} className={`min-w-0 flex-1 rounded px-2 py-1.5 text-left text-sm ${activeId === id ? "bg-cyan-300/18 font-black text-white" : "text-amber-100 hover:bg-white/5"}`}>
+                    <span className="mr-1 text-amber-300">↳</span>{displayPly(item.ply, item.san)} {item.nags.join("")} {item.comment && <span title="Comment" className="ml-1 text-cyan-300">●</span>} {item.referenceEvaluation && <span title="Teacher reference evaluation" className="text-amber-300">★</span>} {item.guidedExercise && <span title="Guided exercise" className="text-violet-300">◆</span>}
                   </button>
-                  {editable && branch && !isMain && parent && <button type="button" title="Promote variation" className="rounded px-1 text-xs text-slate-500 hover:bg-white/10 hover:text-white" onClick={() => commitTree(promoteVariation(tree, parent.id, id), id)}>↑</button>}
+                  {editable && branch && parent && <button type="button" title="Promote variation" className="rounded px-1 text-xs text-slate-500 hover:bg-white/10 hover:text-white" onClick={() => commitTree(promoteVariation(tree, parent.id, id), id)}>↑</button>}
                   {editable && item.origin === "analysis" && <button type="button" title="Delete variation" className="rounded px-1 text-xs text-slate-500 hover:bg-rose-300/10 hover:text-rose-200" onClick={() => {
                     if (!window.confirm(`Delete ${item.san ?? "this move"} and every continuation below it?`)) return;
                     const parentId = item.parentId!;
                     commitTree(deleteVariation(tree, id), parentId);
                   }}>×</button>}
                 </div>;
-              }) : <p className="p-3 text-sm text-slate-500">Make a legal move on the board to begin a line.</p>}
+                })}
+              </div> : null}
+              {!moveRows.length && !variationRows.length ? <p className="p-3 text-sm text-slate-500">Make a legal move on the board to begin a line.</p> : null}
             </div>
           </Card>
 
           <Card className="p-4">
-            <h3 className="font-black text-white">Position notes</h3>
-            <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Move annotations">
-              {NAG_VALUES.map((nag) => <button key={nag} type="button" disabled={!editable} aria-pressed={node.nags.includes(nag)} onClick={() => commitTree(updateNodeAnnotations(tree, activeId, { nags: toggleNag(node.nags, nag as AnalysisNag) }))} className={`rounded border px-2.5 py-1 text-sm font-black ${node.nags.includes(nag) ? "border-amber-300 bg-amber-300/15 text-amber-100" : "border-white/10 bg-white/5 text-slate-300"}`}>{nag}</button>)}
-            </div>
-            <label className="mt-3 block text-xs font-bold uppercase text-slate-400">Comment
-              <textarea disabled={!editable} value={node.comment} onChange={(event) => commitTree(updateNodeAnnotations(tree, activeId, { comment: event.target.value.slice(0, 5000) }))} rows={5} placeholder="Explain the idea, mistake, or plan in this position…" className="mt-1 w-full resize-y rounded-md border border-white/10 bg-slate-900 p-3 text-sm font-normal normal-case leading-5 text-white outline-none focus:border-cyan-200/50" />
-            </label>
+            <button type="button" className="flex w-full items-center justify-between text-left" aria-expanded={showPositionNotes} aria-controls="analysis-position-notes" onClick={() => setShowPositionNotes((visible) => !visible)}>
+              <h3 className="font-black text-white">Position notes</h3>
+              <span className="text-xs font-bold text-slate-400">{showPositionNotes ? "Hide" : "Show"}</span>
+            </button>
+            {showPositionNotes ? <div id="analysis-position-notes">
+              <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Move annotations">
+                {NAG_VALUES.map((nag) => <button key={nag} type="button" disabled={!editable} aria-pressed={node.nags.includes(nag)} onClick={() => commitTree(updateNodeAnnotations(tree, activeId, { nags: toggleNag(node.nags, nag as AnalysisNag) }))} className={`rounded border px-2.5 py-1 text-sm font-black ${node.nags.includes(nag) ? "border-amber-300 bg-amber-300/15 text-amber-100" : "border-white/10 bg-white/5 text-slate-300"}`}>{nag}</button>)}
+              </div>
+              <label className="mt-3 block text-xs font-bold uppercase text-slate-400">Comment
+                <textarea disabled={!editable} value={node.comment} onChange={(event) => commitTree(updateNodeAnnotations(tree, activeId, { comment: event.target.value.slice(0, 5000) }))} rows={5} placeholder="Explain the idea, mistake, or plan in this position…" className="mt-1 w-full resize-y rounded-md border border-white/10 bg-slate-900 p-3 text-sm font-normal normal-case leading-5 text-white outline-none focus:border-cyan-200/50" />
+              </label>
+            </div> : null}
           </Card>
         </aside>
       </div>
