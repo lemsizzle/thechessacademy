@@ -3,13 +3,14 @@ import "server-only";
 import { Chess } from "chess.js";
 import { TIME_CONTROLS, oppositeColor, resolvePlayerColor } from "@/chess/game/config";
 import { liveClockAt, livePlayerColor, replayLiveMoves, timeoutCompletion, applyLiveMove, LiveGameRuleError, type LiveGameCompletion } from "@/chess/live/rules";
+import { cleanChallengeCode, generateChallengeCode, isSupportedChallengeCode, MAX_CHALLENGE_CODE_ATTEMPTS } from "@/chess/live/challengeCode";
 import type { LiveGameAction, LiveGamePlayer, LiveGameRecord, LiveGameSnapshot, LiveGameSummary, LiveMoveInput } from "@/chess/live/types";
 import type { ChessColor, GameResult, PlayerColorChoice } from "@/chess/types";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { applyRatingForCompletedGame } from "@/chess/persistence/ratingServer";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const CHALLENGE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const LEGACY_CHALLENGE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 export class LiveGameServerError extends Error {
   constructor(message: string, readonly status = 400) {
@@ -32,14 +33,14 @@ function cleanGameId(value: string) {
   return value;
 }
 
-function challengeCode() {
+function internalChallengeCode() {
   const bytes = crypto.getRandomValues(new Uint8Array(12));
-  return Array.from(bytes, (value) => CHALLENGE_ALPHABET[value % CHALLENGE_ALPHABET.length]).join("");
+  return Array.from(bytes, (value) => LEGACY_CHALLENGE_ALPHABET[value % LEGACY_CHALLENGE_ALPHABET.length]).join("");
 }
 
 function normalizedChallengeCode(value: unknown) {
-  const code = String(value ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  if (!/^[A-HJ-NP-Z2-9]{12}$/.test(code)) throw new LiveGameServerError("Enter the 12-character challenge code.");
+  const code = cleanChallengeCode(value);
+  if (!isSupportedChallengeCode(code)) throw new LiveGameServerError("Enter the 4-character challenge code.");
   return code;
 }
 
@@ -201,9 +202,9 @@ export async function createLiveGame(studentId: string, input: unknown) {
   const creatorColor = resolvePlayerColor(normalizedColorChoice(body.color));
   const rated = control.initialMs !== null;
   const initialFen = new Chess().fen();
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < MAX_CHALLENGE_CODE_ATTEMPTS; attempt += 1) {
     const { data, error } = await serviceClient().from("live_chess_games").insert({
-      challenge_code: challengeCode(),
+      challenge_code: generateChallengeCode(),
       created_by: studentId,
       white_player_id: creatorColor === "white" ? studentId : null,
       black_player_id: creatorColor === "black" ? studentId : null,
@@ -381,7 +382,7 @@ export async function requestLiveGameRematch(studentId: string, gameId: string) 
     const { data, error } = await serviceClient().rpc("request_live_chess_rematch", {
       p_game_id: gameId,
       p_student_id: studentId,
-      p_challenge_code: challengeCode()
+      p_challenge_code: internalChallengeCode()
     });
     if (!error) {
       const result = data as { status: "waiting" | "matched"; gameId: string | null };

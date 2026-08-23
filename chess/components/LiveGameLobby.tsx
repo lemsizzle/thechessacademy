@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TIME_CONTROLS } from "@/chess/game/config";
+import { CHALLENGE_CODE_LENGTH, cleanChallengeCode, isSupportedChallengeCode } from "@/chess/live/challengeCode";
 import type { LiveGameSnapshot, LiveGameSummary } from "@/chess/live/types";
 import type { PlayerColorChoice } from "@/chess/types";
 import type { MatchmakingStatus } from "@/chess/rating/types";
@@ -50,7 +51,7 @@ export function LiveGameLobby() {
 
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("code");
-    if (code) setJoinCode(code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12));
+    if (code) setJoinCode(cleanChallengeCode(code).slice(0, 12));
     void loadGames();
   }, [loadGames]);
 
@@ -135,7 +136,7 @@ export function LiveGameLobby() {
         <Card className="p-5 sm:p-6">
           <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Create a private game</p>
           <h2 className="mt-1 text-2xl font-black text-white">Challenge a classmate</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-400">Choose your clock and color, then share the private 12-character code.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-400">Choose your clock and color, then share the simple 4-character code.</p>
 
           <label className="mt-5 block text-sm font-bold text-slate-200" htmlFor="live-time-control">Time control</label>
           <select id="live-time-control" value={timeControlId} onChange={(event) => setTimeControlId(event.target.value)} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-white outline-none focus:border-cyan-300/60">
@@ -164,8 +165,8 @@ export function LiveGameLobby() {
           <p className="mt-2 text-sm leading-6 text-slate-400">Ask the other student for the code shown on their waiting screen.</p>
           <form className="mt-5" onSubmit={joinChallenge}>
             <label className="block text-sm font-bold text-slate-200" htmlFor="live-challenge-code">Challenge code</label>
-            <input id="live-challenge-code" value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12))} autoComplete="off" inputMode="text" maxLength={12} placeholder="ABCD2345WXYZ" className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 px-3 py-3 text-center font-mono text-xl font-black tracking-[0.18em] text-white outline-none focus:border-amber-300/60" />
-            <Button type="submit" variant="secondary" className="mt-4 w-full" disabled={pending !== null || joinCode.length !== 12}>
+            <input id="live-challenge-code" value={joinCode} onChange={(event) => setJoinCode(cleanChallengeCode(event.target.value).slice(0, CHALLENGE_CODE_LENGTH))} autoComplete="off" autoCapitalize="characters" spellCheck={false} inputMode="text" placeholder="A7K2" className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 px-3 py-3 text-center font-mono text-xl font-black tracking-[0.18em] text-white outline-none focus:border-amber-300/60" />
+            <Button type="submit" variant="secondary" className="mt-4 w-full" disabled={pending !== null || !isSupportedChallengeCode(joinCode)}>
               {pending === "join" ? "Joining..." : "Join Game"}
             </Button>
           </form>

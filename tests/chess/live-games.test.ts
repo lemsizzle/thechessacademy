@@ -10,7 +10,7 @@ function record(overrides: Partial<LiveGameRecord> = {}): LiveGameRecord {
   const initialFen = new Chess().fen();
   return {
     id: "33333333-3333-4333-8333-333333333333",
-    challenge_code: "ABCD2345WXYZ",
+    challenge_code: "A7K2",
     realtime_token: "44444444-4444-4444-8444-444444444444",
     created_by: WHITE_ID,
     white_player_id: WHITE_ID,
