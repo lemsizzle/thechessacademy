@@ -11,6 +11,7 @@ import { AutoAdvanceSwitch, PuzzleModeSetup, type PuzzleModeChoice } from "@/com
 import { WoodpeckerCycleSummary } from "@/components/training/WoodpeckerCycleSummary";
 import { legalDestinations, parseUciMove, premoveDestinations } from "@/lib/puzzle-training/engine";
 import { calculateWoodpeckerCycleStats, nextWoodpeckerStep, PUZZLE_DIFFICULTY_OPTIONS, SURVIVAL_PUZZLE_LIMIT, survivalDifficultyForPuzzle, WOODPECKER_CYCLE_COUNT, WOODPECKER_SET_SIZE, type WoodpeckerCycleResult } from "@/lib/puzzle-training/modes";
+import { emptyPremoveHandoff, takeReadyPremove, withPremoveReply, withPremoveReplyReady, withQueuedPremove, type QueuedPremove } from "@/lib/puzzle-training/premoveQueue";
 import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 const STARTING_LIVES = 3;
@@ -20,7 +21,6 @@ const AUTO_ADVANCE_STORAGE_KEY = "academy-puzzles-auto-advance";
 
 type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "cycle-summary" | "summary" | "error";
 type TrainingMode = "survival" | "woodpecker" | "daily";
-type QueuedPremove = { from: string; to: string };
 type MoveSubmissionContext = { fen: string; token: string; isPremove: true };
 
 function formatTime(totalSeconds: number) {
@@ -109,7 +109,7 @@ export function PuzzleSurvival() {
   const [woodpeckerCycleResults, setWoodpeckerCycleResults] = useState<WoodpeckerCycleResult[]>([]);
   const sessionId = useRef(crypto.randomUUID());
   const moveLocked = useRef(false);
-  const queuedPremoveRef = useRef<QueuedPremove | null>(null);
+  const premoveHandoffRef = useRef(emptyPremoveHandoff());
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -131,12 +131,17 @@ export function PuzzleSurvival() {
   }
 
   function updateQueuedPremove(nextPremove: QueuedPremove | null) {
-    queuedPremoveRef.current = nextPremove;
+    premoveHandoffRef.current = withQueuedPremove(premoveHandoffRef.current, nextPremove);
     setQueuedPremove(nextPremove);
   }
 
+  function resetPremoveHandoff() {
+    premoveHandoffRef.current = emptyPremoveHandoff();
+    setQueuedPremove(null);
+  }
+
   function cancelPremove(message = "Premove canceled.") {
-    updateQueuedPremove(null);
+    resetPremoveHandoff();
     setSelectedSquare(null);
     setLegalSquares([]);
     if (phase === "reply" || (phase === "turn" && moveLocked.current)) setMessage(message);
@@ -160,7 +165,7 @@ export function PuzzleSurvival() {
     setIncorrectSquare(null);
     setHintSource(null);
     setHintDestination(null);
-    updateQueuedPremove(null);
+    resetPremoveHandoff();
   }
 
   function showPuzzle(nextPuzzle: PublicTrainingPuzzle, mode = trainingMode) {
@@ -394,6 +399,25 @@ export function PuzzleSurvival() {
     }
   }
 
+  function executeReadyPremove() {
+    const result = takeReadyPremove(premoveHandoffRef.current);
+    if (!result.execution) return false;
+
+    premoveHandoffRef.current = result.state;
+    setQueuedPremove(null);
+    setSelectedSquare(null);
+    setLegalSquares([]);
+    const { premove, reply } = result.execution;
+    if (!legalDestinations(reply.fen, premove.from).includes(premove.to)) {
+      setMessage("That premove is no longer legal. Choose another move.");
+      return true;
+    }
+
+    setMessage(`Premove played: ${premove.from} to ${premove.to}.`);
+    void submitMove(premove.from, premove.to, { fen: reply.fen, token: reply.token, isPremove: true });
+    return true;
+  }
+
   async function submitMove(from: string, to: string, context?: MoveSubmissionContext) {
     if (!puzzle || (!context?.isPremove && phase !== "turn") || moveLocked.current) return false;
     const submittedFen = context?.fen ?? positionFen;
@@ -406,7 +430,7 @@ export function PuzzleSurvival() {
     }
 
     moveLocked.current = true;
-    updateQueuedPremove(null);
+    resetPremoveHandoff();
     const previousFen = submittedFen;
     const optimisticFen = optimisticMoveFen(previousFen, from, to);
     if (!optimisticFen) {
@@ -437,7 +461,7 @@ export function PuzzleSurvival() {
       setToken(result.token);
 
       if (!result.accepted) {
-        updateQueuedPremove(null);
+        resetPremoveHandoff();
         setSelectedSquare(null);
         setLegalSquares([]);
         if (!woodpeckerReviewingRef.current) {
@@ -473,7 +497,7 @@ export function PuzzleSurvival() {
       setMessage(result.message);
 
       if (result.completed && result.completion) {
-        updateQueuedPremove(null);
+        resetPremoveHandoff();
         setSelectedSquare(null);
         setLegalSquares([]);
         if (woodpeckerReviewingRef.current) {
@@ -554,6 +578,7 @@ export function PuzzleSurvival() {
         return true;
       }
 
+      premoveHandoffRef.current = withPremoveReply(premoveHandoffRef.current, { fen: result.positionFen, token: result.token });
       setPhase("reply");
       setPositionFen(result.positionFen);
       if (result.opponentMove) {
@@ -561,27 +586,19 @@ export function PuzzleSurvival() {
         setLastMove([reply.from, reply.to]);
       }
       setCorrectMove(null);
-      setMessage(queuedPremoveRef.current
+      setMessage(premoveHandoffRef.current.queued
         ? "Opponent replied. Your premove is ready."
         : "Opponent replied. Queue your next move while the pieces settle.");
       replyTimer.current = setTimeout(() => {
         replyTimer.current = null;
-        const premove = queuedPremoveRef.current;
-        updateQueuedPremove(null);
-        setSelectedSquare(null);
-        setLegalSquares([]);
+        premoveHandoffRef.current = withPremoveReplyReady(premoveHandoffRef.current);
         setPhase("turn");
         moveLocked.current = false;
-        if (premove && legalDestinations(result.positionFen, premove.from).includes(premove.to)) {
-          setMessage(`Premove played: ${premove.from} to ${premove.to}.`);
-          void submitMove(premove.from, premove.to, { fen: result.positionFen, token: result.token, isPremove: true });
-          return;
-        }
-        setMessage(premove ? "That premove is no longer legal. Choose another move." : "Your turn. Continue the solution.");
+        if (!executeReadyPremove()) setMessage("Your turn. Continue the solution.");
       }, OPPONENT_REPLY_DELAY_MS);
       return true;
     } catch (moveError) {
-      updateQueuedPremove(null);
+      resetPremoveHandoff();
       setSelectedSquare(null);
       setLegalSquares([]);
       setPositionFen(previousFen);
@@ -610,6 +627,7 @@ export function PuzzleSurvival() {
     setSelectedSquare(null);
     setLegalSquares([]);
     setMessage(`Premove queued: ${from} to ${to}. It will play after the reply.`);
+    executeReadyPremove();
     return true;
   }
 
