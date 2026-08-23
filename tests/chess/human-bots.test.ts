@@ -90,6 +90,14 @@ describe("human-like computer profiles", () => {
     ]);
     expect(BOT_DIFFICULTIES.every((profile) => profile.multiPv >= 5 && profile.multiPv <= 10)).toBe(true);
     expect(BOT_DIFFICULTIES.map((profile) => profile.estimatedRating)).toEqual([375, 575, 775, 975, 1225, 1600]);
+    expect(BOT_DIFFICULTIES.map((profile) => profile.portrait)).toEqual([
+      "/bots/pawny.png",
+      "/bots/zippy-knight.png",
+      "/bots/benny-bishop.png",
+      "/bots/rocky-rook.png",
+      "/bots/quinn-queen.png",
+      "/bots/sir-lem.png"
+    ]);
   });
 
   it("gives the Sir Lem mirror its sampled e4 and Pirc opening preferences", () => {

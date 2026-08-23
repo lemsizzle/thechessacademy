@@ -38,6 +38,7 @@ export type BotDifficulty = {
   id: string;
   name: string;
   title: string;
+  portrait: string;
   estimatedRating: number;
   multiPv: number;
   thinkTimeMs: number;
