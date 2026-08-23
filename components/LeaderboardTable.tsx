@@ -5,18 +5,17 @@ import { LevelBadge } from "@/components/LevelBadge";
 import { allBadges } from "@/data/badges";
 import { xpEvents } from "@/data/xpEvents";
 import { getDefaultEquippedItems, seedAvatarItems } from "@/lib/avatar/catalog";
-import { getTacticProgressCount } from "@/lib/lichess";
+import { getSurvivalLeaderboardScore, type LeaderboardTimeWindow, type SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
 import { findStudentLichessAccount, getStudentXpWithLichess } from "@/lib/lichessXp";
 import { readAdminStore } from "@/lib/mockStorage";
-import type { AvatarItem, Student, StudentAvatarConfig, StudentLichessAccount, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
+import type { AvatarItem, Student, StudentAvatarConfig, StudentLichessAccount, XpEvent } from "@/lib/types";
 import { getLevelFromXp } from "@/lib/xp";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-type TimeWindow = "week" | "month" | "all";
-type Focus = "Overall XP" | TacticTheme;
+type TimeWindow = LeaderboardTimeWindow;
+type Focus = "Overall XP" | "Survival Puzzles";
 
-const tacticOptions: TacticTheme[] = ["Fork", "Pin", "Skewer", "Discovered Attack", "Double Attack", "Deflection", "Decoy", "Removing the Defender", "Back Rank Mate", "Mate in One"];
 const timeOptions: Array<{ value: TimeWindow; label: string }> = [
   { value: "week", label: "This Week" },
   { value: "month", label: "This Month" },
@@ -41,21 +40,10 @@ function getStudentXpScore(student: Student, timeWindow: TimeWindow, events: XpE
     .reduce((total, event) => total + event.amount, 0);
 }
 
-function getStudentTacticScore(studentId: string, focus: Focus, timeWindow: TimeWindow, tacticProgress: StudentTacticProgress[]) {
-  if (focus === "Overall XP") return 0;
-  return tacticProgress
-    .filter((item) => (
-      item.studentId === studentId &&
-      item.tacticTheme === focus &&
-      (timeWindow === "all" || !item.updatedAt || isInsideWindow(item.updatedAt, timeWindow))
-    ))
-    .reduce((total, item) => total + getTacticProgressCount(item), 0);
-}
-
 export function LeaderboardTable({
   students,
-  tacticProgress,
   lichessAccounts,
+  survivalScores,
   xpEvents: initialXpEvents,
   badges = allBadges,
   avatarItems = seedAvatarItems,
@@ -64,8 +52,8 @@ export function LeaderboardTable({
   linkMode = "profile"
 }: {
   students: Student[];
-  tacticProgress: StudentTacticProgress[];
   lichessAccounts: StudentLichessAccount[];
+  survivalScores: SurvivalLeaderboardScore[];
   xpEvents?: XpEvent[];
   badges?: typeof allBadges;
   avatarItems?: AvatarItem[];
@@ -78,6 +66,7 @@ export function LeaderboardTable({
   const [focus, setFocus] = useState<Focus>("Overall XP");
   const [recentXpEvents, setRecentXpEvents] = useState<XpEvent[]>(initialXpEvents ?? xpEvents);
   const defaultEquippedItems = useMemo(() => getDefaultEquippedItems(avatarItems), [avatarItems]);
+  const survivalScoresByStudent = useMemo(() => new Map(survivalScores.map((score) => [score.studentId, score])), [survivalScores]);
 
   useEffect(() => {
     const store = readAdminStore();
@@ -99,14 +88,14 @@ export function LeaderboardTable({
         const xp = getStudentXpWithLichess(student, account);
         const score = focus === "Overall XP"
           ? getStudentXpScore(student, timeWindow, recentXpEvents, account)
-          : getStudentTacticScore(student.id, focus, timeWindow, tacticProgress);
+          : getSurvivalLeaderboardScore(survivalScoresByStudent.get(student.id), timeWindow);
         return { ...student, score, effectiveXp: xp.totalXp, lichessXp: xp.lichessXp };
       })
       .sort((a, b) => b.score - a.score || b.effectiveXp - a.effectiveXp || a.name.localeCompare(b.name))
       .map((student, index) => ({ ...student, rank: index + 1 }));
-  }, [classGroup, focus, lichessAccounts, recentXpEvents, students, tacticProgress, timeWindow]);
+  }, [classGroup, focus, lichessAccounts, recentXpEvents, students, survivalScoresByStudent, timeWindow]);
   const podium = ranked.slice(0, 3);
-  const scoreLabel = focus === "Overall XP" ? (timeWindow === "all" ? "Total XP" : "XP Earned") : `${focus} Tactics`;
+  const scoreLabel = focus === "Overall XP" ? (timeWindow === "all" ? "Total XP" : "XP Earned") : "Best Survival Run";
   const getStudentHref = (student: Student) => (
     linkMode === "admin"
       ? `/admin/students?student=${encodeURIComponent(student.slug)}`
@@ -138,7 +127,7 @@ export function LeaderboardTable({
             <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">Focus
               <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={focus} onChange={(event) => setFocus(event.target.value as Focus)}>
                 <option>Overall XP</option>
-                {tacticOptions.map((theme) => <option key={theme}>{theme}</option>)}
+                <option>Survival Puzzles</option>
               </select>
             </label>
           </div>
@@ -150,7 +139,7 @@ export function LeaderboardTable({
                 <AvatarRenderer items={avatarItems} avatar={getStudentAvatar(student.id)} size="sm" label={`${student.name}'s avatar`} />
                 <span className="min-w-0">
                   <span className="block truncate font-black text-white">{student.name}</span>
-                  <span className="text-xs font-bold text-cyan-100">{student.score.toLocaleString()} {focus === "Overall XP" ? "XP" : "found"}</span>
+                  <span className="text-xs font-bold text-cyan-100">{student.score.toLocaleString()} {focus === "Overall XP" ? "XP" : "puzzles"}</span>
                 </span>
               </Link>
           ))}
@@ -193,7 +182,7 @@ export function LeaderboardTable({
                   <td className="px-4 py-4">
                     <span className="font-black text-slate-100">{student.score.toLocaleString()}</span>
                     {focus === "Overall XP" && student.lichessXp > 0 && <span className="ml-2 text-xs text-cyan-200">+{student.lichessXp.toLocaleString()} Lichess</span>}
-                    {focus !== "Overall XP" && <span className="ml-2 text-xs text-slate-500">found</span>}
+                    {focus !== "Overall XP" && <span className="ml-2 text-xs text-slate-500">puzzles</span>}
                   </td>
                   <td className="px-4 py-4 text-slate-300">{latestBadge?.name ?? "No badge yet"}</td>
                 </tr>

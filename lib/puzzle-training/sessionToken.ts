@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { PuzzleThemeSlug } from "@/lib/puzzle-training/types";
+import { parsePuzzleTrainingMode, type PuzzleThemeSlug, type PuzzleTrainingMode } from "@/lib/puzzle-training/types";
 
 export type PuzzleSessionToken = {
   version: 1;
@@ -7,6 +7,7 @@ export type PuzzleSessionToken = {
   studentId: string;
   sessionId: string;
   selectedTheme: PuzzleThemeSlug;
+  trainingMode: PuzzleTrainingMode;
   dailyDate?: string;
   nextMoveIndex: number;
   startedAt: string;
@@ -24,7 +25,7 @@ function sign(encodedPayload: string) {
   return createHmac("sha256", tokenSecret()).update(encodedPayload).digest("base64url");
 }
 
-export function createPuzzleSessionToken(payload: PuzzleSessionToken) {
+export function createPuzzleSessionToken(payload: PuzzleSessionToken | Omit<PuzzleSessionToken, "trainingMode">) {
   const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
   return `${encoded}.${sign(encoded)}`;
 }
@@ -38,6 +39,7 @@ export function readPuzzleSessionToken(token: string) {
 
   const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as PuzzleSessionToken;
   if (payload.version !== 1 || !payload.puzzleId || !payload.studentId || !payload.sessionId) throw new Error("Invalid puzzle session token payload.");
+  payload.trainingMode = parsePuzzleTrainingMode(payload.trainingMode);
   return payload;
 }
 

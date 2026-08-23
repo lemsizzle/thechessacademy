@@ -198,6 +198,7 @@ export function PuzzleSurvival() {
     moveLocked.current = false;
     const requestedLevel = mode === "survival" ? survivalDifficultyForPuzzle(survivalPuzzleNumber).level : selectedLevel;
     const query = new URLSearchParams({ theme: selectedTheme, level: requestedLevel, sessionId: sessionId.current });
+    query.set("mode", mode);
     if (mode === "daily") query.set("daily", "1");
     if (requestedPuzzleId) query.set("puzzleId", requestedPuzzleId);
     const excludedPuzzleIds = mode === "woodpecker" && woodpeckerCycleRef.current === 1

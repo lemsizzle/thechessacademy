@@ -7,6 +7,7 @@ const payload = {
   studentId: "20000000-0000-4000-8000-000000000002",
   sessionId: "30000000-0000-4000-8000-000000000003",
   selectedTheme: "fork" as const,
+  trainingMode: "survival" as const,
   nextMoveIndex: 1,
   startedAt: "2026-07-18T00:00:00.000Z",
   incorrectMoveCount: 0,
@@ -20,6 +21,11 @@ describe("signed puzzle sessions", () => {
 
   it("round-trips a signed server state token", () => {
     expect(readPuzzleSessionToken(createPuzzleSessionToken(payload))).toEqual(payload);
+  });
+
+  it("treats tokens issued before mode tracking as legacy attempts", () => {
+    const { trainingMode: _trainingMode, ...legacyPayload } = payload;
+    expect(readPuzzleSessionToken(createPuzzleSessionToken(legacyPayload))).toMatchObject({ trainingMode: "legacy" });
   });
 
   it("rejects answer-state tampering", () => {

@@ -2,7 +2,7 @@ import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { academyPuzzleDate, dailyPuzzlePivot } from "@/lib/puzzle-training/daily";
 import { WOODPECKER_MAX_SET_SIZE } from "@/lib/puzzle-training/modes";
-import { lichessPuzzleThemes, puzzleLevelRatingRange, type ChessPuzzleRow, type PuzzleLevelSlug, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
+import { lichessPuzzleThemes, puzzleLevelRatingRange, type ChessPuzzleRow, type PuzzleLevelSlug, type PuzzleThemeSlug, type PuzzleTrainingMode } from "@/lib/puzzle-training/types";
 
 const puzzleSelect = "id,lichess_puzzle_id,initial_fen,moves,start_mode,accepted_moves,source_kind,source_study_id,source_chapter_id,source_node_id,teacher_prompt,rating,rating_deviation,popularity,number_of_plays,themes,game_url,opening_tags,random_key,is_active";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -168,6 +168,7 @@ export async function saveTrainingAttempt(input: {
   puzzleId: string;
   sessionId: string;
   selectedTheme: PuzzleThemeSlug;
+  trainingMode: PuzzleTrainingMode;
   solved: boolean;
   incorrectMoveCount: number;
   hintsUsed: number;
@@ -179,6 +180,7 @@ export async function saveTrainingAttempt(input: {
     puzzle_id: input.puzzleId,
     session_id: input.sessionId,
     selected_theme: input.selectedTheme,
+    training_mode: input.trainingMode,
     solved: input.solved,
     first_try_correct: input.solved && input.incorrectMoveCount === 0 && input.hintsUsed === 0,
     incorrect_move_count: Math.max(0, input.incorrectMoveCount),

@@ -5,21 +5,23 @@ import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 import { getBadgesResult } from "@/lib/data/badges";
 import { getStudentsResult } from "@/lib/data/students";
 import { getXpEventsResult } from "@/lib/data/xpEvents";
+import { getSurvivalLeaderboardScores } from "@/lib/leaderboard/survivalServer";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminLeaderboardPage() {
-  const [students, xpEvents, badges] = await Promise.all([
+  const [students, xpEvents, badges, survivalScores] = await Promise.all([
     getStudentsResult(),
     getXpEventsResult(),
-    getBadgesResult()
+    getBadgesResult(),
+    getSurvivalLeaderboardScores()
   ]);
   const avatarDisplay = await getStudentAvatarDisplayData(students.data.map((student) => student.id));
 
   return (
     <AppShell title="Teacher Leaderboard" subtitle="View class rankings from the teacher dashboard. Student links open the admin student editor." variant="admin">
       <DevDataSourceNote show={students.source === "mock" || xpEvents.source === "mock" || badges.source === "mock"} />
-      <LeaderboardBoard initialStudents={students.data} initialXpEvents={xpEvents.data} badges={badges.data} avatarItems={avatarDisplay.items} studentAvatars={avatarDisplay.avatars} linkMode="admin" />
+      <LeaderboardBoard initialStudents={students.data} initialXpEvents={xpEvents.data} badges={badges.data} avatarItems={avatarDisplay.items} studentAvatars={avatarDisplay.avatars} survivalScores={survivalScores} linkMode="admin" />
     </AppShell>
   );
 }

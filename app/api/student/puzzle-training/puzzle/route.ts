@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { preparePublicTrainingPuzzle } from "@/lib/puzzle-training/publicPuzzle";
 import { getDailyTrainingPuzzle, getTrainingPuzzle, requirePuzzleStudent, selectTrainingPuzzle } from "@/lib/puzzle-training/server";
-import { parsePuzzleLevel, parsePuzzleTheme } from "@/lib/puzzle-training/types";
+import { parsePuzzleLevel, parsePuzzleTheme, parsePuzzleTrainingMode } from "@/lib/puzzle-training/types";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const requestedSessionId = request.nextUrl.searchParams.get("sessionId") ?? "";
     const sessionId = UUID_PATTERN.test(requestedSessionId) ? requestedSessionId : crypto.randomUUID();
     const isDaily = request.nextUrl.searchParams.get("daily") === "1";
+    const trainingMode = isDaily ? "daily" : parsePuzzleTrainingMode(request.nextUrl.searchParams.get("mode"));
     const requestedPuzzleId = request.nextUrl.searchParams.get("puzzleId");
     const daily = isDaily ? await getDailyTrainingPuzzle(student.studentId) : null;
     const puzzle = isDaily
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
         studentId: student.studentId,
         sessionId,
         selectedTheme: theme,
+        trainingMode,
         daily
       })
     });

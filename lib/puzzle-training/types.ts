@@ -32,6 +32,8 @@ export type PuzzleLevelSlug = typeof puzzleLevelSlugs[number];
 export type BoardOrientation = "white" | "black";
 export type PuzzleStartMode = "after_setup" | "direct";
 export type PuzzleSourceKind = "lichess" | "study";
+export const puzzleTrainingModes = ["legacy", "survival", "woodpecker", "daily"] as const;
+export type PuzzleTrainingMode = typeof puzzleTrainingModes[number];
 
 export const puzzleThemeOptions: ReadonlyArray<{ id: PuzzleThemeSlug; name: string; description: string }> = [
   { id: "mixed", name: "Mixed tactics", description: "A shuffled selection from every Academy tactic." },
@@ -137,6 +139,10 @@ export function parsePuzzleTheme(value: string | null): PuzzleThemeSlug {
 
 export function parsePuzzleLevel(value: string | null): PuzzleLevelSlug {
   return puzzleLevelSlugs.includes(value as PuzzleLevelSlug) ? value as PuzzleLevelSlug : "all";
+}
+
+export function parsePuzzleTrainingMode(value: string | null): PuzzleTrainingMode {
+  return puzzleTrainingModes.includes(value as PuzzleTrainingMode) ? value as PuzzleTrainingMode : "legacy";
 }
 
 export function puzzleLevelRatingRange(level: PuzzleLevelSlug) {

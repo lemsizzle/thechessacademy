@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
       puzzleId: puzzle.id,
       sessionId: payload.sessionId,
       selectedTheme: payload.selectedTheme,
+      trainingMode: payload.trainingMode,
       solved: false,
       incorrectMoveCount: payload.incorrectMoveCount,
       hintsUsed: payload.hintsUsed,

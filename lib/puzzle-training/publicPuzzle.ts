@@ -1,7 +1,7 @@
 import { firstStudentMoveIndex, prepareTrainingPuzzle } from "@/lib/puzzle-training/engine";
 import { DAILY_PUZZLE_COINS, DAILY_PUZZLE_XP } from "@/lib/puzzle-training/daily";
 import { createPuzzleSessionToken } from "@/lib/puzzle-training/sessionToken";
-import type { ChessPuzzleRow, PublicTrainingPuzzle, PuzzleThemeSlug } from "@/lib/puzzle-training/types";
+import type { ChessPuzzleRow, PublicTrainingPuzzle, PuzzleThemeSlug, PuzzleTrainingMode } from "@/lib/puzzle-training/types";
 
 type DailyPuzzleDetails = {
   puzzleDate: string;
@@ -13,6 +13,7 @@ export function preparePublicTrainingPuzzle(input: {
   studentId: string;
   sessionId: string;
   selectedTheme: PuzzleThemeSlug;
+  trainingMode: PuzzleTrainingMode;
   daily?: DailyPuzzleDetails | null;
 }): PublicTrainingPuzzle {
   const prepared = prepareTrainingPuzzle(input.puzzle);
@@ -22,6 +23,7 @@ export function preparePublicTrainingPuzzle(input: {
     studentId: input.studentId,
     sessionId: input.sessionId,
     selectedTheme: input.selectedTheme,
+    trainingMode: input.trainingMode,
     dailyDate: input.daily?.puzzleDate,
     nextMoveIndex: firstStudentMoveIndex(input.puzzle),
     startedAt: new Date().toISOString(),

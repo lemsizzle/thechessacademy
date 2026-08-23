@@ -2,6 +2,7 @@
 
 import { EmptyState } from "@/components/EmptyState";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
+import type { SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
 import type { AvatarItem, Badge, Student, StudentAvatarConfig, XpEvent } from "@/lib/types";
 import { useMockAdminState } from "@/lib/useMockAdminState";
 
@@ -12,7 +13,8 @@ export function LeaderboardBoard({
   initialXpEvents,
   badges,
   avatarItems,
-  studentAvatars
+  studentAvatars,
+  survivalScores = []
 }: {
   profileBasePath?: string;
   linkMode?: "profile" | "admin";
@@ -21,8 +23,9 @@ export function LeaderboardBoard({
   badges?: Badge[];
   avatarItems?: AvatarItem[];
   studentAvatars?: Record<string, StudentAvatarConfig>;
+  survivalScores?: SurvivalLeaderboardScore[];
 }) {
-  const { students: adminStudents, studentTacticProgress, studentLichessAccounts } = useMockAdminState();
+  const { students: adminStudents, studentLichessAccounts } = useMockAdminState();
   const students = initialStudents ?? adminStudents;
 
   if (!students.length) {
@@ -32,8 +35,8 @@ export function LeaderboardBoard({
   return (
     <LeaderboardTable
       students={students}
-      tacticProgress={studentTacticProgress}
       lichessAccounts={studentLichessAccounts}
+      survivalScores={survivalScores}
       profileBasePath={profileBasePath}
       linkMode={linkMode}
       xpEvents={initialXpEvents}
