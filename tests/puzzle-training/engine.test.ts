@@ -5,6 +5,7 @@ import {
   filterPuzzlesByTheme,
   legalDestinations,
   parseUciMove,
+  premoveDestinations,
   prepareLichessPuzzle,
   prepareTrainingPuzzle,
   replayPuzzleToIndex,
@@ -88,6 +89,14 @@ describe("official Lichess puzzle semantics", () => {
     const chess = new Chess(forkPuzzle.initial_fen);
     applyUciMove(chess, "e8e7");
     expect(legalDestinations(chess.fen(), "e5")).toContain("c6");
+  });
+
+  it("offers student premoves while the opponent has the turn", () => {
+    const chess = new Chess();
+    chess.move("e4");
+    expect(chess.turn()).toBe("b");
+    expect(premoveDestinations(chess.fen(), "g1", "w")).toContain("f3");
+    expect(premoveDestinations(chess.fen(), "g8", "w")).toEqual([]);
   });
 });
 

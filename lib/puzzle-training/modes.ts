@@ -4,7 +4,7 @@ export const SURVIVAL_PUZZLE_LIMIT = 50;
 export const WOODPECKER_SET_SIZE = 20;
 export const WOODPECKER_SET_SIZE_OPTIONS = [20, 30, 40, 50] as const;
 export const WOODPECKER_MAX_SET_SIZE = WOODPECKER_SET_SIZE_OPTIONS[WOODPECKER_SET_SIZE_OPTIONS.length - 1];
-export const WOODPECKER_ROUND_COUNT = 3;
+export const WOODPECKER_CYCLE_COUNT = 3;
 
 export const PUZZLE_DIFFICULTY_OPTIONS: ReadonlyArray<{ id: PuzzleLevelSlug; name: string; rating: string }> = [
   { id: "all", name: "Any difficulty", rating: "600–2200" },
@@ -34,23 +34,42 @@ export function survivalDifficultyForPuzzle(puzzleNumber: number) {
 }
 
 export type WoodpeckerStep = {
-  round: number;
+  cycle: number;
   puzzleIndex: number;
   finished: boolean;
 };
 
-export function nextWoodpeckerStep(round: number, puzzleIndex: number, setSize: number): WoodpeckerStep {
+export type WoodpeckerCycleResult = {
+  cycle: number;
+  puzzlesSolved: number;
+  incorrectMoves: number;
+  elapsedSeconds: number;
+  puzzlesPerMinute: number;
+  accuracy: number;
+  mistakePuzzleIds: string[];
+  reviewed: boolean;
+};
+
+export function calculateWoodpeckerCycleStats(puzzlesSolved: number, incorrectMoves: number, elapsedSeconds: number) {
+  const attempts = puzzlesSolved + incorrectMoves;
+  return {
+    puzzlesPerMinute: Math.round((puzzlesSolved * 60 / Math.max(1, elapsedSeconds)) * 10) / 10,
+    accuracy: attempts ? Math.round((puzzlesSolved / attempts) * 100) : 100
+  };
+}
+
+export function nextWoodpeckerStep(cycle: number, puzzleIndex: number, setSize: number): WoodpeckerStep {
   if (setSize < 1) {
-    return { round: 1, puzzleIndex: 0, finished: true };
+    return { cycle: 1, puzzleIndex: 0, finished: true };
   }
 
   if (puzzleIndex + 1 < setSize) {
-    return { round, puzzleIndex: puzzleIndex + 1, finished: false };
+    return { cycle, puzzleIndex: puzzleIndex + 1, finished: false };
   }
 
-  if (round < WOODPECKER_ROUND_COUNT) {
-    return { round: round + 1, puzzleIndex: 0, finished: false };
+  if (cycle < WOODPECKER_CYCLE_COUNT) {
+    return { cycle: cycle + 1, puzzleIndex: 0, finished: false };
   }
 
-  return { round, puzzleIndex, finished: true };
+  return { cycle, puzzleIndex, finished: true };
 }

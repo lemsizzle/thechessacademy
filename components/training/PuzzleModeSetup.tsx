@@ -6,7 +6,7 @@ import {
   PUZZLE_DIFFICULTY_OPTIONS,
   SURVIVAL_DIFFICULTY_STAGES,
   SURVIVAL_PUZZLE_LIMIT,
-  WOODPECKER_ROUND_COUNT,
+  WOODPECKER_CYCLE_COUNT,
   WOODPECKER_SET_SIZE_OPTIONS
 } from "@/lib/puzzle-training/modes";
 import { puzzleThemeOptions, type PuzzleLevelSlug, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
@@ -28,8 +28,8 @@ const modeOptions: ReadonlyArray<{
   {
     id: "woodpecker",
     name: "Woodpecker",
-    summary: `${WOODPECKER_ROUND_COUNT} rounds · repeat one set`,
-    description: "Choose a difficulty and repeat the same puzzles for pattern mastery."
+    summary: `${WOODPECKER_CYCLE_COUNT} cycles · stats after each pass`,
+    description: "Repeat one set, review mistakes between cycles, and build pattern mastery."
   }
 ];
 

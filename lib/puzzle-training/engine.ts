@@ -105,6 +105,18 @@ export function legalDestinations(fen: string, source: string): string[] {
   return chess.moves({ square: source as Square, verbose: true }).map((move) => move.to);
 }
 
+export function premoveDestinations(fen: string, source: string, studentColor: "w" | "b"): string[] {
+  const fields = fen.split(" ");
+  if (fields.length !== 6) return [];
+  fields[1] = studentColor;
+  fields[3] = "-";
+  try {
+    return legalDestinations(fields.join(" "), source);
+  } catch {
+    return [];
+  }
+}
+
 export function filterPuzzlesByTheme<T extends { themes: string[] }>(puzzles: T[], theme: PuzzleThemeSlug) {
   if (theme === "mixed") return puzzles.filter((puzzle) => puzzle.themes.some((tag) => (lichessThemeSet as Set<string>).has(tag)));
   return puzzles.filter((puzzle) => puzzle.themes.includes(theme));

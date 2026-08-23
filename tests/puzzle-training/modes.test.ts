@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculateWoodpeckerCycleStats,
   nextWoodpeckerStep,
   PUZZLE_DIFFICULTY_OPTIONS,
   SURVIVAL_PUZZLE_LIMIT,
   survivalDifficultyForPuzzle,
   SURVIVAL_DIFFICULTY_STAGES,
   WOODPECKER_MAX_SET_SIZE,
-  WOODPECKER_ROUND_COUNT,
+  WOODPECKER_CYCLE_COUNT,
   WOODPECKER_SET_SIZE,
   WOODPECKER_SET_SIZE_OPTIONS
 } from "@/lib/puzzle-training/modes";
@@ -43,26 +44,26 @@ describe("puzzle training modes", () => {
     expect(WOODPECKER_SET_SIZE_OPTIONS).toEqual([20, 30, 40, 50]);
     expect(WOODPECKER_MAX_SET_SIZE).toBe(50);
     expect(nextWoodpeckerStep(1, 4, WOODPECKER_SET_SIZE)).toEqual({
-      round: 1,
+      cycle: 1,
       puzzleIndex: 5,
       finished: false
     });
   });
 
-  it("restarts the same set for three rounds before finishing", () => {
-    expect(WOODPECKER_ROUND_COUNT).toBe(3);
+  it("restarts the same set for three cycles before finishing", () => {
+    expect(WOODPECKER_CYCLE_COUNT).toBe(3);
     expect(nextWoodpeckerStep(1, 19, WOODPECKER_SET_SIZE)).toEqual({
-      round: 2,
+      cycle: 2,
       puzzleIndex: 0,
       finished: false
     });
     expect(nextWoodpeckerStep(2, 19, WOODPECKER_SET_SIZE)).toEqual({
-      round: 3,
+      cycle: 3,
       puzzleIndex: 0,
       finished: false
     });
     expect(nextWoodpeckerStep(3, 19, WOODPECKER_SET_SIZE)).toEqual({
-      round: 3,
+      cycle: 3,
       puzzleIndex: 19,
       finished: true
     });
@@ -76,11 +77,22 @@ describe("puzzle training modes", () => {
     while (true) {
       const nextStep = nextWoodpeckerStep(round, puzzleIndex, WOODPECKER_SET_SIZE);
       if (nextStep.finished) break;
-      round = nextStep.round;
+      round = nextStep.cycle;
       puzzleIndex = nextStep.puzzleIndex;
       puzzleCount += 1;
     }
 
-    expect(puzzleCount).toBe(WOODPECKER_SET_SIZE * WOODPECKER_ROUND_COUNT);
+    expect(puzzleCount).toBe(WOODPECKER_SET_SIZE * WOODPECKER_CYCLE_COUNT);
+  });
+
+  it("calculates cycle speed and move accuracy", () => {
+    expect(calculateWoodpeckerCycleStats(20, 5, 240)).toEqual({
+      puzzlesPerMinute: 5,
+      accuracy: 80
+    });
+    expect(calculateWoodpeckerCycleStats(20, 0, 150)).toEqual({
+      puzzlesPerMinute: 8,
+      accuracy: 100
+    });
   });
 });
