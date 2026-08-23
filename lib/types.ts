@@ -273,6 +273,7 @@ export type Quest = {
   requiredScore?: number;
   requiredAccuracy?: number;
   requiredTheme?: TacticTheme;
+  requiredOpponentId?: string;
   approvalRequired?: boolean;
   isActive?: boolean;
   isRepeatable?: boolean;

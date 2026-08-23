@@ -23,6 +23,7 @@ export type QuestRow = {
   required_score?: number | null;
   required_accuracy?: number | null;
   required_theme?: string | null;
+  required_opponent_id?: string | null;
   approval_required?: boolean | null;
   is_active: boolean | null;
   is_repeatable?: boolean | null;
@@ -108,6 +109,7 @@ export function mapSupabaseQuest(row: QuestRow): Quest {
     requiredScore: row.required_score ?? undefined,
     requiredAccuracy: row.required_accuracy ?? undefined,
     requiredTheme: row.required_theme as TacticTheme | undefined,
+    requiredOpponentId: row.required_opponent_id ?? undefined,
     approvalRequired: row.approval_required ?? undefined,
     isActive: row.is_active ?? true,
     isRepeatable: row.is_repeatable ?? undefined,
@@ -121,7 +123,7 @@ export async function getQuestsResult(): Promise<DataResult<Quest[]>> {
   const supabase = getSupabaseClient();
   if (!supabase) return mockResult(mockQuests, "Supabase is not configured.");
 
-  const fullSelect = "id,title,description,type,status,is_live,xp_reward,badge_reward_id,completion_url,class_group,category,source,condition_type,time_window,required_count,required_score,required_accuracy,required_theme,approval_required,is_active,is_repeatable,cooldown_days,created_at,updated_at";
+  const fullSelect = "id,title,description,type,status,is_live,xp_reward,badge_reward_id,completion_url,class_group,category,source,condition_type,time_window,required_count,required_score,required_accuracy,required_theme,required_opponent_id,approval_required,is_active,is_repeatable,cooldown_days,created_at,updated_at";
   const sharedResult = await supabase
     .from("academy_quests")
     .select(fullSelect)

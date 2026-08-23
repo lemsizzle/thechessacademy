@@ -1,3 +1,4 @@
+import { BOT_DIFFICULTIES } from "@/chess/game/config";
 import { mapLichessThemeToTactic } from "@/lib/lichess/gameTacticThemeMap";
 import type { LichessQuestProgress, Quest } from "@/lib/types";
 import type { QuestWindow } from "@/lib/quests/timeWindows";
@@ -6,6 +7,7 @@ export type InternalQuestGameActivity = {
   id: string;
   completedAt: string;
   opponentType: "computer" | "student";
+  opponentId?: string;
   result: "win" | "loss" | "draw";
 };
 
@@ -36,9 +38,13 @@ export function evaluateInternalGameQuest(
   const modeGames = computerOnly
     ? games.filter((game) => game.opponentType === "computer")
     : liveOnly ? games.filter((game) => game.opponentType === "student") : games;
-  const counted = winsOnly ? modeGames.filter((game) => game.result === "win") : modeGames;
+  const opponentGames = computerOnly && quest.requiredOpponentId
+    ? modeGames.filter((game) => game.opponentId === quest.requiredOpponentId)
+    : modeGames;
+  const counted = winsOnly ? opponentGames.filter((game) => game.result === "win") : opponentGames;
   const requiredValue = quest.requiredCount ?? 1;
-  const modeLabel = computerOnly ? "computer" : liveOnly ? "student-vs-student" : "Academy";
+  const targetBot = quest.requiredOpponentId ? BOT_DIFFICULTIES.find((bot) => bot.id === quest.requiredOpponentId) : undefined;
+  const modeLabel = targetBot ? targetBot.name : computerOnly ? "computer" : liveOnly ? "student-vs-student" : "Academy";
   const actionLabel = winsOnly ? "wins" : "completed games";
 
   return {
@@ -51,7 +57,9 @@ export function evaluateInternalGameQuest(
     completed: counted.length >= requiredValue,
     evidence: fetchError
       ? academyReadError("game", fetchError)
-      : `Counted ${counted.length} ${modeLabel} ${actionLabel} from ${games.length} completed in-app game${games.length === 1 ? "" : "s"} during ${window.label}.`,
+      : targetBot
+        ? `Counted ${counted.length} ${actionLabel} against ${modeLabel} from ${games.length} completed in-app game${games.length === 1 ? "" : "s"} during ${window.label}.`
+        : `Counted ${counted.length} ${modeLabel} ${actionLabel} from ${games.length} completed in-app game${games.length === 1 ? "" : "s"} during ${window.label}.`,
     mode: "connected",
     updatedAt: new Date().toISOString()
   };

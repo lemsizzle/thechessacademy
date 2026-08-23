@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { evaluateInternalGameQuest, evaluateInternalPuzzleQuest, type InternalQuestGameActivity, type InternalQuestPuzzleActivity } from "@/lib/quests/evaluateInternalQuest";
-import { getConditionsForSource, isAutomatedQuestSource } from "@/lib/quests/questOptions";
+import { getConditionsForSource, isAutomatedQuestSource, supportsComputerOpponentFilter } from "@/lib/quests/questOptions";
 import { getSafeQuestLink } from "@/lib/quests/questLinks";
 import type { Quest } from "@/lib/types";
 
@@ -29,8 +29,8 @@ function quest(patch: Partial<Quest>): Quest {
 }
 
 const games: InternalQuestGameActivity[] = [
-  { id: "g1", completedAt: "2026-08-02T00:00:00.000Z", opponentType: "computer", result: "win" },
-  { id: "g2", completedAt: "2026-08-03T00:00:00.000Z", opponentType: "computer", result: "loss" },
+  { id: "g1", completedAt: "2026-08-02T00:00:00.000Z", opponentType: "computer", opponentId: "knight", result: "win" },
+  { id: "g2", completedAt: "2026-08-03T00:00:00.000Z", opponentType: "computer", opponentId: "pawny", result: "loss" },
   { id: "g3", completedAt: "2026-08-04T00:00:00.000Z", opponentType: "student", result: "win" },
   { id: "g4", completedAt: "2026-08-05T00:00:00.000Z", opponentType: "student", result: "draw" }
 ];
@@ -50,6 +50,23 @@ describe("internal quest activity", () => {
     expect(liveWins.completed).toBe(true);
   });
 
+  it("completes a bot-specific quest only after two wins against that bot", () => {
+    const targetedGames: InternalQuestGameActivity[] = [
+      ...games,
+      { id: "g5", completedAt: "2026-08-06T00:00:00.000Z", opponentType: "computer", opponentId: "pawny", result: "win" },
+      { id: "g6", completedAt: "2026-08-06T01:00:00.000Z", opponentType: "computer", opponentId: "knight", result: "loss" }
+    ];
+    const firstWin = evaluateInternalGameQuest("student", quest({ conditionType: "internal_computer_games_won_count", requiredOpponentId: "knight", requiredCount: 2 }), window, targetedGames);
+    expect(firstWin.currentValue).toBe(1);
+    expect(firstWin.completed).toBe(false);
+
+    targetedGames.push({ id: "g7", completedAt: "2026-08-07T00:00:00.000Z", opponentType: "computer", opponentId: "knight", result: "win" });
+    const secondWin = evaluateInternalGameQuest("student", quest({ conditionType: "internal_computer_games_won_count", requiredOpponentId: "knight", requiredCount: 2 }), window, targetedGames);
+    expect(secondWin.currentValue).toBe(2);
+    expect(secondWin.completed).toBe(true);
+    expect(secondWin.evidence).toContain("wins against Zippy Knight");
+  });
+
   it("counts solved, first-try, themed, and accuracy puzzle goals", () => {
     expect(evaluateInternalPuzzleQuest("student", quest({ source: "internal_puzzles", conditionType: "internal_puzzle_solved_count" }), window, puzzles).currentValue).toBe(2);
     expect(evaluateInternalPuzzleQuest("student", quest({ source: "internal_puzzles", conditionType: "internal_puzzle_first_try_count" }), window, puzzles).currentValue).toBe(1);
@@ -64,6 +81,8 @@ describe("internal quest activity", () => {
     expect(isAutomatedQuestSource("internal_puzzles")).toBe(true);
     expect(getConditionsForSource("internal_games").map((item) => item.value)).toContain("internal_live_games_won_count");
     expect(getConditionsForSource("internal_puzzles").map((item) => item.value)).toContain("internal_puzzle_accuracy_threshold");
+    expect(supportsComputerOpponentFilter("internal_computer_games_won_count")).toBe(true);
+    expect(supportsComputerOpponentFilter("internal_live_games_won_count")).toBe(false);
   });
 
   it("allows safe student routes for Academy quest links", () => {

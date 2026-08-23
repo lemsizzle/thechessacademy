@@ -6,6 +6,7 @@ import { Card } from "@/components/Card";
 import { StudentActivityTimeline } from "@/components/StudentActivityTimeline";
 import { BadgeGeneratorPanel } from "@/components/admin/BadgeGeneratorPanel";
 import { AdminStudentAvatarRewards } from "@/components/admin/AdminStudentAvatarRewards";
+import { BOT_DIFFICULTIES } from "@/chess/game/config";
 import { activity } from "@/data/activity";
 import { allBadges as seedBadges, conceptThemes, tacticThemes } from "@/data/badges";
 import { classGroups as seedClassGroups } from "@/data/classGroups";
@@ -22,7 +23,7 @@ import { ALL_CLASSES, UNASSIGNED_CLASS, getClassGroupNames, getClassRoster, getC
 import { createPendingAwardsFromProgress, getTacticProgressCount } from "@/lib/lichess";
 import { getStudentXpWithLichess, withLichessActivityBaseline } from "@/lib/lichessXp";
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
-import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, isAutomatedQuestSource, questSources, questTacticThemes, questTimeWindows } from "@/lib/quests/questOptions";
+import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, isAutomatedQuestSource, questSources, questTacticThemes, questTimeWindows, supportsComputerOpponentFilter } from "@/lib/quests/questOptions";
 import { formatCountdown, isQuestAttemptActive } from "@/lib/quests/questAttempts";
 import { formatQuestEvidence } from "@/lib/quests/formatQuestEvidence";
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
@@ -1071,6 +1072,7 @@ export function AdminPanel({
       source,
       category: source.startsWith("lichess_") ? "Lichess" : source.startsWith("internal_") ? "Academy" : quest.category,
       conditionType: defaultCondition,
+      requiredOpponentId: undefined,
       timeWindow: source === "lichess_tournaments" ? "tournament" : quest.timeWindow ?? "weekly",
       requiredCount: quest.requiredCount ?? 1,
       completionUrl: source === "internal_games" ? "/student/play" : source === "internal_puzzles" ? "/student/training" : quest.completionUrl,
@@ -1933,7 +1935,10 @@ export function AdminPanel({
           </div>
         </div>
         <label className="grid gap-1 text-xs font-bold text-slate-300">Goal
-          <select className={fieldClass()} value={questDraft.conditionType ?? "manual"} onChange={(event) => updateQuestDraft({ conditionType: event.target.value as QuestConditionType })}>
+          <select className={fieldClass()} value={questDraft.conditionType ?? "manual"} onChange={(event) => {
+            const conditionType = event.target.value as QuestConditionType;
+            updateQuestDraft({ conditionType, requiredOpponentId: supportsComputerOpponentFilter(conditionType) ? questDraft.requiredOpponentId : undefined });
+          }}>
             {getConditionsForSource(questDraft.source ?? "manual").map((condition) => <option key={condition.value} value={condition.value}>{condition.label}</option>)}
           </select>
         </label>
@@ -1947,6 +1952,14 @@ export function AdminPanel({
             <label className="grid gap-1 text-xs font-bold text-slate-300">{getQuestCountLabel(questDraft.conditionType)}
               <input className={fieldClass()} type="number" min={0} value={questDraft.requiredCount ?? 1} onChange={(event) => updateQuestDraft({ requiredCount: Math.max(0, Number(event.target.value) || 0) })} />
             </label>
+            {supportsComputerOpponentFilter(questDraft.conditionType) && (
+              <label className="grid gap-1 text-xs font-bold text-slate-300">Computer Opponent
+                <select className={fieldClass()} value={questDraft.requiredOpponentId ?? ""} onChange={(event) => updateQuestDraft({ requiredOpponentId: event.target.value || undefined })}>
+                  <option value="">Any computer opponent</option>
+                  {BOT_DIFFICULTIES.map((bot) => <option key={bot.id} value={bot.id}>{bot.name}</option>)}
+                </select>
+              </label>
+            )}
             {(questDraft.conditionType === "arena_score_threshold" || questDraft.conditionType === "rating_peak") && (
               <label className="grid gap-1 text-xs font-bold text-slate-300">Required Score / Rating
                 <input className={fieldClass()} type="number" min={0} value={questDraft.requiredScore ?? 0} onChange={(event) => updateQuestDraft({ requiredScore: Math.max(0, Number(event.target.value) || 0) })} />
