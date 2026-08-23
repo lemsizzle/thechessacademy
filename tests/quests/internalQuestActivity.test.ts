@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { evaluateInternalGameQuest, evaluateInternalPuzzleQuest, type InternalQuestGameActivity, type InternalQuestPuzzleActivity } from "@/lib/quests/evaluateInternalQuest";
-import { getConditionsForSource, isAutomatedQuestSource, supportsComputerOpponentFilter } from "@/lib/quests/questOptions";
+import { getConditionsForSource, isAutomatedQuestSource, requiresComputerOpponentSelection, supportsComputerOpponentFilter } from "@/lib/quests/questOptions";
 import { getSafeQuestLink } from "@/lib/quests/questLinks";
 import type { Quest } from "@/lib/types";
 
@@ -83,6 +83,8 @@ describe("internal quest activity", () => {
     expect(getConditionsForSource("internal_puzzles").map((item) => item.value)).toContain("internal_puzzle_accuracy_threshold");
     expect(supportsComputerOpponentFilter("internal_computer_games_won_count")).toBe(true);
     expect(supportsComputerOpponentFilter("internal_live_games_won_count")).toBe(false);
+    expect(requiresComputerOpponentSelection("internal_computer_games_won_count")).toBe(true);
+    expect(requiresComputerOpponentSelection("internal_computer_games_played_count")).toBe(false);
   });
 
   it("allows safe student routes for Academy quest links", () => {

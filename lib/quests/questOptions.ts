@@ -69,6 +69,10 @@ export function supportsComputerOpponentFilter(conditionType?: QuestConditionTyp
   return conditionType === "internal_computer_games_played_count" || conditionType === "internal_computer_games_won_count";
 }
 
+export function requiresComputerOpponentSelection(conditionType?: QuestConditionType) {
+  return conditionType === "internal_computer_games_won_count";
+}
+
 export function isAutomatedQuestSource(source?: QuestSource) {
   return isLichessQuestSource(source) || isInternalQuestSource(source);
 }

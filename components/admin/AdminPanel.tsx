@@ -23,7 +23,7 @@ import { ALL_CLASSES, UNASSIGNED_CLASS, getClassGroupNames, getClassRoster, getC
 import { createPendingAwardsFromProgress, getTacticProgressCount } from "@/lib/lichess";
 import { getStudentXpWithLichess, withLichessActivityBaseline } from "@/lib/lichessXp";
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
-import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, isAutomatedQuestSource, questSources, questTacticThemes, questTimeWindows, supportsComputerOpponentFilter } from "@/lib/quests/questOptions";
+import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, isAutomatedQuestSource, questSources, questTacticThemes, questTimeWindows, requiresComputerOpponentSelection } from "@/lib/quests/questOptions";
 import { formatCountdown, isQuestAttemptActive } from "@/lib/quests/questAttempts";
 import { formatQuestEvidence } from "@/lib/quests/formatQuestEvidence";
 import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
@@ -109,6 +109,10 @@ const emptyQuest = (count: number): Quest => ({
 
 function fieldClass(extra = "") {
   return `rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-cyan-300/60 ${extra}`;
+}
+
+function getQuestOpponentName(quest: Quest) {
+  return BOT_DIFFICULTIES.find((bot) => bot.id === quest.requiredOpponentId)?.name;
 }
 
 function slugify(value: string) {
@@ -1501,7 +1505,7 @@ export function AdminPanel({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-black text-white">{quest.title}</p>
-                  <p className="mt-1 text-xs text-slate-400">{getQuestConditionLabel(quest.conditionType)} - {required} required</p>
+                  <p className="mt-1 text-xs text-slate-400">{getQuestConditionLabel(quest.conditionType)}{getQuestOpponentName(quest) ? ` against ${getQuestOpponentName(quest)}` : ""} - {required} required</p>
                 </div>
                 <span className={`shrink-0 rounded px-2 py-1 text-[11px] font-black ${statusClass}`}>{status}</span>
               </div>
@@ -1875,7 +1879,7 @@ export function AdminPanel({
                     <p className="mt-2 font-black text-white">{quest.title}</p>
                     <p className="mt-1 line-clamp-2 text-xs text-slate-400">{quest.description}</p>
                     <p className="mt-2 text-xs text-amber-100">{quest.xpReward} XP{rewardBadge ? ` - ${rewardBadge.name}` : ""}</p>
-                    {isAutomatedQuestSource(quest.source) && <p className="mt-1 text-xs text-cyan-100">{getQuestConditionLabel(quest.conditionType)} - {quest.requiredCount ?? quest.requiredScore ?? 1} required</p>}
+                    {isAutomatedQuestSource(quest.source) && <p className="mt-1 text-xs text-cyan-100">{getQuestConditionLabel(quest.conditionType)}{getQuestOpponentName(quest) ? ` against ${getQuestOpponentName(quest)}` : ""} - {quest.requiredCount ?? quest.requiredScore ?? 1} required</p>}
                   </div>
                   <Button variant={isSelected ? "secondary" : "ghost"} onClick={() => setSelectedQuest(quest.id)}>
                     {isSelected ? "Editing" : "Edit"}
@@ -1893,7 +1897,7 @@ export function AdminPanel({
             <p className="mt-1 text-xs text-slate-400">Manual quests are completed by you. Automated quests verify saved Academy or Lichess activity inside each student's started quest window.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={saveQuest} disabled={questSaving}>{questSaving ? "Saving..." : "Save Quest"}</Button>
+            <Button variant="secondary" onClick={saveQuest} disabled={questSaving || (requiresComputerOpponentSelection(questDraft.conditionType) && !questDraft.requiredOpponentId)}>{questSaving ? "Saving..." : "Save Quest"}</Button>
             <Button variant="secondary" onClick={completeQuest}>Mark Complete</Button>
             <Button variant="ghost" onClick={deleteQuest} disabled={questSaving}>Delete Quest</Button>
           </div>
@@ -1937,7 +1941,7 @@ export function AdminPanel({
         <label className="grid gap-1 text-xs font-bold text-slate-300">Goal
           <select className={fieldClass()} value={questDraft.conditionType ?? "manual"} onChange={(event) => {
             const conditionType = event.target.value as QuestConditionType;
-            updateQuestDraft({ conditionType, requiredOpponentId: supportsComputerOpponentFilter(conditionType) ? questDraft.requiredOpponentId : undefined });
+            updateQuestDraft({ conditionType, requiredOpponentId: requiresComputerOpponentSelection(conditionType) ? questDraft.requiredOpponentId : undefined });
           }}>
             {getConditionsForSource(questDraft.source ?? "manual").map((condition) => <option key={condition.value} value={condition.value}>{condition.label}</option>)}
           </select>
@@ -1952,12 +1956,13 @@ export function AdminPanel({
             <label className="grid gap-1 text-xs font-bold text-slate-300">{getQuestCountLabel(questDraft.conditionType)}
               <input className={fieldClass()} type="number" min={0} value={questDraft.requiredCount ?? 1} onChange={(event) => updateQuestDraft({ requiredCount: Math.max(0, Number(event.target.value) || 0) })} />
             </label>
-            {supportsComputerOpponentFilter(questDraft.conditionType) && (
-              <label className="grid gap-1 text-xs font-bold text-slate-300">Computer Opponent
-                <select className={fieldClass()} value={questDraft.requiredOpponentId ?? ""} onChange={(event) => updateQuestDraft({ requiredOpponentId: event.target.value || undefined })}>
-                  <option value="">Any computer opponent</option>
-                  {BOT_DIFFICULTIES.map((bot) => <option key={bot.id} value={bot.id}>{bot.name}</option>)}
+            {requiresComputerOpponentSelection(questDraft.conditionType) && (
+              <label className="grid gap-1 text-xs font-bold text-slate-300">Bot to Defeat
+                <select required className={fieldClass()} value={questDraft.requiredOpponentId ?? ""} onChange={(event) => updateQuestDraft({ requiredOpponentId: event.target.value || undefined })}>
+                  <option value="" disabled>Choose a bot</option>
+                  {BOT_DIFFICULTIES.map((bot) => <option key={bot.id} value={bot.id}>{bot.name} ({bot.estimatedRating})</option>)}
                 </select>
+                <span className="text-[11px] font-normal text-slate-500">Only wins against this bot will count toward the quest.</span>
               </label>
             )}
             {(questDraft.conditionType === "arena_score_threshold" || questDraft.conditionType === "rating_peak") && (

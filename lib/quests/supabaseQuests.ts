@@ -3,7 +3,7 @@ import "server-only";
 import { BOT_DIFFICULTIES } from "@/chess/game/config";
 import { mapSupabaseQuest, type QuestRow } from "@/lib/data/quests";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isAutomatedQuestSource, supportsComputerOpponentFilter } from "@/lib/quests/questOptions";
+import { isAutomatedQuestSource, requiresComputerOpponentSelection, supportsComputerOpponentFilter } from "@/lib/quests/questOptions";
 import type { Quest } from "@/lib/types";
 
 const questSelect = "id,title,description,type,status,is_live,xp_reward,badge_reward_id,completion_url,class_group,category,source,condition_type,time_window,required_count,required_score,required_accuracy,required_theme,required_opponent_id,approval_required,is_active,is_repeatable,cooldown_days,created_at,updated_at";
@@ -45,6 +45,9 @@ function validateQuest(quest: Quest) {
   }
   if ((quest.conditionType === "puzzle_theme_solved_count" || quest.conditionType === "internal_puzzle_theme_solved_count") && !quest.requiredTheme) {
     throw new Error("Choose a required tactic theme for this quest.");
+  }
+  if (requiresComputerOpponentSelection(quest.conditionType) && !quest.requiredOpponentId) {
+    throw new Error("Choose the computer opponent students must defeat.");
   }
   if (quest.requiredOpponentId && (!supportsComputerOpponentFilter(quest.conditionType) || !botIds.has(quest.requiredOpponentId))) {
     throw new Error("Choose a valid computer opponent for this quest.");
