@@ -14,7 +14,7 @@ import { calculateWoodpeckerCycleStats, nextWoodpeckerStep, PUZZLE_DIFFICULTY_OP
 import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 const STARTING_LIVES = 3;
-const OPPONENT_REPLY_DELAY_MS = 140;
+const OPPONENT_REPLY_DELAY_MS = 420;
 const AUTO_ADVANCE_DELAY_MS = 140;
 const AUTO_ADVANCE_STORAGE_KEY = "academy-puzzles-auto-advance";
 
@@ -419,7 +419,7 @@ export function PuzzleSurvival() {
     setCorrectMove(null);
     setLastMove([from, to]);
     setPositionFen(optimisticFen);
-    setMessage("Checking move...");
+    setMessage("Move sent. You can queue your next move now.");
     try {
       const response = await fetch("/api/student/puzzle-training/move", {
         method: "POST",
@@ -810,7 +810,7 @@ export function PuzzleSurvival() {
             <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-xs font-black uppercase text-cyan-100">{trainingMode === "daily" ? "Puzzle of the Day" : selectedThemeName}</span>{trainingMode !== "daily" && <span className="rounded border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-xs font-black uppercase text-amber-100">{activeDifficultyName}</span>}{woodpeckerReviewing && <span className="rounded border border-fuchsia-200/30 bg-fuchsia-300/10 px-2 py-1 text-xs font-black uppercase text-fuchsia-100">Mistake review</span>}</div><span className="text-xs font-bold text-slate-400">{puzzle ? `${puzzle.sideToMove} to move` : "Loading"}</span></div>
             {puzzle?.daily && <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${puzzle.daily.rewardClaimed ? "border-cyan-200/25 bg-cyan-300/5 text-cyan-100" : "border-amber-200/35 bg-amber-300/10 text-amber-100"}`}>{puzzle.daily.rewardClaimed ? "Reward already claimed today — replay for practice." : `Available reward: +${puzzle.daily.xp} XP and +${puzzle.daily.coins} Academy Coins`}</div>}
             {trainingMode !== "daily" && <div className="mt-4"><AutoAdvanceSwitch checked={autoAdvance} onChange={updateAutoAdvance} compact /></div>}
-            <h2 className="mt-4 text-2xl font-black text-white">{phase === "reply" ? "Queue your next move" : phase === "solved" ? "Puzzle complete" : puzzle?.prompt || "Find the best move"}</h2>
+            <h2 className="mt-4 text-2xl font-black text-white">{phase === "reply" || (phase === "turn" && moveLocked.current) ? "Queue your next move" : phase === "solved" ? "Puzzle complete" : puzzle?.prompt || "Find the best move"}</h2>
             <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${phase === "solved" ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : error ? "border-fuchsia-300/50 bg-fuchsia-300/10 text-fuchsia-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">{error || message}</div>
             {queuedPremove && (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-fuchsia-300/40 bg-fuchsia-300/10 p-3">

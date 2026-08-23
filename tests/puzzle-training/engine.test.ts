@@ -96,7 +96,14 @@ describe("official Lichess puzzle semantics", () => {
     chess.move("e4");
     expect(chess.turn()).toBe("b");
     expect(premoveDestinations(chess.fen(), "g1", "w")).toContain("f3");
+    expect(premoveDestinations(chess.fen(), "e4", "w")).toContain("d5");
     expect(premoveDestinations(chess.fen(), "g8", "w")).toEqual([]);
+  });
+
+  it("uses Lichess-style geometry instead of current check restrictions", () => {
+    const fen = "7k/8/8/8/8/8/1r6/K7 b - - 0 1";
+    expect(legalDestinations(fen.replace(" b ", " w "), "a1")).not.toContain("b1");
+    expect(premoveDestinations(fen, "a1", "w")).toContain("b1");
   });
 });
 
