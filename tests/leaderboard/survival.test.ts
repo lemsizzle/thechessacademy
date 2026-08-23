@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSurvivalLeaderboardScore, type SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
+import { getSurvivalLeaderboardScore, hasSurvivalLeaderboardScore, type SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
 
 const score: SurvivalLeaderboardScore = {
   studentId: "student-a",
@@ -17,5 +17,11 @@ describe("survival puzzle leaderboard", () => {
 
   it("gives students without a survival run a zero score", () => {
     expect(getSurvivalLeaderboardScore(undefined, "all")).toBe(0);
+  });
+
+  it("only includes students with a score in the active time window", () => {
+    expect(hasSurvivalLeaderboardScore(score, "week")).toBe(true);
+    expect(hasSurvivalLeaderboardScore({ ...score, weekScore: 0 }, "week")).toBe(false);
+    expect(hasSurvivalLeaderboardScore(undefined, "all")).toBe(false);
   });
 });

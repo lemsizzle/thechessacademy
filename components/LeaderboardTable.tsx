@@ -5,7 +5,7 @@ import { LevelBadge } from "@/components/LevelBadge";
 import { allBadges } from "@/data/badges";
 import { xpEvents } from "@/data/xpEvents";
 import { getDefaultEquippedItems, seedAvatarItems } from "@/lib/avatar/catalog";
-import { getSurvivalLeaderboardScore, type LeaderboardTimeWindow, type SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
+import { getSurvivalLeaderboardScore, hasSurvivalLeaderboardScore, type LeaderboardTimeWindow, type SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
 import { findStudentLichessAccount, getStudentXpWithLichess } from "@/lib/lichessXp";
 import { readAdminStore } from "@/lib/mockStorage";
 import type { AvatarItem, Student, StudentAvatarConfig, StudentLichessAccount, XpEvent } from "@/lib/types";
@@ -83,6 +83,7 @@ export function LeaderboardTable({
   const ranked = useMemo(() => {
     const filtered = classGroup === "All" ? students : students.filter((student) => student.classGroup === classGroup);
     return filtered
+      .filter((student) => focus === "Overall XP" || hasSurvivalLeaderboardScore(survivalScoresByStudent.get(student.id), timeWindow))
       .map((student) => {
         const account = findStudentLichessAccount(student, lichessAccounts);
         const xp = getStudentXpWithLichess(student, account);

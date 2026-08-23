@@ -16,3 +16,10 @@ export function getSurvivalLeaderboardScore(
   if (timeWindow === "month") return score.monthScore;
   return score.allTimeScore;
 }
+
+export function hasSurvivalLeaderboardScore(
+  score: SurvivalLeaderboardScore | undefined,
+  timeWindow: LeaderboardTimeWindow
+) {
+  return getSurvivalLeaderboardScore(score, timeWindow) > 0;
+}
