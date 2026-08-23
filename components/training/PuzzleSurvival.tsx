@@ -820,7 +820,7 @@ export function PuzzleSurvival() {
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
         <div className="mx-auto w-full max-w-[640px] overflow-hidden rounded-lg border border-cyan-200/20 bg-slate-950/70">
-          {positionFen ? <Chessboard options={boardOptions} /> : <div className="flex aspect-square items-center justify-center text-sm text-slate-400">Preparing board...</div>}
+          {positionFen ? <Chessboard key={`academy-puzzle-board-${puzzle?.id ?? "loading"}`} options={boardOptions} /> : <div className="flex aspect-square items-center justify-center text-sm text-slate-400">Preparing board...</div>}
         </div>
 
         <div className="space-y-4">

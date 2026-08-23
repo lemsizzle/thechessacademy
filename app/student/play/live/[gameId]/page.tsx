@@ -5,7 +5,7 @@ export default async function StudentLiveGamePage({ params }: { params: Promise<
   const { gameId } = await params;
   return (
     <StudentPortalShell title="Live Game" subtitle="Your board reconnects automatically if the page reloads or the network briefly drops.">
-      <LiveChessGame gameId={gameId} />
+      <LiveChessGame key={gameId} gameId={gameId} />
     </StudentPortalShell>
   );
 }

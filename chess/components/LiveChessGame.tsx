@@ -147,7 +147,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
     setPendingPromotion(null);
     claimedVersion.current = null;
     claimRetryAt.current = 0;
-  }, [game?.fen, game?.version]);
+  }, [gameId, game?.fen, game?.version]);
 
   useEffect(() => {
     if (game?.rematchGameId) router.push(`/student/play/live/${game.rematchGameId}`);

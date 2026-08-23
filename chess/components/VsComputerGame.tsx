@@ -39,7 +39,11 @@ export function VsComputerGame() {
     setAnnotationStart(null);
   }, [game.fen]);
 
-  if (!game.config) return <GameSetup onStart={game.startGame} />;
+  if (!game.config) return <GameSetup onStart={(config) => {
+    clearBoardAnnotations();
+    setAnnotationMode(null);
+    game.startGame(config);
+  }} />;
 
   const { config } = game;
   const opponentColor = config.humanColor === "white" ? "black" : "white";

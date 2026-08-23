@@ -33,6 +33,7 @@ export function GameAnalysisLoader({ gameId, basePath }: { gameId: string; baseP
   if (!game || !analysisTree) return <Card className="p-6 text-sm text-slate-300">Loading replay and move history…</Card>;
 
   return <><AnalysisWorkspace
+    key={game.id}
     initialTree={analysisTree}
     gameMode
     reviewColor={game.playerColor}
