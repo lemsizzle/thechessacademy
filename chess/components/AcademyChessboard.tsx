@@ -7,6 +7,7 @@ import { annotationColorForModifiers, BOARD_ANNOTATION_COLORS } from "@/chess/co
 import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
 import { chessJsColor } from "@/chess/game/config";
 import { boardDropAction, checkedKingSquare, legalMovesFrom } from "@/chess/game/rules";
+import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
 import type { ChessColor } from "@/chess/types";
 
 type Props = {
@@ -23,12 +24,17 @@ type Props = {
   onAnnotationSquare?: (square: string) => void;
   onArrowsChange?: (arrows: Array<{ startSquare: string; endSquare: string; color: string }>) => void;
   onCircleToggle?: (square: string, color: string) => void;
+  onClearAnnotations?: () => void;
   boardId?: string;
 };
 
-export function AcademyChessboard({ fen, orientation, humanColor, interactive, lastMove, onMove, arrows = [], circles = [], allowDrawingArrows = false, annotationMode = null, onAnnotationSquare, onArrowsChange, onCircleToggle, boardId = "academy-play-board" }: Props) {
+export function AcademyChessboard({ fen, orientation, humanColor, interactive, lastMove, onMove, arrows = [], circles = [], allowDrawingArrows = false, annotationMode = null, onAnnotationSquare, onArrowsChange, onCircleToggle, onClearAnnotations, boardId = "academy-play-board" }: Props) {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const rightGestureRef = useRef<{ startSquare: string; color: string } | null>(null);
+  const boardRef = useOutsideBoardAnnotationClear(onClearAnnotations ? () => {
+    rightGestureRef.current = null;
+    onClearAnnotations();
+  } : undefined);
   const chess = useMemo(() => new Chess(fen), [fen]);
   const legalMoves = useMemo(() => selectedSquare ? legalMovesFrom(chess, selectedSquare) : [], [chess, selectedSquare]);
 
@@ -177,5 +183,5 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
   };
 
   const arrowKey = arrows.map((arrow) => `${arrow.startSquare}${arrow.endSquare}${arrow.color}`).sort().join("-");
-  return <Chessboard key={`${boardId}-${arrowKey}`} options={options} />;
+  return <div ref={boardRef} className="h-full w-full"><Chessboard key={`${boardId}-${arrowKey}`} options={options} /></div>;
 }

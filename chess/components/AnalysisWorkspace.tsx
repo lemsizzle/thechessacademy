@@ -312,6 +312,11 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
     commitTree(updateNodeAnnotations(tree, activeId, { shapes }));
   }
 
+  function clearBoardAnnotations() {
+    if (node.shapes.length) updateShapes([]);
+    setAnnotationStart(null);
+  }
+
   function saveReferenceEvaluation(line: (typeof engine.lines)[number]) {
     if (!canManageReferenceEvaluations) return;
     commitTree(updateNodeAnnotations(tree, activeId, {
@@ -410,7 +415,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
               <select aria-label="Annotation style" value={shapeStyle} onChange={(event) => setShapeStyle(event.target.value as BoardAnnotationStyle)} className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm font-bold text-white">
                 {Object.keys(BOARD_ANNOTATION_COLORS).map((style) => <option key={style} value={style}>{style}</option>)}
               </select>
-              <Button type="button" variant="ghost" disabled={!node.shapes.length} onClick={() => updateShapes([])}>Clear marks</Button>
+              <Button type="button" variant="ghost" disabled={!node.shapes.length} onClick={clearBoardAnnotations}>Clear marks</Button>
               <Button type="button" variant="ghost" onClick={() => setOrientation((value) => value === "white" ? "black" : "white")}>Flip board</Button>
               {gameMode && <Button type="button" variant="ghost" onClick={() => {
                 let id = activeId;
@@ -475,6 +480,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
                   ]);
                 }}
                 onCircleToggle={editable ? (square, color) => toggleCircle(square, annotationStyleForColor(color)) : undefined}
+                onClearAnnotations={editable ? clearBoardAnnotations : undefined}
               />
             </div>
           </div>

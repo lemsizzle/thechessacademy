@@ -247,6 +247,12 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
     setAnnotationStart(null);
   }
 
+  function clearBoardAnnotations() {
+    setBoardArrows((current) => current.length ? [] : current);
+    setBoardCircles((current) => current.length ? [] : current);
+    setAnnotationStart(null);
+  }
+
   async function copyChallenge() {
     if (!game) return;
     const url = `${window.location.origin}/student/play/live?code=${game.challengeCode}`;
@@ -310,7 +316,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
         <div className="mx-auto min-w-0 space-y-3" style={boardColumnStyle}>
           <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} />
           <div className="aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
-            <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} boardId={`live-game-${game.id}`} />
+            <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
           </div>
           <PlayerPanel name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} />
         </div>
@@ -355,7 +361,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
                 <Button type="button" aria-pressed={annotationMode === null} variant={annotationMode === null ? "secondary" : "ghost"} onClick={() => { setAnnotationMode(null); setAnnotationStart(null); }}>Move</Button>
                 <Button type="button" aria-pressed={annotationMode === "arrow"} variant={annotationMode === "arrow" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("arrow"); setAnnotationStart(null); }}>Arrow</Button>
                 <Button type="button" aria-pressed={annotationMode === "circle"} variant={annotationMode === "circle" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("circle"); setAnnotationStart(null); }}>Circle</Button>
-                <Button type="button" variant="ghost" disabled={!boardArrows.length && !boardCircles.length} onClick={() => { setBoardArrows([]); setBoardCircles([]); }}>Clear</Button>
+                <Button type="button" variant="ghost" disabled={!boardArrows.length && !boardCircles.length} onClick={clearBoardAnnotations}>Clear</Button>
               </div>
             </div>
           </Card>

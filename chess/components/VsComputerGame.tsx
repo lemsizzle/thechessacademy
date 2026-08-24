@@ -93,8 +93,8 @@ export function VsComputerGame() {
   }
 
   function clearBoardAnnotations() {
-    setBoardArrows([]);
-    setBoardCircles([]);
+    setBoardArrows((current) => current.length ? [] : current);
+    setBoardCircles((current) => current.length ? [] : current);
     setAnnotationStart(null);
   }
 
@@ -130,6 +130,7 @@ export function VsComputerGame() {
               onAnnotationSquare={handleAnnotationSquare}
               onArrowsChange={setBoardArrows}
               onCircleToggle={toggleLiveCircle}
+              onClearAnnotations={clearBoardAnnotations}
             />
           </div>
 

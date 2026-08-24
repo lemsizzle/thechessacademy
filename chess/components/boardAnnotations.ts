@@ -32,3 +32,7 @@ export function annotationColorForModifiers(modifiers: DrawingModifiers) {
 export function annotationStyleForColor(color: string): BoardAnnotationStyle {
   return (Object.entries(BOARD_ANNOTATION_COLORS).find(([, value]) => value === color)?.[0] as BoardAnnotationStyle | undefined) ?? "primary";
 }
+
+export function shouldClearBoardAnnotations(button: number, clickedInsideBoard: boolean) {
+  return button === 0 && !clickedInsideBoard;
+}

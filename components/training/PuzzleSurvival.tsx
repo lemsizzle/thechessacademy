@@ -5,6 +5,7 @@ import { Chessboard, type ChessboardOptions } from "react-chessboard";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
+import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { AutoAdvanceSwitch, PuzzleModeSetup, type PuzzleModeChoice } from "@/components/training/PuzzleModeSetup";
@@ -79,6 +80,8 @@ export function PuzzleSurvival() {
   const [hintSource, setHintSource] = useState<string | null>(null);
   const [hintDestination, setHintDestination] = useState<string | null>(null);
   const [queuedPremove, setQueuedPremove] = useState<QueuedPremove | null>(null);
+  const [hasBoardAnnotations, setHasBoardAnnotations] = useState(false);
+  const [annotationResetKey, setAnnotationResetKey] = useState(0);
   const [message, setMessage] = useState("Choose a training theme to begin.");
   const [error, setError] = useState("");
   const [lives, setLives] = useState(STARTING_LIVES);
@@ -112,6 +115,11 @@ export function PuzzleSurvival() {
   const premoveHandoffRef = useRef(emptyPremoveHandoff());
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const puzzleBoardRef = useOutsideBoardAnnotationClear(() => {
+    if (!hasBoardAnnotations) return;
+    setHasBoardAnnotations(false);
+    setAnnotationResetKey((value) => value + 1);
+  });
 
   useEffect(() => {
     setAutoAdvance(window.localStorage.getItem(AUTO_ADVANCE_STORAGE_KEY) === "true");
@@ -706,6 +714,7 @@ export function PuzzleSurvival() {
     allowDragging: phase === "turn" || phase === "reply",
     squareStyles,
     arrows: queuedPremove ? [{ startSquare: queuedPremove.from, endSquare: queuedPremove.to, color: "#c084fc" }] : [],
+    onArrowsChange: ({ arrows }) => setHasBoardAnnotations(arrows.length > 0),
     clearArrowsOnClick: false,
     clearArrowsOnPositionChange: false,
     lightSquareStyle: { backgroundColor: "#cffafe" },
@@ -820,8 +829,8 @@ export function PuzzleSurvival() {
       </Card>
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
-        <div className="mx-auto w-full max-w-[640px] overflow-hidden rounded-lg border border-cyan-200/20 bg-slate-950/70">
-          {positionFen ? <Chessboard key={`academy-puzzle-board-${puzzle?.id ?? "loading"}`} options={boardOptions} /> : <div className="flex aspect-square items-center justify-center text-sm text-slate-400">Preparing board...</div>}
+        <div ref={puzzleBoardRef} className="mx-auto w-full max-w-[640px] overflow-hidden rounded-lg border border-cyan-200/20 bg-slate-950/70">
+          {positionFen ? <Chessboard key={`academy-puzzle-board-${puzzle?.id ?? "loading"}-${annotationResetKey}`} options={boardOptions} /> : <div className="flex aspect-square items-center justify-center text-sm text-slate-400">Preparing board...</div>}
         </div>
 
         <div className="space-y-4">
