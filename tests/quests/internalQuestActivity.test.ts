@@ -67,6 +67,20 @@ describe("internal quest activity", () => {
     expect(secondWin.evidence).toContain("wins against Zippy Knight");
   });
 
+  it("does not count computer wins that used a takeback", () => {
+    const gamesWithTakeback: InternalQuestGameActivity[] = [
+      { id: "clean-win", completedAt: "2026-08-06T00:00:00.000Z", opponentType: "computer", opponentId: "knight", result: "win", takebackCount: 0 },
+      { id: "takeback-win", completedAt: "2026-08-07T00:00:00.000Z", opponentType: "computer", opponentId: "knight", result: "win", takebackCount: 1 }
+    ];
+    const winQuest = evaluateInternalGameQuest("student", quest({ conditionType: "internal_computer_games_won_count", requiredOpponentId: "knight", requiredCount: 2 }), window, gamesWithTakeback);
+    expect(winQuest.currentValue).toBe(1);
+    expect(winQuest.completed).toBe(false);
+
+    const playedQuest = evaluateInternalGameQuest("student", quest({ conditionType: "internal_computer_games_played_count", requiredCount: 2 }), window, gamesWithTakeback);
+    expect(playedQuest.currentValue).toBe(2);
+    expect(playedQuest.completed).toBe(true);
+  });
+
   it("counts solved, first-try, themed, and accuracy puzzle goals", () => {
     expect(evaluateInternalPuzzleQuest("student", quest({ source: "internal_puzzles", conditionType: "internal_puzzle_solved_count" }), window, puzzles).currentValue).toBe(2);
     expect(evaluateInternalPuzzleQuest("student", quest({ source: "internal_puzzles", conditionType: "internal_puzzle_first_try_count" }), window, puzzles).currentValue).toBe(1);

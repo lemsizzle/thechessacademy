@@ -20,6 +20,7 @@ export function useComputerGame() {
   const startedAtRef = useRef("");
   const completedAtRef = useRef("");
   const saveStartedRef = useRef(false);
+  const takebackCountRef = useRef(0);
   const [config, setConfig] = useState<ComputerGameConfig | null>(null);
   const [fen, setFen] = useState(STANDARD_FEN);
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
@@ -76,6 +77,7 @@ export function useComputerGame() {
     startedAtRef.current = new Date().toISOString();
     completedAtRef.current = "";
     saveStartedRef.current = false;
+    takebackCountRef.current = 0;
     const initialClock = resetClock(nextConfig.timeControl);
     clockHistoryRef.current = [initialClock];
     setConfig(nextConfig);
@@ -198,6 +200,7 @@ export function useComputerGame() {
       pgn: chess.pgn(),
       moves: gameMoves(chess).map(({ from, to, promotion }) => ({ from, to, promotion })),
       finalClock: clockDisplay ? { whiteMs: clockDisplay.whiteMs, blackMs: clockDisplay.blackMs } : null,
+      takebackCount: takebackCountRef.current,
       startedAt: startedAtRef.current,
       completedAt: completedAtRef.current
     };
@@ -238,6 +241,7 @@ export function useComputerGame() {
     engineRequestFenRef.current = null;
     const undone = undoComputerTurn(chessRef.current, config.humanColor);
     if (!undone.length) return;
+    takebackCountRef.current += 1;
     clockHistoryRef.current.splice(Math.max(1, clockHistoryRef.current.length - undone.length));
     restoreClock(clockHistoryRef.current.at(-1) ?? null);
     setPendingPromotion(null);

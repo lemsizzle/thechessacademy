@@ -9,6 +9,7 @@ export type InternalQuestGameActivity = {
   opponentType: "computer" | "student";
   opponentId?: string;
   result: "win" | "loss" | "draw";
+  takebackCount?: number;
 };
 
 export type InternalQuestPuzzleActivity = {
@@ -41,7 +42,10 @@ export function evaluateInternalGameQuest(
   const opponentGames = computerOnly && quest.requiredOpponentId
     ? modeGames.filter((game) => game.opponentId === quest.requiredOpponentId)
     : modeGames;
-  const counted = winsOnly ? opponentGames.filter((game) => game.result === "win") : opponentGames;
+  const questEligibleGames = quest.conditionType === "internal_computer_games_won_count"
+    ? opponentGames.filter((game) => (game.takebackCount ?? 0) === 0)
+    : opponentGames;
+  const counted = winsOnly ? questEligibleGames.filter((game) => game.result === "win") : questEligibleGames;
   const requiredValue = quest.requiredCount ?? 1;
   const targetBot = quest.requiredOpponentId ? BOT_DIFFICULTIES.find((bot) => bot.id === quest.requiredOpponentId) : undefined;
   const modeLabel = targetBot ? targetBot.name : computerOnly ? "computer" : liveOnly ? "student-vs-student" : "Academy";

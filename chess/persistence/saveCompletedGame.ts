@@ -24,6 +24,7 @@ export async function saveCompletedGame(studentId: string, payload: unknown) {
       final_fen: game.finalFen,
       pgn: game.pgn,
       moves: game.moves,
+      takeback_count: game.takebackCount,
       started_at: game.startedAt,
       completed_at: game.completedAt
     })

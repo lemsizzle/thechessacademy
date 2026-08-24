@@ -13,11 +13,11 @@ function serviceClient() {
 }
 
 export async function loadInternalQuestGames(studentId: string, window: QuestWindow) {
-  const rows: Array<{ id: string; completed_at: string; opponent_type: "computer" | "student"; opponent_id: string; result: "win" | "loss" | "draw" }> = [];
+  const rows: Array<{ id: string; completed_at: string; opponent_type: "computer" | "student"; opponent_id: string; result: "win" | "loss" | "draw"; takeback_count: number }> = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await serviceClient()
       .from("internal_chess_games")
-      .select("id,completed_at,opponent_type,opponent_id,result")
+      .select("id,completed_at,opponent_type,opponent_id,result,takeback_count")
       .eq("player_id", studentId)
       .gte("completed_at", window.start.toISOString())
       .lte("completed_at", window.end.toISOString())
@@ -34,7 +34,8 @@ export async function loadInternalQuestGames(studentId: string, window: QuestWin
     completedAt: row.completed_at,
     opponentType: row.opponent_type,
     opponentId: row.opponent_id,
-    result: row.result
+    result: row.result,
+    takebackCount: row.takeback_count
   }));
 }
 

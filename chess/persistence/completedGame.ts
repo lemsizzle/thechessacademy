@@ -23,6 +23,7 @@ export type CompletedGamePayload = {
   pgn: string;
   moves: Array<Pick<GameMove, "from" | "to" | "promotion">>;
   finalClock: { whiteMs: number; blackMs: number } | null;
+  takebackCount: number;
   startedAt: string;
   completedAt: string;
 };
@@ -65,6 +66,10 @@ export function validateCompletedGame(input: unknown) {
   if (!RESULT_REASONS.has(resultReason)) throw new Error("Invalid result reason.");
   const expectedResult = winnerColor === null ? "draw" : winnerColor === playerColor ? "win" : "loss";
   if (result !== expectedResult) throw new Error("Game result does not match the winner.");
+  const takebackCount = Number(body.takebackCount ?? 0);
+  if (!Number.isSafeInteger(takebackCount) || takebackCount < 0 || takebackCount > 1000) {
+    throw new Error("Invalid takeback count.");
+  }
 
   const startedAt = new Date(String(body.startedAt ?? ""));
   const completedAt = new Date(String(body.completedAt ?? ""));
@@ -154,6 +159,7 @@ export function validateCompletedGame(input: unknown) {
     finalFen: chess.fen(),
     pgn: chess.pgn({ maxWidth: 80, newline: "\n" }),
     moves: savedMoves,
+    takebackCount,
     startedAt: startedAt.toISOString(),
     completedAt: completedAt.toISOString()
   };

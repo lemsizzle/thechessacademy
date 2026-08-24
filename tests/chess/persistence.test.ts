@@ -32,6 +32,13 @@ describe("completed game validation", () => {
     expect(game.moves).toHaveLength(4);
     expect(game.pgn).toContain("Qh4#");
     expect(game.finalFen).toBe(checkmatePayload().finalFen);
+    expect(game.takebackCount).toBe(0);
+  });
+
+  it("validates and preserves the takeback count", () => {
+    expect(validateCompletedGame({ ...checkmatePayload(), takebackCount: 2 }).takebackCount).toBe(2);
+    expect(() => validateCompletedGame({ ...checkmatePayload(), takebackCount: -1 })).toThrow("Invalid takeback count");
+    expect(() => validateCompletedGame({ ...checkmatePayload(), takebackCount: 1.5 })).toThrow("Invalid takeback count");
   });
 
   it("rejects a final FEN that does not match the move list", () => {
