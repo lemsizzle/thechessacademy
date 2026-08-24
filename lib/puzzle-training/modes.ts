@@ -50,11 +50,15 @@ export type WoodpeckerCycleResult = {
   reviewed: boolean;
 };
 
+export function calculatePuzzleAccuracy(correctAttempts: number, incorrectAttempts: number) {
+  const attempts = correctAttempts + incorrectAttempts;
+  return attempts ? Math.round((correctAttempts / attempts) * 100) : 100;
+}
+
 export function calculateWoodpeckerCycleStats(puzzlesSolved: number, incorrectMoves: number, elapsedSeconds: number) {
-  const attempts = puzzlesSolved + incorrectMoves;
   return {
     puzzlesPerMinute: Math.round((puzzlesSolved * 60 / Math.max(1, elapsedSeconds)) * 10) / 10,
-    accuracy: attempts ? Math.round((puzzlesSolved / attempts) * 100) : 100
+    accuracy: calculatePuzzleAccuracy(puzzlesSolved, incorrectMoves)
   };
 }
 

@@ -11,7 +11,7 @@ import { Card } from "@/components/Card";
 import { AutoAdvanceSwitch, PuzzleModeSetup, type PuzzleModeChoice } from "@/components/training/PuzzleModeSetup";
 import { WoodpeckerCycleSummary } from "@/components/training/WoodpeckerCycleSummary";
 import { legalDestinations, parseUciMove, premoveDestinations } from "@/lib/puzzle-training/engine";
-import { calculateWoodpeckerCycleStats, nextWoodpeckerStep, PUZZLE_DIFFICULTY_OPTIONS, SURVIVAL_PUZZLE_LIMIT, survivalDifficultyForPuzzle, WOODPECKER_CYCLE_COUNT, WOODPECKER_SET_SIZE, type WoodpeckerCycleResult } from "@/lib/puzzle-training/modes";
+import { calculatePuzzleAccuracy, calculateWoodpeckerCycleStats, nextWoodpeckerStep, PUZZLE_DIFFICULTY_OPTIONS, SURVIVAL_PUZZLE_LIMIT, survivalDifficultyForPuzzle, WOODPECKER_CYCLE_COUNT, WOODPECKER_SET_SIZE, type WoodpeckerCycleResult } from "@/lib/puzzle-training/modes";
 import { emptyPremoveHandoff, takeReadyPremove, withPremoveReply, withPremoveReplyReady, withQueuedPremove, type QueuedPremove } from "@/lib/puzzle-training/premoveQueue";
 import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
@@ -28,11 +28,6 @@ function formatTime(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
-
-function percentage(solved: number, mistakes: number) {
-  const total = solved + mistakes;
-  return total ? Math.round((solved / total) * 100) : 100;
 }
 
 function PuzzleTimer({ running }: { running: boolean }) {
@@ -107,6 +102,8 @@ export function PuzzleSurvival() {
   const requestedPuzzleIdRef = useRef<string | null>(null);
   const [woodpeckerCycle, setWoodpeckerCycle] = useState(1);
   const [woodpeckerIndex, setWoodpeckerIndex] = useState(0);
+  const [woodpeckerCycleSolved, setWoodpeckerCycleSolved] = useState(0);
+  const [woodpeckerCycleIncorrectMoves, setWoodpeckerCycleIncorrectMoves] = useState(0);
   const [woodpeckerReviewIndex, setWoodpeckerReviewIndex] = useState(0);
   const [woodpeckerReviewing, setWoodpeckerReviewing] = useState(false);
   const [woodpeckerCycleResults, setWoodpeckerCycleResults] = useState<WoodpeckerCycleResult[]>([]);
@@ -248,6 +245,8 @@ export function PuzzleSurvival() {
     woodpeckerReviewingRef.current = false;
     setWoodpeckerCycle(1);
     setWoodpeckerIndex(0);
+    setWoodpeckerCycleSolved(0);
+    setWoodpeckerCycleIncorrectMoves(0);
     setWoodpeckerReviewIndex(0);
     setWoodpeckerReviewing(false);
     setWoodpeckerCycleResults([]);
@@ -356,6 +355,8 @@ export function PuzzleSurvival() {
     woodpeckerReviewingRef.current = false;
     setWoodpeckerCycle(nextStep.cycle);
     setWoodpeckerIndex(nextStep.puzzleIndex);
+    setWoodpeckerCycleSolved(0);
+    setWoodpeckerCycleIncorrectMoves(0);
     setWoodpeckerReviewIndex(0);
     setWoodpeckerReviewing(false);
     sessionId.current = crypto.randomUUID();
@@ -475,6 +476,7 @@ export function PuzzleSurvival() {
         setLegalSquares([]);
         if (!woodpeckerReviewingRef.current) {
           setIncorrectAttempts((value) => value + 1);
+          if (trainingMode === "woodpecker") setWoodpeckerCycleIncorrectMoves((value) => value + 1);
           setCurrentStreak(0);
         }
         setPositionFen(result.positionFen);
@@ -538,6 +540,7 @@ export function PuzzleSurvival() {
           && woodpeckerIndexRef.current >= woodpeckerPuzzleIds.current.length - 1
           && woodpeckerPuzzleIds.current.length >= activeWoodpeckerSetSize.current;
         if (trainingMode === "woodpecker") {
+          setWoodpeckerCycleSolved((value) => value + 1);
           woodpeckerCycleSecondsRef.current += result.completion.elapsedSeconds;
           woodpeckerCycleMistakesRef.current += result.completion.mistakes;
           if (result.completion.mistakes > 0 && !woodpeckerCycleMistakePuzzleIdsRef.current.includes(puzzle.id)) {
@@ -759,6 +762,9 @@ export function PuzzleSurvival() {
   const secondaryMetric: [string, string] = trainingMode === "woodpecker"
     ? ["Cycle", `${woodpeckerCycle}/${WOODPECKER_CYCLE_COUNT}`]
     : ["Lives", `${lives}/${STARTING_LIVES}`];
+  const activeAccuracy = trainingMode === "woodpecker"
+    ? calculatePuzzleAccuracy(woodpeckerCycleSolved, woodpeckerCycleIncorrectMoves)
+    : calculatePuzzleAccuracy(solved, incorrectAttempts);
 
   if (phase === "select") {
     return (
@@ -796,7 +802,7 @@ export function PuzzleSurvival() {
         <h2 className="mt-2 text-3xl font-black text-white">{summaryTitle}</h2>
         {completion?.dailyReward && <div className={`mt-5 rounded-lg border p-4 ${completion.dailyReward.awarded ? "border-emerald-300/40 bg-emerald-300/10 text-emerald-100" : "border-cyan-200/30 bg-cyan-300/10 text-cyan-100"}`}><p className="font-black">{completion.dailyReward.awarded ? `Reward claimed: +${completion.dailyReward.xpAwarded} XP and +${completion.dailyReward.coinsAwarded} Academy Coins` : "Today’s reward was already claimed. Nice practice replay!"}</p></div>}
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {[['Solved', solved], ['First try', firstTrySolves], ['Mistakes', incorrectAttempts], ['Accuracy', `${percentage(solved, incorrectAttempts)}%`], ['Average', formatTime(averageTime)], ['Best streak', bestStreak]].map(([label, value]) => (
+          {[['Solved', solved], ['First try', firstTrySolves], ['Mistakes', incorrectAttempts], ['Accuracy', `${calculatePuzzleAccuracy(solved, incorrectAttempts)}%`], ['Average', formatTime(averageTime)], ['Best streak', bestStreak]].map(([label, value]) => (
             <div key={String(label)} className="rounded-md border border-white/10 bg-white/5 p-3"><p className="text-xs font-bold uppercase text-slate-500">{label}</p><p className="mt-1 text-2xl font-black text-white">{value}</p></div>
           ))}
         </div>
@@ -822,7 +828,7 @@ export function PuzzleSurvival() {
     <div className="space-y-5">
       <Card className="overflow-hidden">
         <div className="grid grid-cols-3 divide-x divide-white/10 sm:grid-cols-6">
-          {[["Puzzle", primaryProgress], secondaryMetric, ['Timer', <PuzzleTimer key={`${sessionId.current}:${puzzle?.id ?? "loading"}`} running={phase === "turn" || phase === "reply"} />], ['Accuracy', `${percentage(solved, incorrectAttempts)}%`], ['Streak', currentStreak], ['Best', bestStreak]].map(([label, value]) => (
+          {[["Puzzle", primaryProgress], secondaryMetric, ['Timer', <PuzzleTimer key={`${sessionId.current}:${puzzle?.id ?? "loading"}`} running={phase === "turn" || phase === "reply"} />], ['Accuracy', `${activeAccuracy}%`], ['Streak', currentStreak], ['Best', bestStreak]].map(([label, value]) => (
             <div key={String(label)} className="p-3 text-center"><p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{label}</p><p className="mt-1 text-lg font-black text-white sm:text-2xl">{value}</p></div>
           ))}
         </div>

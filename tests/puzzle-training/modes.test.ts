@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculatePuzzleAccuracy,
   calculateWoodpeckerCycleStats,
   nextWoodpeckerStep,
   PUZZLE_DIFFICULTY_OPTIONS,
@@ -13,6 +14,13 @@ import {
 } from "@/lib/puzzle-training/modes";
 
 describe("puzzle training modes", () => {
+  it("starts accuracy at 100% and reduces it when mistakes are made", () => {
+    expect(calculatePuzzleAccuracy(0, 0)).toBe(100);
+    expect(calculatePuzzleAccuracy(0, 1)).toBe(0);
+    expect(calculatePuzzleAccuracy(1, 1)).toBe(50);
+    expect(calculatePuzzleAccuracy(2, 1)).toBe(67);
+  });
+
   it("allows a survival run to reach 50 puzzles", () => {
     expect(SURVIVAL_PUZZLE_LIMIT).toBe(50);
   });
