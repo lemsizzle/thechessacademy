@@ -11,6 +11,8 @@ import { PromotionDialog } from "@/chess/components/PromotionDialog";
 import { VictoryCelebration } from "@/chess/components/VictoryCelebration";
 import { promotionOptions, tryMove } from "@/chess/game/rules";
 import { oppositeColor } from "@/chess/game/config";
+import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/material";
+import { hasCoachPresence, type RealtimePresenceState } from "@/chess/live/presence";
 import type { LiveGameAction, LiveGameSnapshot } from "@/chess/live/types";
 import type { ChessColor, PromotionPiece } from "@/chess/types";
 import { Button } from "@/components/Button";
@@ -38,7 +40,11 @@ function completionText(game: LiveGameSnapshot) {
   if (game.status === "cancelled") return "This challenge was cancelled.";
   if (game.status !== "completed") return "";
   if (game.resultReason === "draw") return "Game drawn by agreement.";
-  const reason = game.resultReason?.replaceAll("_", " ") ?? "game over";
+  if (!game.resultReason) {
+    if (!game.winnerColor) return "Good Game.";
+    return game.winnerColor === game.viewer.color ? "You won. Good Game." : "You lost. Good Game.";
+  }
+  const reason = game.resultReason.replaceAll("_", " ");
   if (!game.winnerColor) return `Draw by ${reason}.`;
   return game.winnerColor === game.viewer.color ? `You won by ${reason}.` : `You lost by ${reason}.`;
 }
@@ -51,6 +57,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   const [optimisticFen, setOptimisticFen] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [connection, setConnection] = useState<"connecting" | "live" | "polling">("connecting");
+  const [coachSpectating, setCoachSpectating] = useState(false);
   const [orientation, setOrientation] = useState<ChessColor>("white");
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -105,8 +112,12 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
     const channel = client
       .channel(game.realtimeTopic)
       .on("broadcast", { event: "game_changed" }, () => void refresh())
+      .on("presence", { event: "sync" }, () => {
+        setCoachSpectating(hasCoachPresence(channel.presenceState() as RealtimePresenceState));
+      })
       .subscribe((status) => setConnection(status === "SUBSCRIBED" ? "live" : status === "CHANNEL_ERROR" || status === "TIMED_OUT" ? "polling" : "connecting"));
     return () => {
+      setCoachSpectating(false);
       void client.removeChannel(channel);
     };
   }, [game?.realtimeTopic, game?.status, refresh]);
@@ -165,6 +176,10 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
     white: clockValue(game, "white", nowMs, serverOffsetMs),
     black: clockValue(game, "black", nowMs, serverOffsetMs)
   } : { white: null, black: null }, [game, nowMs, serverOffsetMs]);
+  const materialBalance = useMemo(
+    () => game ? whiteMaterialAdvantage(optimisticFen ?? game.fen) : 0,
+    [game, optimisticFen]
+  );
 
   const sendAction = useCallback(async (action: LiveGameAction) => {
     if (!game || pending) return;
@@ -334,11 +349,11 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
 
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
         <div className="mx-auto min-w-0 space-y-3" style={boardColumnStyle}>
-          <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} />
+          <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} />
           <div className="aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
             <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
           </div>
-          <PlayerPanel name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} />
+          <PlayerPanel name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-4">
@@ -352,6 +367,12 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
               <span className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${connection === "live" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{connection === "live" ? "Live" : connection}</span>
             </div>
             <p className="mt-4 rounded-md border border-white/10 bg-white/5 p-3 text-sm font-bold leading-5 text-slate-200" aria-live="polite">{statusText}</p>
+            {game.status === "active" && coachSpectating ? (
+              <p className="mt-3 flex items-center gap-2 rounded-md border border-cyan-200/25 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100" aria-live="polite">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300" aria-hidden="true" />
+                Coach is spectating
+              </p>
+            ) : null}
             {game.status === "completed" ? (
               <div className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3">
                 <p className="text-xs font-black uppercase tracking-wider text-amber-200">Play again</p>
@@ -399,7 +420,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
       {confirmation ? <GameDialog title={confirmation === "resign" ? "Resign this live game?" : "Cancel this challenge?"} description={confirmation === "resign" ? "Your opponent will win immediately." : "The private challenge code will stop working."} primaryLabel={confirmation === "resign" ? "Resign" : "Cancel Challenge"} onPrimary={() => void sendAction(confirmation)} secondaryLabel="Keep Playing" onSecondary={() => setConfirmation(null)} /> : null}
       {resultOpen && game.status === "completed" ? (
         <GameDialog
-          title="Game over"
+          title="Good Game"
           description={completionText(game)}
           primaryLabel={rematchLabel}
           primaryDisabled={rematchPending || viewerRequestedRematch}
