@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getSurvivalLeaderboardScore, hasSurvivalLeaderboardScore, type SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
+import { getSurvivalLeaderboardScore, hasSurvivalLeaderboardScore, survivalLeaderboardScoreKey, type SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
 
 const score: SurvivalLeaderboardScore = {
   studentId: "student-a",
+  theme: "mixed",
   weekScore: 8,
   monthScore: 17,
   allTimeScore: 32
@@ -23,5 +24,10 @@ describe("survival puzzle leaderboard", () => {
     expect(hasSurvivalLeaderboardScore(score, "week")).toBe(true);
     expect(hasSurvivalLeaderboardScore({ ...score, weekScore: 0 }, "week")).toBe(false);
     expect(hasSurvivalLeaderboardScore(undefined, "all")).toBe(false);
+  });
+
+  it("keeps each student's theme records separate", () => {
+    expect(survivalLeaderboardScoreKey("student-a", "mixed")).toBe("student-a:mixed");
+    expect(survivalLeaderboardScoreKey("student-a", "fork")).toBe("student-a:fork");
   });
 });

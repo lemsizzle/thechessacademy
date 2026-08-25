@@ -6,6 +6,12 @@ export const WOODPECKER_SET_SIZE_OPTIONS = [20, 30, 40, 50] as const;
 export const WOODPECKER_MAX_SET_SIZE = WOODPECKER_SET_SIZE_OPTIONS[WOODPECKER_SET_SIZE_OPTIONS.length - 1];
 export const WOODPECKER_CYCLE_COUNT = 3;
 
+export function formatSurvivalLives(lives: number, total = 3) {
+  const safeTotal = Math.max(0, Math.floor(total));
+  const remaining = Math.min(safeTotal, Math.max(0, Math.floor(lives)));
+  return `${"❤️".repeat(remaining)}${"🖤".repeat(safeTotal - remaining)}`;
+}
+
 export const PUZZLE_DIFFICULTY_OPTIONS: ReadonlyArray<{ id: PuzzleLevelSlug; name: string; rating: string }> = [
   { id: "all", name: "Any difficulty", rating: "600–2200" },
   { id: "beginner", name: "Very easy", rating: "600–999" },

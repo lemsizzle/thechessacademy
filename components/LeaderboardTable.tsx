@@ -5,9 +5,10 @@ import { LevelBadge } from "@/components/LevelBadge";
 import { allBadges } from "@/data/badges";
 import { xpEvents } from "@/data/xpEvents";
 import { getDefaultEquippedItems, seedAvatarItems } from "@/lib/avatar/catalog";
-import { getSurvivalLeaderboardScore, hasSurvivalLeaderboardScore, type LeaderboardTimeWindow, type SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
+import { getSurvivalLeaderboardScore, hasSurvivalLeaderboardScore, survivalLeaderboardScoreKey, type LeaderboardTimeWindow, type SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
 import { findStudentLichessAccount, getStudentXpWithLichess } from "@/lib/lichessXp";
 import { readAdminStore } from "@/lib/mockStorage";
+import { puzzleThemeOptions, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 import type { AvatarItem, Student, StudentAvatarConfig, StudentLichessAccount, XpEvent } from "@/lib/types";
 import { getLevelFromXp } from "@/lib/xp";
 import Link from "next/link";
@@ -64,9 +65,10 @@ export function LeaderboardTable({
   const [classGroup, setClassGroup] = useState("All");
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
   const [focus, setFocus] = useState<Focus>("Overall XP");
+  const [survivalTheme, setSurvivalTheme] = useState<PuzzleThemeSlug>("mixed");
   const [recentXpEvents, setRecentXpEvents] = useState<XpEvent[]>(initialXpEvents ?? xpEvents);
   const defaultEquippedItems = useMemo(() => getDefaultEquippedItems(avatarItems), [avatarItems]);
-  const survivalScoresByStudent = useMemo(() => new Map(survivalScores.map((score) => [score.studentId, score])), [survivalScores]);
+  const survivalScoresByStudentAndTheme = useMemo(() => new Map(survivalScores.map((score) => [survivalLeaderboardScoreKey(score.studentId, score.theme), score])), [survivalScores]);
 
   useEffect(() => {
     const store = readAdminStore();
@@ -83,20 +85,23 @@ export function LeaderboardTable({
   const ranked = useMemo(() => {
     const filtered = classGroup === "All" ? students : students.filter((student) => student.classGroup === classGroup);
     return filtered
-      .filter((student) => focus === "Overall XP" || hasSurvivalLeaderboardScore(survivalScoresByStudent.get(student.id), timeWindow))
+      .filter((student) => focus === "Overall XP" || hasSurvivalLeaderboardScore(survivalScoresByStudentAndTheme.get(survivalLeaderboardScoreKey(student.id, survivalTheme)), timeWindow))
       .map((student) => {
         const account = findStudentLichessAccount(student, lichessAccounts);
         const xp = getStudentXpWithLichess(student, account);
         const score = focus === "Overall XP"
           ? getStudentXpScore(student, timeWindow, recentXpEvents, account)
-          : getSurvivalLeaderboardScore(survivalScoresByStudent.get(student.id), timeWindow);
+          : getSurvivalLeaderboardScore(survivalScoresByStudentAndTheme.get(survivalLeaderboardScoreKey(student.id, survivalTheme)), timeWindow);
         return { ...student, score, effectiveXp: xp.totalXp, lichessXp: xp.lichessXp };
       })
       .sort((a, b) => b.score - a.score || b.effectiveXp - a.effectiveXp || a.name.localeCompare(b.name))
       .map((student, index) => ({ ...student, rank: index + 1 }));
-  }, [classGroup, focus, lichessAccounts, recentXpEvents, students, survivalScoresByStudent, timeWindow]);
+  }, [classGroup, focus, lichessAccounts, recentXpEvents, students, survivalScoresByStudentAndTheme, survivalTheme, timeWindow]);
   const podium = ranked.slice(0, 3);
   const scoreLabel = focus === "Overall XP" ? (timeWindow === "all" ? "Total XP" : "XP Earned") : "Best Survival Run";
+  const survivalThemeLabel = survivalTheme === "mixed"
+    ? "Mixed themes"
+    : puzzleThemeOptions.find((option) => option.id === survivalTheme)?.name ?? "Mixed themes";
   const getStudentHref = (student: Student) => (
     linkMode === "admin"
       ? `/admin/students?student=${encodeURIComponent(student.slug)}`
@@ -112,9 +117,9 @@ export function LeaderboardTable({
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <h2 className="font-black text-white">Class Leaderboard</h2>
-            <p className="mt-1 text-sm text-slate-400">{scoreLabel} · {timeOptions.find((option) => option.value === timeWindow)?.label} · {classGroup}</p>
+            <p className="mt-1 text-sm text-slate-400">{scoreLabel} · {timeOptions.find((option) => option.value === timeWindow)?.label} · {classGroup}{focus === "Survival Puzzles" ? ` · ${survivalThemeLabel}` : ""}</p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3 xl:min-w-[620px]">
+          <div className={`grid gap-2 sm:grid-cols-2 ${focus === "Survival Puzzles" ? "xl:min-w-[820px] xl:grid-cols-4" : "xl:min-w-[620px] xl:grid-cols-3"}`}>
             <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">Class
               <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={classGroup} onChange={(event) => setClassGroup(event.target.value)}>
                 {groups.map((group) => <option key={group}>{group}</option>)}
@@ -131,6 +136,13 @@ export function LeaderboardTable({
                 <option>Survival Puzzles</option>
               </select>
             </label>
+            {focus === "Survival Puzzles" && (
+              <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">Theme
+                <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={survivalTheme} onChange={(event) => setSurvivalTheme(event.target.value as PuzzleThemeSlug)}>
+                  {puzzleThemeOptions.map((option) => <option key={option.id} value={option.id}>{option.id === "mixed" ? "Mixed themes" : option.name}</option>)}
+                </select>
+              </label>
+            )}
           </div>
         </div>
         <div className="mt-4 grid gap-2 md:grid-cols-3">

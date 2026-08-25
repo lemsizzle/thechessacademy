@@ -1,8 +1,9 @@
 import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { academyPuzzleDate, dailyPuzzlePivot } from "@/lib/puzzle-training/daily";
-import { WOODPECKER_MAX_SET_SIZE } from "@/lib/puzzle-training/modes";
-import { lichessPuzzleThemes, puzzleLevelRatingRange, type ChessPuzzleRow, type PuzzleLevelSlug, type PuzzleThemeSlug, type PuzzleTrainingMode } from "@/lib/puzzle-training/types";
+import { calculateWoodpeckerCycleStats, WOODPECKER_MAX_SET_SIZE, WOODPECKER_SET_SIZE_OPTIONS } from "@/lib/puzzle-training/modes";
+import type { WoodpeckerCycleOverview } from "@/lib/puzzle-training/overview";
+import { lichessPuzzleThemes, parsePuzzleTheme, puzzleLevelRatingRange, type ChessPuzzleRow, type PuzzleLevelSlug, type PuzzleThemeSlug, type PuzzleTrainingMode } from "@/lib/puzzle-training/types";
 
 const puzzleSelect = "id,lichess_puzzle_id,initial_fen,moves,start_mode,accepted_moves,source_kind,source_study_id,source_chapter_id,source_node_id,teacher_prompt,rating,rating_deviation,popularity,number_of_plays,themes,game_url,opening_tags,random_key,is_active";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -195,4 +196,60 @@ export async function saveTrainingAttempt(input: {
     .upsert(record, { onConflict: "student_id,puzzle_id,session_id" });
   if (error) throw new Error(error.message);
   return { elapsedSeconds, firstTryCorrect: record.first_try_correct };
+}
+
+export async function saveCompletedWoodpeckerCycle(studentId: string, sessionId: string): Promise<WoodpeckerCycleOverview> {
+  if (!UUID_PATTERN.test(sessionId)) throw new Error("Invalid Woodpecker session.");
+  const client = serviceClient();
+  const { data, error } = await client
+    .from("student_puzzle_attempts")
+    .select("solved,incorrect_move_count,elapsed_seconds,selected_theme,completed_at")
+    .eq("student_id", studentId)
+    .eq("session_id", sessionId)
+    .eq("training_mode", "woodpecker");
+  if (error) throw new Error(error.message);
+
+  const attempts = (data ?? []) as Array<{
+    solved: boolean;
+    incorrect_move_count: number;
+    elapsed_seconds: number;
+    selected_theme: string;
+    completed_at: string | null;
+  }>;
+  const setSize = attempts.length;
+  if (!WOODPECKER_SET_SIZE_OPTIONS.includes(setSize as typeof WOODPECKER_SET_SIZE_OPTIONS[number]) || attempts.some((attempt) => !attempt.solved)) {
+    throw new Error("This Woodpecker cycle is not complete yet.");
+  }
+
+  const incorrectMoves = attempts.reduce((total, attempt) => total + Math.max(0, Number(attempt.incorrect_move_count)), 0);
+  const elapsedSeconds = attempts.reduce((total, attempt) => total + Math.max(0, Number(attempt.elapsed_seconds)), 0);
+  const stats = calculateWoodpeckerCycleStats(setSize, incorrectMoves, elapsedSeconds);
+  const selectedTheme = parsePuzzleTheme(attempts[0]?.selected_theme ?? null);
+  const completedAt = attempts.reduce((latest, attempt) => {
+    if (!attempt.completed_at) return latest;
+    return !latest || attempt.completed_at > latest ? attempt.completed_at : latest;
+  }, "") || new Date().toISOString();
+
+  const { error: saveError } = await client
+    .from("student_woodpecker_cycle_results")
+    .upsert({
+      student_id: studentId,
+      session_id: sessionId,
+      selected_theme: selectedTheme,
+      set_size: setSize,
+      incorrect_moves: incorrectMoves,
+      elapsed_seconds: elapsedSeconds,
+      puzzles_per_minute: stats.puzzlesPerMinute,
+      accuracy: stats.accuracy,
+      completed_at: completedAt
+    }, { onConflict: "student_id,session_id" });
+  if (saveError) throw new Error(saveError.message);
+
+  return {
+    setSize,
+    puzzlesPerMinute: stats.puzzlesPerMinute,
+    accuracy: stats.accuracy,
+    theme: selectedTheme,
+    completedAt
+  };
 }

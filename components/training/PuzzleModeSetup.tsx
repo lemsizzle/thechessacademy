@@ -2,13 +2,16 @@
 
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { PuzzleTrainingOverviewCard } from "@/components/training/PuzzleTrainingOverview";
 import {
+  formatSurvivalLives,
   PUZZLE_DIFFICULTY_OPTIONS,
   SURVIVAL_DIFFICULTY_STAGES,
   SURVIVAL_PUZZLE_LIMIT,
   WOODPECKER_CYCLE_COUNT,
   WOODPECKER_SET_SIZE_OPTIONS
 } from "@/lib/puzzle-training/modes";
+import type { PuzzleTrainingOverview } from "@/lib/puzzle-training/overview";
 import { puzzleThemeOptions, type PuzzleLevelSlug, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 export type PuzzleModeChoice = "survival" | "woodpecker";
@@ -22,7 +25,7 @@ const modeOptions: ReadonlyArray<{
   {
     id: "survival",
     name: "Survival",
-    summary: `${SURVIVAL_PUZZLE_LIMIT} puzzles · 3 lives`,
+    summary: `${SURVIVAL_PUZZLE_LIMIT} puzzles · ${formatSurvivalLives(3)}`,
     description: "Starts very easy and becomes harder as you advance."
   },
   {
@@ -66,7 +69,8 @@ export function PuzzleModeSetup({
   autoAdvance,
   onAutoAdvanceChange,
   onStart,
-  onDailyPuzzle
+  onDailyPuzzle,
+  overview
 }: {
   selectedMode: PuzzleModeChoice;
   onModeChange: (mode: PuzzleModeChoice) => void;
@@ -80,12 +84,15 @@ export function PuzzleModeSetup({
   onAutoAdvanceChange: (enabled: boolean) => void;
   onStart: () => void;
   onDailyPuzzle: () => void;
+  overview: PuzzleTrainingOverview;
 }) {
   const selectedThemeOption = puzzleThemeOptions.find((theme) => theme.id === selectedTheme);
   const selectedModeOption = modeOptions.find((mode) => mode.id === selectedMode) ?? modeOptions[0];
 
   return (
     <div className="space-y-4">
+      <PuzzleTrainingOverviewCard overview={overview} />
+
       <Card className="flex flex-col gap-3 border-amber-300/25 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-wide text-amber-200">Puzzle of the Day</p>

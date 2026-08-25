@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculatePuzzleAccuracy,
   calculateWoodpeckerCycleStats,
+  formatSurvivalLives,
   nextWoodpeckerStep,
   PUZZLE_DIFFICULTY_OPTIONS,
   SURVIVAL_PUZZLE_LIMIT,
@@ -23,6 +24,12 @@ describe("puzzle training modes", () => {
 
   it("allows a survival run to reach 50 puzzles", () => {
     expect(SURVIVAL_PUZZLE_LIMIT).toBe(50);
+  });
+
+  it("shows remaining Survival lives as hearts", () => {
+    expect(formatSurvivalLives(3)).toBe("❤️❤️❤️");
+    expect(formatSurvivalLives(2)).toBe("❤️❤️🖤");
+    expect(formatSurvivalLives(0)).toBe("🖤🖤🖤");
   });
 
   it("progresses Survival from very easy to expert in ten-puzzle stages", () => {

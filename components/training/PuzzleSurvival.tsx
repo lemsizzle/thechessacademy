@@ -3,7 +3,7 @@
 import { Chess, type Square } from "chess.js";
 import { Chessboard, type ChessboardOptions } from "react-chessboard";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
 import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
 import { Button } from "@/components/Button";
@@ -11,7 +11,8 @@ import { Card } from "@/components/Card";
 import { AutoAdvanceSwitch, PuzzleModeSetup, type PuzzleModeChoice } from "@/components/training/PuzzleModeSetup";
 import { WoodpeckerCycleSummary } from "@/components/training/WoodpeckerCycleSummary";
 import { legalDestinations, parseUciMove, premoveDestinations } from "@/lib/puzzle-training/engine";
-import { calculatePuzzleAccuracy, calculateWoodpeckerCycleStats, nextWoodpeckerStep, PUZZLE_DIFFICULTY_OPTIONS, SURVIVAL_PUZZLE_LIMIT, survivalDifficultyForPuzzle, WOODPECKER_CYCLE_COUNT, WOODPECKER_SET_SIZE, type WoodpeckerCycleResult } from "@/lib/puzzle-training/modes";
+import { calculatePuzzleAccuracy, calculateWoodpeckerCycleStats, formatSurvivalLives, nextWoodpeckerStep, PUZZLE_DIFFICULTY_OPTIONS, SURVIVAL_PUZZLE_LIMIT, survivalDifficultyForPuzzle, WOODPECKER_CYCLE_COUNT, WOODPECKER_SET_SIZE, type WoodpeckerCycleResult } from "@/lib/puzzle-training/modes";
+import type { PuzzleTrainingOverview, WoodpeckerCycleOverview } from "@/lib/puzzle-training/overview";
 import { emptyPremoveHandoff, takeReadyPremove, withPremoveReply, withPremoveReplyReady, withQueuedPremove, type QueuedPremove } from "@/lib/puzzle-training/premoveQueue";
 import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
@@ -54,7 +55,7 @@ function optimisticMoveFen(fen: string, from: string, to: string) {
   }
 }
 
-export function PuzzleSurvival() {
+export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTrainingOverview }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedTheme, setSelectedTheme] = useState<PuzzleThemeSlug>(() => parsePuzzleTheme(searchParams.get("theme")));
@@ -107,6 +108,7 @@ export function PuzzleSurvival() {
   const [woodpeckerReviewIndex, setWoodpeckerReviewIndex] = useState(0);
   const [woodpeckerReviewing, setWoodpeckerReviewing] = useState(false);
   const [woodpeckerCycleResults, setWoodpeckerCycleResults] = useState<WoodpeckerCycleResult[]>([]);
+  const [overview, setOverview] = useState(initialOverview);
   const sessionId = useRef(crypto.randomUUID());
   const moveLocked = useRef(false);
   const premoveHandoffRef = useRef(emptyPremoveHandoff());
@@ -278,6 +280,32 @@ export function PuzzleSurvival() {
     resetWoodpeckerProgress();
     resetTrainingStats();
     void loadPuzzle("daily");
+  }
+
+  async function saveWoodpeckerCycleOverview(completedSessionId: string) {
+    const response = await fetch("/api/student/puzzle-training/woodpecker-cycle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: completedSessionId })
+    });
+    const data = await response.json() as { stats?: WoodpeckerCycleOverview; error?: string };
+    if (!response.ok || !data.stats) throw new Error(data.error ?? "Cycle stats could not be saved.");
+    const stats = data.stats;
+    setOverview((current) => ({ ...current, latestWoodpeckerCycle: stats }));
+  }
+
+  function returnToPuzzleSetup() {
+    if (trainingMode === "survival" && solved > 0) {
+      setOverview((current) => ({
+        ...current,
+        survival: {
+          allTimeScore: Math.max(current.survival.allTimeScore, solved),
+          monthScore: Math.max(current.survival.monthScore, solved),
+          weekScore: Math.max(current.survival.weekScore, solved)
+        }
+      }));
+    }
+    setPhase("select");
   }
 
   function advanceTrainingPuzzle() {
@@ -493,7 +521,7 @@ export function PuzzleSurvival() {
 
         const remainingLives = lives - 1;
         setLives(remainingLives);
-        setMessage(`Incorrect destination. ${Math.max(remainingLives, 0)} ${remainingLives === 1 ? "chance" : "chances"} left.`);
+        setMessage(`Incorrect destination. ${formatSurvivalLives(remainingLives, STARTING_LIVES)}`);
         window.setTimeout(() => setIncorrectSquare(null), 700);
         if (remainingLives <= 0) {
           void finishFailedAttempt(result.token);
@@ -565,6 +593,11 @@ export function PuzzleSurvival() {
               ...results.filter((savedResult) => savedResult.cycle !== cycleResult.cycle),
               cycleResult
             ].sort((left, right) => left.cycle - right.cycle));
+            try {
+              await saveWoodpeckerCycleOverview(sessionId.current);
+            } catch (statsError) {
+              setError(statsError instanceof Error ? statsError.message : "Cycle stats could not be saved.");
+            }
             setPhase("cycle-summary");
             setMessage(`Cycle ${woodpeckerCycleRef.current} complete.`);
             moveLocked.current = false;
@@ -759,9 +792,9 @@ export function PuzzleSurvival() {
         ? `Review ${Math.min(woodpeckerReviewIndex + 1, woodpeckerReviewPuzzleIdsRef.current.length)}/${woodpeckerReviewPuzzleIdsRef.current.length}`
         : `${Math.min(woodpeckerIndex + 1, activeWoodpeckerSetSize.current)}/${activeWoodpeckerSetSize.current}`
       : `${Math.min(visibleSurvivalPuzzleNumber, SURVIVAL_PUZZLE_LIMIT)}/${SURVIVAL_PUZZLE_LIMIT}`;
-  const secondaryMetric: [string, string] = trainingMode === "woodpecker"
+  const secondaryMetric: [string, ReactNode] = trainingMode === "woodpecker"
     ? ["Cycle", `${woodpeckerCycle}/${WOODPECKER_CYCLE_COUNT}`]
-    : ["Lives", `${lives}/${STARTING_LIVES}`];
+    : ["Lives", <span key="survival-lives" role="img" aria-label={`${lives} of ${STARTING_LIVES} lives remaining`}>{formatSurvivalLives(lives, STARTING_LIVES)}</span>];
   const activeAccuracy = trainingMode === "woodpecker"
     ? calculatePuzzleAccuracy(woodpeckerCycleSolved, woodpeckerCycleIncorrectMoves)
     : calculatePuzzleAccuracy(solved, incorrectAttempts);
@@ -781,6 +814,7 @@ export function PuzzleSurvival() {
         onAutoAdvanceChange={updateAutoAdvance}
         onStart={setupMode === "survival" ? startSurvival : startWoodpecker}
         onDailyPuzzle={startDailyPuzzle}
+        overview={overview}
       />
     );
   }
@@ -819,7 +853,7 @@ export function PuzzleSurvival() {
             ))}
           </div>
         )}
-        <div className="mt-6 flex flex-wrap gap-3"><Button type="button" onClick={trainingMode === "daily" ? startDailyPuzzle : trainingMode === "woodpecker" ? startWoodpecker : startSurvival}>{trainingMode === "daily" ? "Play Again" : "Train Again"}</Button><Button type="button" variant="ghost" onClick={() => setPhase("select")}>Back to Puzzles</Button></div>
+        <div className="mt-6 flex flex-wrap gap-3"><Button type="button" onClick={trainingMode === "daily" ? startDailyPuzzle : trainingMode === "woodpecker" ? startWoodpecker : startSurvival}>{trainingMode === "daily" ? "Play Again" : "Train Again"}</Button><Button type="button" variant="ghost" onClick={returnToPuzzleSetup}>Back to Puzzles</Button></div>
       </Card>
     );
   }

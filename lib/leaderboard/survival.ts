@@ -1,11 +1,18 @@
+import type { PuzzleThemeSlug } from "@/lib/puzzle-training/types";
+
 export type LeaderboardTimeWindow = "week" | "month" | "all";
 
 export type SurvivalLeaderboardScore = {
   studentId: string;
+  theme: PuzzleThemeSlug;
   weekScore: number;
   monthScore: number;
   allTimeScore: number;
 };
+
+export function survivalLeaderboardScoreKey(studentId: string, theme: PuzzleThemeSlug) {
+  return `${studentId}:${theme}`;
+}
 
 export function getSurvivalLeaderboardScore(
   score: SurvivalLeaderboardScore | undefined,
