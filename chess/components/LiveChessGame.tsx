@@ -55,6 +55,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
+  const [resultOpen, setResultOpen] = useState(false);
   const [rematchPending, setRematchPending] = useState(false);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
   const [annotationMode, setAnnotationMode] = useState<"arrow" | "circle" | null>(null);
@@ -63,6 +64,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   const [boardCircles, setBoardCircles] = useState<Array<{ square: string; color: string }>>([]);
   const claimedVersion = useRef<number | null>(null);
   const claimRetryAt = useRef(0);
+  const announcedCompletedGame = useRef<string | null>(null);
 
   const receiveGame = useCallback((next: LiveGameSnapshot) => {
     setGame(next);
@@ -110,7 +112,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   }, [game?.realtimeTopic, game?.status, refresh]);
 
   useEffect(() => {
-    if (!game || game.status === "completed" || game.status === "cancelled") return;
+    if (!game || game.status === "cancelled") return;
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
     }, connection === "live" ? 15_000 : 3_000);
@@ -121,6 +123,12 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
       window.removeEventListener("focus", onFocus);
     };
   }, [connection, game?.status, refresh]);
+
+  useEffect(() => {
+    if (!game || game.status !== "completed" || announcedCompletedGame.current === game.id) return;
+    announcedCompletedGame.current = game.id;
+    setResultOpen(true);
+  }, [game]);
 
   useEffect(() => {
     if (!game || game.status !== "active" || game.clocks.whiteMs === null) return;
@@ -273,7 +281,10 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
       const body = await response.json() as RematchResponse;
       if (!response.ok || !body.rematch) throw new Error(body.error || "Rematch could not be requested.");
       receiveGame(body.rematch.source);
-      if (body.rematch.gameId) router.push(`/student/play/live/${body.rematch.gameId}`);
+      if (body.rematch.gameId) {
+        setResultOpen(false);
+        router.push(`/student/play/live/${body.rematch.gameId}`);
+      }
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Rematch could not be requested."); }
     finally { setRematchPending(false); }
   }
@@ -289,6 +300,15 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   const interactive = game.status === "active" && game.activeColor === viewerColor && !pending;
   const opponentOfferedDraw = Boolean(game.drawOfferedBy && game.drawOfferedBy !== game.viewer.id);
   const viewerOfferedDraw = game.drawOfferedBy === game.viewer.id;
+  const viewerRequestedRematch = game.rematchRequestedBy === game.viewer.id;
+  const opponentRequestedRematch = Boolean(game.rematchRequestedBy && !viewerRequestedRematch);
+  const rematchLabel = rematchPending
+    ? "Requesting..."
+    : viewerRequestedRematch
+      ? "Waiting for Opponent"
+      : opponentRequestedRematch
+        ? "Accept Rematch"
+        : "Request Rematch";
   const statusText = game.status === "waiting"
     ? "Waiting for your opponent to join. This page will update automatically."
     : game.status === "active"
@@ -332,7 +352,15 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
               <span className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${connection === "live" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{connection === "live" ? "Live" : connection}</span>
             </div>
             <p className="mt-4 rounded-md border border-white/10 bg-white/5 p-3 text-sm font-bold leading-5 text-slate-200" aria-live="polite">{statusText}</p>
-            {game.status === "completed" && game.rematchRequestedBy && game.rematchRequestedBy !== game.viewer.id ? <p className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3 text-sm font-bold text-amber-100">Your opponent wants a rematch.</p> : null}
+            {game.status === "completed" ? (
+              <div className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3">
+                <p className="text-xs font-black uppercase tracking-wider text-amber-200">Play again</p>
+                <p className="mt-1 text-sm font-bold text-amber-50">
+                  {viewerRequestedRematch ? "Your opponent has been invited. This game will open automatically when they accept." : opponentRequestedRematch ? "Your opponent wants a rematch." : "Challenge the same opponent to another game with colors swapped."}
+                </p>
+                <Button type="button" className="mt-3 w-full" disabled={rematchPending || viewerRequestedRematch} onClick={() => void requestRematch()}>{rematchLabel}</Button>
+              </div>
+            ) : null}
             {opponentOfferedDraw ? (
               <div className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3">
                 <p className="text-sm font-bold text-amber-100">Your opponent offered a draw.</p>
@@ -353,7 +381,6 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
               <Button href="/student/play/live" variant="ghost">Live Games</Button>
               {game.status === "active" ? <Button type="button" variant="ghost" disabled={pending || Boolean(game.drawOfferedBy)} onClick={() => void sendAction("offer_draw")}>{viewerOfferedDraw ? "Draw Offered" : "Offer Draw"}</Button> : null}
               {game.status === "active" ? <Button type="button" variant="ghost" className="border-rose-300/25 text-rose-100" disabled={pending} onClick={() => setConfirmation("resign")}>⚑ Resign</Button> : null}
-              {game.status === "completed" ? <Button type="button" disabled={rematchPending} onClick={() => void requestRematch()}>{rematchPending ? "Requesting..." : game.rematchRequestedBy === game.viewer.id ? "Rematch Requested" : "Play Rematch"}</Button> : null}
             </div>
             <div className="mt-4 border-t border-white/10 pt-4">
               <p className="mb-2 text-xs font-black uppercase tracking-wider text-cyan-200">Board drawings</p>
@@ -370,6 +397,21 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
 
       {pendingPromotion ? <PromotionDialog color={viewerColor} onChoose={(piece) => void sendMove(pendingPromotion.from, pendingPromotion.to, piece)} onCancel={() => setPendingPromotion(null)} /> : null}
       {confirmation ? <GameDialog title={confirmation === "resign" ? "Resign this live game?" : "Cancel this challenge?"} description={confirmation === "resign" ? "Your opponent will win immediately." : "The private challenge code will stop working."} primaryLabel={confirmation === "resign" ? "Resign" : "Cancel Challenge"} onPrimary={() => void sendAction(confirmation)} secondaryLabel="Keep Playing" onSecondary={() => setConfirmation(null)} /> : null}
+      {resultOpen && game.status === "completed" ? (
+        <GameDialog
+          title="Game over"
+          description={completionText(game)}
+          primaryLabel={rematchLabel}
+          primaryDisabled={rematchPending || viewerRequestedRematch}
+          onPrimary={() => void requestRematch()}
+          secondaryLabel="Close"
+          onSecondary={() => setResultOpen(false)}
+        >
+          <p className="mt-3 text-sm font-bold text-slate-300">
+            {viewerRequestedRematch ? "Waiting for your opponent to accept. The rematch will open automatically." : opponentRequestedRematch ? "Your opponent has already requested another game." : "Want another game? Request a rematch and your opponent can accept from this screen."}
+          </p>
+        </GameDialog>
+      ) : null}
     </div>
   );
 }

@@ -3,11 +3,12 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/Button";
 
-export function GameDialog({ title, description, children, primaryLabel, onPrimary, secondaryLabel, onSecondary }: {
+export function GameDialog({ title, description, children, primaryLabel, primaryDisabled = false, onPrimary, secondaryLabel, onSecondary }: {
   title: string;
   description: string;
   children?: ReactNode;
   primaryLabel: string;
+  primaryDisabled?: boolean;
   onPrimary: () => void;
   secondaryLabel?: string;
   onSecondary?: () => void;
@@ -21,7 +22,7 @@ export function GameDialog({ title, description, children, primaryLabel, onPrima
         {children}
         <div className="mt-6 flex flex-wrap justify-end gap-3">
           {secondaryLabel && onSecondary && <Button type="button" variant="ghost" onClick={onSecondary}>{secondaryLabel}</Button>}
-          <Button type="button" onClick={onPrimary}>{primaryLabel}</Button>
+          <Button type="button" disabled={primaryDisabled} onClick={onPrimary}>{primaryLabel}</Button>
         </div>
       </section>
     </div>
