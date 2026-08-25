@@ -3,6 +3,7 @@ import { Chess } from "chess.js";
 import { adjustedErrorBandWeights, estimatePositionComplexity, scoreHumanCandidates, selectHumanLikeMove } from "@/chess/bots/humanMoveSelector";
 import { parseStockfishInfo, StockfishService } from "@/chess/engine/StockfishService";
 import { BOT_DIFFICULTIES } from "@/chess/game/config";
+import { SIR_LEM_SOURCE } from "@/chess/bots/sirLemOpeningBook";
 import type { StockfishCandidate } from "@/chess/types";
 
 function bot(id: string) {
@@ -100,7 +101,7 @@ describe("human-like computer profiles", () => {
     ]);
   });
 
-  it("gives the Sir Lem mirror its sampled e4 and Pirc opening preferences", () => {
+  it("gives the Sir Lem mirror its expanded e4 and Pirc opening preferences", () => {
     const opening = scoreHumanCandidates(new Chess().fen(), [candidate("e2e4", 1, 0), candidate("g1f3", 2, 0)], bot("so-pawny"));
     const afterE4 = new Chess();
     afterE4.move("e4");
@@ -108,6 +109,13 @@ describe("human-like computer profiles", () => {
     const score = (list: typeof opening, uci: string) => list.find((item) => item.candidate.uci === uci)?.totalScore ?? -Infinity;
     expect(score(opening, "e2e4")).toBeGreaterThan(score(opening, "g1f3"));
     expect(score(pirc, "d7d6")).toBeGreaterThan(score(pirc, "e7e5"));
+  });
+
+  it("builds Sir Lem from the expanded public game archive", () => {
+    expect(SIR_LEM_SOURCE.username).toBe("So_Pawny");
+    expect(SIR_LEM_SOURCE.games).toBeGreaterThan(3_000);
+    expect(SIR_LEM_SOURCE.openingPositions).toBeGreaterThanOrEqual(500);
+    expect(bot("so-pawny").openingBook).toHaveLength(SIR_LEM_SOURCE.openingPositions);
   });
 
   it("keeps every Sir Lem opening-book continuation legal", () => {

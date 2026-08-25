@@ -1,4 +1,5 @@
 import type { BotDifficulty, ChessColor, PlayerColorChoice, TimeControl } from "@/chess/types";
+import { SIR_LEM_OPENING_BOOK, SIR_LEM_SOURCE } from "@/chess/bots/sirLemOpeningBook";
 
 export const BOT_DIFFICULTIES: BotDifficulty[] = [
   {
@@ -158,22 +159,8 @@ export const BOT_DIFFICULTIES: BotDifficulty[] = [
       castling: 30, safety: 20, defense: 25, simplification: -30, knights: 22,
       pawnMoves: 18, edgePawns: 25, earlyQueen: -65, repeatedPiece: 18, unforcedKing: -105
     },
-    openingBook: [
-      { after: [], moves: [{ uci: "e2e4", bonus: 100 }, { uci: "e2e3", bonus: 82 }, { uci: "d2d4", bonus: 58 }, { uci: "c2c4", bonus: 42 }] },
-      { after: ["e2e4"], moves: [{ uci: "d7d6", bonus: 110 }, { uci: "e7e5", bonus: 45 }, { uci: "c7c5", bonus: 38 }] },
-      { after: ["d2d4"], moves: [{ uci: "d7d6", bonus: 100 }, { uci: "g8f6", bonus: 58 }, { uci: "e7e6", bonus: 36 }] },
-      { after: ["c2c4"], moves: [{ uci: "d7d6", bonus: 92 }, { uci: "g8f6", bonus: 54 }, { uci: "e7e5", bonus: 34 }] },
-      { after: ["e2e4", "d7d6"], moves: [{ uci: "d2d4", bonus: 86 }, { uci: "g1f3", bonus: 50 }] },
-      { after: ["e2e4", "e7e5"], moves: [{ uci: "g1f3", bonus: 90 }] },
-      { after: ["e2e4", "e7e5", "g1f3", "b8c6"], moves: [{ uci: "d2d4", bonus: 105 }, { uci: "f1c4", bonus: 65 }] },
-      { after: ["e2e4", "e7e5", "g1f3"], moves: [{ uci: "g8f6", bonus: 105 }, { uci: "b8c6", bonus: 52 }] },
-      { after: ["e2e4", "e7e5", "g1f3", "g8f6"], moves: [{ uci: "f3e5", bonus: 72 }] },
-      { after: ["e2e4", "e7e5", "g1f3", "g8f6", "f3e5"], moves: [{ uci: "b8c6", bonus: 112 }, { uci: "d7d6", bonus: 48 }] },
-      { after: ["e2e4", "e7e5", "g1f3", "g8f6", "f3e5", "b8c6", "e5c6"], moves: [{ uci: "d7c6", bonus: 118 }] },
-      { after: ["e2e4", "d7d6", "d2d4", "g8f6"], moves: [{ uci: "b1c3", bonus: 86 }] },
-      { after: ["e2e4", "d7d6", "d2d4", "g8f6", "b1c3"], moves: [{ uci: "g7g6", bonus: 105 }] }
-    ],
-    description: "Modeled from 300 public games: 1.e4/1.e3, Pirc setups, Scotch ideas, pawn storms, and tactical attacks."
+    openingBook: SIR_LEM_OPENING_BOOK,
+    description: `Modeled from ${SIR_LEM_SOURCE.games} public rated games with ${SIR_LEM_SOURCE.openingPositions} remembered opening positions: 1.e4, Pirc and Caro-Kann setups, Scotch ideas, pawn storms, and tactical attacks.`
   }
 ];
 

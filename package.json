@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "import:lichess-puzzles": "tsx scripts/import-lichess-puzzles.ts"
+    "import:lichess-puzzles": "tsx scripts/import-lichess-puzzles.ts",
+    "update:sir-lem-bot": "tsx scripts/update-sir-lem-bot.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

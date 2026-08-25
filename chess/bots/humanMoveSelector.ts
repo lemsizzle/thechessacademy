@@ -212,7 +212,10 @@ function personalityScore(bot: BotDifficulty, features: CandidateFeatures) {
 function openingBookBonus(bot: BotDifficulty, uci: string, context: BotMoveContext) {
   const rule = bot.openingBook?.find((entry) => entry.after.length === context.moveHistory.length
     && entry.after.every((move, index) => move === context.moveHistory[index]));
-  return rule?.moves.find((move) => move.uci === uci)?.bonus ?? 0;
+  const choiceIndex = rule?.moves.findIndex((move) => move.uci === uci) ?? -1;
+  if (!rule || choiceIndex < 0) return 0;
+  const frequencyRankBonus = [65, 35, 18, 8][choiceIndex] ?? 0;
+  return rule.moves[choiceIndex].bonus + frequencyRankBonus;
 }
 
 export function scoreHumanCandidates(
