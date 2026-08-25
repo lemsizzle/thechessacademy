@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/EmptyState";
 
 type ListResponse = { ok?: boolean; games?: TeacherLiveGameSummary[]; error?: string };
 
-export function AdminLiveGames({ initialGames }: { initialGames: TeacherLiveGameSummary[] }) {
+export function AdminLiveGames({ initialGames, adminActionToken }: { initialGames: TeacherLiveGameSummary[]; adminActionToken: string }) {
   const [games, setGames] = useState(initialGames);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState("");
@@ -16,7 +16,11 @@ export function AdminLiveGames({ initialGames }: { initialGames: TeacherLiveGame
   const refresh = useCallback(async (showProgress = false) => {
     if (showProgress) setRefreshing(true);
     try {
-      const response = await fetch("/api/admin/live-games", { cache: "no-store" });
+      const response = await fetch("/api/admin/live-games", {
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "x-admin-action-token": adminActionToken }
+      });
       const body = await response.json() as ListResponse;
       if (!response.ok || !body.games) throw new Error(body.error || "Live games could not be loaded.");
       setGames(body.games);
@@ -26,7 +30,7 @@ export function AdminLiveGames({ initialGames }: { initialGames: TeacherLiveGame
     } finally {
       if (showProgress) setRefreshing(false);
     }
-  }, []);
+  }, [adminActionToken]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {

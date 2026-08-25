@@ -2,14 +2,19 @@ import { AdminLiveGames } from "@/chess/components/AdminLiveGames";
 import { listTeacherLiveGames } from "@/chess/persistence/liveGameServer";
 import { AppShell } from "@/components/AppShell";
 import { Card } from "@/components/Card";
+import { createAdminActionToken } from "@/lib/auth/adminSession";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminLiveGamesPage() {
   try {
+    const [initialGames, adminActionToken] = await Promise.all([
+      listTeacherLiveGames(),
+      createAdminActionToken()
+    ]);
     return (
       <AppShell title="Live Games" subtitle="Watch student-vs-student games in progress without affecting play." variant="admin">
-        <AdminLiveGames initialGames={await listTeacherLiveGames()} />
+        <AdminLiveGames initialGames={initialGames} adminActionToken={adminActionToken} />
       </AppShell>
     );
   } catch (error) {

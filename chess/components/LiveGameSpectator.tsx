@@ -30,7 +30,7 @@ function completedStatus(game: TeacherLiveGameSnapshot) {
   return game.winnerColor ? `${game.players[game.winnerColor].name} won by ${reason}.` : `Draw by ${reason}.`;
 }
 
-export function LiveGameSpectator({ gameId }: { gameId: string }) {
+export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string; adminActionToken: string }) {
   const [game, setGame] = useState<TeacherLiveGameSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -48,7 +48,11 @@ export function LiveGameSpectator({ gameId }: { gameId: string }) {
 
   const refresh = useCallback(async () => {
     try {
-      const response = await fetch(`/api/admin/live-games/${gameId}`, { cache: "no-store" });
+      const response = await fetch(`/api/admin/live-games/${gameId}`, {
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "x-admin-action-token": adminActionToken }
+      });
       const body = await response.json() as GameResponse;
       if (!response.ok || !body.game) throw new Error(body.error || "Live game could not be loaded.");
       receiveGame(body.game);
@@ -56,7 +60,7 @@ export function LiveGameSpectator({ gameId }: { gameId: string }) {
       setError(caught instanceof Error ? caught.message : "Live game could not be loaded.");
       setLoading(false);
     }
-  }, [gameId, receiveGame]);
+  }, [adminActionToken, gameId, receiveGame]);
 
   useEffect(() => {
     void refresh();

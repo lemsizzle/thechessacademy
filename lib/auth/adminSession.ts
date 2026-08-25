@@ -34,3 +34,11 @@ export async function isValidAdminActionToken(value?: string | null) {
   const expected = await createAdminActionToken();
   return Boolean(value && expected && value === expected);
 }
+
+export async function isAuthorizedAdminRequest(sessionValue?: string | null, actionToken?: string | null) {
+  const [sessionValid, actionTokenValid] = await Promise.all([
+    isValidAdminSession(sessionValue),
+    isValidAdminActionToken(actionToken)
+  ]);
+  return sessionValid || actionTokenValid;
+}
