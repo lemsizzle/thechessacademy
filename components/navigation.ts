@@ -50,6 +50,7 @@ const teacherSetupLinks: NavLink[] = [
 ];
 
 const teacherToolLinks: NavLink[] = [
+  { href: "/admin/live-games", label: "Live Games", icon: "\u{1F441}\uFE0F" },
   { href: "/admin/game-analyzer", label: "Game Analyzer", icon: "\u{1F50D}" },
   { href: "/admin/chess-performance", label: "Chess Performance", icon: "\u{1F4CA}" },
   { href: "/admin/adaptive-training", label: "Adaptive Training", icon: "\u{1F9E0}" },

@@ -85,6 +85,44 @@ export type LiveGameSummary = {
   updatedAt: string;
 };
 
+export type TeacherLiveGameSummary = {
+  id: string;
+  players: Record<ChessColor, LiveGamePlayer>;
+  timeControl: TimeControl;
+  activeColor: ChessColor;
+  moveCount: number;
+  rated: boolean;
+  matchmaking: boolean;
+  startedAt: string;
+  updatedAt: string;
+};
+
+export type TeacherLiveGameSnapshot = {
+  id: string;
+  status: LiveGameStatus;
+  version: number;
+  realtimeTopic: string;
+  players: Record<ChessColor, LiveGamePlayer>;
+  timeControl: TimeControl;
+  initialFen: string;
+  fen: string;
+  moves: GameMove[];
+  activeColor: ChessColor;
+  clocks: {
+    whiteMs: number | null;
+    blackMs: number | null;
+    startedAt: string | null;
+  };
+  winnerColor: ChessColor | null;
+  resultReason: GameResultReason | null;
+  startedAt: string;
+  completedAt: string | null;
+  rated: boolean;
+  matchmaking: boolean;
+  updatedAt: string;
+  serverNow: string;
+};
+
 export type LiveMoveInput = {
   from: string;
   to: string;

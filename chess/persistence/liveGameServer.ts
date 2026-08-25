@@ -4,7 +4,7 @@ import { Chess } from "chess.js";
 import { TIME_CONTROLS, oppositeColor, resolvePlayerColor } from "@/chess/game/config";
 import { liveClockAt, livePlayerColor, replayLiveMoves, timeoutCompletion, applyLiveMove, LiveGameRuleError, type LiveGameCompletion } from "@/chess/live/rules";
 import { cleanChallengeCode, generateChallengeCode, isSupportedChallengeCode, MAX_CHALLENGE_CODE_ATTEMPTS } from "@/chess/live/challengeCode";
-import type { LiveGameAction, LiveGamePlayer, LiveGameRecord, LiveGameSnapshot, LiveGameSummary, LiveMoveInput } from "@/chess/live/types";
+import type { LiveGameAction, LiveGamePlayer, LiveGameRecord, LiveGameSnapshot, LiveGameSummary, LiveMoveInput, TeacherLiveGameSnapshot, TeacherLiveGameSummary } from "@/chess/live/types";
 import type { ChessColor, GameResult, PlayerColorChoice } from "@/chess/types";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { applyRatingForCompletedGame } from "@/chess/persistence/ratingServer";
@@ -113,6 +113,44 @@ async function snapshotFor(game: LiveGameRecord, studentId: string): Promise<Liv
     rematchRequestedBy: game.rematch_requested_by,
     rematchGameId: game.rematch_game_id,
     rematchOfGameId: game.rematch_of_game_id,
+    serverNow: new Date().toISOString()
+  };
+}
+
+function requiredPlayer(players: Map<string, LiveGamePlayer>, playerId: string | null) {
+  if (!playerId) throw new LiveGameServerError("This live game does not have both players.", 409);
+  return players.get(playerId) ?? { id: playerId, name: "Student" };
+}
+
+async function teacherSnapshotFor(game: LiveGameRecord): Promise<TeacherLiveGameSnapshot> {
+  if (!game.started_at) throw new LiveGameServerError("This live game has not started.", 409);
+  const players = await playerMap([game.white_player_id, game.black_player_id]);
+  return {
+    id: game.id,
+    status: game.status,
+    version: game.version,
+    realtimeTopic: `live-game:${game.id}:${game.realtime_token}`,
+    players: {
+      white: requiredPlayer(players, game.white_player_id),
+      black: requiredPlayer(players, game.black_player_id)
+    },
+    timeControl: game.time_control,
+    initialFen: game.initial_fen,
+    fen: game.current_fen,
+    moves: game.moves,
+    activeColor: game.active_color,
+    clocks: {
+      whiteMs: game.white_ms,
+      blackMs: game.black_ms,
+      startedAt: game.clock_started_at
+    },
+    winnerColor: game.winner_color,
+    resultReason: game.result_reason,
+    startedAt: game.started_at,
+    completedAt: game.completed_at,
+    rated: game.rated,
+    matchmaking: game.matchmaking,
+    updatedAt: game.updated_at,
     serverNow: new Date().toISOString()
   };
 }
@@ -278,6 +316,37 @@ export async function listLiveGames(studentId: string): Promise<LiveGameSummary[
       updatedAt: game.updated_at
     };
   });
+}
+
+export async function listTeacherLiveGames(): Promise<TeacherLiveGameSummary[]> {
+  const { data, error } = await serviceClient()
+    .from("live_chess_games")
+    .select("*")
+    .eq("status", "active")
+    .order("updated_at", { ascending: false });
+  if (error) throw new LiveGameServerError(error.message, 500);
+  const games = (data ?? []).map(normalizeRecord);
+  const players = await playerMap(games.flatMap((game) => [game.white_player_id, game.black_player_id]));
+  return games.flatMap((game) => game.started_at ? [{
+    id: game.id,
+    players: {
+      white: requiredPlayer(players, game.white_player_id),
+      black: requiredPlayer(players, game.black_player_id)
+    },
+    timeControl: game.time_control,
+    activeColor: game.active_color,
+    moveCount: Math.ceil(game.moves.length / 2),
+    rated: game.rated,
+    matchmaking: game.matchmaking,
+    startedAt: game.started_at,
+    updatedAt: game.updated_at
+  }] : []);
+}
+
+export async function getTeacherLiveGame(gameId: string) {
+  const game = await loadRecord(gameId);
+  if (game.status === "waiting" || game.status === "cancelled") throw new LiveGameServerError("This game is not available to watch.", 404);
+  return teacherSnapshotFor(game);
 }
 
 export async function submitLiveMove(studentId: string, gameId: string, input: unknown) {
