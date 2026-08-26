@@ -166,6 +166,10 @@ export async function getAdminRosterActivity(limit = 300): Promise<AdminRosterAc
   }
 
   for (const event of rows<ActivityRow>(activityResult, "activity_events")) {
+    // Academy puzzle/game awards are already represented by their authoritative
+    // XP ledger rows above. Keep the public activity record without duplicating
+    // it in the teacher's merged roster timeline.
+    if (["academy_puzzle_reward", "academy_game_reward"].includes(event.event_type)) continue;
     items.push({
       id: `activity-${event.id}`,
       ...studentContext(studentMap, event.student_id),

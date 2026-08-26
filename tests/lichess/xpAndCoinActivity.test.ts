@@ -121,4 +121,67 @@ describe("Lichess XP and coin activity", () => {
       amount: 12
     });
   });
+
+  it("shows Academy puzzle XP and its mirrored coins as one puzzle activity", () => {
+    const items = buildStudentActivityItems({
+      student,
+      badges: [],
+      xpEvents: [{
+        id: "academy-puzzle-1",
+        studentId: student.id,
+        amount: 2,
+        reason: "Academy puzzle solved (Survival).",
+        createdAt: "2026-08-26T09:00:00.000Z"
+      }]
+    });
+
+    expect(items[0]).toMatchObject({
+      kind: "puzzle",
+      title: "Academy puzzle solved",
+      detail: "+2 XP and +2 coins - Academy puzzle solved (Survival).",
+      amount: 2
+    });
+  });
+
+  it("shows Academy game XP and its mirrored coins as one game activity", () => {
+    const items = buildStudentActivityItems({
+      student,
+      badges: [],
+      xpEvents: [{
+        id: "academy-game-1",
+        studentId: student.id,
+        amount: 10,
+        reason: "Academy rapid game win.",
+        createdAt: "2026-08-26T09:05:00.000Z"
+      }]
+    });
+
+    expect(items[0]).toMatchObject({
+      kind: "game",
+      title: "Academy game completed",
+      detail: "+10 XP and +10 coins - Academy rapid game win.",
+      amount: 10
+    });
+  });
+
+  it("shows the daily puzzle reward as puzzle activity with matching coins", () => {
+    const items = buildStudentActivityItems({
+      student,
+      badges: [],
+      xpEvents: [{
+        id: "daily-puzzle-1",
+        studentId: student.id,
+        amount: 10,
+        reason: "Puzzle of the Day — 2026-08-26",
+        createdAt: "2026-08-26T09:10:00.000Z"
+      }]
+    });
+
+    expect(items[0]).toMatchObject({
+      kind: "puzzle",
+      title: "Puzzle of the Day solved",
+      detail: "+10 XP and +10 coins - Puzzle of the Day — 2026-08-26",
+      amount: 10
+    });
+  });
 });

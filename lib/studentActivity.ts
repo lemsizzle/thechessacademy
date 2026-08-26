@@ -27,6 +27,20 @@ function isQuestXpEvent(event: XpEvent) {
   return event.reason.toLowerCase().startsWith("quest completed:");
 }
 
+function academyActivityXpPresentation(event: XpEvent) {
+  const reason = event.reason.toLowerCase();
+  if (reason.startsWith("academy puzzle solved")) {
+    return { kind: "puzzle" as const, title: "Academy puzzle solved" };
+  }
+  if (reason.startsWith("puzzle of the day")) {
+    return { kind: "puzzle" as const, title: "Puzzle of the Day solved" };
+  }
+  if (reason.startsWith("academy ") && reason.includes(" game ")) {
+    return { kind: "game" as const, title: "Academy game completed" };
+  }
+  return null;
+}
+
 export function buildStudentActivityItems({
   student,
   badges,
@@ -95,11 +109,14 @@ export function buildStudentActivityItems({
     const questEventAlreadyShown = isQuestXpEvent(event)
       && Array.from(completedQuestKeys).some((key) => event.reason.includes(key.split(":")[0]) || event.reason.includes(key.split(":")[1]?.slice(0, 10) ?? ""));
     if (questEventAlreadyShown) continue;
+    const academyActivity = academyActivityXpPresentation(event);
     items.push({
       id: `xp-${event.id}`,
-      kind: "xp",
-      title: event.amount >= 0 ? "XP gained" : "XP adjusted",
-      detail: `${formatSignedXp(event.amount)} - ${event.reason}`,
+      kind: academyActivity?.kind ?? "xp",
+      title: academyActivity?.title ?? (event.amount >= 0 ? "XP gained" : "XP adjusted"),
+      detail: academyActivity && event.amount > 0
+        ? `${formatSignedXp(event.amount)} and +${event.amount.toLocaleString()} coins - ${event.reason}`
+        : `${formatSignedXp(event.amount)} - ${event.reason}`,
       createdAt: normalizeDate(event.createdAt),
       amount: event.amount
     });
