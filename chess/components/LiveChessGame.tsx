@@ -354,7 +354,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
 
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
         <div className="mx-auto min-w-0 space-y-3" style={boardColumnStyle}>
-          <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} />
+          <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} />
           <div>
             <div className="mb-2 flex justify-end"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
             <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
@@ -362,7 +362,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
               <BoardCaptureParticles effect={captureEffect} orientation={orientation} />
             </div>
           </div>
-          <PlayerPanel name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />
+          <PlayerPanel name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} avatar={viewer?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-4">

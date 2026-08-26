@@ -6,6 +6,7 @@ import { liveClockAt, livePlayerColor, replayLiveMoves, timeoutCompletion, apply
 import { cleanChallengeCode, generateChallengeCode, isSupportedChallengeCode, MAX_CHALLENGE_CODE_ATTEMPTS } from "@/chess/live/challengeCode";
 import type { LiveGameAction, LiveGamePlayer, LiveGameRecord, LiveGameSnapshot, LiveGameSummary, LiveMoveInput, TeacherLiveGameSnapshot, TeacherLiveGameSummary } from "@/chess/live/types";
 import type { ChessColor, GameResult, PlayerColorChoice } from "@/chess/types";
+import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { applyRatingForCompletedGame } from "@/chess/persistence/ratingServer";
 import { finalizeInternalArenaGame } from "@/chess/persistence/arenaServer";
@@ -75,6 +76,30 @@ async function playerMap(ids: Array<string | null>) {
   return players;
 }
 
+async function playerDisplay(ids: Array<string | null>) {
+  const uniqueIds = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+  const [players, avatarDisplay] = await Promise.all([
+    playerMap(uniqueIds),
+    getStudentAvatarDisplayData(uniqueIds).catch(() => null)
+  ]);
+  if (!avatarDisplay) return { players, avatarItems: [] };
+
+  const equippedItemIds = new Set<string>();
+  for (const studentId of uniqueIds) {
+    const avatar = avatarDisplay.avatars[studentId];
+    const player = players.get(studentId);
+    if (avatar && player) players.set(studentId, { ...player, avatar });
+    for (const itemId of Object.values(avatar?.equippedItems ?? {})) {
+      if (itemId) equippedItemIds.add(itemId);
+    }
+  }
+
+  return {
+    players,
+    avatarItems: avatarDisplay.items.filter((item) => equippedItemIds.has(item.id))
+  };
+}
+
 function assertParticipant(game: LiveGameRecord, studentId: string) {
   const color = livePlayerColor(game, studentId);
   if (!color) throw new LiveGameServerError("You are not a player in this game.", 403);
@@ -83,7 +108,7 @@ function assertParticipant(game: LiveGameRecord, studentId: string) {
 
 async function snapshotFor(game: LiveGameRecord, studentId: string): Promise<LiveGameSnapshot> {
   const viewerColor = assertParticipant(game, studentId);
-  const players = await playerMap([game.white_player_id, game.black_player_id]);
+  const { players, avatarItems } = await playerDisplay([game.white_player_id, game.black_player_id]);
   return {
     id: game.id,
     challengeCode: game.challenge_code,
@@ -95,6 +120,7 @@ async function snapshotFor(game: LiveGameRecord, studentId: string): Promise<Liv
       white: game.white_player_id ? players.get(game.white_player_id) ?? { id: game.white_player_id, name: "Student" } : null,
       black: game.black_player_id ? players.get(game.black_player_id) ?? { id: game.black_player_id, name: "Student" } : null
     },
+    avatarItems,
     timeControl: game.time_control,
     initialFen: game.initial_fen,
     fen: game.current_fen,
@@ -126,7 +152,7 @@ function requiredPlayer(players: Map<string, LiveGamePlayer>, playerId: string |
 
 async function teacherSnapshotFor(game: LiveGameRecord): Promise<TeacherLiveGameSnapshot> {
   if (!game.started_at) throw new LiveGameServerError("This live game has not started.", 409);
-  const players = await playerMap([game.white_player_id, game.black_player_id]);
+  const { players, avatarItems } = await playerDisplay([game.white_player_id, game.black_player_id]);
   return {
     id: game.id,
     status: game.status,
@@ -136,6 +162,7 @@ async function teacherSnapshotFor(game: LiveGameRecord): Promise<TeacherLiveGame
       white: requiredPlayer(players, game.white_player_id),
       black: requiredPlayer(players, game.black_player_id)
     },
+    avatarItems,
     timeControl: game.time_control,
     initialFen: game.initial_fen,
     fen: game.current_fen,

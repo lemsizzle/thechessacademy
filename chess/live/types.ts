@@ -1,10 +1,12 @@
 import type { ChessColor, GameMove, GameResultReason, TimeControl } from "@/chess/types";
+import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
 
 export type LiveGameStatus = "waiting" | "active" | "completed" | "cancelled";
 
 export type LiveGamePlayer = {
   id: string;
   name: string;
+  avatar?: StudentAvatarConfig;
 };
 
 export type LiveGameRecord = {
@@ -50,6 +52,7 @@ export type LiveGameSnapshot = {
   realtimeTopic: string;
   viewer: { id: string; color: ChessColor };
   players: Record<ChessColor, LiveGamePlayer | null>;
+  avatarItems: AvatarItem[];
   timeControl: TimeControl;
   initialFen: string;
   fen: string;
@@ -107,6 +110,7 @@ export type TeacherLiveGameSnapshot = {
   version: number;
   realtimeTopic: string;
   players: Record<ChessColor, LiveGamePlayer>;
+  avatarItems: AvatarItem[];
   timeControl: TimeControl;
   initialFen: string;
   fen: string;

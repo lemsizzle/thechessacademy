@@ -168,7 +168,7 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
         <div className="mx-auto min-w-0 space-y-3" style={boardColumnStyle}>
-          <PlayerPanel name={game.players[topColor].name} subtitle={`Playing ${topColor}`} clockMs={displayedClocks[topColor]} active={game.status === "active" && game.activeColor === topColor} materialAdvantage={materialAdvantageForColor(materialBalance, topColor)} />
+          <PlayerPanel name={game.players[topColor].name} subtitle={`Playing ${topColor}`} clockMs={displayedClocks[topColor]} active={game.status === "active" && game.activeColor === topColor} avatar={game.players[topColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, topColor)} />
           <div>
             <div className="mb-2 flex justify-end"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
             <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
@@ -176,7 +176,7 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
               <BoardCaptureParticles effect={selectedPly === null ? captureEffect : null} orientation={orientation} />
             </div>
           </div>
-          <PlayerPanel name={game.players[bottomColor].name} subtitle={`Playing ${bottomColor}`} clockMs={displayedClocks[bottomColor]} active={game.status === "active" && game.activeColor === bottomColor} materialAdvantage={materialAdvantageForColor(materialBalance, bottomColor)} />
+          <PlayerPanel name={game.players[bottomColor].name} subtitle={`Playing ${bottomColor}`} clockMs={displayedClocks[bottomColor]} active={game.status === "active" && game.activeColor === bottomColor} avatar={game.players[bottomColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, bottomColor)} />
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-4">

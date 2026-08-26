@@ -16,6 +16,7 @@ import { Button } from "@/components/Button";
 import { AddToStudyDialog } from "@/chess/components/AddToStudyDialog";
 import { createAnalysisTree } from "@/chess/analysis/tree";
 import { BOARD_ANNOTATION_COLORS } from "@/chess/components/boardAnnotations";
+import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
 
 type Confirmation = "resign" | "new-game" | null;
 
@@ -23,7 +24,7 @@ const boardColumnStyle = {
   width: "min(100%, 700px, max(80px, calc(100dvh - 14.25rem)))"
 };
 
-export function VsComputerGame() {
+export function VsComputerGame({ studentName, studentAvatar, avatarItems }: { studentName: string; studentAvatar: StudentAvatarConfig; avatarItems: AvatarItem[] }) {
   const game = useComputerGame();
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [addStudyOpen, setAddStudyOpen] = useState(false);
@@ -135,10 +136,12 @@ export function VsComputerGame() {
           </div>
 
           <PlayerPanel
-            name="You"
+            name={studentName}
             subtitle={`Playing ${config.humanColor} · ${config.timeControl.name}`}
             clockMs={playerClock}
             active={game.activeColor === config.humanColor}
+            avatar={studentAvatar}
+            avatarItems={avatarItems}
           />
         </div>
 

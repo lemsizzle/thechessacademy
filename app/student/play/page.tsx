@@ -2,8 +2,18 @@ import { VsComputerGame } from "@/chess/components/VsComputerGame";
 import { StudentPortalShell } from "@/components/student/StudentPortalShell";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
+import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 
-export default function StudentPlayPage() {
+export const dynamic = "force-dynamic";
+
+export default async function StudentPlayPage() {
+  const student = await requireActiveStudent();
+  const avatarDisplay = await getStudentAvatarDisplayData([student.studentId]);
+  const studentAvatar = avatarDisplay.avatars[student.studentId];
+  const equippedItemIds = new Set(Object.values(studentAvatar.equippedItems));
+  const equippedAvatarItems = avatarDisplay.items.filter((item) => equippedItemIds.has(item.id));
+
   return (
     <StudentPortalShell title="Play Chess" subtitle="Play a classmate live or challenge an academy computer opponent.">
       <div className="space-y-5">
@@ -31,7 +41,7 @@ export default function StudentPlayPage() {
         </div>
         <div>
           <p className="mb-3 text-xs font-black uppercase tracking-wider text-slate-400">Play the computer</p>
-          <VsComputerGame />
+          <VsComputerGame studentName={student.name} studentAvatar={studentAvatar} avatarItems={equippedAvatarItems} />
         </div>
       </div>
     </StudentPortalShell>

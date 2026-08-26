@@ -1,11 +1,25 @@
 import { BotPortrait } from "@/chess/components/BotPortrait";
 import { ChessClock } from "@/chess/components/ChessClock";
+import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
+import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
 
-export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrait, materialAdvantage }: { name: string; subtitle: string; clockMs: number | null; active: boolean; thinking?: boolean; portrait?: string; materialAdvantage?: number }) {
+type PlayerPanelProps = {
+  name: string;
+  subtitle: string;
+  clockMs: number | null;
+  active: boolean;
+  thinking?: boolean;
+  portrait?: string;
+  avatar?: StudentAvatarConfig;
+  avatarItems?: AvatarItem[];
+  materialAdvantage?: number;
+};
+
+export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrait, avatar, avatarItems = [], materialAdvantage }: PlayerPanelProps) {
   return (
     <div className={`flex min-w-0 items-center justify-between gap-2 rounded-lg border p-2 ${active ? "border-cyan-200/35 bg-cyan-300/8" : "border-white/10 bg-slate-950/55"}`}>
       <div className="flex min-w-0 items-center gap-2">
-        {portrait ? <BotPortrait src={portrait} /> : null}
+        {avatar ? <AvatarRenderer items={avatarItems} avatar={avatar} size="sm" label={`${name}'s avatar`} /> : portrait ? <BotPortrait src={portrait} /> : null}
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${active ? "animate-pulse bg-cyan-300" : "bg-slate-600"}`} aria-hidden="true" />
