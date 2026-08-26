@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDefaultEquippedItems, seedAvatarItems } from "../../lib/avatar/catalog";
+import { getDefaultEquippedItems, isAvatarItemEquipped, seedAvatarItems } from "../../lib/avatar/catalog";
 
 function decodedSvg(slug: string) {
   const item = seedAvatarItems.find((candidate) => candidate.slug === slug);
@@ -23,5 +23,15 @@ describe("avatar structural layers", () => {
   it("always equips a default skin tone", () => {
     const equipped = getDefaultEquippedItems();
     expect(equipped.skin_tone).toBe("warm-skin-tone");
+  });
+
+  it("identifies only the item occupying its avatar slot as equipped", () => {
+    const equipped = getDefaultEquippedItems();
+    const equippedShirt = seedAvatarItems.find((item) => item.slug === "academy-shirt");
+    const unequippedShirt = seedAvatarItems.find((item) => item.slug === "chessboard-t-shirt");
+    if (!equippedShirt || !unequippedShirt) throw new Error("Missing clothing fixtures.");
+
+    expect(isAvatarItemEquipped(equippedShirt, equipped)).toBe(true);
+    expect(isAvatarItemEquipped(unequippedShirt, equipped)).toBe(false);
   });
 });

@@ -139,6 +139,13 @@ export function getDefaultEquippedItems(items: AvatarItem[] = seedAvatarItems) {
   return equipped;
 }
 
+export function isAvatarItemEquipped(
+  item: AvatarItem,
+  equippedItems: Partial<Record<AvatarCategory, string>>
+) {
+  return equippedItems[item.category] === item.id;
+}
+
 export function normalizeAvatarCategory(value: string): AvatarCategory {
   return avatarCategories.some((item) => item.id === value) ? value as AvatarCategory : "chess_accessory";
 }

@@ -3,7 +3,7 @@
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { avatarCategories, avatarCategoryLabels, avatarRarities, avatarRarityStyles } from "@/lib/avatar/catalog";
+import { avatarCategories, avatarCategoryLabels, avatarRarities, avatarRarityStyles, isAvatarItemEquipped } from "@/lib/avatar/catalog";
 import type { AvatarCategory, AvatarItem, AvatarRarity, StudentAvatarConfig, StudentInventoryItem, StudentWallet } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
@@ -17,7 +17,7 @@ type AvatarPayload = {
   error?: string;
 };
 
-type CollectionFilter = "all" | "owned" | "locked" | "affordable";
+type CollectionFilter = "all" | "equipped" | "owned" | "locked" | "affordable";
 
 export function AvatarStudio() {
   const [state, setState] = useState<AvatarPayload | null>(null);
@@ -52,6 +52,7 @@ export function AvatarStudio() {
     [previewItemId, state?.items]
   );
   const filteredItems = useMemo(() => (state?.items ?? []).filter((item) => {
+    if (collection === "equipped") return isAvatarItemEquipped(item, equipped);
     if (category !== "all" && item.category !== category) return false;
     if (rarity !== "all" && item.rarity !== rarity) return false;
     const itemOwned = owned.has(item.id);
@@ -59,7 +60,7 @@ export function AvatarStudio() {
     if (collection === "locked" && itemOwned) return false;
     if (collection === "affordable" && (itemOwned || item.unlockType !== "purchase" || item.price > (state?.wallet.academyCoins ?? 0))) return false;
     return true;
-  }), [category, collection, owned, rarity, state?.items, state?.wallet.academyCoins]);
+  }), [category, collection, equipped, owned, rarity, state?.items, state?.wallet.academyCoins]);
   const featuredNewItems = useMemo(() => {
     const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
     return (state?.items ?? []).filter((item) => {
@@ -130,6 +131,13 @@ export function AvatarStudio() {
     void saveAvatar(next, item.id);
   }
 
+  function chooseCollection(nextCollection: CollectionFilter) {
+    setCollection(nextCollection);
+    if (nextCollection !== "equipped") return;
+    setCategory("all");
+    setRarity("all");
+  }
+
   return (
     <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
       <Card className="p-5 xl:sticky xl:top-20 xl:self-start">
@@ -161,7 +169,7 @@ export function AvatarStudio() {
       </Card>
 
       <div className="min-w-0 space-y-4">
-        {featuredNewItems.length > 0 && (
+        {collection !== "equipped" && featuredNewItems.length > 0 && (
           <Card className="overflow-hidden border-cyan-200/30 bg-gradient-to-br from-cyan-300/10 via-slate-950 to-purple-400/10 p-4">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
@@ -196,20 +204,21 @@ export function AvatarStudio() {
         <Card className="p-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Category
-              <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={category} onChange={(event) => setCategory(event.target.value as "all" | AvatarCategory)}>
+              <select disabled={collection === "equipped"} className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white disabled:cursor-not-allowed disabled:opacity-50" value={category} onChange={(event) => setCategory(event.target.value as "all" | AvatarCategory)}>
                 <option value="all">All categories</option>
                 {avatarCategories.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
               </select>
             </label>
             <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Rarity
-              <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={rarity} onChange={(event) => setRarity(event.target.value as "all" | AvatarRarity)}>
+              <select disabled={collection === "equipped"} className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white disabled:cursor-not-allowed disabled:opacity-50" value={rarity} onChange={(event) => setRarity(event.target.value as "all" | AvatarRarity)}>
                 <option value="all">All rarities</option>
                 {avatarRarities.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
             <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Collection
-              <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={collection} onChange={(event) => setCollection(event.target.value as CollectionFilter)}>
+              <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={collection} onChange={(event) => chooseCollection(event.target.value as CollectionFilter)}>
                 <option value="all">All items</option>
+                <option value="equipped">Equipped</option>
                 <option value="owned">Owned</option>
                 <option value="locked">Locked</option>
                 <option value="affordable">Affordable</option>
@@ -224,7 +233,7 @@ export function AvatarStudio() {
           <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
             {filteredItems.map((item) => {
               const itemOwned = owned.has(item.id);
-              const itemEquipped = equipped[item.category] === item.id;
+              const itemEquipped = isAvatarItemEquipped(item, equipped);
               const itemPreviewed = previewItemId === item.id;
               const affordable = (state?.wallet.academyCoins ?? 0) >= item.price;
               const busy = busyItemId === item.id;
