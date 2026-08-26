@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useChessSounds } from "@/chess/hooks/useChessSounds";
-import { liveGameSoundForUpdate, type LiveGameSoundSnapshot } from "@/chess/live/liveGameSounds";
+import { captureSquareForUpdate, liveGameSoundForUpdate, type LiveGameSoundSnapshot } from "@/chess/live/liveGameSounds";
 
 const LIVE_GAME_SOUND_PREFERENCE_KEY = "chess-academy-live-game-sounds";
 
 export function useLiveGameSounds() {
   const snapshotRef = useRef<LiveGameSoundSnapshot | null>(null);
+  const captureEffectIdRef = useRef(0);
+  const captureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [captureEffect, setCaptureEffect] = useState<{ id: number; square: string } | null>(null);
   const { muted, setMuted, play, prepare } = useChessSounds(true);
 
   useEffect(() => {
@@ -25,10 +28,22 @@ export function useLiveGameSounds() {
     };
   }, [muted, prepare]);
 
-  const receiveSoundSnapshot = useCallback((next: LiveGameSoundSnapshot) => {
-    const sound = liveGameSoundForUpdate(snapshotRef.current, next);
+  useEffect(() => () => {
+    if (captureTimerRef.current) clearTimeout(captureTimerRef.current);
+  }, []);
+
+  const receiveGameSnapshot = useCallback((next: LiveGameSoundSnapshot) => {
+    const previous = snapshotRef.current;
+    const sound = liveGameSoundForUpdate(previous, next);
+    const captureSquare = captureSquareForUpdate(previous, next);
     snapshotRef.current = next;
     if (sound) play(sound);
+    if (captureSquare) {
+      if (captureTimerRef.current) clearTimeout(captureTimerRef.current);
+      captureEffectIdRef.current += 1;
+      setCaptureEffect({ id: captureEffectIdRef.current, square: captureSquare });
+      captureTimerRef.current = setTimeout(() => setCaptureEffect(null), 800);
+    }
   }, [play]);
 
   const toggleMuted = useCallback(() => {
@@ -38,5 +53,5 @@ export function useLiveGameSounds() {
     setMuted(next);
   }, [muted, prepare, setMuted]);
 
-  return { muted, toggleMuted, receiveSoundSnapshot };
+  return { muted, toggleMuted, receiveGameSnapshot, captureEffect };
 }

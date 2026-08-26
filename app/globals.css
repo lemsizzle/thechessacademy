@@ -75,6 +75,27 @@ textarea {
   24%, 68% { opacity: 1; }
 }
 
+@keyframes academy-capture-particle {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(.2) rotate(0deg);
+  }
+  16% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15) rotate(20deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--academy-capture-x)), calc(-50% + var(--academy-capture-y))) scale(.1) rotate(var(--academy-capture-rotation));
+  }
+}
+
+@keyframes academy-capture-flash {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.15); }
+  20% { opacity: .9; transform: translate(-50%, -50%) scale(.72); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.75); }
+}
+
 .academy-confetti {
   animation-name: academy-confetti-fall;
   animation-timing-function: cubic-bezier(.15, .75, .3, 1);
@@ -90,10 +111,20 @@ textarea {
   background: radial-gradient(circle at 50% 22%, rgba(250, 204, 21, .22), transparent 36rem);
 }
 
+.academy-capture-particle {
+  animation: academy-capture-particle 620ms cubic-bezier(.12, .68, .25, 1) both;
+}
+
+.academy-capture-flash {
+  animation: academy-capture-flash 560ms ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .academy-confetti,
   .academy-victory-glow,
-  .academy-victory-banner {
+  .academy-victory-banner,
+  .academy-capture-particle,
+  .academy-capture-flash {
     display: none;
   }
 }

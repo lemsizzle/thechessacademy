@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
+import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles";
 import { BoardSoundSettings } from "@/chess/components/BoardSoundSettings";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
@@ -45,15 +46,15 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [boardArrows, setBoardArrows] = useState<Array<{ startSquare: string; endSquare: string; color: string }>>([]);
   const [selectedPly, setSelectedPly] = useState<number | null>(null);
-  const { muted, toggleMuted, receiveSoundSnapshot } = useLiveGameSounds();
+  const { muted, toggleMuted, receiveGameSnapshot, captureEffect } = useLiveGameSounds();
 
   const receiveGame = useCallback((next: TeacherLiveGameSnapshot) => {
-    receiveSoundSnapshot({ id: next.id, status: next.status, moves: next.moves });
+    receiveGameSnapshot({ id: next.id, status: next.status, moves: next.moves });
     setGame(next);
     setServerOffsetMs(Date.now() - new Date(next.serverNow).getTime());
     setError("");
     setLoading(false);
-  }, [receiveSoundSnapshot]);
+  }, [receiveGameSnapshot]);
 
   const refresh = useCallback(async () => {
     try {
@@ -170,8 +171,9 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
           <PlayerPanel name={game.players[topColor].name} subtitle={`Playing ${topColor}`} clockMs={displayedClocks[topColor]} active={game.status === "active" && game.activeColor === topColor} materialAdvantage={materialAdvantageForColor(materialBalance, topColor)} />
           <div>
             <div className="mb-2 flex justify-end"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
-            <div className="aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
+            <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
               <AcademyChessboard fen={viewedFen} orientation={orientation} humanColor={orientation} interactive={false} lastMove={lastMove} onMove={() => undefined} arrows={boardArrows} allowDrawingArrows onArrowsChange={setBoardArrows} onClearAnnotations={() => setBoardArrows([])} boardId={`teacher-watch-${game.id}`} />
+              <BoardCaptureParticles effect={selectedPly === null ? captureEffect : null} orientation={orientation} />
             </div>
           </div>
           <PlayerPanel name={game.players[bottomColor].name} subtitle={`Playing ${bottomColor}`} clockMs={displayedClocks[bottomColor]} active={game.status === "active" && game.activeColor === bottomColor} materialAdvantage={materialAdvantageForColor(materialBalance, bottomColor)} />

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { liveGameSoundForUpdate, type LiveGameSoundSnapshot } from "@/chess/live/liveGameSounds";
+import { captureSquareForUpdate, liveGameSoundForUpdate, type LiveGameSoundSnapshot } from "@/chess/live/liveGameSounds";
 
 function snapshot(status: LiveGameSoundSnapshot["status"], sanMoves: string[]): LiveGameSoundSnapshot {
-  return { id: "game-1", status, moves: sanMoves.map((san) => ({ san })) };
+  return { id: "game-1", status, moves: sanMoves.map((san, index) => ({ san, to: ["e4", "f3", "b5"][index] ?? "e4" })) };
 }
 
 describe("liveGameSoundForUpdate", () => {
@@ -22,6 +22,13 @@ describe("liveGameSoundForUpdate", () => {
   });
 
   it("does not carry sound state between games", () => {
-    expect(liveGameSoundForUpdate(snapshot("active", ["e4"]), { id: "game-2", status: "active", moves: [{ san: "d4" }] })).toBeNull();
+    expect(liveGameSoundForUpdate(snapshot("active", ["e4"]), { id: "game-2", status: "active", moves: [{ san: "d4", to: "d4" }] })).toBeNull();
+  });
+
+  it("targets capture particles at the new move's destination square", () => {
+    expect(captureSquareForUpdate(snapshot("active", ["e4"]), snapshot("active", ["e4", "Nxf3"]))).toBe("f3");
+    expect(captureSquareForUpdate(snapshot("active", ["e4"]), snapshot("active", ["e4", "Nf3"]))).toBeNull();
+    expect(captureSquareForUpdate(null, snapshot("active", ["e4", "Nxf3"]))).toBeNull();
+    expect(captureSquareForUpdate(snapshot("active", ["e4"]), snapshot("active", ["e4", "Nxf3", "Bb5+"]))).toBe("f3");
   });
 });

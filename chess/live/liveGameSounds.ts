@@ -6,7 +6,7 @@ export type LiveGameSound = "move" | "capture" | "check" | "end";
 export type LiveGameSoundSnapshot = {
   id: string;
   status: LiveGameStatus;
-  moves: Array<Pick<GameMove, "san">>;
+  moves: Array<Pick<GameMove, "san" | "to">>;
 };
 
 export function liveGameSoundForUpdate(previous: LiveGameSoundSnapshot | null, next: LiveGameSoundSnapshot): LiveGameSound | null {
@@ -18,4 +18,10 @@ export function liveGameSoundForUpdate(previous: LiveGameSoundSnapshot | null, n
   if (san.includes("+") || san.includes("#")) return "check";
   if (san.includes("x")) return "capture";
   return "move";
+}
+
+export function captureSquareForUpdate(previous: LiveGameSoundSnapshot | null, next: LiveGameSoundSnapshot) {
+  if (!previous || previous.id !== next.id || next.moves.length <= previous.moves.length) return null;
+  const newMoves = next.moves.slice(previous.moves.length);
+  return newMoves.findLast((move) => move.san.includes("x"))?.to ?? null;
 }
