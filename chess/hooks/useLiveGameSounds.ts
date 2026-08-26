@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useBoardCaptureEffect } from "@/chess/hooks/useBoardCaptureEffect";
 import { useChessSounds } from "@/chess/hooks/useChessSounds";
 import { captureSquareForUpdate, liveGameSoundForUpdate, type LiveGameSoundSnapshot } from "@/chess/live/liveGameSounds";
 
@@ -8,9 +9,7 @@ const LIVE_GAME_SOUND_PREFERENCE_KEY = "chess-academy-live-game-sounds";
 
 export function useLiveGameSounds() {
   const snapshotRef = useRef<LiveGameSoundSnapshot | null>(null);
-  const captureEffectIdRef = useRef(0);
-  const captureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [captureEffect, setCaptureEffect] = useState<{ id: number; square: string } | null>(null);
+  const { captureEffect, triggerCaptureEffect } = useBoardCaptureEffect();
   const { muted, setMuted, play, prepare } = useChessSounds(true);
 
   useEffect(() => {
@@ -28,23 +27,14 @@ export function useLiveGameSounds() {
     };
   }, [muted, prepare]);
 
-  useEffect(() => () => {
-    if (captureTimerRef.current) clearTimeout(captureTimerRef.current);
-  }, []);
-
   const receiveGameSnapshot = useCallback((next: LiveGameSoundSnapshot) => {
     const previous = snapshotRef.current;
     const sound = liveGameSoundForUpdate(previous, next);
     const captureSquare = captureSquareForUpdate(previous, next);
     snapshotRef.current = next;
     if (sound) play(sound);
-    if (captureSquare) {
-      if (captureTimerRef.current) clearTimeout(captureTimerRef.current);
-      captureEffectIdRef.current += 1;
-      setCaptureEffect({ id: captureEffectIdRef.current, square: captureSquare });
-      captureTimerRef.current = setTimeout(() => setCaptureEffect(null), 800);
-    }
-  }, [play]);
+    if (captureSquare) triggerCaptureEffect(captureSquare);
+  }, [play, triggerCaptureEffect]);
 
   const toggleMuted = useCallback(() => {
     const next = !muted;

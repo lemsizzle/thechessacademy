@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { chessJsColor, fromChessJsColor, oppositeColor } from "@/chess/game/config";
 import { canColorPossiblyCheckmate, createOutcome, detectBoardOutcome, gameMoves, hasHumanMove, promotionOptions, resultHeader, tryMove, undoComputerTurn } from "@/chess/game/rules";
 import { useChessSounds } from "@/chess/hooks/useChessSounds";
+import { useBoardCaptureEffect } from "@/chess/hooks/useBoardCaptureEffect";
 import { useGameClock } from "@/chess/hooks/useGameClock";
 import { useStockfish } from "@/chess/hooks/useStockfish";
 import type { ClockSnapshot, ComputerGameConfig, GameOutcome, PromotionPiece } from "@/chess/types";
@@ -36,6 +37,7 @@ export function useComputerGame() {
   const { display: clockDisplay, expiredColor, reset: resetClock, completeMove: completeClockMove, restore: restoreClock, pause: pauseClock } = useGameClock();
   const { requestMove: requestEngineMove, stop: stopEngine, thinking, engineError, clearEngineError } = useStockfish();
   const { muted, setMuted, play: playSound } = useChessSounds();
+  const { captureEffect, clearCaptureEffect, triggerCaptureEffect } = useBoardCaptureEffect();
 
   const syncPosition = useCallback((move?: { from: string; to: string }) => {
     const chess = chessRef.current;
@@ -92,7 +94,8 @@ export function useComputerGame() {
     setSaveMessage("");
     setSavedGameId(null);
     setEngineRetry(0);
-  }, [clearEngineError, resetClock, stopEngine]);
+    clearCaptureEffect();
+  }, [clearCaptureEffect, clearEngineError, resetClock, stopEngine]);
 
   const playMoveSound = useCallback((captured: boolean) => {
     const chess = chessRef.current;
@@ -114,10 +117,11 @@ export function useComputerGame() {
     engineRequestFenRef.current = null;
     syncPosition(move);
     playMoveSound(Boolean(move.captured));
+    if (move.captured) triggerCaptureEffect(move.to);
     const boardOutcome = detectBoardOutcome(chess, config.humanColor);
     if (boardOutcome) finishGame(boardOutcome);
     return true;
-  }, [completeClockMove, config, finishGame, playMoveSound, syncPosition, thinking]);
+  }, [completeClockMove, config, finishGame, playMoveSound, syncPosition, thinking, triggerCaptureEffect]);
 
   const attemptHumanMove = useCallback((from: string, to: string) => {
     if (!config || outcomeRef.current || thinking) return;
@@ -164,6 +168,7 @@ export function useComputerGame() {
       clockHistoryRef.current.push(snapshot);
       syncPosition(move);
       playMoveSound(Boolean(move.captured));
+      if (move.captured) triggerCaptureEffect(move.to);
       const boardOutcome = detectBoardOutcome(chessRef.current, config.humanColor);
       if (boardOutcome) finishGame(boardOutcome);
     }).catch(() => {
@@ -173,7 +178,7 @@ export function useComputerGame() {
     return () => {
       ignore = true;
     };
-  }, [completeClockMove, config, engineRetry, fen, finishGame, outcome, pendingPromotion, playMoveSound, requestEngineMove, syncPosition]);
+  }, [completeClockMove, config, engineRetry, fen, finishGame, outcome, pendingPromotion, playMoveSound, requestEngineMove, syncPosition, triggerCaptureEffect]);
 
   useEffect(() => {
     if (!config || !expiredColor || outcomeRef.current) return;
@@ -245,8 +250,9 @@ export function useComputerGame() {
     clockHistoryRef.current.splice(Math.max(1, clockHistoryRef.current.length - undone.length));
     restoreClock(clockHistoryRef.current.at(-1) ?? null);
     setPendingPromotion(null);
+    clearCaptureEffect();
     syncPosition();
-  }, [config, restoreClock, stopEngine, syncPosition]);
+  }, [clearCaptureEffect, config, restoreClock, stopEngine, syncPosition]);
 
   const leaveGame = useCallback(() => {
     stopEngine();
@@ -256,7 +262,8 @@ export function useComputerGame() {
     setOutcome(null);
     setResultOpen(false);
     setPendingPromotion(null);
-  }, [pauseClock, stopEngine]);
+    clearCaptureEffect();
+  }, [clearCaptureEffect, pauseClock, stopEngine]);
 
   const activeColor = outcome ? null : clockDisplay?.activeColor ?? fromChessJsColor(chessRef.current.turn());
   const humanTurn = Boolean(config && !outcome && !thinking && chessRef.current.turn() === chessJsColor(config.humanColor));
@@ -278,6 +285,7 @@ export function useComputerGame() {
     setPendingPromotion,
     boardOrientation,
     setBoardOrientation,
+    captureEffect,
     activeColor,
     humanTurn,
     canTakeBack,

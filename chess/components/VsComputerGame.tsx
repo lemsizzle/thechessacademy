@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Chess } from "chess.js";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
+import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles";
 import { GameControls } from "@/chess/components/GameControls";
 import { GameDialog } from "@/chess/components/GameDialog";
 import { GameSetup } from "@/chess/components/GameSetup";
@@ -116,7 +117,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems }: { st
             thinking={game.thinking}
           />
 
-          <div className="aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
+          <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
             <AcademyChessboard
               fen={game.fen}
               orientation={game.boardOrientation}
@@ -133,6 +134,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems }: { st
               onCircleToggle={toggleLiveCircle}
               onClearAnnotations={clearBoardAnnotations}
             />
+            <BoardCaptureParticles effect={game.captureEffect} orientation={game.boardOrientation} />
           </div>
 
           <PlayerPanel
