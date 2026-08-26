@@ -12,7 +12,7 @@ function fieldClass() {
   return "rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300/60";
 }
 
-export function AdminInternalArenas() {
+export function AdminInternalArenas({ adminActionToken }: { adminActionToken: string }) {
   const [arenas, setArenas] = useState<InternalArena[]>([]);
   const [name, setName] = useState("Class Arena");
   const [description, setDescription] = useState("Play as many good games as you can before time runs out.");
@@ -27,11 +27,15 @@ export function AdminInternalArenas() {
   const [message, setMessage] = useState("");
 
   const load = useCallback(async () => {
-    const response = await fetch("/api/admin/internal-arenas", { cache: "no-store", credentials: "same-origin" });
+    const response = await fetch("/api/admin/internal-arenas", {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { "x-admin-action-token": adminActionToken }
+    });
     const body = await response.json() as ArenaResponse;
     if (!response.ok || !body.arenas) throw new Error(body.error || "Internal Arenas could not be loaded.");
     setArenas(body.arenas);
-  }, []);
+  }, [adminActionToken]);
 
   useEffect(() => { void load().catch((error) => setMessage(error instanceof Error ? error.message : "Internal Arenas could not be loaded.")); }, [load]);
   useEffect(() => {
@@ -49,7 +53,7 @@ export function AdminInternalArenas() {
       const response = await fetch("/api/admin/internal-arenas", {
         method: "POST",
         credentials: "same-origin",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-admin-action-token": adminActionToken },
         body: JSON.stringify({ name, description, startsAt: startsAt || undefined, durationMinutes, timeControlId, rated, classGroup })
       });
       const body = await response.json() as ArenaResponse;
@@ -67,7 +71,7 @@ export function AdminInternalArenas() {
     setPending(`${action}:${arena.id}`); setMessage("");
     try {
       const response = await fetch(`/api/admin/internal-arenas/${arena.id}`, {
-        method: "PATCH", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ action })
+        method: "PATCH", credentials: "same-origin", headers: { "content-type": "application/json", "x-admin-action-token": adminActionToken }, body: JSON.stringify({ action })
       });
       const body = await response.json() as ArenaResponse;
       if (!response.ok || !body.arena) throw new Error(body.error || "Arena could not be updated.");
@@ -88,7 +92,7 @@ export function AdminInternalArenas() {
     setPending(`pair:${arena.id}`); setMessage("");
     try {
       const response = await fetch(`/api/admin/internal-arenas/${arena.id}/force-match`, {
-        method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ firstStudentId, secondStudentId })
+        method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", "x-admin-action-token": adminActionToken }, body: JSON.stringify({ firstStudentId, secondStudentId })
       });
       const body = await response.json() as ArenaResponse;
       if (!response.ok || !body.matchmaking?.gameId) throw new Error(body.error || "Students could not be paired.");
