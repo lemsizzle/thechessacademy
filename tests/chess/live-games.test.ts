@@ -37,6 +37,7 @@ function record(overrides: Partial<LiveGameRecord> = {}): LiveGameRecord {
     rated: false,
     matchmaking: false,
     rating_applied_at: null,
+    arena_tournament_id: null,
     rematch_requested_by: null,
     rematch_game_id: null,
     rematch_of_game_id: null,

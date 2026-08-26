@@ -36,6 +36,7 @@ export type LiveGameRecord = {
   rated: boolean;
   matchmaking: boolean;
   rating_applied_at: string | null;
+  arena_tournament_id: string | null;
   rematch_requested_by: string | null;
   rematch_game_id: string | null;
   rematch_of_game_id: string | null;
@@ -65,6 +66,7 @@ export type LiveGameSnapshot = {
   startedAt: string | null;
   completedAt: string | null;
   matchmaking: boolean;
+  arenaTournamentId: string | null;
   rematchRequestedBy: string | null;
   rematchGameId: string | null;
   rematchOfGameId: string | null;
@@ -82,6 +84,7 @@ export type LiveGameSummary = {
   winnerColor: ChessColor | null;
   resultReason: GameResultReason | null;
   matchmaking: boolean;
+  arenaTournamentId: string | null;
   updatedAt: string;
 };
 
@@ -93,6 +96,7 @@ export type TeacherLiveGameSummary = {
   moveCount: number;
   rated: boolean;
   matchmaking: boolean;
+  arenaTournamentId: string | null;
   startedAt: string;
   updatedAt: string;
 };
@@ -119,6 +123,7 @@ export type TeacherLiveGameSnapshot = {
   completedAt: string | null;
   rated: boolean;
   matchmaking: boolean;
+  arenaTournamentId: string | null;
   updatedAt: string;
   serverNow: string;
 };

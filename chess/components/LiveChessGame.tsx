@@ -373,7 +373,13 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
                 Coach is spectating
               </p>
             ) : null}
-            {game.status === "completed" ? (
+            {game.status === "completed" && game.arenaTournamentId ? (
+              <div className="mt-3 rounded-md border border-emerald-300/30 bg-emerald-300/10 p-3">
+                <p className="text-xs font-black uppercase tracking-wider text-emerald-200">Arena game complete</p>
+                <p className="mt-1 text-sm font-bold text-emerald-50">Your score is saved. Arena matchmaking continues when another player is available.</p>
+                <Button href="/student/tournaments" className="mt-3 w-full">Return to Arena</Button>
+              </div>
+            ) : game.status === "completed" ? (
               <div className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3">
                 <p className="text-xs font-black uppercase tracking-wider text-amber-200">Play again</p>
                 <p className="mt-1 text-sm font-bold text-amber-50">
@@ -399,7 +405,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
             <h2 className="font-black text-white">Game controls</h2>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Button type="button" variant="ghost" onClick={() => setOrientation((value) => oppositeColor(value))}>⇅ Flip Board</Button>
-              <Button href="/student/play/live" variant="ghost">Live Games</Button>
+              <Button href={game.arenaTournamentId ? "/student/tournaments" : "/student/play/live"} variant="ghost">{game.arenaTournamentId ? "Arena" : "Live Games"}</Button>
               {game.status === "active" ? <Button type="button" variant="ghost" disabled={pending || Boolean(game.drawOfferedBy)} onClick={() => void sendAction("offer_draw")}>{viewerOfferedDraw ? "Draw Offered" : "Offer Draw"}</Button> : null}
               {game.status === "active" ? <Button type="button" variant="ghost" className="border-rose-300/25 text-rose-100" disabled={pending} onClick={() => setConfirmation("resign")}>⚑ Resign</Button> : null}
             </div>
@@ -418,7 +424,18 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
 
       {pendingPromotion ? <PromotionDialog color={viewerColor} onChoose={(piece) => void sendMove(pendingPromotion.from, pendingPromotion.to, piece)} onCancel={() => setPendingPromotion(null)} /> : null}
       {confirmation ? <GameDialog title={confirmation === "resign" ? "Resign this live game?" : "Cancel this challenge?"} description={confirmation === "resign" ? "Your opponent will win immediately." : "The private challenge code will stop working."} primaryLabel={confirmation === "resign" ? "Resign" : "Cancel Challenge"} onPrimary={() => void sendAction(confirmation)} secondaryLabel="Keep Playing" onSecondary={() => setConfirmation(null)} /> : null}
-      {resultOpen && game.status === "completed" ? (
+      {resultOpen && game.status === "completed" && game.arenaTournamentId ? (
+        <GameDialog
+          title="Arena Game Complete"
+          description={completionText(game)}
+          primaryLabel="Return to Arena"
+          onPrimary={() => router.push("/student/tournaments")}
+          secondaryLabel="Close"
+          onSecondary={() => setResultOpen(false)}
+        >
+          <p className="mt-3 text-sm font-bold text-slate-300">Your result has been added to the standings. You will be paired again when another Arena player is ready.</p>
+        </GameDialog>
+      ) : resultOpen && game.status === "completed" ? (
         <GameDialog
           title="Good Game"
           description={completionText(game)}

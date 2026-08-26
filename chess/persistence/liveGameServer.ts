@@ -8,6 +8,7 @@ import type { LiveGameAction, LiveGamePlayer, LiveGameRecord, LiveGameSnapshot, 
 import type { ChessColor, GameResult, PlayerColorChoice } from "@/chess/types";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { applyRatingForCompletedGame } from "@/chess/persistence/ratingServer";
+import { finalizeInternalArenaGame } from "@/chess/persistence/arenaServer";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const LEGACY_CHALLENGE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -110,6 +111,7 @@ async function snapshotFor(game: LiveGameRecord, studentId: string): Promise<Liv
     startedAt: game.started_at,
     completedAt: game.completed_at,
     matchmaking: game.matchmaking,
+    arenaTournamentId: game.arena_tournament_id,
     rematchRequestedBy: game.rematch_requested_by,
     rematchGameId: game.rematch_game_id,
     rematchOfGameId: game.rematch_of_game_id,
@@ -150,6 +152,7 @@ async function teacherSnapshotFor(game: LiveGameRecord): Promise<TeacherLiveGame
     completedAt: game.completed_at,
     rated: game.rated,
     matchmaking: game.matchmaking,
+    arenaTournamentId: game.arena_tournament_id,
     updatedAt: game.updated_at,
     serverNow: new Date().toISOString()
   };
@@ -218,6 +221,7 @@ async function persistCompletedPlayers(game: LiveGameRecord) {
 async function persistCompletedOutputs(game: LiveGameRecord) {
   await persistCompletedPlayers(game);
   if (game.rated) await applyRatingForCompletedGame(game.id);
+  if (game.arena_tournament_id) await finalizeInternalArenaGame(game.id);
 }
 
 async function updateWithVersion(game: LiveGameRecord, update: Record<string, unknown>) {
@@ -313,6 +317,7 @@ export async function listLiveGames(studentId: string): Promise<LiveGameSummary[
       winnerColor: game.winner_color,
       resultReason: game.result_reason,
       matchmaking: game.matchmaking,
+      arenaTournamentId: game.arena_tournament_id,
       updatedAt: game.updated_at
     };
   });
@@ -338,6 +343,7 @@ export async function listTeacherLiveGames(): Promise<TeacherLiveGameSummary[]> 
     moveCount: Math.ceil(game.moves.length / 2),
     rated: game.rated,
     matchmaking: game.matchmaking,
+    arenaTournamentId: game.arena_tournament_id,
     startedAt: game.started_at,
     updatedAt: game.updated_at
   }] : []);
@@ -447,6 +453,11 @@ export async function performLiveGameAction(studentId: string, gameId: string, i
 
 export async function requestLiveGameRematch(studentId: string, gameId: string) {
   cleanGameId(gameId);
+  const source = await loadRecord(gameId);
+  assertParticipant(source, studentId);
+  if (source.arena_tournament_id) {
+    throw new LiveGameServerError("Arena opponents are assigned by tournament matchmaking.", 409);
+  }
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { data, error } = await serviceClient().rpc("request_live_chess_rematch", {
       p_game_id: gameId,
