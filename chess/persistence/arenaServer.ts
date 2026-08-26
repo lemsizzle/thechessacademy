@@ -149,6 +149,23 @@ export async function listStudentInternalArenas(studentId: string) {
   return mapArenas(visible, id);
 }
 
+export async function hasLiveInternalArena(now = new Date()) {
+  const supabase = getSupabaseServiceClient();
+  if (!supabase) return false;
+
+  const timestamp = now.toISOString();
+  const { data, error } = await supabase
+    .from("internal_arena_tournaments")
+    .select("id")
+    .in("status", ["scheduled", "active"])
+    .lte("starts_at", timestamp)
+    .gt("ends_at", timestamp)
+    .limit(1);
+
+  if (error) throw new InternalArenaServerError(error.message, 500);
+  return Boolean(data?.length);
+}
+
 export async function createInternalArena(input: unknown) {
   const body = input && typeof input === "object" ? input as Partial<CreateInternalArenaInput> : {};
   const name = cleanText(body.name, 100);

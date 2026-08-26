@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
+import { BoardSoundSettings } from "@/chess/components/BoardSoundSettings";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
 import { oppositeColor } from "@/chess/game/config";
 import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/material";
+import { useLiveGameSounds } from "@/chess/hooks/useLiveGameSounds";
 import { replayFenAtPly, stepReplayPly } from "@/chess/live/replay";
 import type { TeacherLiveGameSnapshot } from "@/chess/live/types";
 import type { ChessColor } from "@/chess/types";
@@ -43,13 +45,15 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [boardArrows, setBoardArrows] = useState<Array<{ startSquare: string; endSquare: string; color: string }>>([]);
   const [selectedPly, setSelectedPly] = useState<number | null>(null);
+  const { muted, toggleMuted, receiveSoundSnapshot } = useLiveGameSounds();
 
   const receiveGame = useCallback((next: TeacherLiveGameSnapshot) => {
+    receiveSoundSnapshot({ id: next.id, status: next.status, moves: next.moves });
     setGame(next);
     setServerOffsetMs(Date.now() - new Date(next.serverNow).getTime());
     setError("");
     setLoading(false);
-  }, []);
+  }, [receiveSoundSnapshot]);
 
   const refresh = useCallback(async () => {
     try {
@@ -164,8 +168,11 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
         <div className="mx-auto min-w-0 space-y-3" style={boardColumnStyle}>
           <PlayerPanel name={game.players[topColor].name} subtitle={`Playing ${topColor}`} clockMs={displayedClocks[topColor]} active={game.status === "active" && game.activeColor === topColor} materialAdvantage={materialAdvantageForColor(materialBalance, topColor)} />
-          <div className="aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
-            <AcademyChessboard fen={viewedFen} orientation={orientation} humanColor={orientation} interactive={false} lastMove={lastMove} onMove={() => undefined} arrows={boardArrows} allowDrawingArrows onArrowsChange={setBoardArrows} onClearAnnotations={() => setBoardArrows([])} boardId={`teacher-watch-${game.id}`} />
+          <div>
+            <div className="mb-2 flex justify-end"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
+            <div className="aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
+              <AcademyChessboard fen={viewedFen} orientation={orientation} humanColor={orientation} interactive={false} lastMove={lastMove} onMove={() => undefined} arrows={boardArrows} allowDrawingArrows onArrowsChange={setBoardArrows} onClearAnnotations={() => setBoardArrows([])} boardId={`teacher-watch-${game.id}`} />
+            </div>
           </div>
           <PlayerPanel name={game.players[bottomColor].name} subtitle={`Playing ${bottomColor}`} clockMs={displayedClocks[bottomColor]} active={game.status === "active" && game.activeColor === bottomColor} materialAdvantage={materialAdvantageForColor(materialBalance, bottomColor)} />
         </div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getNavigationGroups, type NavVariant } from "@/components/navigation";
+import { TournamentLiveIndicator } from "@/components/TournamentLiveIndicator";
 
 export function Sidebar({ variant = "public" }: { variant?: NavVariant }) {
   const groups = getNavigationGroups(variant);
@@ -20,6 +21,7 @@ export function Sidebar({ variant = "public" }: { variant?: NavVariant }) {
                 <Link key={link.href} href={link.href} className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/10 hover:text-white">
                   {link.icon && <span className="flex w-6 justify-center text-base">{link.icon}</span>}
                   {link.label}
+                  {link.href.endsWith("/tournaments") && <TournamentLiveIndicator />}
                 </Link>
               ))}
             </div>
