@@ -50,7 +50,10 @@ export function LeaderboardTable({
   avatarItems = seedAvatarItems,
   studentAvatars = {},
   profileBasePath = "/app/students",
-  linkMode = "profile"
+  linkMode = "profile",
+  initialFocus = "Overall XP",
+  lockFocus = false,
+  heading = "Class Leaderboard"
 }: {
   students: Student[];
   lichessAccounts: StudentLichessAccount[];
@@ -61,10 +64,13 @@ export function LeaderboardTable({
   studentAvatars?: Record<string, StudentAvatarConfig>;
   profileBasePath?: string;
   linkMode?: "profile" | "admin";
+  initialFocus?: Focus;
+  lockFocus?: boolean;
+  heading?: string;
 }) {
   const [classGroup, setClassGroup] = useState("All");
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
-  const [focus, setFocus] = useState<Focus>("Overall XP");
+  const [focus, setFocus] = useState<Focus>(initialFocus);
   const [survivalTheme, setSurvivalTheme] = useState<PuzzleThemeSlug>("mixed");
   const [recentXpEvents, setRecentXpEvents] = useState<XpEvent[]>(initialXpEvents ?? xpEvents);
   const defaultEquippedItems = useMemo(() => getDefaultEquippedItems(avatarItems), [avatarItems]);
@@ -116,10 +122,10 @@ export function LeaderboardTable({
       <div className="border-b border-white/10 p-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <h2 className="font-black text-white">Class Leaderboard</h2>
+            <h2 className="font-black text-white">{heading}</h2>
             <p className="mt-1 text-sm text-slate-400">{scoreLabel} · {timeOptions.find((option) => option.value === timeWindow)?.label} · {classGroup}{focus === "Survival Puzzles" ? ` · ${survivalThemeLabel}` : ""}</p>
           </div>
-          <div className={`grid gap-2 sm:grid-cols-2 ${focus === "Survival Puzzles" ? "xl:min-w-[820px] xl:grid-cols-4" : "xl:min-w-[620px] xl:grid-cols-3"}`}>
+          <div className={`grid gap-2 sm:grid-cols-2 ${focus === "Survival Puzzles" ? lockFocus ? "xl:min-w-[620px] xl:grid-cols-3" : "xl:min-w-[820px] xl:grid-cols-4" : lockFocus ? "xl:min-w-[420px] xl:grid-cols-2" : "xl:min-w-[620px] xl:grid-cols-3"}`}>
             <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">Class
               <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={classGroup} onChange={(event) => setClassGroup(event.target.value)}>
                 {groups.map((group) => <option key={group}>{group}</option>)}
@@ -130,12 +136,14 @@ export function LeaderboardTable({
                 {timeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
-            <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">Focus
-              <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={focus} onChange={(event) => setFocus(event.target.value as Focus)}>
-                <option>Overall XP</option>
-                <option>Survival Puzzles</option>
-              </select>
-            </label>
+            {!lockFocus && (
+              <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">Focus
+                <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={focus} onChange={(event) => setFocus(event.target.value as Focus)}>
+                  <option>Overall XP</option>
+                  <option>Survival Puzzles</option>
+                </select>
+              </label>
+            )}
             {focus === "Survival Puzzles" && (
               <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">Theme
                 <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={survivalTheme} onChange={(event) => setSurvivalTheme(event.target.value as PuzzleThemeSlug)}>

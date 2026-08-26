@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
 import { getSurvivalLeaderboardScores } from "@/lib/leaderboard/survivalServer";
 import { emptyPuzzleTrainingOverview, type PuzzleTrainingOverview, type WoodpeckerCycleOverview } from "@/lib/puzzle-training/overview";
 import { parsePuzzleTheme } from "@/lib/puzzle-training/types";
@@ -13,12 +14,15 @@ type WoodpeckerCycleRow = {
   completed_at: string;
 };
 
-export async function getStudentPuzzleTrainingOverview(studentId: string): Promise<PuzzleTrainingOverview> {
+export async function getStudentPuzzleTrainingOverview(
+  studentId: string,
+  preloadedSurvivalScores?: SurvivalLeaderboardScore[]
+): Promise<PuzzleTrainingOverview> {
   const client = getSupabaseServiceClient();
   if (!client) return emptyPuzzleTrainingOverview;
 
   const [survivalScores, woodpeckerResult] = await Promise.all([
-    getSurvivalLeaderboardScores(),
+    preloadedSurvivalScores ?? getSurvivalLeaderboardScores(),
     client
       .from("student_woodpecker_cycle_results")
       .select("set_size,puzzles_per_minute,accuracy,selected_theme,completed_at")

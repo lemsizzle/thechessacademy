@@ -14,7 +14,10 @@ export function LeaderboardBoard({
   badges,
   avatarItems,
   studentAvatars,
-  survivalScores = []
+  survivalScores = [],
+  initialFocus,
+  lockFocus = false,
+  heading
 }: {
   profileBasePath?: string;
   linkMode?: "profile" | "admin";
@@ -24,6 +27,9 @@ export function LeaderboardBoard({
   avatarItems?: AvatarItem[];
   studentAvatars?: Record<string, StudentAvatarConfig>;
   survivalScores?: SurvivalLeaderboardScore[];
+  initialFocus?: "Overall XP" | "Survival Puzzles";
+  lockFocus?: boolean;
+  heading?: string;
 }) {
   const { students: adminStudents, studentLichessAccounts } = useMockAdminState();
   const students = initialStudents ?? adminStudents;
@@ -43,6 +49,9 @@ export function LeaderboardBoard({
       badges={badges}
       avatarItems={avatarItems}
       studentAvatars={studentAvatars}
+      initialFocus={initialFocus}
+      lockFocus={lockFocus}
+      heading={heading}
     />
   );
 }
