@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDefaultEquippedItems, isAvatarItemEquipped, seedAvatarItems } from "../../lib/avatar/catalog";
+import { AVATAR_NEW_ITEM_WINDOW_DAYS, getDefaultEquippedItems, isAvatarItemEquipped, isAvatarItemNew, seedAvatarItems } from "../../lib/avatar/catalog";
 
 function decodedSvg(slug: string) {
   const item = seedAvatarItems.find((candidate) => candidate.slug === slug);
@@ -33,5 +33,17 @@ describe("avatar structural layers", () => {
 
     expect(isAvatarItemEquipped(equippedShirt, equipped)).toBe(true);
     expect(isAvatarItemEquipped(unequippedShirt, equipped)).toBe(false);
+  });
+
+  it("treats items added within the last three weeks as new", () => {
+    const now = Date.parse("2026-08-26T12:00:00.000Z");
+    const fixture = seedAvatarItems[0];
+    const atCutoff = new Date(now - AVATAR_NEW_ITEM_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const beforeCutoff = new Date(Date.parse(atCutoff) - 1).toISOString();
+
+    expect(isAvatarItemNew({ ...fixture, createdAt: atCutoff }, now)).toBe(true);
+    expect(isAvatarItemNew({ ...fixture, createdAt: beforeCutoff }, now)).toBe(false);
+    expect(isAvatarItemNew({ ...fixture, createdAt: new Date(now + 1).toISOString() }, now)).toBe(false);
+    expect(isAvatarItemNew({ ...fixture, createdAt: "not-a-date" }, now)).toBe(false);
   });
 });

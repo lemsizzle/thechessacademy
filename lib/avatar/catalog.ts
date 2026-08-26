@@ -146,6 +146,16 @@ export function isAvatarItemEquipped(
   return equippedItems[item.category] === item.id;
 }
 
+export const AVATAR_NEW_ITEM_WINDOW_DAYS = 21;
+
+export function isAvatarItemNew(item: AvatarItem, nowMs = Date.now()) {
+  if (!item.createdAt) return false;
+  const createdAtMs = Date.parse(item.createdAt);
+  if (!Number.isFinite(createdAtMs)) return false;
+  const cutoffMs = nowMs - AVATAR_NEW_ITEM_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  return createdAtMs >= cutoffMs && createdAtMs <= nowMs;
+}
+
 export function normalizeAvatarCategory(value: string): AvatarCategory {
   return avatarCategories.some((item) => item.id === value) ? value as AvatarCategory : "chess_accessory";
 }

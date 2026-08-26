@@ -3,7 +3,7 @@
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { avatarCategories, avatarCategoryLabels, avatarRarities, avatarRarityStyles, isAvatarItemEquipped } from "@/lib/avatar/catalog";
+import { avatarCategories, avatarCategoryLabels, avatarRarities, avatarRarityStyles, isAvatarItemEquipped, isAvatarItemNew } from "@/lib/avatar/catalog";
 import type { AvatarCategory, AvatarItem, AvatarRarity, StudentAvatarConfig, StudentInventoryItem, StudentWallet } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
@@ -17,7 +17,7 @@ type AvatarPayload = {
   error?: string;
 };
 
-type CollectionFilter = "all" | "equipped" | "owned" | "locked" | "affordable";
+type CollectionFilter = "all" | "new" | "equipped" | "owned" | "locked" | "affordable";
 
 export function AvatarStudio() {
   const [state, setState] = useState<AvatarPayload | null>(null);
@@ -56,18 +56,16 @@ export function AvatarStudio() {
     if (category !== "all" && item.category !== category) return false;
     if (rarity !== "all" && item.rarity !== rarity) return false;
     const itemOwned = owned.has(item.id);
+    if (collection === "new" && !isAvatarItemNew(item)) return false;
     if (collection === "owned" && !itemOwned) return false;
     if (collection === "locked" && itemOwned) return false;
     if (collection === "affordable" && (itemOwned || item.unlockType !== "purchase" || item.price > (state?.wallet.academyCoins ?? 0))) return false;
     return true;
   }), [category, collection, equipped, owned, rarity, state?.items, state?.wallet.academyCoins]);
-  const featuredNewItems = useMemo(() => {
-    const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
-    return (state?.items ?? []).filter((item) => {
-      const createdAt = item.createdAt ? Date.parse(item.createdAt) : Number.NaN;
-      return item.isFeatured && Number.isFinite(createdAt) && createdAt >= cutoff;
-    });
-  }, [state?.items]);
+  const featuredNewItems = useMemo(
+    () => (state?.items ?? []).filter((item) => item.isFeatured && isAvatarItemNew(item)),
+    [state?.items]
+  );
   const renderAvatar = state ? { ...state.avatar, equippedItems: equipped } : { studentId: "loading", equippedItems: {} };
 
   async function saveAvatar(nextEquipped: Partial<Record<AvatarCategory, string>>, itemId: string) {
@@ -169,13 +167,13 @@ export function AvatarStudio() {
       </Card>
 
       <div className="min-w-0 space-y-4">
-        {collection !== "equipped" && featuredNewItems.length > 0 && (
+        {collection !== "equipped" && collection !== "new" && featuredNewItems.length > 0 && (
           <Card className="overflow-hidden border-cyan-200/30 bg-gradient-to-br from-cyan-300/10 via-slate-950 to-purple-400/10 p-4">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-200">Featured</p>
                 <h2 className="text-xl font-black text-white">New in the Armory</h2>
-                <p className="text-sm text-slate-300">Featured cosmetics added within the last two weeks.</p>
+                <p className="text-sm text-slate-300">Featured cosmetics added within the last three weeks.</p>
               </div>
               <span className="rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-xs font-black uppercase text-cyan-100">New</span>
             </div>
@@ -218,6 +216,7 @@ export function AvatarStudio() {
             <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Collection
               <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={collection} onChange={(event) => chooseCollection(event.target.value as CollectionFilter)}>
                 <option value="all">All items</option>
+                <option value="new">New</option>
                 <option value="equipped">Equipped</option>
                 <option value="owned">Owned</option>
                 <option value="locked">Locked</option>
