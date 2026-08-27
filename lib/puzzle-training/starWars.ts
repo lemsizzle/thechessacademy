@@ -56,7 +56,7 @@ type GeneratedLayout = {
 
 type RandomSource = () => number;
 
-const GENERATOR_VERSION = 2;
+const GENERATOR_VERSION = 3;
 const MAX_GENERATION_ATTEMPTS = 128;
 const MAX_GENERATED_PUZZLE_CACHE_ENTRIES = 2_048;
 const MAX_ROUTE_CACHE_ENTRIES = 10_000;
@@ -286,13 +286,14 @@ function routeCandidates(
   movableSquares: readonly Square[],
   originalSquares: ReadonlySet<Square>,
   stars: ReadonlySet<Square>,
+  crossedByEarlierSlider: ReadonlySet<Square>,
   requiredPieceIndex: number | null
 ) {
   const candidates: RouteCandidate[] = [];
   movableSquares.forEach((square, pieceIndex) => {
     if (requiredPieceIndex !== null && requiredPieceIndex !== pieceIndex) return;
     for (const move of chess.moves({ square, verbose: true })) {
-      if (originalSquares.has(move.to) || stars.has(move.to)) continue;
+      if (originalSquares.has(move.to) || stars.has(move.to) || crossedByEarlierSlider.has(move.to)) continue;
       candidates.push({ pieceIndex, move: { from: move.from, to: move.to } });
     }
   });
@@ -302,6 +303,20 @@ function routeCandidates(
     const rightKey = `${right.move.from}${right.move.to}`;
     return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
   });
+}
+
+function slidingIntermediateSquares(piece: StarWarsPieceSymbol, move: StarWarsMove) {
+  if (piece !== "b" && piece !== "r" && piece !== "q") return [];
+  const from = squareCoordinates(move.from);
+  const to = squareCoordinates(move.to);
+  const fileDelta = to.file - from.file;
+  const rankDelta = to.rank - from.rank;
+  const distance = Math.max(Math.abs(fileDelta), Math.abs(rankDelta));
+  const fileStep = Math.sign(fileDelta);
+  const rankStep = Math.sign(rankDelta);
+  return Array.from({ length: Math.max(0, distance - 1) }, (_, index) => (
+    `${String.fromCharCode(97 + from.file + fileStep * (index + 1))}${from.rank + rankStep * (index + 1) + 1}` as Square
+  ));
 }
 
 function selectRouteCandidate(chess: Chess, candidates: readonly RouteCandidate[], random: RandomSource) {
@@ -334,6 +349,7 @@ function generatedPuzzle(score: number, runVariant: number, attempt: number): St
 
   const originalSquares = new Set(layout.pieces.map((piece) => piece.square));
   const stars = new Set<Square>();
+  const crossedByEarlierSlider = new Set<Square>();
   const route: StarWarsMove[] = [];
   const movableSquares = layout.pieces.map((piece) => piece.square);
   const requiredPieceOrder = shuffled(movableSquares.map((_, index) => index), random);
@@ -347,6 +363,7 @@ function generatedPuzzle(score: number, runVariant: number, attempt: number): St
       movableSquares,
       originalSquares,
       stars,
+      crossedByEarlierSlider,
       requiredPieceIndex
     );
     if (!candidates.length) return null;
@@ -354,6 +371,9 @@ function generatedPuzzle(score: number, runVariant: number, attempt: number): St
     if (!selected) return null;
     route.push(selected.move);
     stars.add(selected.move.to);
+    for (const square of slidingIntermediateSquares(layout.pieces[selected.pieceIndex].type, selected.move)) {
+      crossedByEarlierSlider.add(square);
+    }
     movableSquares[selected.pieceIndex] = selected.move.to;
     fen = selected.nextFen;
   }

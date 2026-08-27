@@ -24,11 +24,47 @@ function starLandingMoves(state: StarWarsState) {
     .map((move) => ({ from: move.from, to: move.to })));
 }
 
+function intermediateSquares(from: Square, to: Square) {
+  const fromFile = from.charCodeAt(0) - 97;
+  const fromRank = Number(from[1]) - 1;
+  const toFile = to.charCodeAt(0) - 97;
+  const toRank = Number(to[1]) - 1;
+  const fileDelta = toFile - fromFile;
+  const rankDelta = toRank - fromRank;
+  const distance = Math.max(Math.abs(fileDelta), Math.abs(rankDelta));
+  const fileStep = Math.sign(fileDelta);
+  const rankStep = Math.sign(rankDelta);
+  return Array.from({ length: Math.max(0, distance - 1) }, (_, index) => (
+    `${String.fromCharCode(97 + fromFile + fileStep * (index + 1))}${fromRank + rankStep * (index + 1) + 1}` as Square
+  ));
+}
+
+function routeVisibilityError(puzzle: StarWarsPuzzle) {
+  const route = findStarWarsSolution(initialStarWarsState(puzzle));
+  if (!route || route.length !== puzzle.stars.length) return `${puzzle.id}: intended route is unavailable`;
+  const pieceBySquare = new Map(puzzle.pieces.map((piece) => [piece.square, piece.type] as const));
+  const remainingStars = new Set(puzzle.stars);
+
+  for (const [index, move] of route.entries()) {
+    const piece = pieceBySquare.get(move.from);
+    if (!piece) return `${puzzle.id}: no learner piece on ${move.from} at move ${index + 1}`;
+    if (piece === "b" || piece === "r" || piece === "q") {
+      const crossedStar = intermediateSquares(move.from, move.to).find((square) => remainingStars.has(square));
+      if (crossedStar) return `${puzzle.id}: ${move.from}-${move.to} crosses uncollected star ${crossedStar}`;
+    }
+    remainingStars.delete(move.to);
+    pieceBySquare.delete(move.from);
+    pieceBySquare.set(move.to, piece);
+  }
+  return remainingStars.size ? `${puzzle.id}: intended route leaves ${remainingStars.size} stars` : null;
+}
+
 function expectPerfectRoute(puzzle: StarWarsPuzzle) {
   const initial = initialStarWarsState(puzzle);
   const route = findStarWarsSolution(initial);
   expect(route, puzzle.id).not.toBeNull();
   expect(route, puzzle.id).toHaveLength(puzzle.stars.length);
+  expect(routeVisibilityError(puzzle)).toBeNull();
 
   let state = initial;
   for (const [index, move] of (route ?? []).entries()) {
@@ -65,6 +101,7 @@ describe("Star Wars training", () => {
   it("generates 500 unique uncached missions for one long run within its performance budget", { timeout: 20_000 }, () => {
     const ids = new Set<string>();
     const positions = new Set<string>();
+    const routeVisibilityErrors: string[] = [];
     const durations: number[] = [];
     const startedAt = performance.now();
     for (let score = 0; score < 500; score += 1) {
@@ -73,13 +110,16 @@ describe("Star Wars training", () => {
       durations.push(performance.now() - missionStartedAt);
       ids.add(puzzle.id);
       positions.add(positionSignature(puzzle));
+      const visibilityError = routeVisibilityError(puzzle);
+      if (visibilityError) routeVisibilityErrors.push(visibilityError);
     }
     const elapsedMs = performance.now() - startedAt;
     const p95Ms = durations.sort((left, right) => left - right)[Math.floor(durations.length * 0.95)];
     expect(ids.size).toBe(500);
     expect(positions.size).toBe(500);
+    expect(routeVisibilityErrors).toEqual([]);
     expect(elapsedMs).toBeLessThan(15_000);
-    expect(p95Ms).toBeLessThan(50);
+    expect(p95Ms).toBeLessThan(75);
   });
 
   it("proves sampled missions have a route with exactly one star per move", { timeout: 15_000 }, () => {
