@@ -19,9 +19,9 @@ import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrai
 
 const STARTING_LIVES = 3;
 const OPPONENT_REPLY_DELAY_MS = 420;
-const WOODPECKER_REPLY_DELAY_MS = 160;
 const AUTO_ADVANCE_DELAY_MS = 140;
 const WOODPECKER_AUTO_ADVANCE_DELAY_MS = 50;
+const MOVE_REQUEST_TIMEOUT_MS = 12_000;
 const AUTO_ADVANCE_STORAGE_KEY = "academy-puzzles-auto-advance";
 
 const StarWarsTraining = dynamic(
@@ -504,7 +504,14 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     }
 
     moveLocked.current = true;
+    if (replyTimer.current) {
+      clearTimeout(replyTimer.current);
+      replyTimer.current = null;
+    }
     resetPremoveHandoff();
+    setError("");
+    setHintSource(null);
+    setHintDestination(null);
     const previousFen = submittedFen;
     const optimisticFen = optimisticMoveFen(previousFen, from, to);
     if (!optimisticFen) {
@@ -524,6 +531,8 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     setLastMove([from, to]);
     setPositionFen(optimisticFen);
     setMessage("Move sent. You can queue your next move now.");
+    const moveRequestController = new AbortController();
+    const moveRequestTimeout = window.setTimeout(() => moveRequestController.abort(), MOVE_REQUEST_TIMEOUT_MS);
     try {
       const woodpeckerTarget = trainingMode === "woodpecker"
         ? nextWoodpeckerPuzzleTarget({
@@ -540,6 +549,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       const response = await fetch("/api/student/puzzle-training/move", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: moveRequestController.signal,
         body: JSON.stringify({
           token: submittedToken,
           move: { from, to },
@@ -679,8 +689,8 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         return true;
       }
 
-      premoveHandoffRef.current = withPremoveReply(premoveHandoffRef.current, { fen: result.positionFen, token: result.token });
-      setPhase("reply");
+      const replyContext = { fen: result.positionFen, token: result.token };
+      premoveHandoffRef.current = withPremoveReply(premoveHandoffRef.current, replyContext);
       setPositionFen(result.positionFen);
       if (trainingMode === "woodpecker" && new Chess(result.positionFen).get(to as Square)?.color === studentColor) {
         setSelectedSquare(to);
@@ -694,6 +704,16 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         setLastMove([reply.from, reply.to]);
       }
       setCorrectMove(null);
+
+      if (trainingMode === "woodpecker") {
+        premoveHandoffRef.current = withPremoveReplyReady(premoveHandoffRef.current);
+        setPhase("turn");
+        moveLocked.current = false;
+        if (!executeReadyPremove()) setMessage("Your turn. Continue the solution.");
+        return true;
+      }
+
+      setPhase("reply");
       setMessage(premoveHandoffRef.current.queued
         ? "Opponent replied. Your premove is ready."
         : "Opponent replied. Queue your next move while the pieces settle.");
@@ -703,7 +723,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         setPhase("turn");
         moveLocked.current = false;
         if (!executeReadyPremove()) setMessage("Your turn. Continue the solution.");
-      }, trainingMode === "woodpecker" ? WOODPECKER_REPLY_DELAY_MS : OPPONENT_REPLY_DELAY_MS);
+      }, OPPONENT_REPLY_DELAY_MS);
       return true;
     } catch (moveError) {
       resetPremoveHandoff();
@@ -712,10 +732,15 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       setPositionFen(previousFen);
       setLastMove(null);
       setCorrectMove(null);
-      setError(moveError instanceof Error ? moveError.message : "Move could not be checked.");
-      setMessage("The move was not submitted. Try again.");
+      const timedOut = moveRequestController.signal.aborted;
+      setError(timedOut
+        ? "The move check took too long. Your position was restored."
+        : moveError instanceof Error ? moveError.message : "Move could not be checked.");
+      setMessage(timedOut ? "Connection recovered. Play the move again." : "The move was not submitted. Try again.");
       moveLocked.current = false;
       return false;
+    } finally {
+      clearTimeout(moveRequestTimeout);
     }
   }
 
