@@ -2,6 +2,7 @@
 
 import { Chess, type Square } from "chess.js";
 import { Chessboard, type ChessboardOptions } from "react-chessboard";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
@@ -21,7 +22,12 @@ const OPPONENT_REPLY_DELAY_MS = 420;
 const AUTO_ADVANCE_DELAY_MS = 140;
 const AUTO_ADVANCE_STORAGE_KEY = "academy-puzzles-auto-advance";
 
-type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "cycle-summary" | "summary" | "error";
+const StarWarsTraining = dynamic(
+  () => import("@/components/training/StarWarsTraining").then((module) => module.StarWarsTraining),
+  { ssr: false, loading: () => <Card className="p-6 text-sm font-bold text-slate-300">Preparing the Star Wars board...</Card> }
+);
+
+type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "cycle-summary" | "summary" | "error" | "star-wars";
 type TrainingMode = "survival" | "woodpecker" | "daily";
 type MoveSubmissionContext = { fen: string; token: string; isPremove: true };
 
@@ -280,6 +286,10 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     resetWoodpeckerProgress();
     resetTrainingStats();
     void loadPuzzle("daily");
+  }
+
+  function startStarWars() {
+    setPhase("star-wars");
   }
 
   async function saveWoodpeckerCycleOverview(completedSessionId: string) {
@@ -812,11 +822,15 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         onWoodpeckerSetSizeChange={setWoodpeckerSetSize}
         autoAdvance={autoAdvance}
         onAutoAdvanceChange={updateAutoAdvance}
-        onStart={setupMode === "survival" ? startSurvival : startWoodpecker}
+        onStart={setupMode === "survival" ? startSurvival : setupMode === "woodpecker" ? startWoodpecker : startStarWars}
         onDailyPuzzle={startDailyPuzzle}
         overview={overview}
       />
     );
+  }
+
+  if (phase === "star-wars") {
+    return <StarWarsTraining onExit={() => setPhase("select")} />;
   }
 
   if (phase === "cycle-summary" && currentWoodpeckerCycleResult) {

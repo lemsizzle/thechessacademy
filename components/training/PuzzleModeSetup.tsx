@@ -14,7 +14,7 @@ import {
 import type { PuzzleTrainingOverview } from "@/lib/puzzle-training/overview";
 import { puzzleThemeOptions, type PuzzleLevelSlug, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
-export type PuzzleModeChoice = "survival" | "woodpecker";
+export type PuzzleModeChoice = "survival" | "woodpecker" | "starWars";
 
 const modeOptions: ReadonlyArray<{
   id: PuzzleModeChoice;
@@ -33,6 +33,12 @@ const modeOptions: ReadonlyArray<{
     name: "Woodpecker",
     summary: `${WOODPECKER_CYCLE_COUNT} cycles · stats after each pass`,
     description: "Repeat one set, review mistakes between cycles, and build pattern mastery."
+  },
+  {
+    id: "starWars",
+    name: "Star Wars",
+    summary: "+1 point per puzzle · first missed star ends the run",
+    description: "Plan a route that lands on one star every move using pieces other than pawns."
   }
 ];
 
@@ -110,7 +116,7 @@ export function PuzzleModeSetup({
             </div>
             <span className="hidden text-xs font-bold text-slate-500 sm:block">More modes coming</span>
           </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Puzzle training mode">
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label="Puzzle training mode">
             {modeOptions.map((mode) => {
               const selected = selectedMode === mode.id;
               return (
@@ -132,49 +138,76 @@ export function PuzzleModeSetup({
         </div>
 
         <div className="space-y-5 p-4 sm:p-5">
-          <div className={`grid gap-4 ${selectedMode === "woodpecker" ? "lg:grid-cols-3" : "lg:grid-cols-[minmax(0,1fr)_minmax(280px,1.25fr)]"}`}>
-            <div>
-              <label htmlFor="training-theme" className="mb-2 block text-xs font-black uppercase tracking-wide text-cyan-100">Theme</label>
-              <select id="training-theme" value={selectedTheme} onChange={(event) => onThemeChange(event.target.value as PuzzleThemeSlug)} className="w-full rounded-lg border border-cyan-200/25 bg-slate-950 px-3 py-3 text-sm font-bold text-white outline-none transition focus:border-cyan-200 focus:ring-2 focus:ring-cyan-200/30">
-                {puzzleThemeOptions.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
-              </select>
-              <p className="mt-2 text-xs leading-5 text-slate-500">{selectedThemeOption?.description}</p>
-            </div>
-
-            {selectedMode === "woodpecker" ? (
-              <>
-                <div>
-                  <label htmlFor="woodpecker-difficulty" className="mb-2 block text-xs font-black uppercase tracking-wide text-cyan-100">Difficulty</label>
-                  <select id="woodpecker-difficulty" value={selectedLevel} onChange={(event) => onLevelChange(event.target.value as PuzzleLevelSlug)} className="w-full rounded-lg border border-cyan-200/25 bg-slate-950 px-3 py-3 text-sm font-bold text-white outline-none transition focus:border-cyan-200 focus:ring-2 focus:ring-cyan-200/30">
-                    {PUZZLE_DIFFICULTY_OPTIONS.map((level) => <option key={level.id} value={level.id}>{level.name} · {level.rating}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="woodpecker-set-size" className="mb-2 block text-xs font-black uppercase tracking-wide text-cyan-100">Set size</label>
-                  <select id="woodpecker-set-size" value={woodpeckerSetSize} onChange={(event) => onWoodpeckerSetSizeChange(Number(event.target.value))} className="w-full rounded-lg border border-cyan-200/25 bg-slate-950 px-3 py-3 text-sm font-bold text-white outline-none transition focus:border-cyan-200 focus:ring-2 focus:ring-cyan-200/30">
-                    {WOODPECKER_SET_SIZE_OPTIONS.map((size) => <option key={size} value={size}>{size} puzzles</option>)}
-                  </select>
-                </div>
-              </>
-            ) : (
-              <div>
-                <p className="text-xs font-black uppercase tracking-wide text-cyan-100">Adaptive difficulty</p>
-                <div className="mt-2 grid grid-cols-5 gap-1" aria-label="Survival difficulty progression">
-                  {SURVIVAL_DIFFICULTY_STAGES.map((stage) => (
-                    <div key={stage.level} className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-2 text-center">
-                      <p className="text-[10px] font-black uppercase text-white">{stage.name}</p>
-                      <p className="mt-1 text-[10px] text-slate-500">{stage.start}–{stage.end}</p>
-                    </div>
-                  ))}
-                </div>
-                <p className="mt-2 text-xs leading-5 text-slate-500">Difficulty rises automatically every 10 puzzles, from very easy to expert.</p>
+          {selectedMode === "starWars" ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  ["1", "Plan first", "See all the stars and map the complete route before moving."],
+                  ["2", "One move, one star", "Every successful move must land on a remaining star."],
+                  ["3", "Protect your run", "The first legal move that misses a star ends the run."]
+                ].map(([step, title, description]) => (
+                  <div key={step} className="rounded-lg border border-violet-200/20 bg-violet-300/5 p-4">
+                    <span className="grid size-8 place-items-center rounded-full border border-violet-200/30 bg-violet-300/10 text-sm font-black text-violet-100">{step}</span>
+                    <p className="mt-3 font-black text-white">{title}</p>
+                    <p className="mt-1 text-sm leading-5 text-slate-400">{description}</p>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+              <div className="rounded-lg border border-amber-200/20 bg-amber-300/5 p-4">
+                <p className="text-xs font-black uppercase tracking-wide text-amber-200">Why train this way?</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300">Star Wars rewards thinking ahead. The boards grow from short single-piece routes into harder missions where several pieces must work together.</p>
+              </div>
+            </div>
+          ) : (
+            <div className={`grid gap-4 ${selectedMode === "woodpecker" ? "lg:grid-cols-3" : "lg:grid-cols-[minmax(0,1fr)_minmax(280px,1.25fr)]"}`}>
+              <div>
+                <label htmlFor="training-theme" className="mb-2 block text-xs font-black uppercase tracking-wide text-cyan-100">Theme</label>
+                <select id="training-theme" value={selectedTheme} onChange={(event) => onThemeChange(event.target.value as PuzzleThemeSlug)} className="w-full rounded-lg border border-cyan-200/25 bg-slate-950 px-3 py-3 text-sm font-bold text-white outline-none transition focus:border-cyan-200 focus:ring-2 focus:ring-cyan-200/30">
+                  {puzzleThemeOptions.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
+                </select>
+                <p className="mt-2 text-xs leading-5 text-slate-500">{selectedThemeOption?.description}</p>
+              </div>
+
+              {selectedMode === "woodpecker" ? (
+                <>
+                  <div>
+                    <label htmlFor="woodpecker-difficulty" className="mb-2 block text-xs font-black uppercase tracking-wide text-cyan-100">Difficulty</label>
+                    <select id="woodpecker-difficulty" value={selectedLevel} onChange={(event) => onLevelChange(event.target.value as PuzzleLevelSlug)} className="w-full rounded-lg border border-cyan-200/25 bg-slate-950 px-3 py-3 text-sm font-bold text-white outline-none transition focus:border-cyan-200 focus:ring-2 focus:ring-cyan-200/30">
+                      {PUZZLE_DIFFICULTY_OPTIONS.map((level) => <option key={level.id} value={level.id}>{level.name} · {level.rating}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="woodpecker-set-size" className="mb-2 block text-xs font-black uppercase tracking-wide text-cyan-100">Set size</label>
+                    <select id="woodpecker-set-size" value={woodpeckerSetSize} onChange={(event) => onWoodpeckerSetSizeChange(Number(event.target.value))} className="w-full rounded-lg border border-cyan-200/25 bg-slate-950 px-3 py-3 text-sm font-bold text-white outline-none transition focus:border-cyan-200 focus:ring-2 focus:ring-cyan-200/30">
+                      {WOODPECKER_SET_SIZE_OPTIONS.map((size) => <option key={size} value={size}>{size} puzzles</option>)}
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-cyan-100">Adaptive difficulty</p>
+                  <div className="mt-2 grid grid-cols-5 gap-1" aria-label="Survival difficulty progression">
+                    {SURVIVAL_DIFFICULTY_STAGES.map((stage) => (
+                      <div key={stage.level} className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-2 text-center">
+                        <p className="text-[10px] font-black uppercase text-white">{stage.name}</p>
+                        <p className="mt-1 text-[10px] text-slate-500">{stage.start}–{stage.end}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">Difficulty rises automatically every 10 puzzles, from very easy to expert.</p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            <AutoAdvanceSwitch checked={autoAdvance} onChange={onAutoAdvanceChange} />
-            <Button type="button" onClick={onStart} className="min-w-44">Start {selectedModeOption.name}</Button>
+            {selectedMode === "starWars" ? (
+              <div>
+                <p className="text-sm font-black text-white">Score one point for every completed board.</p>
+                <p className="mt-1 text-xs text-slate-400">The score resets only when a move misses a star.</p>
+              </div>
+            ) : <AutoAdvanceSwitch checked={autoAdvance} onChange={onAutoAdvanceChange} />}
+            <Button type="button" onClick={onStart} className="min-w-44">{selectedMode === "starWars" ? "Launch Star Wars" : `Start ${selectedModeOption.name}`}</Button>
           </div>
         </div>
       </Card>

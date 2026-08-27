@@ -23,7 +23,7 @@ export default async function StudentPuzzleTrainingPage() {
   ]);
 
   return (
-    <StudentPortalShell title="Puzzle Training" subtitle="Survive the academy tactics trial. Three chances. One move at a time.">
+    <StudentPortalShell title="Puzzle Training" subtitle="Train tactics, build pattern memory, and plan perfect routes before you move.">
       <div className="space-y-6">
         <Suspense fallback={<div className="rounded-lg border border-white/10 bg-slate-950/60 p-5 text-sm text-slate-300">Preparing puzzle training...</div>}>
           <PuzzleSurvival initialOverview={overview} />
