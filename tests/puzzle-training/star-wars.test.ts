@@ -33,6 +33,31 @@ function sliderBlockingState(piece: "b" | "q" | "r", star: Square): StarWarsStat
   return { fen: chess.fen(), remainingStars: [star], movableSquares: ["a1"] };
 }
 
+function hiddenSupportPuzzle(): StarWarsPuzzle {
+  const chess = new Chess();
+  chess.clear();
+  chess.put({ color: "w", type: "r" }, "a7");
+  chess.put({ color: "w", type: "b" }, "e4");
+  chess.put({ color: "w", type: "q" }, "g1");
+  chess.put({ color: "w", type: "k" }, "g2");
+  chess.put({ color: "b", type: "k" }, "h8");
+  return {
+    id: "hidden-support-regression",
+    title: "Hidden support regression",
+    briefing: "The visible queen must have a visibly clear path.",
+    tier: 1,
+    fen: chess.fen(),
+    stars: ["d6", "g6", "d5", "e5"],
+    pieces: [
+      { type: "r", square: "a7" },
+      { type: "b", square: "e4" },
+      { type: "q", square: "g1" }
+    ],
+    movableSquares: ["a7", "e4", "g1"],
+    hiddenPieceTypes: ["wK", "bK"]
+  };
+}
+
 function intermediateSquares(from: Square, to: Square) {
   const fromFile = from.charCodeAt(0) - 97;
   const fromRank = Number(from[1]) - 1;
@@ -102,6 +127,9 @@ describe("Star Wars training", () => {
       expect(puzzle.pieces.map((piece) => piece.type)).not.toContain("p");
       expect(new Set(puzzle.stars).size).toBe(puzzle.stars.length);
       expect(puzzle.stars.some((star) => puzzle.movableSquares.includes(star))).toBe(false);
+      const runtime = new Chess(initialStarWarsState(puzzle).fen, { skipValidation: true });
+      const runtimeSquares = runtime.board().flatMap((rank) => rank.flatMap((piece) => piece ? [piece.square] : []));
+      expect(runtimeSquares.sort()).toEqual([...puzzle.movableSquares].sort());
     }
   });
 
@@ -151,7 +179,7 @@ describe("Star Wars training", () => {
   it("ends the run after the first legal move that misses a star", () => {
     const option = Array.from({ length: 20 }, (_, score) => starWarsPuzzleForScore(score, 771)).flatMap((puzzle) => {
       const state = initialStarWarsState(puzzle);
-      const chess = new Chess(state.fen);
+      const chess = new Chess(state.fen, { skipValidation: true });
       const move = state.movableSquares.flatMap((square) => chess.moves({ square, verbose: true }))
         .find((candidate) => !state.remainingStars.includes(candidate.to));
       return move ? [{ state, move: { from: move.from, to: move.to } }] : [];
@@ -181,6 +209,36 @@ describe("Star Wars training", () => {
       const capture = attemptStarWarsMove(state, { from: "a1", to: star });
       expect(capture.status, piece).toBe("solved");
     }
+  });
+
+  it("removes invisible support kings before validating a visibly clear move", () => {
+    const puzzle = hiddenSupportPuzzle();
+    expect(new Chess(puzzle.fen).moves({ square: "g1", verbose: true }).map((move) => move.to)).not.toContain("g6");
+
+    const state = initialStarWarsState(puzzle);
+    const runtimePosition = new Chess(state.fen, { skipValidation: true });
+    expect(runtimePosition.get("g2")).toBeUndefined();
+    expect(runtimePosition.get("h8")).toBeUndefined();
+    expect(starWarsLegalDestinations(state, "g1")).toContain("g6");
+    const result = attemptStarWarsMove(state, { from: "g1", to: "g6" });
+    expect(result.status).toBe("advanced");
+    expect(result.state.remainingStars).not.toContain("g6");
+    expect(new Chess(result.state.fen, { skipValidation: true }).get("g6")).toMatchObject({ color: "w", type: "q" });
+  });
+
+  it("still treats visible learner pieces as blockers", () => {
+    const chess = new Chess();
+    chess.clear();
+    chess.put({ color: "w", type: "q" }, "g1");
+    chess.put({ color: "w", type: "r" }, "g3");
+    const state: StarWarsState = {
+      fen: chess.fen(),
+      remainingStars: ["g6"],
+      movableSquares: ["g1", "g3"]
+    };
+
+    expect(starWarsLegalDestinations(state, "g1")).not.toContain("g6");
+    expect(attemptStarWarsMove(state, { from: "g1", to: "g6" }).status).toBe("illegal");
   });
 
   it("accepts every first move that preserves a complete perfect route", () => {

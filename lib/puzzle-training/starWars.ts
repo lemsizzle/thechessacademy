@@ -56,7 +56,7 @@ type GeneratedLayout = {
 
 type RandomSource = () => number;
 
-const GENERATOR_VERSION = 4;
+const GENERATOR_VERSION = 5;
 const MAX_GENERATION_ATTEMPTS = 128;
 const MAX_GENERATED_PUZZLE_CACHE_ENTRIES = 2_048;
 const MAX_ROUTE_CACHE_ENTRIES = 10_000;
@@ -281,6 +281,21 @@ function keepWhiteToMove(fen: string) {
   return fields.join(" ");
 }
 
+/**
+ * Star Wars uses support kings only to build standards-valid generator FENs.
+ * They are not part of the lesson, so the playable position must contain only
+ * learner-controlled pieces. chess.js can safely run this kingless mini-game
+ * when FEN validation is skipped.
+ */
+function runtimeChess(fen: string, movableSquares: readonly Square[]) {
+  const chess = new Chess(fen, { skipValidation: true });
+  const learnerSquares = new Set(movableSquares);
+  for (const square of BOARD_SQUARES) {
+    if (chess.get(square) && !learnerSquares.has(square)) chess.remove(square);
+  }
+  return chess;
+}
+
 function routeCandidates(
   chess: Chess,
   movableSquares: readonly Square[],
@@ -455,8 +470,9 @@ function rememberCacheValue<T>(cache: Map<string, T>, key: string, value: T, max
 }
 
 export function initialStarWarsState(puzzle: StarWarsPuzzle): StarWarsState {
+  const chess = runtimeChess(puzzle.fen, puzzle.movableSquares);
   return {
-    fen: puzzle.fen,
+    fen: chess.fen(),
     remainingStars: [...puzzle.stars],
     movableSquares: [...puzzle.movableSquares]
   };
@@ -478,13 +494,13 @@ function legalMovesFrom(state: StarWarsState, chess: Chess, from: Square) {
 
 /** Chess-legal destinations, treating every uncollected star as a path blocker. */
 export function starWarsLegalDestinations(state: StarWarsState, from: Square): Square[] {
-  const chess = new Chess(state.fen);
+  const chess = runtimeChess(state.fen, state.movableSquares);
   return legalMovesFrom(state, chess, from).map((move) => move.to);
 }
 
 function playMove(state: StarWarsState, move: StarWarsMove): StarWarsState | null {
   if (!state.movableSquares.includes(move.from)) return null;
-  const chess = new Chess(state.fen);
+  const chess = runtimeChess(state.fen, state.movableSquares);
   const played = legalMovesFrom(state, chess, move.from).find((candidate) => candidate.to === move.to);
   if (!played) return null;
   chess.move({ from: played.from, to: played.to, ...(played.promotion ? { promotion: played.promotion } : {}) });
@@ -496,7 +512,7 @@ function playMove(state: StarWarsState, move: StarWarsMove): StarWarsState | nul
 }
 
 function starLandingMoves(state: StarWarsState) {
-  const chess = new Chess(state.fen);
+  const chess = runtimeChess(state.fen, state.movableSquares);
   return state.movableSquares.flatMap((square) => legalMovesFrom(state, chess, square)
     .filter((move) => state.remainingStars.includes(move.to))
     .map((move) => ({ from: move.from, to: move.to } satisfies StarWarsMove)));
