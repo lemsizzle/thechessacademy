@@ -2,7 +2,7 @@
 
 import { Chess, type Square } from "chess.js";
 import { Chessboard, defaultPieces, type ChessboardOptions } from "react-chessboard";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
 import { useChessSounds } from "@/chess/hooks/useChessSounds";
 import { Button } from "@/components/Button";
@@ -20,6 +20,7 @@ type RunPhase = "playing" | "solved" | "failed";
 type BoardArrow = { startSquare: string; endSquare: string; color: string };
 
 const BEST_SCORE_STORAGE_KEY = "academy-star-wars-best-score:v1";
+const NEXT_MISSION_DELAY_MS = 450;
 const PLAN_ARROW_COLOR = "#c084fc";
 const WRONG_MOVE_COLOR = "#fb7185";
 const STAR_SVG = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 6 61.8 35.8 94 37.8 69.2 58.4 77.2 89.6 50 72.4 22.8 89.6 30.8 58.4 6 37.8 38.2 35.8Z' fill='%23fde047' stroke='%23fff7b3' stroke-width='7' stroke-linejoin='round'/%3E%3C/svg%3E\")";
@@ -45,12 +46,21 @@ function routeLabel(route: readonly StarWarsMove[]) {
   return route.map((move) => `${move.from}→${move.to}`).join(" · ");
 }
 
+function randomRunVariant() {
+  if (typeof globalThis.crypto?.getRandomValues === "function") {
+    const seed = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(seed);
+    return seed[0] ?? 0;
+  }
+  return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+}
+
 export function StarWarsTraining({ onExit }: { onExit: () => void }) {
-  const [runVariant, setRunVariant] = useState(0);
+  const [runVariant, setRunVariant] = useState(randomRunVariant);
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(0);
-  const [puzzle, setPuzzle] = useState(() => starWarsPuzzleForScore(0));
-  const [gameState, setGameState] = useState<StarWarsState>(() => initialStarWarsState(starWarsPuzzleForScore(0)));
+  const [puzzle, setPuzzle] = useState(() => starWarsPuzzleForScore(0, runVariant));
+  const [gameState, setGameState] = useState<StarWarsState>(() => initialStarWarsState(puzzle));
   const [phase, setPhase] = useState<RunPhase>("playing");
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
   const [failedMove, setFailedMove] = useState<StarWarsMove | null>(null);
@@ -61,6 +71,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   const [planArrows, setPlanArrows] = useState<BoardArrow[]>([]);
   const [feedback, setFeedback] = useState("Plan the entire route before moving. Every move must land on a star.");
   const [failureRoute, setFailureRoute] = useState<StarWarsMove[]>([]);
+  const nextMissionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { play: playSound, prepare: prepareSound } = useChessSounds();
 
   useEffect(() => {
@@ -70,6 +81,10 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     } catch {
       // Storage can be unavailable in private browsing; the run still works.
     }
+  }, []);
+
+  useEffect(() => () => {
+    if (nextMissionTimer.current) clearTimeout(nextMissionTimer.current);
   }, []);
 
   const customPieces = useMemo(() => ({
@@ -82,7 +97,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     setPlanStart(null);
   }
 
-  function loadMission(nextScore: number, variant: number) {
+  function loadMission(nextScore: number, variant: number, celebrateScore = false) {
     const nextPuzzle = starWarsPuzzleForScore(nextScore, variant);
     setPuzzle(nextPuzzle);
     setGameState(initialStarWarsState(nextPuzzle));
@@ -95,7 +110,9 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     setPlanStart(null);
     setPlanArrows([]);
     setFailureRoute([]);
-    setFeedback(`Plan a ${nextPuzzle.stars.length}-move route. Collect one star on every move.`);
+    setFeedback(celebrateScore
+      ? `+1 point! Score ${nextScore}. Plan a ${nextPuzzle.stars.length}-move route and collect one star on every move.`
+      : `Plan a ${nextPuzzle.stars.length}-move route. Collect one star on every move.`);
   }
 
   function saveBest(nextScore: number) {
@@ -138,8 +155,13 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       setScore(nextScore);
       saveBest(nextScore);
       setPhase("solved");
-      setFeedback("Perfect route! Every star was collected in exactly one move.");
+      setFeedback(`Perfect route! +1 point. Score ${nextScore}. Loading the next mission...`);
       playSound("end");
+      if (nextMissionTimer.current) clearTimeout(nextMissionTimer.current);
+      nextMissionTimer.current = setTimeout(() => {
+        nextMissionTimer.current = null;
+        loadMission(nextScore, runVariant, true);
+      }, NEXT_MISSION_DELAY_MS);
       return true;
     }
 
@@ -185,12 +207,9 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     setLegalSquares([]);
   }
 
-  function nextMission() {
-    loadMission(score, runVariant);
-  }
-
   function startNewRun() {
-    const nextVariant = runVariant + 1;
+    let nextVariant = randomRunVariant();
+    if (nextVariant === runVariant) nextVariant = (nextVariant + 1) >>> 0;
     setRunVariant(nextVariant);
     setScore(0);
     loadMission(0, nextVariant);
@@ -321,10 +340,10 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
                   <p className="mt-1 text-sm font-black capitalize text-white">{learnerPieces.join(" + ")}</p>
                 </div>
               </div>
-              <div className={`mt-4 rounded-lg border p-4 text-sm font-bold leading-6 ${phase === "failed" ? "border-rose-300/35 bg-rose-300/10 text-rose-100" : phase === "solved" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">
+              <div className={`mt-4 rounded-lg border p-4 text-sm font-bold leading-6 ${phase === "failed" ? "border-rose-300/35 bg-rose-300/10 text-rose-100" : phase === "solved" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-white/10 bg-white/5 text-slate-200"}`} role="status" aria-live="polite" aria-atomic="true">
                 {feedback}
               </div>
-              <p className="mt-3 text-xs font-bold text-slate-500">Move {movesUsed + 1} of {puzzle.stars.length} · The run ends only when a legal move does not collect a star.</p>
+              <p className="mt-3 text-xs font-bold text-slate-500">Move {Math.min(movesUsed + 1, puzzle.stars.length)} of {puzzle.stars.length} · The run ends only when a legal move does not collect a star.</p>
             </div>
           </Card>
 
@@ -346,19 +365,6 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
           <Button type="button" variant="ghost" className="w-full" onClick={onExit}>Back to Training Modes</Button>
         </aside>
       </div>
-
-      {phase === "solved" && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="star-wars-solved-title">
-          <div className="w-full max-w-md rounded-3xl border border-amber-200/40 bg-gradient-to-br from-slate-900 via-violet-950 to-slate-950 p-6 text-center shadow-[0_0_80px_rgba(250,204,21,.25)] sm:p-8">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-200">Mission Complete</p>
-            <p className="mt-4 text-7xl leading-none" aria-hidden="true">⭐</p>
-            <h3 id="star-wars-solved-title" className="mt-4 text-3xl font-black text-white">Perfect plan!</h3>
-            <p className="mt-3 text-lg font-bold text-amber-100">+1 point · Score {score}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-300">You collected {puzzle.stars.length} stars in exactly {puzzle.stars.length} moves.</p>
-            <Button type="button" className="mt-6 w-full" onClick={nextMission}>Next Mission</Button>
-          </div>
-        </div>
-      )}
 
       {phase === "failed" && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="star-wars-failed-title">
