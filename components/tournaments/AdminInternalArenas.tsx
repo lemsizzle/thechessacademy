@@ -140,6 +140,7 @@ export function AdminInternalArenas({ adminActionToken }: { adminActionToken: st
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div><p className="text-xs font-black uppercase text-emerald-200">{arena.status} · {arena.timeControl.name} · {arena.rated ? "Rated" : "Casual"}</p><h3 className="mt-1 text-xl font-black text-white">{arena.name}</h3><p className="mt-1 text-sm text-slate-400">{arena.classGroup || "All students"} · {arena.durationMinutes} minutes · {arena.standings.length} joined</p></div>
                 <div className="flex flex-wrap gap-2">
+                  <Button href={`/admin/tournaments/${arena.id}`} variant="secondary">Open Lobby</Button>
                   {arena.status === "scheduled" ? <Button type="button" variant="secondary" disabled={Boolean(pending)} onClick={() => void updateArena(arena, "start")}>Start Now</Button> : null}
                   {arena.status === "active" ? <Button type="button" variant="ghost" disabled={Boolean(pending)} onClick={() => void updateArena(arena, "finish")}>Finish</Button> : null}
                   {arena.status === "scheduled" || arena.status === "active" ? <Button type="button" variant="ghost" disabled={Boolean(pending)} onClick={() => void updateArena(arena, "cancel")}>Cancel</Button> : null}

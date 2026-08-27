@@ -106,6 +106,7 @@ export function StudentInternalArenas() {
                   : arena.status === "active" ? <Button type="button" className="w-full" disabled={pending === arena.id} onClick={() => void join(arena)}>{pending === arena.id ? "Joining..." : arena.entry ? "Enter Matchmaking" : "Join Arena"}</Button>
                     : arena.status === "scheduled" && !arena.entry ? <Button type="button" variant="secondary" className="w-full" disabled={pending === arena.id} onClick={() => void join(arena)}>{pending === arena.id ? "Joining..." : "Join Early"}</Button>
                       : arena.status === "scheduled" ? <p className="rounded-md border border-emerald-300/25 bg-emerald-300/10 p-3 text-center text-sm font-black text-emerald-100">You’re registered</p> : null}
+              <Button href={`/student/tournaments/${arena.id}`} variant="ghost" className="mt-2 w-full">Open Lobby</Button>
               {arena.entry ? <p className="mt-2 text-center text-xs font-bold text-slate-400">Your score: <span className="text-amber-100">{arena.entry.score}</span> · rank #{arena.entry.rank}</p> : null}
             </div>
           </div>
