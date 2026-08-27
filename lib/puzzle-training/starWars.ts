@@ -56,7 +56,7 @@ type GeneratedLayout = {
 
 type RandomSource = () => number;
 
-const GENERATOR_VERSION = 3;
+const GENERATOR_VERSION = 4;
 const MAX_GENERATION_ATTEMPTS = 128;
 const MAX_GENERATED_PUZZLE_CACHE_ENTRIES = 2_048;
 const MAX_ROUTE_CACHE_ENTRIES = 10_000;
@@ -66,10 +66,10 @@ const BOARD_SQUARES = Array.from({ length: 8 }, (_, rankIndex) => (
 )).flat();
 
 const TIER_PROFILES: Record<StarWarsPuzzle["tier"], TierProfile> = {
-  1: { stars: 3, pieces: 1, piecePool: ["n", "r", "b"] },
-  2: { stars: 4, pieces: 2, piecePool: ["n", "r", "b"] },
-  3: { stars: 5, pieces: 2, piecePool: ["n", "r", "b", "q"] },
-  4: { stars: 6, pieces: 3, piecePool: ["n", "r", "b", "q"] }
+  1: { stars: 4, pieces: 2, piecePool: ["n", "r", "b"] },
+  2: { stars: 5, pieces: 2, piecePool: ["n", "r", "b"] },
+  3: { stars: 6, pieces: 3, piecePool: ["n", "r", "b", "q"] },
+  4: { stars: 7, pieces: 3, piecePool: ["n", "r", "b", "q"] }
 };
 
 const pieceFenSymbol: Record<StarWarsPieceSymbol, string> = {
@@ -89,9 +89,9 @@ const pieceTitle: Record<StarWarsPieceSymbol, string> = {
 };
 
 const tierBriefings: Record<StarWarsPuzzle["tier"], string> = {
-  1: "Plot one piece's complete route before launch.",
-  2: "Coordinate both pieces and collect one star on every move.",
-  3: "Several stars are in range. Plan the full sequence before moving.",
+  1: "Coordinate both pieces and collect one star on every move.",
+  2: "Switch between your pieces to keep the perfect route going.",
+  3: "Several stars are in range. Command the whole squad before moving.",
   4: "Command the whole squad. One wasted move ends this mission."
 };
 
@@ -293,8 +293,14 @@ function routeCandidates(
   movableSquares.forEach((square, pieceIndex) => {
     if (requiredPieceIndex !== null && requiredPieceIndex !== pieceIndex) return;
     for (const move of chess.moves({ square, verbose: true })) {
-      if (originalSquares.has(move.to) || stars.has(move.to) || crossedByEarlierSlider.has(move.to)) continue;
-      candidates.push({ pieceIndex, move: { from: move.from, to: move.to } });
+      const candidate = { from: move.from, to: move.to } satisfies StarWarsMove;
+      if (
+        originalSquares.has(move.to)
+        || stars.has(move.to)
+        || crossedByEarlierSlider.has(move.to)
+        || crossesRemainingStar(chess, candidate, stars)
+      ) continue;
+      candidates.push({ pieceIndex, move: candidate });
     }
   });
   return candidates.sort((left, right) => {
@@ -317,6 +323,13 @@ function slidingIntermediateSquares(piece: StarWarsPieceSymbol, move: StarWarsMo
   return Array.from({ length: Math.max(0, distance - 1) }, (_, index) => (
     `${String.fromCharCode(97 + from.file + fileStep * (index + 1))}${from.rank + rankStep * (index + 1) + 1}` as Square
   ));
+}
+
+function crossesRemainingStar(chess: Chess, move: StarWarsMove, remainingStars: ReadonlySet<Square>) {
+  const piece = chess.get(move.from);
+  if (!piece || piece.color !== "w") return false;
+  return slidingIntermediateSquares(piece.type as StarWarsPieceSymbol, move)
+    .some((square) => remainingStars.has(square));
 }
 
 function selectRouteCandidate(chess: Chess, candidates: readonly RouteCandidate[], random: RandomSource) {
@@ -398,11 +411,11 @@ function fallbackPuzzle(score: number, runVariant: number): StarWarsPuzzle {
   const tier = starWarsTierForScore(score);
   const profile = TIER_PROFILES[tier];
   const fallbackPieces: Array<{ type: StarWarsPieceSymbol; square: Square }> = [
-    { type: "n", square: "b1" },
+    { type: "b", square: "c1" },
     { type: "r", square: "a4" },
-    { type: "b", square: "c1" }
+    { type: "n", square: "b1" }
   ];
-  const fallbackStars: Square[] = ["d2", "f3", "h4", "f5", "d6", "b7"];
+  const fallbackStars: Square[] = ["f4", "d4", "h6", "d7", "f8", "c3", "e4"];
   const pieces = fallbackPieces.slice(0, profile.pieces);
   const stars = fallbackStars.slice(0, profile.stars);
   const puzzle = buildPuzzle({
@@ -416,12 +429,13 @@ function fallbackPuzzle(score: number, runVariant: number): StarWarsPuzzle {
     blackKingSquare: "h8"
   });
   const fallbackRoute: StarWarsMove[] = [
-    { from: "b1", to: "d2" },
-    { from: "d2", to: "f3" },
-    { from: "f3", to: "h4" },
-    { from: "h4", to: "f5" },
-    { from: "f5", to: "d6" },
-    { from: "d6", to: "b7" }
+    { from: "c1", to: "f4" },
+    { from: "a4", to: "d4" },
+    { from: "f4", to: "h6" },
+    { from: "d4", to: "d7" },
+    { from: "h6", to: "f8" },
+    { from: "b1", to: "c3" },
+    { from: "c3", to: "e4" }
   ];
   const route = fallbackRoute.slice(0, profile.stars);
   rememberCacheValue(knownSolutionRouteCache, stateKey(initialStarWarsState(puzzle)), route);
@@ -452,10 +466,26 @@ function stateKey(state: StarWarsState) {
   return `${state.fen.split(" ").slice(0, 4).join(" ")}|${[...state.movableSquares].sort().join(",")}|${[...state.remainingStars].sort().join(",")}`;
 }
 
+function legalMovesFrom(state: StarWarsState, chess: Chess, from: Square) {
+  if (!state.movableSquares.includes(from)) return [];
+  const remainingStars = new Set(state.remainingStars);
+  return chess.moves({ square: from, verbose: true }).filter((candidate) => !crossesRemainingStar(
+    chess,
+    { from: candidate.from, to: candidate.to },
+    remainingStars
+  ));
+}
+
+/** Chess-legal destinations, treating every uncollected star as a path blocker. */
+export function starWarsLegalDestinations(state: StarWarsState, from: Square): Square[] {
+  const chess = new Chess(state.fen);
+  return legalMovesFrom(state, chess, from).map((move) => move.to);
+}
+
 function playMove(state: StarWarsState, move: StarWarsMove): StarWarsState | null {
   if (!state.movableSquares.includes(move.from)) return null;
   const chess = new Chess(state.fen);
-  const played = chess.moves({ square: move.from, verbose: true }).find((candidate) => candidate.to === move.to);
+  const played = legalMovesFrom(state, chess, move.from).find((candidate) => candidate.to === move.to);
   if (!played) return null;
   chess.move({ from: played.from, to: played.to, ...(played.promotion ? { promotion: played.promotion } : {}) });
   return {
@@ -467,7 +497,7 @@ function playMove(state: StarWarsState, move: StarWarsMove): StarWarsState | nul
 
 function starLandingMoves(state: StarWarsState) {
   const chess = new Chess(state.fen);
-  return state.movableSquares.flatMap((square) => chess.moves({ square, verbose: true })
+  return state.movableSquares.flatMap((square) => legalMovesFrom(state, chess, square)
     .filter((move) => state.remainingStars.includes(move.to))
     .map((move) => ({ from: move.from, to: move.to } satisfies StarWarsMove)));
 }
