@@ -6,9 +6,9 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     const student = await requirePuzzleStudent();
-    const body = await request.json() as { sessionId?: string };
+    const body = await request.json() as { sessionId?: string; setSize?: number };
     if (!body.sessionId) return NextResponse.json({ error: "Session ID is required." }, { status: 400 });
-    const stats = await saveCompletedWoodpeckerCycle(student.studentId, body.sessionId);
+    const stats = await saveCompletedWoodpeckerCycle(student.studentId, body.sessionId, body.setSize);
     return NextResponse.json({ stats });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Woodpecker cycle stats could not be saved.";

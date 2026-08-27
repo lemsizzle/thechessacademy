@@ -14,6 +14,26 @@ const payload = {
   hintsUsed: 0
 };
 
+function opaquePayload() {
+  const startedAt = new Date();
+  return {
+    ...payload,
+    version: 2 as const,
+    startedAt: startedAt.toISOString(),
+    expiresAt: new Date(startedAt.getTime() + (60 * 60 * 1000)).toISOString(),
+    puzzle: {
+      id: payload.puzzleId,
+      initial_fen: "8/8/8/8/8/8/4k3/6K1 w - - 0 1",
+      moves: ["g1f1", "e2f2"],
+      start_mode: "direct" as const,
+      accepted_moves: [],
+      themes: ["fork"],
+      rating: 900,
+      game_url: null
+    }
+  };
+}
+
 describe("signed puzzle sessions", () => {
   beforeEach(() => {
     process.env.PUZZLE_SESSION_SECRET = "test-secret-that-is-longer-than-24-characters";
@@ -32,7 +52,34 @@ describe("signed puzzle sessions", () => {
     const token = createPuzzleSessionToken(payload);
     const [encoded, signature] = token.split(".");
     const changed = Buffer.from(JSON.stringify({ ...payload, nextMoveIndex: 3 })).toString("base64url");
-    expect(() => readPuzzleSessionToken(`${changed}.${signature || encoded}`)).toThrow(/signature/i);
+    expect(() => readPuzzleSessionToken(`${changed}.${signature || encoded}`)).toThrow(/invalid puzzle session token/i);
+  });
+
+  it("round-trips an opaque v2 token without exposing the solution", () => {
+    const source = opaquePayload();
+    const token = createPuzzleSessionToken(source);
+
+    expect(token.startsWith("v2.")).toBe(true);
+    expect(token).not.toContain(source.puzzle.initial_fen);
+    expect(token).not.toContain(source.puzzle.moves.join(""));
+    expect(readPuzzleSessionToken(token)).toEqual(source);
+  });
+
+  it("uses a fresh nonce and rejects opaque-token tampering", () => {
+    const source = opaquePayload();
+    const first = createPuzzleSessionToken(source);
+    const second = createPuzzleSessionToken(source);
+    expect(first).not.toBe(second);
+
+    const parts = first.split(".");
+    parts[2] = `${parts[2].slice(0, -1)}${parts[2].endsWith("A") ? "B" : "A"}`;
+    expect(() => readPuzzleSessionToken(parts.join("."))).toThrow(/invalid puzzle session token/i);
+  });
+
+  it("rejects expired opaque sessions", () => {
+    const source = opaquePayload();
+    source.expiresAt = new Date(Date.now() - 1_000).toISOString();
+    expect(() => createPuzzleSessionToken(source)).toThrow(/expired/i);
   });
 
   it("binds each token to one student", () => {

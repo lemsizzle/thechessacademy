@@ -22,6 +22,8 @@ const OPPONENT_REPLY_DELAY_MS = 420;
 const AUTO_ADVANCE_DELAY_MS = 140;
 const WOODPECKER_AUTO_ADVANCE_DELAY_MS = 50;
 const MOVE_REQUEST_TIMEOUT_MS = 12_000;
+const PUZZLE_LOAD_TIMEOUT_MS = 12_000;
+const CYCLE_STATS_TIMEOUT_MS = 8_000;
 const AUTO_ADVANCE_STORAGE_KEY = "academy-puzzles-auto-advance";
 
 const StarWarsTraining = dynamic(
@@ -123,6 +125,17 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   const premoveHandoffRef = useRef(emptyPremoveHandoff());
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+  const sessionGenerationRef = useRef(0);
+  const puzzleGenerationRef = useRef(0);
+  const activePuzzleIdRef = useRef<string | null>(null);
+  const moveRequestIdRef = useRef(0);
+  const puzzleLoadRequestIdRef = useRef(0);
+  const cycleStatsRequestIdRef = useRef(0);
+  const activeMoveControllerRef = useRef<AbortController | null>(null);
+  const activePuzzleLoadControllerRef = useRef<AbortController | null>(null);
+  const activeCycleStatsControllerRef = useRef<AbortController | null>(null);
+  const puzzleTransitionLockedRef = useRef(false);
   const puzzleBoardRef = useOutsideBoardAnnotationClear(() => {
     if (!hasBoardAnnotations) return;
     setHasBoardAnnotations(false);
@@ -130,20 +143,99 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   });
 
   useEffect(() => {
+    mountedRef.current = true;
     setAutoAdvance(window.localStorage.getItem(AUTO_ADVANCE_STORAGE_KEY) === "true");
     return () => {
+      mountedRef.current = false;
+      sessionGenerationRef.current += 1;
+      puzzleGenerationRef.current += 1;
+      moveRequestIdRef.current += 1;
+      puzzleLoadRequestIdRef.current += 1;
+      cycleStatsRequestIdRef.current += 1;
+      activeMoveControllerRef.current?.abort();
+      activePuzzleLoadControllerRef.current?.abort();
+      activeCycleStatsControllerRef.current?.abort();
+      activeMoveControllerRef.current = null;
+      activePuzzleLoadControllerRef.current = null;
+      activeCycleStatsControllerRef.current = null;
       if (replyTimer.current) clearTimeout(replyTimer.current);
       if (advanceTimer.current) clearTimeout(advanceTimer.current);
     };
   }, []);
 
+  function clearReplyTimer() {
+    if (!replyTimer.current) return;
+    clearTimeout(replyTimer.current);
+    replyTimer.current = null;
+  }
+
+  function cancelScheduledAdvance() {
+    if (!advanceTimer.current) return;
+    clearTimeout(advanceTimer.current);
+    advanceTimer.current = null;
+  }
+
+  function abortActiveMoveRequest() {
+    moveRequestIdRef.current += 1;
+    activeMoveControllerRef.current?.abort();
+    activeMoveControllerRef.current = null;
+    moveLocked.current = false;
+  }
+
+  function abortActivePuzzleLoad() {
+    puzzleLoadRequestIdRef.current += 1;
+    activePuzzleLoadControllerRef.current?.abort();
+    activePuzzleLoadControllerRef.current = null;
+  }
+
+  function abortActiveCycleStatsSave() {
+    cycleStatsRequestIdRef.current += 1;
+    activeCycleStatsControllerRef.current?.abort();
+    activeCycleStatsControllerRef.current = null;
+  }
+
+  function invalidatePuzzleWork() {
+    puzzleGenerationRef.current += 1;
+    activePuzzleIdRef.current = null;
+    abortActiveMoveRequest();
+    abortActivePuzzleLoad();
+    clearReplyTimer();
+    cancelScheduledAdvance();
+  }
+
+  function beginNewSession() {
+    sessionGenerationRef.current += 1;
+    invalidatePuzzleWork();
+    abortActiveCycleStatsSave();
+    puzzleTransitionLockedRef.current = false;
+    sessionId.current = crypto.randomUUID();
+  }
+
+  function claimPuzzleTransition(expectedPuzzleId?: string) {
+    cancelScheduledAdvance();
+    if (puzzleTransitionLockedRef.current) return false;
+    if (expectedPuzzleId && activePuzzleIdRef.current !== expectedPuzzleId) return false;
+    puzzleTransitionLockedRef.current = true;
+    return true;
+  }
+
+  function schedulePuzzleAdvance(callback: () => void, delayMs: number) {
+    cancelScheduledAdvance();
+    const scheduledSessionGeneration = sessionGenerationRef.current;
+    const scheduledPuzzleGeneration = puzzleGenerationRef.current;
+    advanceTimer.current = setTimeout(() => {
+      advanceTimer.current = null;
+      if (!mountedRef.current
+        || sessionGenerationRef.current !== scheduledSessionGeneration
+        || puzzleGenerationRef.current !== scheduledPuzzleGeneration) return;
+      callback();
+    }, delayMs);
+  }
+
   function updateAutoAdvance(enabled: boolean) {
     setAutoAdvance(enabled);
     window.localStorage.setItem(AUTO_ADVANCE_STORAGE_KEY, String(enabled));
-    if (!enabled && advanceTimer.current) {
-      clearTimeout(advanceTimer.current);
-      advanceTimer.current = null;
-    }
+    if (!enabled) cancelScheduledAdvance();
   }
 
   function updateQueuedPremove(nextPremove: QueuedPremove | null) {
@@ -185,6 +277,8 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   }
 
   function showPuzzle(nextPuzzle: PublicTrainingPuzzle, mode = trainingMode) {
+    invalidatePuzzleWork();
+    puzzleTransitionLockedRef.current = true;
     setError("");
     setCompletion(null);
     clearBoardMarks();
@@ -198,12 +292,16 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       setWoodpeckerIndex(nextIndex);
     }
     recentPuzzleIds.current = [...recentPuzzleIds.current, nextPuzzle.id].slice(-20);
+    activePuzzleIdRef.current = nextPuzzle.id;
     setMessage(nextPuzzle.prompt || "Your turn. Find the best move.");
     setPhase("turn");
     moveLocked.current = false;
+    puzzleTransitionLockedRef.current = false;
   }
 
   async function loadPuzzle(mode = trainingMode, requestedPuzzleId?: string, survivalPuzzleNumber = completed + 1) {
+    invalidatePuzzleWork();
+    puzzleTransitionLockedRef.current = true;
     prefetchedNextPuzzleRef.current = null;
     setTrainingMode(mode);
     requestedPuzzleIdRef.current = requestedPuzzleId ?? null;
@@ -212,9 +310,22 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     setMessage("Preparing the next position...");
     setCompletion(null);
     clearBoardMarks();
-    moveLocked.current = false;
     const requestedLevel = mode === "survival" ? survivalDifficultyForPuzzle(survivalPuzzleNumber).level : selectedLevel;
-    const query = new URLSearchParams({ theme: selectedTheme, level: requestedLevel, sessionId: sessionId.current });
+    const loadSessionId = sessionId.current;
+    const loadSessionGeneration = sessionGenerationRef.current;
+    const loadRequestId = ++puzzleLoadRequestIdRef.current;
+    const loadController = new AbortController();
+    activePuzzleLoadControllerRef.current = loadController;
+    let loadTimedOut = false;
+    const loadTimeout = window.setTimeout(() => {
+      loadTimedOut = true;
+      loadController.abort();
+    }, PUZZLE_LOAD_TIMEOUT_MS);
+    const isCurrentLoad = () => mountedRef.current
+      && loadRequestId === puzzleLoadRequestIdRef.current
+      && loadSessionGeneration === sessionGenerationRef.current
+      && activePuzzleLoadControllerRef.current === loadController;
+    const query = new URLSearchParams({ theme: selectedTheme, level: requestedLevel, sessionId: loadSessionId });
     query.set("mode", mode);
     if (mode === "daily") query.set("daily", "1");
     if (requestedPuzzleId) query.set("puzzleId", requestedPuzzleId);
@@ -224,13 +335,29 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     if (!requestedPuzzleId && excludedPuzzleIds.length) query.set("exclude", excludedPuzzleIds.join(","));
 
     try {
-      const response = await fetch(`/api/student/puzzle-training/puzzle?${query}`, { cache: "no-store" });
+      const response = await fetch(`/api/student/puzzle-training/puzzle?${query}`, {
+        cache: "no-store",
+        signal: loadController.signal
+      });
       const data = await response.json() as { puzzle?: PublicTrainingPuzzle; error?: string };
+      if (!isCurrentLoad()) return;
       if (!response.ok || !data.puzzle) throw new Error(data.error ?? "Puzzle could not be loaded.");
+      activePuzzleLoadControllerRef.current = null;
       showPuzzle(data.puzzle, mode);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Puzzle could not be loaded.");
+      if (!isCurrentLoad()) return;
+      setError(loadTimedOut
+        ? "The next puzzle took too long to load. Try again."
+        : loadError instanceof Error ? loadError.message : "Puzzle could not be loaded.");
+      setMessage("The board recovered safely. Try loading the puzzle again.");
       setPhase("error");
+      moveLocked.current = false;
+      puzzleTransitionLockedRef.current = false;
+    } finally {
+      clearTimeout(loadTimeout);
+      if (activePuzzleLoadControllerRef.current === loadController) {
+        activePuzzleLoadControllerRef.current = null;
+      }
     }
   }
 
@@ -267,7 +394,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
 
   function startSurvival() {
     setTrainingMode("survival");
-    sessionId.current = crypto.randomUUID();
+    beginNewSession();
     recentPuzzleIds.current = [];
     resetWoodpeckerProgress();
     resetTrainingStats();
@@ -277,7 +404,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   function startWoodpecker() {
     setTrainingMode("woodpecker");
     activeWoodpeckerSetSize.current = woodpeckerSetSize;
-    sessionId.current = crypto.randomUUID();
+    beginNewSession();
     recentPuzzleIds.current = [];
     resetWoodpeckerProgress();
     resetTrainingStats();
@@ -285,7 +412,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   }
 
   function startDailyPuzzle() {
-    sessionId.current = crypto.randomUUID();
+    beginNewSession();
     recentPuzzleIds.current = [];
     setTrainingMode("daily");
     resetWoodpeckerProgress();
@@ -294,22 +421,59 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   }
 
   function startStarWars() {
+    invalidatePuzzleWork();
+    abortActiveCycleStatsSave();
+    puzzleTransitionLockedRef.current = false;
     setPhase("star-wars");
   }
 
   async function saveWoodpeckerCycleOverview(completedSessionId: string) {
-    const response = await fetch("/api/student/puzzle-training/woodpecker-cycle", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: completedSessionId })
-    });
-    const data = await response.json() as { stats?: WoodpeckerCycleOverview; error?: string };
-    if (!response.ok || !data.stats) throw new Error(data.error ?? "Cycle stats could not be saved.");
-    const stats = data.stats;
-    setOverview((current) => ({ ...current, latestWoodpeckerCycle: stats }));
+    abortActiveCycleStatsSave();
+    const statsRequestId = ++cycleStatsRequestIdRef.current;
+    const statsSessionGeneration = sessionGenerationRef.current;
+    const statsController = new AbortController();
+    activeCycleStatsControllerRef.current = statsController;
+    let statsTimedOut = false;
+    const statsTimeout = window.setTimeout(() => {
+      statsTimedOut = true;
+      statsController.abort();
+    }, CYCLE_STATS_TIMEOUT_MS);
+    const isCurrentStatsRequest = () => mountedRef.current
+      && statsRequestId === cycleStatsRequestIdRef.current
+      && statsSessionGeneration === sessionGenerationRef.current
+      && activeCycleStatsControllerRef.current === statsController;
+
+    try {
+      const response = await fetch("/api/student/puzzle-training/woodpecker-cycle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: statsController.signal,
+        body: JSON.stringify({
+          sessionId: completedSessionId,
+          setSize: activeWoodpeckerSetSize.current
+        })
+      });
+      const data = await response.json() as { stats?: WoodpeckerCycleOverview; error?: string };
+      if (!isCurrentStatsRequest()) return;
+      if (!response.ok || !data.stats) throw new Error(data.error ?? "Cycle stats could not be saved.");
+      setOverview((current) => ({ ...current, latestWoodpeckerCycle: data.stats! }));
+    } catch (statsError) {
+      if (!isCurrentStatsRequest()) return;
+      throw statsTimedOut
+        ? new Error("Cycle complete. The stats sync timed out, but training can continue.")
+        : statsError;
+    } finally {
+      clearTimeout(statsTimeout);
+      if (activeCycleStatsControllerRef.current === statsController) {
+        activeCycleStatsControllerRef.current = null;
+      }
+    }
   }
 
   function returnToPuzzleSetup() {
+    invalidatePuzzleWork();
+    abortActiveCycleStatsSave();
+    puzzleTransitionLockedRef.current = false;
     prefetchedNextPuzzleRef.current = null;
     if (trainingMode === "survival" && solved > 0) {
       setOverview((current) => ({
@@ -344,7 +508,8 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     void loadPuzzle("woodpecker", requestedPuzzleId);
   }
 
-  function advanceTrainingPuzzle() {
+  function advanceTrainingPuzzle(expectedPuzzleId = puzzle?.id) {
+    if (!claimPuzzleTransition(expectedPuzzleId)) return;
     if (trainingMode !== "woodpecker") {
       void loadPuzzle(trainingMode);
       return;
@@ -358,6 +523,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         setWoodpeckerCycleResults((results) => results.map((result) => result.cycle === woodpeckerCycleRef.current ? { ...result, reviewed: true } : result));
         setCompletion(null);
         setPhase("cycle-summary");
+        puzzleTransitionLockedRef.current = false;
         return;
       }
       woodpeckerReviewIndexRef.current = nextReviewIndex;
@@ -378,6 +544,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     );
     if (nextStep.finished || nextStep.cycle !== woodpeckerCycleRef.current) {
       setPhase("cycle-summary");
+      puzzleTransitionLockedRef.current = false;
       return;
     }
 
@@ -394,7 +561,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     woodpeckerReviewingRef.current = true;
     setWoodpeckerReviewIndex(0);
     setWoodpeckerReviewing(true);
-    sessionId.current = crypto.randomUUID();
+    beginNewSession();
     void loadPuzzle("woodpecker", result.mistakePuzzleIds[0]);
   }
 
@@ -406,6 +573,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     );
     if (nextStep.finished) {
       setPhase("summary");
+      puzzleTransitionLockedRef.current = false;
       return;
     }
 
@@ -423,7 +591,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     setWoodpeckerCycleIncorrectMoves(0);
     setWoodpeckerReviewIndex(0);
     setWoodpeckerReviewing(false);
-    sessionId.current = crypto.randomUUID();
+    beginNewSession();
     void loadPuzzle("woodpecker", woodpeckerPuzzleIds.current[nextStep.puzzleIndex]);
   }
 
@@ -446,6 +614,9 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       setPhase(returnToCycleSummary ? "cycle-summary" : "summary");
       return;
     }
+    abortActiveMoveRequest();
+    clearReplyTimer();
+    cancelScheduledAdvance();
     moveLocked.current = true;
     setMessage("Saving this training attempt...");
     try {
@@ -494,6 +665,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
 
   async function submitMove(from: string, to: string, context?: MoveSubmissionContext) {
     if (!puzzle || (!context?.isPremove && phase !== "turn") || moveLocked.current) return false;
+    const submittedPuzzleId = puzzle.id;
     const submittedFen = context?.fen ?? positionFen;
     const submittedToken = context?.token ?? token;
     const destinations = legalDestinations(submittedFen, from);
@@ -504,10 +676,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     }
 
     moveLocked.current = true;
-    if (replyTimer.current) {
-      clearTimeout(replyTimer.current);
-      replyTimer.current = null;
-    }
+    clearReplyTimer();
     resetPremoveHandoff();
     setError("");
     setHintSource(null);
@@ -531,8 +700,23 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     setLastMove([from, to]);
     setPositionFen(optimisticFen);
     setMessage("Move sent. You can queue your next move now.");
+    activeMoveControllerRef.current?.abort();
+    const moveRequestId = ++moveRequestIdRef.current;
+    const moveSessionGeneration = sessionGenerationRef.current;
+    const movePuzzleGeneration = puzzleGenerationRef.current;
     const moveRequestController = new AbortController();
-    const moveRequestTimeout = window.setTimeout(() => moveRequestController.abort(), MOVE_REQUEST_TIMEOUT_MS);
+    activeMoveControllerRef.current = moveRequestController;
+    let moveTimedOut = false;
+    const moveRequestTimeout = window.setTimeout(() => {
+      moveTimedOut = true;
+      moveRequestController.abort();
+    }, MOVE_REQUEST_TIMEOUT_MS);
+    const isCurrentMoveRequest = () => mountedRef.current
+      && moveRequestId === moveRequestIdRef.current
+      && moveSessionGeneration === sessionGenerationRef.current
+      && movePuzzleGeneration === puzzleGenerationRef.current
+      && activePuzzleIdRef.current === submittedPuzzleId
+      && activeMoveControllerRef.current === moveRequestController;
     try {
       const woodpeckerTarget = trainingMode === "woodpecker"
         ? nextWoodpeckerPuzzleTarget({
@@ -560,6 +744,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         })
       });
       const result = await response.json() as PuzzleMoveResult & { error?: string };
+      if (!isCurrentMoveRequest()) return false;
       if (!response.ok) throw new Error(result.error ?? "Move could not be checked.");
       setToken(result.token);
       if (result.completed) prefetchedNextPuzzleRef.current = result.nextPuzzle ?? null;
@@ -612,10 +797,10 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
           moveLocked.current = false;
           if (autoAdvance) {
             setMessage("Review puzzle solved. Loading the next mistake...");
-            advanceTimer.current = setTimeout(() => {
-              advanceTimer.current = null;
-              advanceTrainingPuzzle();
-            }, WOODPECKER_AUTO_ADVANCE_DELAY_MS);
+            schedulePuzzleAdvance(
+              () => advanceTrainingPuzzle(submittedPuzzleId),
+              WOODPECKER_AUTO_ADVANCE_DELAY_MS
+            );
           }
           return true;
         }
@@ -659,14 +844,16 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
               ...results.filter((savedResult) => savedResult.cycle !== cycleResult.cycle),
               cycleResult
             ].sort((left, right) => left.cycle - right.cycle));
-            try {
-              await saveWoodpeckerCycleOverview(sessionId.current);
-            } catch (statsError) {
-              setError(statsError instanceof Error ? statsError.message : "Cycle stats could not be saved.");
-            }
             setPhase("cycle-summary");
             setMessage(`Cycle ${woodpeckerCycleRef.current} complete.`);
             moveLocked.current = false;
+            puzzleTransitionLockedRef.current = false;
+            const completedCycleSessionId = sessionId.current;
+            const completedCycleSessionGeneration = sessionGenerationRef.current;
+            void saveWoodpeckerCycleOverview(completedCycleSessionId).catch((statsError) => {
+              if (!mountedRef.current || sessionGenerationRef.current !== completedCycleSessionGeneration) return;
+              setError(statsError instanceof Error ? statsError.message : "Cycle stats could not be saved.");
+            });
             return true;
           }
         }
@@ -677,12 +864,12 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         moveLocked.current = false;
         if (!sessionFinished && autoAdvance) {
           setMessage("Correct! Loading the next puzzle...");
-          advanceTimer.current = setTimeout(() => {
-            advanceTimer.current = null;
+          schedulePuzzleAdvance(() => {
             if (trainingMode === "survival" && result.nextPuzzle) {
+              if (!claimPuzzleTransition(submittedPuzzleId)) return;
               showPuzzle(result.nextPuzzle, "survival");
             } else {
-              advanceTrainingPuzzle();
+              advanceTrainingPuzzle(submittedPuzzleId);
             }
           }, trainingMode === "woodpecker" ? WOODPECKER_AUTO_ADVANCE_DELAY_MS : AUTO_ADVANCE_DELAY_MS);
         }
@@ -717,8 +904,14 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       setMessage(premoveHandoffRef.current.queued
         ? "Opponent replied. Your premove is ready."
         : "Opponent replied. Queue your next move while the pieces settle.");
+      const replySessionGeneration = sessionGenerationRef.current;
+      const replyPuzzleGeneration = puzzleGenerationRef.current;
       replyTimer.current = setTimeout(() => {
         replyTimer.current = null;
+        if (!mountedRef.current
+          || sessionGenerationRef.current !== replySessionGeneration
+          || puzzleGenerationRef.current !== replyPuzzleGeneration
+          || activePuzzleIdRef.current !== submittedPuzzleId) return;
         premoveHandoffRef.current = withPremoveReplyReady(premoveHandoffRef.current);
         setPhase("turn");
         moveLocked.current = false;
@@ -726,21 +919,24 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       }, OPPONENT_REPLY_DELAY_MS);
       return true;
     } catch (moveError) {
+      if (!isCurrentMoveRequest()) return false;
       resetPremoveHandoff();
       setSelectedSquare(null);
       setLegalSquares([]);
       setPositionFen(previousFen);
       setLastMove(null);
       setCorrectMove(null);
-      const timedOut = moveRequestController.signal.aborted;
-      setError(timedOut
+      setError(moveTimedOut
         ? "The move check took too long. Your position was restored."
         : moveError instanceof Error ? moveError.message : "Move could not be checked.");
-      setMessage(timedOut ? "Connection recovered. Play the move again." : "The move was not submitted. Try again.");
+      setMessage(moveTimedOut ? "Connection recovered. Play the move again." : "The move was not submitted. Try again.");
       moveLocked.current = false;
       return false;
     } finally {
       clearTimeout(moveRequestTimeout);
+      if (activeMoveControllerRef.current === moveRequestController) {
+        activeMoveControllerRef.current = null;
+      }
     }
   }
 
@@ -795,6 +991,13 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
 
   async function requestHint() {
     if (!token || phase !== "turn" || moveLocked.current) return;
+    const hintSessionGeneration = sessionGenerationRef.current;
+    const hintPuzzleGeneration = puzzleGenerationRef.current;
+    const hintPuzzleId = activePuzzleIdRef.current;
+    const isCurrentHintRequest = () => mountedRef.current
+      && sessionGenerationRef.current === hintSessionGeneration
+      && puzzleGenerationRef.current === hintPuzzleGeneration
+      && activePuzzleIdRef.current === hintPuzzleId;
     try {
       const response = await fetch("/api/student/puzzle-training/hint", {
         method: "POST",
@@ -802,12 +1005,14 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         body: JSON.stringify({ token })
       });
       const data = await response.json() as { token?: string; hint?: { source: string; destination?: string }; error?: string };
+      if (!isCurrentHintRequest()) return;
       if (!response.ok || !data.token || !data.hint) throw new Error(data.error ?? "Hint is unavailable.");
       setToken(data.token);
       setHintSource(data.hint.source);
       setHintDestination(data.hint.destination ?? null);
       setMessage(data.hint.destination ? "Hint: this is the destination square." : "Hint: this is the piece to move.");
     } catch (hintError) {
+      if (!isCurrentHintRequest()) return;
       setError(hintError instanceof Error ? hintError.message : "Hint is unavailable.");
     }
   }
@@ -835,6 +1040,8 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     showNotation: true,
     ...BOARD_MOTION_OPTIONS,
     ...BOARD_INTERACTION_OPTIONS,
+    animationDurationInMs: trainingMode === "woodpecker" ? 0 : BOARD_MOTION_OPTIONS.animationDurationInMs,
+    showAnimations: trainingMode !== "woodpecker",
     allowDragging: phase === "turn" || phase === "reply",
     squareStyles,
     arrows: queuedPremove ? [{ startSquare: queuedPremove.from, endSquare: queuedPremove.to, color: "#c084fc" }] : [],
@@ -979,7 +1186,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
               </div>
             )}
             {phase === "turn" && <div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => void requestHint()}>Hint</Button><Button type="button" variant="ghost" onClick={() => void exitTraining()}>{woodpeckerReviewing ? "Return to Cycle Results" : "Exit Training"}</Button></div>}
-            {phase === "solved" && <Button type="button" onClick={advanceTrainingPuzzle} className="mt-4">{woodpeckerReviewing ? woodpeckerReviewIndex + 1 >= woodpeckerReviewPuzzleIdsRef.current.length ? "Finish Review" : "Next Mistake" : "Next Puzzle"}</Button>}
+            {phase === "solved" && <Button type="button" onClick={() => advanceTrainingPuzzle(puzzle?.id)} className="mt-4">{woodpeckerReviewing ? woodpeckerReviewIndex + 1 >= woodpeckerReviewPuzzleIdsRef.current.length ? "Finish Review" : "Next Mistake" : "Next Puzzle"}</Button>}
             {phase === "error" && <div className="mt-4 flex flex-wrap gap-2"><Button type="button" onClick={() => void loadPuzzle(trainingMode, requestedPuzzleIdRef.current ?? undefined)}>Try Again</Button><Button type="button" variant="ghost" onClick={() => setPhase("select")}>Choose Theme</Button></div>}
           </Card>
 

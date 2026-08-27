@@ -1,5 +1,5 @@
 import { Chess, type Move, type Square } from "chess.js";
-import type { ChessPuzzleRow, LichessPuzzleTheme, PuzzleMoveInput, PuzzleThemeSlug } from "@/lib/puzzle-training/types";
+import type { ChessPuzzleRow, LichessPuzzleTheme, PuzzleMoveInput, PuzzleSessionPuzzle, PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 const UCI_PATTERN = /^([a-h][1-8])([a-h][1-8])([qrbn])?$/;
 
@@ -67,7 +67,7 @@ function normalizedCandidate(input: PuzzleMoveInput, expected: PuzzleMoveInput) 
   return { from: input.from, to: input.to, promotion };
 }
 
-export function validatePuzzleMove(puzzle: ChessPuzzleRow, nextMoveIndex: number, input: PuzzleMoveInput) {
+export function validatePuzzleMove(puzzle: PuzzleSessionPuzzle, nextMoveIndex: number, input: PuzzleMoveInput) {
   const chess = replayPuzzleToIndex(puzzle, nextMoveIndex);
   const expectedUci = puzzle.moves[nextMoveIndex];
   const expected = parseUciMove(expectedUci);

@@ -1,4 +1,4 @@
-import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
+import { requireActiveStudent, requireSignedInStudent } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { academyPuzzleDate, dailyPuzzlePivot } from "@/lib/puzzle-training/daily";
 import { calculateWoodpeckerCycleStats, WOODPECKER_MAX_SET_SIZE, WOODPECKER_SET_SIZE_OPTIONS } from "@/lib/puzzle-training/modes";
@@ -28,6 +28,10 @@ function serviceClient() {
 
 export async function requirePuzzleStudent() {
   return requireActiveStudent();
+}
+
+export async function requirePuzzleSessionStudent() {
+  return requireSignedInStudent();
 }
 
 export async function getTrainingPuzzle(puzzleId: string) {
@@ -198,26 +202,38 @@ export async function saveTrainingAttempt(input: {
   return { elapsedSeconds, firstTryCorrect: record.first_try_correct };
 }
 
-export async function saveCompletedWoodpeckerCycle(studentId: string, sessionId: string): Promise<WoodpeckerCycleOverview> {
+export async function saveCompletedWoodpeckerCycle(studentId: string, sessionId: string, expectedSetSize?: number): Promise<WoodpeckerCycleOverview> {
   if (!UUID_PATTERN.test(sessionId)) throw new Error("Invalid Woodpecker session.");
+  const validExpectedSetSize = WOODPECKER_SET_SIZE_OPTIONS.includes(expectedSetSize as typeof WOODPECKER_SET_SIZE_OPTIONS[number])
+    ? expectedSetSize
+    : undefined;
   const client = serviceClient();
-  const { data, error } = await client
-    .from("student_puzzle_attempts")
-    .select("solved,incorrect_move_count,elapsed_seconds,selected_theme,completed_at")
-    .eq("student_id", studentId)
-    .eq("session_id", sessionId)
-    .eq("training_mode", "woodpecker");
-  if (error) throw new Error(error.message);
-
-  const attempts = (data ?? []) as Array<{
+  type SavedAttempt = {
     solved: boolean;
     incorrect_move_count: number;
     elapsed_seconds: number;
     selected_theme: string;
     completed_at: string | null;
-  }>;
+  };
+  let attempts: SavedAttempt[] = [];
+  const retryDelays = validExpectedSetSize ? [0, 100, 250, 500, 1_000, 1_500] : [0];
+  for (const retryDelay of retryDelays) {
+    if (retryDelay) await new Promise((resolve) => setTimeout(resolve, retryDelay));
+    const { data, error } = await client
+      .from("student_puzzle_attempts")
+      .select("solved,incorrect_move_count,elapsed_seconds,selected_theme,completed_at")
+      .eq("student_id", studentId)
+      .eq("session_id", sessionId)
+      .eq("training_mode", "woodpecker");
+    if (error) throw new Error(error.message);
+    attempts = (data ?? []) as SavedAttempt[];
+    if (!validExpectedSetSize
+      || (attempts.length === validExpectedSetSize && attempts.every((attempt) => attempt.solved))) break;
+  }
   const setSize = attempts.length;
-  if (!WOODPECKER_SET_SIZE_OPTIONS.includes(setSize as typeof WOODPECKER_SET_SIZE_OPTIONS[number]) || attempts.some((attempt) => !attempt.solved)) {
+  if ((validExpectedSetSize && setSize !== validExpectedSetSize)
+    || !WOODPECKER_SET_SIZE_OPTIONS.includes(setSize as typeof WOODPECKER_SET_SIZE_OPTIONS[number])
+    || attempts.some((attempt) => !attempt.solved)) {
     throw new Error("This Woodpecker cycle is not complete yet.");
   }
 

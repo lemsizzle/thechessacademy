@@ -6,12 +6,16 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 
 export class StudentAuthenticationError extends Error {}
 
-export async function requireActiveStudent() {
+export async function requireSignedInStudent() {
   const session = readStudentSession(await cookies());
   if (!session || !session.onboardingCompleted || !UUID_PATTERN.test(session.studentId)) {
     throw new StudentAuthenticationError("Student log in required.");
   }
+  return session;
+}
 
+export async function requireActiveStudent() {
+  const session = await requireSignedInStudent();
   const supabase = getSupabaseServiceClient();
   if (!supabase) throw new Error("Supabase service access is not configured.");
   const { data, error } = await supabase

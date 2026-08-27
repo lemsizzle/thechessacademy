@@ -15,10 +15,12 @@ export function preparePublicTrainingPuzzle(input: {
   selectedTheme: PuzzleThemeSlug;
   trainingMode: PuzzleTrainingMode;
   daily?: DailyPuzzleDetails | null;
+  authorizationExpiresAt?: string;
 }): PublicTrainingPuzzle {
   const prepared = prepareTrainingPuzzle(input.puzzle);
+  const startedAt = new Date();
   const token = createPuzzleSessionToken({
-    version: 1,
+    version: 2,
     puzzleId: input.puzzle.id,
     studentId: input.studentId,
     sessionId: input.sessionId,
@@ -26,9 +28,20 @@ export function preparePublicTrainingPuzzle(input: {
     trainingMode: input.trainingMode,
     dailyDate: input.daily?.puzzleDate,
     nextMoveIndex: firstStudentMoveIndex(input.puzzle),
-    startedAt: new Date().toISOString(),
+    startedAt: startedAt.toISOString(),
+    expiresAt: input.authorizationExpiresAt ?? new Date(startedAt.getTime() + (2 * 60 * 60 * 1000)).toISOString(),
     incorrectMoveCount: 0,
-    hintsUsed: 0
+    hintsUsed: 0,
+    puzzle: {
+      id: input.puzzle.id,
+      initial_fen: input.puzzle.initial_fen,
+      moves: input.puzzle.moves,
+      start_mode: input.puzzle.start_mode,
+      accepted_moves: input.puzzle.accepted_moves,
+      themes: input.puzzle.themes,
+      rating: input.puzzle.rating,
+      game_url: input.puzzle.game_url
+    }
   });
 
   return {

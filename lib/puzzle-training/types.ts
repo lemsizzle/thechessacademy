@@ -85,6 +85,11 @@ export type ChessPuzzleRow = {
   is_active: boolean;
 };
 
+export type PuzzleSessionPuzzle = Pick<
+  ChessPuzzleRow,
+  "id" | "initial_fen" | "moves" | "start_mode" | "accepted_moves" | "themes" | "rating" | "game_url"
+>;
+
 export type PublicTrainingPuzzle = {
   id: string;
   displayFen: string;

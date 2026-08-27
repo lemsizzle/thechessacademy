@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertPuzzleTokenStudent, readPuzzleSessionToken } from "@/lib/puzzle-training/sessionToken";
-import { getTrainingPuzzle, requirePuzzleStudent, saveTrainingAttempt } from "@/lib/puzzle-training/server";
+import { getTrainingPuzzle, requirePuzzleSessionStudent, requirePuzzleStudent, saveTrainingAttempt } from "@/lib/puzzle-training/server";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    const student = await requirePuzzleStudent();
     const body = await request.json() as { token?: string };
     if (!body.token) return NextResponse.json({ error: "Puzzle token is required." }, { status: 400 });
     const payload = readPuzzleSessionToken(body.token);
+    const [student, legacyPuzzle] = await Promise.all([
+      payload.version === 2 ? requirePuzzleSessionStudent() : requirePuzzleStudent(),
+      payload.version === 2 ? Promise.resolve(null) : getTrainingPuzzle(payload.puzzleId)
+    ]);
     assertPuzzleTokenStudent(payload, student.studentId);
-    const puzzle = await getTrainingPuzzle(payload.puzzleId);
+    const puzzle = payload.version === 2 ? payload.puzzle : legacyPuzzle;
     if (!puzzle) return NextResponse.json({ error: "Puzzle is no longer available." }, { status: 404 });
     await saveTrainingAttempt({
       studentId: student.studentId,
