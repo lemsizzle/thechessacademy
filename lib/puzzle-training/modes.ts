@@ -45,6 +45,10 @@ export type WoodpeckerStep = {
   finished: boolean;
 };
 
+export type WoodpeckerNextPuzzleTarget =
+  | { kind: "random" }
+  | { kind: "exact"; puzzleId: string };
+
 export type WoodpeckerCycleResult = {
   cycle: number;
   puzzlesSolved: number;
@@ -82,4 +86,28 @@ export function nextWoodpeckerStep(cycle: number, puzzleIndex: number, setSize: 
   }
 
   return { cycle, puzzleIndex, finished: true };
+}
+
+export function nextWoodpeckerPuzzleTarget(input: {
+  cycle: number;
+  puzzleIndex: number;
+  puzzleIds: string[];
+  setSize: number;
+  reviewing: boolean;
+  reviewPuzzleIds: string[];
+  reviewIndex: number;
+}): WoodpeckerNextPuzzleTarget | null {
+  if (input.reviewing) {
+    const puzzleId = input.reviewPuzzleIds[input.reviewIndex + 1];
+    return puzzleId ? { kind: "exact", puzzleId } : null;
+  }
+
+  if (input.cycle === 1 && input.puzzleIds.length < input.setSize) {
+    return { kind: "random" };
+  }
+
+  const nextStep = nextWoodpeckerStep(input.cycle, input.puzzleIndex, input.puzzleIds.length);
+  if (nextStep.finished || nextStep.cycle !== input.cycle) return null;
+  const puzzleId = input.puzzleIds[nextStep.puzzleIndex];
+  return puzzleId ? { kind: "exact", puzzleId } : null;
 }

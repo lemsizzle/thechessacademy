@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
       token?: string;
       move?: PuzzleMoveInput;
       requestNextPuzzle?: boolean;
+      nextPuzzleId?: string;
       nextLevel?: string;
       excludePuzzleIds?: string[];
     };
@@ -59,12 +60,14 @@ export async function POST(request: NextRequest) {
         ? awardDailyTrainingPuzzle(student.studentId, puzzle.id, payload.dailyDate)
         : Promise.resolve(undefined);
       const nextPuzzlePromise = body.requestNextPuzzle && !payload.dailyDate
-        ? selectTrainingPuzzle(
-          student.studentId,
-          payload.selectedTheme,
-          parsePuzzleLevel(body.nextLevel ?? null),
-          Array.isArray(body.excludePuzzleIds) ? body.excludePuzzleIds : []
-        )
+        ? body.nextPuzzleId
+          ? getTrainingPuzzle(body.nextPuzzleId)
+          : selectTrainingPuzzle(
+            student.studentId,
+            payload.selectedTheme,
+            parsePuzzleLevel(body.nextLevel ?? null),
+            Array.isArray(body.excludePuzzleIds) ? body.excludePuzzleIds : []
+          )
         : null;
       const [saved, dailyReward, nextPuzzleRow] = await Promise.all([
         savePromise,

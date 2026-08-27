@@ -3,6 +3,7 @@ import {
   calculatePuzzleAccuracy,
   calculateWoodpeckerCycleStats,
   formatSurvivalLives,
+  nextWoodpeckerPuzzleTarget,
   nextWoodpeckerStep,
   PUZZLE_DIFFICULTY_OPTIONS,
   SURVIVAL_PUZZLE_LIMIT,
@@ -98,6 +99,53 @@ describe("puzzle training modes", () => {
     }
 
     expect(puzzleCount).toBe(WOODPECKER_SET_SIZE * WOODPECKER_CYCLE_COUNT);
+  });
+
+  it("preloads random puzzles while building the first Woodpecker set", () => {
+    expect(nextWoodpeckerPuzzleTarget({
+      cycle: 1,
+      puzzleIndex: 3,
+      puzzleIds: ["a", "b", "c", "d"],
+      setSize: 20,
+      reviewing: false,
+      reviewPuzzleIds: [],
+      reviewIndex: 0
+    })).toEqual({ kind: "random" });
+  });
+
+  it("preloads the exact next puzzle during repeat cycles and mistake reviews", () => {
+    const puzzleIds = Array.from({ length: 20 }, (_, index) => `puzzle-${index}`);
+    expect(nextWoodpeckerPuzzleTarget({
+      cycle: 2,
+      puzzleIndex: 6,
+      puzzleIds,
+      setSize: 20,
+      reviewing: false,
+      reviewPuzzleIds: [],
+      reviewIndex: 0
+    })).toEqual({ kind: "exact", puzzleId: "puzzle-7" });
+    expect(nextWoodpeckerPuzzleTarget({
+      cycle: 2,
+      puzzleIndex: 6,
+      puzzleIds,
+      setSize: 20,
+      reviewing: true,
+      reviewPuzzleIds: ["puzzle-2", "puzzle-9"],
+      reviewIndex: 0
+    })).toEqual({ kind: "exact", puzzleId: "puzzle-9" });
+  });
+
+  it("does not preload across Woodpecker cycle boundaries", () => {
+    const puzzleIds = Array.from({ length: 20 }, (_, index) => `puzzle-${index}`);
+    expect(nextWoodpeckerPuzzleTarget({
+      cycle: 1,
+      puzzleIndex: 19,
+      puzzleIds,
+      setSize: 20,
+      reviewing: false,
+      reviewPuzzleIds: [],
+      reviewIndex: 0
+    })).toBeNull();
   });
 
   it("calculates cycle speed and move accuracy", () => {

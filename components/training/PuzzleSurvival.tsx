@@ -12,14 +12,16 @@ import { Card } from "@/components/Card";
 import { AutoAdvanceSwitch, PuzzleModeSetup, type PuzzleModeChoice } from "@/components/training/PuzzleModeSetup";
 import { WoodpeckerCycleSummary } from "@/components/training/WoodpeckerCycleSummary";
 import { legalDestinations, parseUciMove, premoveDestinations } from "@/lib/puzzle-training/engine";
-import { calculatePuzzleAccuracy, calculateWoodpeckerCycleStats, formatSurvivalLives, nextWoodpeckerStep, PUZZLE_DIFFICULTY_OPTIONS, SURVIVAL_PUZZLE_LIMIT, survivalDifficultyForPuzzle, WOODPECKER_CYCLE_COUNT, WOODPECKER_SET_SIZE, type WoodpeckerCycleResult } from "@/lib/puzzle-training/modes";
+import { calculatePuzzleAccuracy, calculateWoodpeckerCycleStats, formatSurvivalLives, nextWoodpeckerPuzzleTarget, nextWoodpeckerStep, PUZZLE_DIFFICULTY_OPTIONS, SURVIVAL_PUZZLE_LIMIT, survivalDifficultyForPuzzle, WOODPECKER_CYCLE_COUNT, WOODPECKER_SET_SIZE, type WoodpeckerCycleResult } from "@/lib/puzzle-training/modes";
 import type { PuzzleTrainingOverview, WoodpeckerCycleOverview } from "@/lib/puzzle-training/overview";
 import { emptyPremoveHandoff, takeReadyPremove, withPremoveReply, withPremoveReplyReady, withQueuedPremove, type QueuedPremove } from "@/lib/puzzle-training/premoveQueue";
 import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 const STARTING_LIVES = 3;
 const OPPONENT_REPLY_DELAY_MS = 420;
+const WOODPECKER_REPLY_DELAY_MS = 160;
 const AUTO_ADVANCE_DELAY_MS = 140;
+const WOODPECKER_AUTO_ADVANCE_DELAY_MS = 50;
 const AUTO_ADVANCE_STORAGE_KEY = "academy-puzzles-auto-advance";
 
 const StarWarsTraining = dynamic(
@@ -107,6 +109,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   const woodpeckerReviewIndexRef = useRef(0);
   const woodpeckerReviewingRef = useRef(false);
   const requestedPuzzleIdRef = useRef<string | null>(null);
+  const prefetchedNextPuzzleRef = useRef<PublicTrainingPuzzle | null>(null);
   const [woodpeckerCycle, setWoodpeckerCycle] = useState(1);
   const [woodpeckerIndex, setWoodpeckerIndex] = useState(0);
   const [woodpeckerCycleSolved, setWoodpeckerCycleSolved] = useState(0);
@@ -201,6 +204,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   }
 
   async function loadPuzzle(mode = trainingMode, requestedPuzzleId?: string, survivalPuzzleNumber = completed + 1) {
+    prefetchedNextPuzzleRef.current = null;
     setTrainingMode(mode);
     requestedPuzzleIdRef.current = requestedPuzzleId ?? null;
     setPhase("loading");
@@ -242,6 +246,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   }
 
   function resetWoodpeckerProgress() {
+    prefetchedNextPuzzleRef.current = null;
     woodpeckerPuzzleIds.current = [];
     woodpeckerCycleRef.current = 1;
     woodpeckerIndexRef.current = 0;
@@ -305,6 +310,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   }
 
   function returnToPuzzleSetup() {
+    prefetchedNextPuzzleRef.current = null;
     if (trainingMode === "survival" && solved > 0) {
       setOverview((current) => ({
         ...current,
@@ -316,6 +322,26 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       }));
     }
     setPhase("select");
+  }
+
+  function showPrefetchedWoodpeckerPuzzleOrLoad(requestedPuzzleId?: string) {
+    const prefetchedPuzzle = prefetchedNextPuzzleRef.current;
+    if (prefetchedPuzzle && (!requestedPuzzleId || prefetchedPuzzle.id === requestedPuzzleId)) {
+      prefetchedNextPuzzleRef.current = null;
+      if (autoAdvance) {
+        setTrainingMode("woodpecker");
+        requestedPuzzleIdRef.current = requestedPuzzleId ?? null;
+        showPuzzle(prefetchedPuzzle, "woodpecker");
+      } else {
+        // Refresh the signed start token so time spent on the solved screen is not
+        // counted against a manually-started puzzle. The puzzle row is already cached.
+        void loadPuzzle("woodpecker", prefetchedPuzzle.id);
+      }
+      return;
+    }
+
+    prefetchedNextPuzzleRef.current = null;
+    void loadPuzzle("woodpecker", requestedPuzzleId);
   }
 
   function advanceTrainingPuzzle() {
@@ -336,12 +362,12 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       }
       woodpeckerReviewIndexRef.current = nextReviewIndex;
       setWoodpeckerReviewIndex(nextReviewIndex);
-      void loadPuzzle("woodpecker", woodpeckerReviewPuzzleIdsRef.current[nextReviewIndex]);
+      showPrefetchedWoodpeckerPuzzleOrLoad(woodpeckerReviewPuzzleIdsRef.current[nextReviewIndex]);
       return;
     }
 
     if (woodpeckerCycleRef.current === 1 && woodpeckerPuzzleIds.current.length < activeWoodpeckerSetSize.current) {
-      void loadPuzzle("woodpecker");
+      showPrefetchedWoodpeckerPuzzleOrLoad();
       return;
     }
 
@@ -357,7 +383,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
 
     woodpeckerIndexRef.current = nextStep.puzzleIndex;
     setWoodpeckerIndex(nextStep.puzzleIndex);
-    void loadPuzzle("woodpecker", woodpeckerPuzzleIds.current[nextStep.puzzleIndex]);
+    showPrefetchedWoodpeckerPuzzleOrLoad(woodpeckerPuzzleIds.current[nextStep.puzzleIndex]);
   }
 
   function reviewWoodpeckerMistakes() {
@@ -485,28 +511,48 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       moveLocked.current = false;
       return false;
     }
-    setSelectedSquare(null);
-    setLegalSquares([]);
+    const studentColor = puzzle.orientation === "white" ? "w" : "b";
+    if (trainingMode === "woodpecker") {
+      setSelectedSquare(to);
+      setLegalSquares(premoveDestinations(optimisticFen, to, studentColor));
+    } else {
+      setSelectedSquare(null);
+      setLegalSquares([]);
+    }
     setIncorrectSquare(null);
     setCorrectMove(null);
     setLastMove([from, to]);
     setPositionFen(optimisticFen);
     setMessage("Move sent. You can queue your next move now.");
     try {
+      const woodpeckerTarget = trainingMode === "woodpecker"
+        ? nextWoodpeckerPuzzleTarget({
+          cycle: woodpeckerCycleRef.current,
+          puzzleIndex: woodpeckerIndexRef.current,
+          puzzleIds: woodpeckerPuzzleIds.current,
+          setSize: activeWoodpeckerSetSize.current,
+          reviewing: woodpeckerReviewingRef.current,
+          reviewPuzzleIds: woodpeckerReviewPuzzleIdsRef.current,
+          reviewIndex: woodpeckerReviewIndexRef.current
+        })
+        : null;
+      const requestSurvivalPuzzle = autoAdvance && trainingMode === "survival" && completed + 1 < SURVIVAL_PUZZLE_LIMIT;
       const response = await fetch("/api/student/puzzle-training/move", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token: submittedToken,
           move: { from, to },
-          requestNextPuzzle: autoAdvance && trainingMode === "survival" && completed + 1 < SURVIVAL_PUZZLE_LIMIT,
+          requestNextPuzzle: requestSurvivalPuzzle || Boolean(woodpeckerTarget),
+          nextPuzzleId: woodpeckerTarget?.kind === "exact" ? woodpeckerTarget.puzzleId : undefined,
           nextLevel: trainingMode === "survival" ? survivalDifficultyForPuzzle(completed + 2).level : selectedLevel,
-          excludePuzzleIds: recentPuzzleIds.current
+          excludePuzzleIds: woodpeckerTarget?.kind === "random" ? woodpeckerPuzzleIds.current : recentPuzzleIds.current
         })
       });
       const result = await response.json() as PuzzleMoveResult & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Move could not be checked.");
       setToken(result.token);
+      if (result.completed) prefetchedNextPuzzleRef.current = result.nextPuzzle ?? null;
 
       if (!result.accepted) {
         resetPremoveHandoff();
@@ -559,7 +605,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
             advanceTimer.current = setTimeout(() => {
               advanceTimer.current = null;
               advanceTrainingPuzzle();
-            }, AUTO_ADVANCE_DELAY_MS);
+            }, WOODPECKER_AUTO_ADVANCE_DELAY_MS);
           }
           return true;
         }
@@ -628,7 +674,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
             } else {
               advanceTrainingPuzzle();
             }
-          }, AUTO_ADVANCE_DELAY_MS);
+          }, trainingMode === "woodpecker" ? WOODPECKER_AUTO_ADVANCE_DELAY_MS : AUTO_ADVANCE_DELAY_MS);
         }
         return true;
       }
@@ -636,6 +682,13 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       premoveHandoffRef.current = withPremoveReply(premoveHandoffRef.current, { fen: result.positionFen, token: result.token });
       setPhase("reply");
       setPositionFen(result.positionFen);
+      if (trainingMode === "woodpecker" && new Chess(result.positionFen).get(to as Square)?.color === studentColor) {
+        setSelectedSquare(to);
+        setLegalSquares(legalDestinations(result.positionFen, to));
+      } else {
+        setSelectedSquare(null);
+        setLegalSquares([]);
+      }
       if (result.opponentMove) {
         const reply = parseUciMove(result.opponentMove);
         setLastMove([reply.from, reply.to]);
@@ -650,7 +703,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         setPhase("turn");
         moveLocked.current = false;
         if (!executeReadyPremove()) setMessage("Your turn. Continue the solution.");
-      }, OPPONENT_REPLY_DELAY_MS);
+      }, trainingMode === "woodpecker" ? WOODPECKER_REPLY_DELAY_MS : OPPONENT_REPLY_DELAY_MS);
       return true;
     } catch (moveError) {
       resetPremoveHandoff();
