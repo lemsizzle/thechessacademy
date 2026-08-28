@@ -68,7 +68,6 @@ export type StudentDashboardData = {
     id: string;
     name: string;
     classGroup: string;
-    encouragement: string;
   };
   progress: StudentDashboardProgress;
   wallet: {

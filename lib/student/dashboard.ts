@@ -195,8 +195,7 @@ export async function getStudentDashboardData(studentId: string): Promise<Studen
     student: {
       id: student.id,
       name: student.name,
-      classGroup: student.classGroup,
-      encouragement: student.encouragement
+      classGroup: student.classGroup
     },
     progress: buildStudentDashboardProgress(student, lichessResult.value),
     wallet: avatarResult.value

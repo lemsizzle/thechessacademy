@@ -11,30 +11,27 @@ import {
   type ProgressTab
 } from "@/components/student/StudentJourneyDashboardClient";
 import type { StudentDashboardData } from "@/lib/student/dashboard";
+import { getDailyChessQuote } from "@/lib/student/dailyChessQuote";
 import { puzzleThemeOptions, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
-type DestinationKind = "training" | "play" | "quests" | "studies";
+type DestinationKind = "training" | "play" | "quests" | "avatar";
 
-const destinationStyles: Record<DestinationKind, { frame: string; icon: string; eyebrow: string }> = {
+const destinationStyles: Record<DestinationKind, { frame: string; icon: string }> = {
   training: {
-    frame: "border-cyan-300/25 bg-gradient-to-br from-cyan-300/12 via-slate-950/85 to-slate-950/95 hover:border-cyan-200/55 hover:shadow-[0_18px_52px_rgba(34,211,238,0.14)]",
-    icon: "border-cyan-200/35 bg-cyan-300/15 text-cyan-100",
-    eyebrow: "text-cyan-200"
+    frame: "border-cyan-300/25 bg-gradient-to-br from-cyan-950 via-slate-950 to-slate-950 hover:border-cyan-200/55 hover:shadow-[0_18px_52px_rgba(34,211,238,0.14)]",
+    icon: "border-cyan-200/35 bg-cyan-950 text-cyan-100"
   },
   play: {
-    frame: "border-amber-300/25 bg-gradient-to-br from-amber-300/12 via-slate-950/85 to-slate-950/95 hover:border-amber-200/55 hover:shadow-[0_18px_52px_rgba(251,191,36,0.14)]",
-    icon: "border-amber-200/35 bg-amber-300/15 text-amber-100",
-    eyebrow: "text-amber-200"
+    frame: "border-amber-300/25 bg-gradient-to-br from-amber-950 via-slate-950 to-slate-950 hover:border-amber-200/55 hover:shadow-[0_18px_52px_rgba(251,191,36,0.14)]",
+    icon: "border-amber-200/35 bg-amber-950 text-amber-100"
   },
   quests: {
-    frame: "border-fuchsia-300/25 bg-gradient-to-br from-fuchsia-300/12 via-slate-950/85 to-slate-950/95 hover:border-fuchsia-200/55 hover:shadow-[0_18px_52px_rgba(232,121,249,0.14)]",
-    icon: "border-fuchsia-200/35 bg-fuchsia-300/15 text-fuchsia-100",
-    eyebrow: "text-fuchsia-200"
+    frame: "border-fuchsia-300/25 bg-gradient-to-br from-fuchsia-950 via-slate-950 to-slate-950 hover:border-fuchsia-200/55 hover:shadow-[0_18px_52px_rgba(232,121,249,0.14)]",
+    icon: "border-fuchsia-200/35 bg-fuchsia-950 text-fuchsia-100"
   },
-  studies: {
-    frame: "border-emerald-300/25 bg-gradient-to-br from-emerald-300/12 via-slate-950/85 to-slate-950/95 hover:border-emerald-200/55 hover:shadow-[0_18px_52px_rgba(52,211,153,0.14)]",
-    icon: "border-emerald-200/35 bg-emerald-300/15 text-emerald-100",
-    eyebrow: "text-emerald-200"
+  avatar: {
+    frame: "border-emerald-300/25 bg-gradient-to-br from-emerald-950 via-slate-950 to-slate-950 hover:border-emerald-200/55 hover:shadow-[0_18px_52px_rgba(52,211,153,0.14)]",
+    icon: "border-emerald-200/35 bg-emerald-950 text-emerald-100"
   }
 };
 
@@ -84,7 +81,9 @@ function JourneyIcon({ kind }: { kind: DestinationKind }) {
   }
   return (
     <svg aria-hidden="true" viewBox="0 0 32 32" className="h-8 w-8 fill-none stroke-current" strokeWidth="2.2">
-      <path d="M4 6.5c5-1.2 9-.2 12 2.7v17c-3-2.9-7-3.9-12-2.7v-17ZM28 6.5c-5-1.2-9-.2-12 2.7v17c3-2.9 7-3.9 12-2.7v-17Z" strokeLinejoin="round" />
+      <path d="M7 11h18l-1.5 17h-15L7 11Z" strokeLinejoin="round" />
+      <path d="M11 12V9a5 5 0 0 1 10 0v3" strokeLinecap="round" />
+      <path d="M12 19h8M16 15v8" strokeLinecap="round" />
     </svg>
   );
 }
@@ -118,8 +117,7 @@ function JourneyDestination({
         </span>
         <span aria-hidden="true" className="text-2xl font-black text-white/35 transition group-hover:translate-x-1 group-hover:text-white">→</span>
       </div>
-      <p className={`mt-5 text-xs font-black uppercase tracking-[0.18em] ${styles.eyebrow}`}>Journey destination</p>
-      <h3 className="mt-1 text-2xl font-black text-white">{title}</h3>
+      <h3 className="mt-5 text-2xl font-black text-white">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-slate-300">{description}</p>
       <div className="mt-auto pt-5">
         <p className="font-black text-white">{summary}</p>
@@ -373,6 +371,7 @@ function AchievementsPanel({ data }: { data: StudentDashboardData }) {
 export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }) {
   const latestWoodpecker = data.training.latestWoodpeckerCycle;
   const expiringQuest = data.quests.soonestExpiring;
+  const dailyChessQuote = getDailyChessQuote();
   const progressPanels: Record<ProgressTab, ReactNode> = {
     overview: <OverviewPanel data={data} />,
     training: <TrainingPanel data={data} />,
@@ -398,9 +397,9 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
             <div className="mx-auto shrink-0 lg:mx-0">
               {data.avatar ? (
-                <AvatarRenderer items={data.avatar.items} avatar={data.avatar.config} size="md" label={`${data.student.name}'s Academy avatar`} />
+                <AvatarRenderer items={data.avatar.items} avatar={data.avatar.config} size="lg" label={`${data.student.name}'s Academy avatar`} />
               ) : (
-                <div role="img" aria-label="Academy avatar unavailable" className="grid h-20 w-20 place-items-center rounded-lg border border-cyan-200/25 bg-slate-950 text-4xl text-cyan-100 shadow-glow">♞</div>
+                <div role="img" aria-label="Academy avatar unavailable" className="grid h-40 w-40 place-items-center rounded-lg border border-cyan-200/25 bg-slate-950 text-6xl text-cyan-100 shadow-glow">♞</div>
               )}
             </div>
 
@@ -426,11 +425,10 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
             </div>
           </div>
 
-          {data.student.encouragement.trim() ? (
-            <p className="mt-5 rounded-lg border border-amber-300/20 bg-amber-300/[0.08] px-4 py-3 text-sm leading-6 text-amber-50">
-              <span className="mr-2 font-black text-amber-200">Coach note:</span>{data.student.encouragement}
-            </p>
-          ) : null}
+          <blockquote className="mt-5 rounded-lg border border-amber-300/20 bg-amber-950 px-4 py-3 text-sm leading-6 text-amber-50">
+            <span className="mr-2 font-black text-amber-200">Daily chess inspiration:</span>
+            <span>“{dailyChessQuote}”</span>
+          </blockquote>
         </div>
       </Card>
 
@@ -438,7 +436,7 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
         <div className="mb-4">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Your open journey</p>
           <h2 id="journey-map-heading" className="mt-1 text-2xl font-black text-white">Choose any destination</h2>
-          <p className="mt-1 text-sm text-slate-400">Every path is open. Train, play, quest, or study in any order.</p>
+          <p className="mt-1 text-sm text-slate-400">Every path is open. Train, play, quest, or customize your avatar in any order.</p>
         </div>
 
         <div className="relative">
@@ -480,12 +478,12 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
               detail={data.unavailableSections.includes("quests") ? "The Quest Board is still open and ready to use." : expiringQuest ? `${expiringQuest.title} · ends ${formatDate(expiringQuest.expiresAt)}` : "New class quests will appear here when they are available."}
             />
             <JourneyDestination
-              kind="studies"
-              href="/student/studies"
-              title="Studies"
-              description="Open your chess notebook to revisit lessons and explore prepared positions."
-              summary="Your chess notebook"
-              detail="Review studies at your own pace and return whenever you like."
+              kind="avatar"
+              href="/student/avatar"
+              title="Avatar & Store"
+              description="Create your Academy look and discover new items for your avatar."
+              summary={data.unavailableSections.includes("avatar") ? "Store ready to explore" : `${data.wallet.academyCoins.toLocaleString()} coins available`}
+              detail="Equip owned items or spend coins on something new."
             />
           </div>
         </div>
