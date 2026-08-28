@@ -88,6 +88,30 @@ export function nextWoodpeckerStep(cycle: number, puzzleIndex: number, setSize: 
   return { cycle, puzzleIndex, finished: true };
 }
 
+export function shuffleWoodpeckerPuzzleIds(
+  puzzleIds: readonly string[],
+  random: () => number = Math.random
+): string[] {
+  const shuffledPuzzleIds = [...puzzleIds];
+
+  for (let index = shuffledPuzzleIds.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [shuffledPuzzleIds[index], shuffledPuzzleIds[swapIndex]] = [
+      shuffledPuzzleIds[swapIndex],
+      shuffledPuzzleIds[index]
+    ];
+  }
+
+  if (
+    shuffledPuzzleIds.length > 1
+    && shuffledPuzzleIds.every((puzzleId, index) => puzzleId === puzzleIds[index])
+  ) {
+    [shuffledPuzzleIds[0], shuffledPuzzleIds[1]] = [shuffledPuzzleIds[1], shuffledPuzzleIds[0]];
+  }
+
+  return shuffledPuzzleIds;
+}
+
 export function nextWoodpeckerPuzzleTarget(input: {
   cycle: number;
   puzzleIndex: number;

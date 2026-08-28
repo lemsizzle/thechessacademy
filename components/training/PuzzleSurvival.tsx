@@ -13,7 +13,7 @@ import { AutoAdvanceSwitch, PuzzleModeSetup, type PuzzleModeChoice } from "@/com
 import { WoodpeckerCycleSummary } from "@/components/training/WoodpeckerCycleSummary";
 import { requestWoodpeckerCycleVerification, type WoodpeckerCycleVerificationInput } from "@/lib/puzzle-training/cycleVerification";
 import { legalDestinations, parseUciMove, premoveDestinations } from "@/lib/puzzle-training/engine";
-import { calculatePuzzleAccuracy, calculateWoodpeckerCycleStats, formatSurvivalLives, nextWoodpeckerPuzzleTarget, nextWoodpeckerStep, PUZZLE_DIFFICULTY_OPTIONS, SURVIVAL_PUZZLE_LIMIT, survivalDifficultyForPuzzle, WOODPECKER_CYCLE_COUNT, WOODPECKER_SET_SIZE, type WoodpeckerCycleResult } from "@/lib/puzzle-training/modes";
+import { calculatePuzzleAccuracy, calculateWoodpeckerCycleStats, formatSurvivalLives, nextWoodpeckerPuzzleTarget, nextWoodpeckerStep, PUZZLE_DIFFICULTY_OPTIONS, shuffleWoodpeckerPuzzleIds, SURVIVAL_PUZZLE_LIMIT, survivalDifficultyForPuzzle, WOODPECKER_CYCLE_COUNT, WOODPECKER_SET_SIZE, type WoodpeckerCycleResult } from "@/lib/puzzle-training/modes";
 import type { PuzzleTrainingOverview } from "@/lib/puzzle-training/overview";
 import { emptyPremoveHandoff, takeReadyPremove, withPremoveReply, withPremoveReplyReady, withQueuedPremove, type QueuedPremove } from "@/lib/puzzle-training/premoveQueue";
 import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
@@ -604,6 +604,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   }
 
   function continueWoodpeckerTraining() {
+    if (!claimPuzzleTransition()) return;
     const nextStep = nextWoodpeckerStep(
       woodpeckerCycleRef.current,
       woodpeckerPuzzleIds.current.length - 1,
@@ -615,6 +616,9 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       return;
     }
 
+    const nextCyclePuzzleIds = shuffleWoodpeckerPuzzleIds(woodpeckerPuzzleIds.current);
+    woodpeckerPuzzleIds.current = nextCyclePuzzleIds;
+    prefetchedNextPuzzleRef.current = null;
     woodpeckerCycleRef.current = nextStep.cycle;
     woodpeckerIndexRef.current = nextStep.puzzleIndex;
     woodpeckerCycleSecondsRef.current = 0;
@@ -635,7 +639,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     setWoodpeckerCycleSaveError("");
     setWoodpeckerCycleSaveDelayed(false);
     beginNewSession();
-    void loadPuzzle("woodpecker", woodpeckerPuzzleIds.current[nextStep.puzzleIndex]);
+    void loadPuzzle("woodpecker", nextCyclePuzzleIds[nextStep.puzzleIndex]);
   }
 
   async function finishFailedAttempt(failedToken: string) {

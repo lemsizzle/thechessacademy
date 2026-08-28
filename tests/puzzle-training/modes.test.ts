@@ -6,6 +6,7 @@ import {
   nextWoodpeckerPuzzleTarget,
   nextWoodpeckerStep,
   PUZZLE_DIFFICULTY_OPTIONS,
+  shuffleWoodpeckerPuzzleIds,
   SURVIVAL_PUZZLE_LIMIT,
   survivalDifficultyForPuzzle,
   SURVIVAL_DIFFICULTY_STAGES,
@@ -99,6 +100,35 @@ describe("puzzle training modes", () => {
     }
 
     expect(puzzleCount).toBe(WOODPECKER_SET_SIZE * WOODPECKER_CYCLE_COUNT);
+  });
+
+  it("randomizes the Woodpecker puzzle order without changing the set", () => {
+    const puzzleIds = ["puzzle-a", "puzzle-b", "puzzle-c", "puzzle-d"];
+
+    const shuffledPuzzleIds = shuffleWoodpeckerPuzzleIds(puzzleIds, () => 0);
+    const nextCyclePuzzleIds = shuffleWoodpeckerPuzzleIds(shuffledPuzzleIds, () => 0.5);
+
+    expect(shuffledPuzzleIds).not.toEqual(puzzleIds);
+    expect(nextCyclePuzzleIds).not.toEqual(shuffledPuzzleIds);
+    expect([...shuffledPuzzleIds].sort()).toEqual([...puzzleIds].sort());
+    expect([...nextCyclePuzzleIds].sort()).toEqual([...puzzleIds].sort());
+    expect(puzzleIds).toEqual(["puzzle-a", "puzzle-b", "puzzle-c", "puzzle-d"]);
+  });
+
+  it("guarantees a new Woodpecker order when a random shuffle returns the old order", () => {
+    const puzzleIds = ["puzzle-a", "puzzle-b", "puzzle-c", "puzzle-d"];
+
+    expect(shuffleWoodpeckerPuzzleIds(puzzleIds, () => 0.999999)).toEqual([
+      "puzzle-b",
+      "puzzle-a",
+      "puzzle-c",
+      "puzzle-d"
+    ]);
+  });
+
+  it("handles empty and one-puzzle Woodpecker sets safely", () => {
+    expect(shuffleWoodpeckerPuzzleIds([])).toEqual([]);
+    expect(shuffleWoodpeckerPuzzleIds(["only-puzzle"])).toEqual(["only-puzzle"]);
   });
 
   it("preloads random puzzles while building the first Woodpecker set", () => {
