@@ -15,6 +15,7 @@ export function WoodpeckerCycleSummary({
   result,
   saveState,
   saveError,
+  saveDelayed,
   onReviewMistakes,
   onRetrySave,
   onContinue,
@@ -23,6 +24,7 @@ export function WoodpeckerCycleSummary({
   result: WoodpeckerCycleResult;
   saveState: "idle" | "saving" | "saved" | "error";
   saveError?: string;
+  saveDelayed: boolean;
   onReviewMistakes: () => void;
   onRetrySave: () => void;
   onContinue: () => void;
@@ -30,6 +32,7 @@ export function WoodpeckerCycleSummary({
 }) {
   const isFinalCycle = result.cycle >= WOODPECKER_CYCLE_COUNT;
   const mistakeCount = result.mistakePuzzleIds.length;
+  const isSaveDelayed = saveState === "saving" && saveDelayed;
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -114,14 +117,25 @@ export function WoodpeckerCycleSummary({
 
               {saveState !== "saved" && (
                 <div className={`mt-4 rounded-lg border p-4 ${saveState === "error" ? "border-rose-300/40 bg-rose-300/10 text-rose-100" : "border-cyan-300/30 bg-cyan-300/10 text-cyan-100"}`} aria-live="polite">
-                  <p className="font-black">{saveState === "error" ? "Cycle verification needs another try." : isFinalCycle ? "Verifying Conquer the Woodpecker..." : "Saving your verified cycle..."}</p>
+                  <p className="font-black">{saveState === "error"
+                    ? "Cycle verification needs another try."
+                    : isSaveDelayed
+                      ? "Verification is taking a little longer."
+                      : isFinalCycle
+                        ? "Verifying Conquer the Woodpecker..."
+                        : "Saving your verified cycle..."}</p>
+                  {isSaveDelayed && (
+                    <p className="mt-1 text-sm text-slate-300">Your completed cycle is still being saved. You do not need to retry.</p>
+                  )}
                   {saveState === "error" && (
                     <>
                       <p className="mt-1 text-sm text-slate-300">{saveError || "The cycle could not be saved."}</p>
                       <Button type="button" variant="secondary" onClick={onRetrySave} className="mt-3">Retry Save</Button>
                     </>
                   )}
-                  <p className="mt-2 text-xs text-slate-300">You can keep training while this sync finishes.</p>
+                  {saveState !== "error" && !isSaveDelayed && (
+                    <p className="mt-2 text-xs text-slate-300">You can keep training while this sync finishes.</p>
+                  )}
                 </div>
               )}
 

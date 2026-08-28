@@ -4,7 +4,14 @@ import { describe, expect, it, vi } from "vitest";
 import { WoodpeckerCycleSummary } from "@/components/training/WoodpeckerCycleSummary";
 import type { WoodpeckerCycleResult } from "@/lib/puzzle-training/modes";
 
-function renderSummary(result: Partial<WoodpeckerCycleResult> = {}) {
+function renderSummary(
+  result: Partial<WoodpeckerCycleResult> = {},
+  save: {
+    state?: "idle" | "saving" | "saved" | "error";
+    delayed?: boolean;
+    error?: string;
+  } = {}
+) {
   return renderToStaticMarkup(createElement(WoodpeckerCycleSummary, {
     result: {
       cycle: 2,
@@ -17,7 +24,9 @@ function renderSummary(result: Partial<WoodpeckerCycleResult> = {}) {
       reviewed: false,
       ...result
     },
-    saveState: "saved",
+    saveState: save.state ?? "saved",
+    saveDelayed: save.delayed ?? false,
+    saveError: save.error,
     onReviewMistakes: vi.fn(),
     onRetrySave: vi.fn(),
     onContinue: vi.fn(),
@@ -49,5 +58,22 @@ describe("Woodpecker cycle results popup", () => {
     expect(html).not.toContain("Next Cycle");
     expect(html).not.toContain("Review Mistakes</button>");
     expect(html).toContain("Return to Training");
+  });
+
+  it("keeps a slow verification neutral and does not offer an unnecessary retry", () => {
+    const html = renderSummary({}, { state: "saving", delayed: true });
+
+    expect(html).toContain("Verification is taking a little longer.");
+    expect(html).toContain("Your completed cycle is still being saved. You do not need to retry.");
+    expect(html).not.toContain("Retry Save");
+    expect(html).not.toContain("needs another try");
+  });
+
+  it("offers retry only after verification actually fails", () => {
+    const html = renderSummary({}, { state: "error", error: "The verification service did not respond." });
+
+    expect(html).toContain("Cycle verification needs another try.");
+    expect(html).toContain("The verification service did not respond.");
+    expect(html).toContain("Retry Save");
   });
 });

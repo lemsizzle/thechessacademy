@@ -11,9 +11,10 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { AutoAdvanceSwitch, PuzzleModeSetup, type PuzzleModeChoice } from "@/components/training/PuzzleModeSetup";
 import { WoodpeckerCycleSummary } from "@/components/training/WoodpeckerCycleSummary";
+import { requestWoodpeckerCycleVerification, type WoodpeckerCycleVerificationInput } from "@/lib/puzzle-training/cycleVerification";
 import { legalDestinations, parseUciMove, premoveDestinations } from "@/lib/puzzle-training/engine";
 import { calculatePuzzleAccuracy, calculateWoodpeckerCycleStats, formatSurvivalLives, nextWoodpeckerPuzzleTarget, nextWoodpeckerStep, PUZZLE_DIFFICULTY_OPTIONS, SURVIVAL_PUZZLE_LIMIT, survivalDifficultyForPuzzle, WOODPECKER_CYCLE_COUNT, WOODPECKER_SET_SIZE, type WoodpeckerCycleResult } from "@/lib/puzzle-training/modes";
-import type { PuzzleTrainingOverview, WoodpeckerCycleOverview } from "@/lib/puzzle-training/overview";
+import type { PuzzleTrainingOverview } from "@/lib/puzzle-training/overview";
 import { emptyPremoveHandoff, takeReadyPremove, withPremoveReply, withPremoveReplyReady, withQueuedPremove, type QueuedPremove } from "@/lib/puzzle-training/premoveQueue";
 import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
@@ -23,7 +24,6 @@ const AUTO_ADVANCE_DELAY_MS = 140;
 const WOODPECKER_AUTO_ADVANCE_DELAY_MS = 50;
 const MOVE_REQUEST_TIMEOUT_MS = 12_000;
 const PUZZLE_LOAD_TIMEOUT_MS = 12_000;
-const CYCLE_STATS_TIMEOUT_MS = 8_000;
 const AUTO_ADVANCE_STORAGE_KEY = "academy-puzzles-auto-advance";
 
 const StarWarsTraining = dynamic(
@@ -34,12 +34,7 @@ const StarWarsTraining = dynamic(
 type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "cycle-summary" | "summary" | "error" | "star-wars";
 type TrainingMode = "survival" | "woodpecker" | "daily";
 type WoodpeckerCycleSaveState = "idle" | "saving" | "saved" | "error";
-type PendingWoodpeckerCycleSave = {
-  sessionId: string;
-  runId: string;
-  cycleNumber: number;
-  cycleSessionIds: string[];
-};
+type PendingWoodpeckerCycleSave = WoodpeckerCycleVerificationInput;
 type MoveSubmissionContext = { fen: string; token: string; isPremove: true };
 
 function formatTime(totalSeconds: number) {
@@ -120,7 +115,8 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   const woodpeckerRunIdRef = useRef<string | null>(null);
   const woodpeckerCycleSessionIdsRef = useRef<string[]>([]);
   const pendingWoodpeckerCycleSaveRef = useRef<PendingWoodpeckerCycleSave | null>(null);
-  const woodpeckerCycleSaveInFlightRef = useRef(false);
+  const activeWoodpeckerCycleSaveOperationsRef = useRef(new Map<string, number>());
+  const currentWoodpeckerCycleSaveOperationRef = useRef(0);
   const requestedPuzzleIdRef = useRef<string | null>(null);
   const prefetchedNextPuzzleRef = useRef<PublicTrainingPuzzle | null>(null);
   const [woodpeckerCycle, setWoodpeckerCycle] = useState(1);
@@ -132,6 +128,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   const [woodpeckerCycleResults, setWoodpeckerCycleResults] = useState<WoodpeckerCycleResult[]>([]);
   const [woodpeckerCycleSaveState, setWoodpeckerCycleSaveState] = useState<WoodpeckerCycleSaveState>("idle");
   const [woodpeckerCycleSaveError, setWoodpeckerCycleSaveError] = useState("");
+  const [woodpeckerCycleSaveDelayed, setWoodpeckerCycleSaveDelayed] = useState(false);
   const [overview, setOverview] = useState(initialOverview);
   const sessionId = useRef(crypto.randomUUID());
   const moveLocked = useRef(false);
@@ -147,7 +144,6 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   const cycleStatsRequestIdRef = useRef(0);
   const activeMoveControllerRef = useRef<AbortController | null>(null);
   const activePuzzleLoadControllerRef = useRef<AbortController | null>(null);
-  const activeCycleStatsControllerRef = useRef<AbortController | null>(null);
   const puzzleTransitionLockedRef = useRef(false);
   const puzzleBoardRef = useOutsideBoardAnnotationClear(() => {
     if (!hasBoardAnnotations) return;
@@ -165,12 +161,11 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       moveRequestIdRef.current += 1;
       puzzleLoadRequestIdRef.current += 1;
       cycleStatsRequestIdRef.current += 1;
+      currentWoodpeckerCycleSaveOperationRef.current = 0;
       activeMoveControllerRef.current?.abort();
       activePuzzleLoadControllerRef.current?.abort();
-      activeCycleStatsControllerRef.current?.abort();
       activeMoveControllerRef.current = null;
       activePuzzleLoadControllerRef.current = null;
-      activeCycleStatsControllerRef.current = null;
       if (replyTimer.current) clearTimeout(replyTimer.current);
       if (advanceTimer.current) clearTimeout(advanceTimer.current);
     };
@@ -199,12 +194,6 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     puzzleLoadRequestIdRef.current += 1;
     activePuzzleLoadControllerRef.current?.abort();
     activePuzzleLoadControllerRef.current = null;
-  }
-
-  function abortActiveCycleStatsSave() {
-    cycleStatsRequestIdRef.current += 1;
-    activeCycleStatsControllerRef.current?.abort();
-    activeCycleStatsControllerRef.current = null;
   }
 
   function invalidatePuzzleWork() {
@@ -402,7 +391,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     woodpeckerRunIdRef.current = null;
     woodpeckerCycleSessionIdsRef.current = [];
     pendingWoodpeckerCycleSaveRef.current = null;
-    woodpeckerCycleSaveInFlightRef.current = false;
+    currentWoodpeckerCycleSaveOperationRef.current = 0;
     setWoodpeckerCycle(1);
     setWoodpeckerIndex(0);
     setWoodpeckerCycleSolved(0);
@@ -412,6 +401,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     setWoodpeckerCycleResults([]);
     setWoodpeckerCycleSaveState("idle");
     setWoodpeckerCycleSaveError("");
+    setWoodpeckerCycleSaveDelayed(false);
   }
 
   function startSurvival() {
@@ -445,87 +435,74 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
 
   function startStarWars() {
     invalidatePuzzleWork();
-    abortActiveCycleStatsSave();
     puzzleTransitionLockedRef.current = false;
     setPhase("star-wars");
   }
 
-  async function saveWoodpeckerCycleOverview(input: PendingWoodpeckerCycleSave) {
-    abortActiveCycleStatsSave();
-    const statsRequestId = ++cycleStatsRequestIdRef.current;
+  async function saveWoodpeckerCycleOverview(input: PendingWoodpeckerCycleSave, operationId: number) {
     const statsSessionGeneration = sessionGenerationRef.current;
-    const statsController = new AbortController();
-    activeCycleStatsControllerRef.current = statsController;
-    let statsTimedOut = false;
-    const statsTimeout = window.setTimeout(() => {
-      statsTimedOut = true;
-      statsController.abort();
-    }, CYCLE_STATS_TIMEOUT_MS);
-    const ownsStatsRequest = () => mountedRef.current
-      && statsRequestId === cycleStatsRequestIdRef.current
-      && activeCycleStatsControllerRef.current === statsController;
-
-    try {
-      const response = await fetch("/api/student/puzzle-training/woodpecker-cycle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: statsController.signal,
-        body: JSON.stringify({
-          sessionId: input.sessionId,
-          setSize: activeWoodpeckerSetSize.current,
-          runId: input.runId,
-          cycleNumber: input.cycleNumber,
-          cycleSessionIds: input.cycleSessionIds
-        })
-      });
-      const data = await response.json() as { stats?: WoodpeckerCycleOverview; error?: string };
-      if (!ownsStatsRequest()) return false;
-      if (!response.ok || !data.stats) throw new Error(data.error ?? "Cycle stats could not be saved.");
-      if (statsSessionGeneration === sessionGenerationRef.current) {
-        setOverview((current) => ({ ...current, latestWoodpeckerCycle: data.stats! }));
+    const inputKey = woodpeckerCycleSaveKey(input);
+    const ownsSaveUi = () => mountedRef.current
+      && currentWoodpeckerCycleSaveOperationRef.current === operationId
+      && pendingWoodpeckerCycleSaveRef.current !== null
+      && woodpeckerCycleSaveKey(pendingWoodpeckerCycleSaveRef.current) === inputKey;
+    const stats = await requestWoodpeckerCycleVerification(input, {
+      onSlow: () => {
+        if (ownsSaveUi()) setWoodpeckerCycleSaveDelayed(true);
       }
-      return true;
-    } catch (statsError) {
-      if (!ownsStatsRequest()) return false;
-      throw statsTimedOut
-        ? new Error("Cycle complete. The verification sync timed out. Retry when you are ready.")
-        : statsError;
-    } finally {
-      clearTimeout(statsTimeout);
-      if (activeCycleStatsControllerRef.current === statsController) {
-        activeCycleStatsControllerRef.current = null;
-      }
+    });
+    if (mountedRef.current && statsSessionGeneration === sessionGenerationRef.current) {
+      setOverview((current) => ({ ...current, latestWoodpeckerCycle: stats }));
     }
+    return stats;
   }
 
   async function persistWoodpeckerCycleOverview(input: PendingWoodpeckerCycleSave) {
-    if (woodpeckerCycleSaveInFlightRef.current) return;
-    woodpeckerCycleSaveInFlightRef.current = true;
+    const inputKey = woodpeckerCycleSaveKey(input);
+    const existingOperationId = activeWoodpeckerCycleSaveOperationsRef.current.get(inputKey);
+    if (existingOperationId !== undefined) {
+      currentWoodpeckerCycleSaveOperationRef.current = existingOperationId;
+      pendingWoodpeckerCycleSaveRef.current = input;
+      setWoodpeckerCycleSaveState("saving");
+      setWoodpeckerCycleSaveError("");
+      return;
+    }
+
+    const operationId = ++cycleStatsRequestIdRef.current;
+    activeWoodpeckerCycleSaveOperationsRef.current.set(inputKey, operationId);
+    currentWoodpeckerCycleSaveOperationRef.current = operationId;
     pendingWoodpeckerCycleSaveRef.current = input;
     setWoodpeckerCycleSaveState("saving");
     setWoodpeckerCycleSaveError("");
+    setWoodpeckerCycleSaveDelayed(false);
+    const ownsSaveUi = () => mountedRef.current
+      && currentWoodpeckerCycleSaveOperationRef.current === operationId
+      && pendingWoodpeckerCycleSaveRef.current !== null
+      && woodpeckerCycleSaveKey(pendingWoodpeckerCycleSaveRef.current) === inputKey;
     try {
-      const saved = await saveWoodpeckerCycleOverview(input);
-      if (!saved || pendingWoodpeckerCycleSaveRef.current !== input) return;
+      await saveWoodpeckerCycleOverview(input, operationId);
+      if (!ownsSaveUi()) return;
       setWoodpeckerCycleSaveState("saved");
     } catch (statsError) {
-      if (pendingWoodpeckerCycleSaveRef.current !== input) return;
+      if (!ownsSaveUi()) return;
       setWoodpeckerCycleSaveState("error");
       setWoodpeckerCycleSaveError(statsError instanceof Error ? statsError.message : "Cycle stats could not be saved.");
     } finally {
-      woodpeckerCycleSaveInFlightRef.current = false;
+      if (activeWoodpeckerCycleSaveOperationsRef.current.get(inputKey) === operationId) {
+        activeWoodpeckerCycleSaveOperationsRef.current.delete(inputKey);
+      }
+      if (ownsSaveUi()) setWoodpeckerCycleSaveDelayed(false);
     }
   }
 
   function retryWoodpeckerCycleSave() {
     const pendingSave = pendingWoodpeckerCycleSaveRef.current;
-    if (!pendingSave || woodpeckerCycleSaveInFlightRef.current) return;
+    if (!pendingSave || activeWoodpeckerCycleSaveOperationsRef.current.has(woodpeckerCycleSaveKey(pendingSave))) return;
     void persistWoodpeckerCycleOverview(pendingSave);
   }
 
   function returnToPuzzleSetup() {
     invalidatePuzzleWork();
-    abortActiveCycleStatsSave();
     puzzleTransitionLockedRef.current = false;
     prefetchedNextPuzzleRef.current = null;
     if (trainingMode === "survival" && solved > 0) {
@@ -653,8 +630,10 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     setWoodpeckerReviewIndex(0);
     setWoodpeckerReviewing(false);
     pendingWoodpeckerCycleSaveRef.current = null;
+    currentWoodpeckerCycleSaveOperationRef.current = 0;
     setWoodpeckerCycleSaveState("idle");
     setWoodpeckerCycleSaveError("");
+    setWoodpeckerCycleSaveDelayed(false);
     beginNewSession();
     void loadPuzzle("woodpecker", woodpeckerPuzzleIds.current[nextStep.puzzleIndex]);
   }
@@ -925,6 +904,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
             woodpeckerCycleSessionIdsRef.current = completedCycleSessionIds;
             void persistWoodpeckerCycleOverview({
               sessionId: completedCycleSessionId,
+              setSize: activeWoodpeckerSetSize.current,
               runId: completedRunId,
               cycleNumber: completedCycleNumber,
               cycleSessionIds: completedCycleSessionIds.slice(0, completedCycleNumber)
@@ -1203,7 +1183,14 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
           && woodpeckerCycleResults.some((result) => result.cycle >= WOODPECKER_CYCLE_COUNT)
           && woodpeckerCycleSaveState !== "saved" && (
           <div className={`mt-5 rounded-lg border p-4 ${woodpeckerCycleSaveState === "error" ? "border-rose-300/40 bg-rose-300/10 text-rose-100" : "border-cyan-300/30 bg-cyan-300/10 text-cyan-100"}`} aria-live="polite">
-            <p className="font-black">{woodpeckerCycleSaveState === "error" ? "Quest verification still needs another try." : "Verifying Conquer the Woodpecker..."}</p>
+            <p className="font-black">{woodpeckerCycleSaveState === "error"
+              ? "Quest verification still needs another try."
+              : woodpeckerCycleSaveDelayed
+                ? "Verification is taking a little longer."
+                : "Verifying Conquer the Woodpecker..."}</p>
+            {woodpeckerCycleSaveState !== "error" && woodpeckerCycleSaveDelayed && (
+              <p className="mt-1 text-sm text-slate-300">Your completed set is still being saved. You do not need to retry.</p>
+            )}
             {woodpeckerCycleSaveState === "error" && (
               <>
                 <p className="mt-1 text-sm text-slate-300">{woodpeckerCycleSaveError || "The completed set could not be verified."}</p>
@@ -1287,6 +1274,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
           result={currentWoodpeckerCycleResult}
           saveState={woodpeckerCycleSaveState}
           saveError={woodpeckerCycleSaveError}
+          saveDelayed={woodpeckerCycleSaveDelayed}
           onReviewMistakes={reviewWoodpeckerMistakes}
           onRetrySave={retryWoodpeckerCycleSave}
           onContinue={continueWoodpeckerTraining}
@@ -1295,4 +1283,8 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       )}
     </>
   );
+}
+
+function woodpeckerCycleSaveKey(input: PendingWoodpeckerCycleSave) {
+  return `${input.runId}:${input.cycleNumber}:${input.sessionId}`;
 }
