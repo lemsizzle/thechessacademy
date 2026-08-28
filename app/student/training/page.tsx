@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { LeaderboardBoard } from "@/components/LeaderboardBoard";
 import { StudentPortalShell } from "@/components/student/StudentPortalShell";
 import { PuzzleSurvival } from "@/components/training/PuzzleSurvival";
-import { AdaptiveReviewTrainer } from "@/chess/components/AdaptiveReviewTrainer";
 import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 import { getStudentsResult } from "@/lib/data/students";
@@ -24,22 +23,23 @@ export default async function StudentPuzzleTrainingPage() {
 
   return (
     <StudentPortalShell title="Puzzle Training" subtitle="Train tactics, build pattern memory, and plan perfect routes before you move.">
-      <div className="space-y-6">
-        <Suspense fallback={<div className="rounded-lg border border-white/10 bg-slate-950/60 p-5 text-sm text-slate-300">Preparing puzzle training...</div>}>
-          <PuzzleSurvival initialOverview={overview} />
-        </Suspense>
-        <LeaderboardBoard
-          initialStudents={students.data}
-          avatarItems={avatarDisplay.items}
-          studentAvatars={avatarDisplay.avatars}
-          survivalScores={survivalScores}
-          initialFocus="Survival Puzzles"
-          lockFocus
-          heading="Survival Puzzle Leaderboard"
-          profileBasePath="/student/students"
+      <Suspense fallback={<div className="rounded-lg border border-white/10 bg-slate-950/60 p-5 text-sm text-slate-300">Preparing puzzle training...</div>}>
+        <PuzzleSurvival
+          initialOverview={overview}
+          statsContent={(
+            <LeaderboardBoard
+              initialStudents={students.data}
+              avatarItems={avatarDisplay.items}
+              studentAvatars={avatarDisplay.avatars}
+              survivalScores={survivalScores}
+              initialFocus="Survival Puzzles"
+              lockFocus
+              heading="Survival Puzzle Leaderboard"
+              profileBasePath="/student/students"
+            />
+          )}
         />
-        <AdaptiveReviewTrainer />
-      </div>
+      </Suspense>
     </StudentPortalShell>
   );
 }

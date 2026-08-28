@@ -31,7 +31,12 @@ const StarWarsTraining = dynamic(
   { ssr: false, loading: () => <Card className="p-6 text-sm font-bold text-slate-300">Preparing the Star Wars board...</Card> }
 );
 
-type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "cycle-summary" | "summary" | "error" | "star-wars";
+const AdaptiveReviewTrainer = dynamic(
+  () => import("@/chess/components/AdaptiveReviewTrainer").then((module) => module.AdaptiveReviewTrainer),
+  { ssr: false, loading: () => <Card className="p-6 text-sm font-bold text-slate-300">Preparing your mistake review...</Card> }
+);
+
+type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "cycle-summary" | "summary" | "error" | "star-wars" | "adaptive-review";
 type TrainingMode = "survival" | "woodpecker" | "daily";
 type WoodpeckerCycleSaveState = "idle" | "saving" | "saved" | "error";
 type PendingWoodpeckerCycleSave = WoodpeckerCycleVerificationInput;
@@ -67,12 +72,11 @@ function optimisticMoveFen(fen: string, from: string, to: string) {
   }
 }
 
-export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTrainingOverview }) {
+export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverview: PuzzleTrainingOverview; statsContent?: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedTheme, setSelectedTheme] = useState<PuzzleThemeSlug>(() => parsePuzzleTheme(searchParams.get("theme")));
   const [selectedLevel, setSelectedLevel] = useState<PuzzleLevelSlug>(() => parsePuzzleLevel(searchParams.get("level")));
-  const [setupMode, setSetupMode] = useState<PuzzleModeChoice>("survival");
   const [trainingMode, setTrainingMode] = useState<TrainingMode>("survival");
   const [woodpeckerSetSize, setWoodpeckerSetSize] = useState<number>(WOODPECKER_SET_SIZE);
   const [autoAdvance, setAutoAdvance] = useState(false);
@@ -437,6 +441,22 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     invalidatePuzzleWork();
     puzzleTransitionLockedRef.current = false;
     setPhase("star-wars");
+  }
+
+  function startAdaptiveReview() {
+    invalidatePuzzleWork();
+    puzzleTransitionLockedRef.current = false;
+    setPhase("adaptive-review");
+  }
+
+  function startSelectedMode(mode: PuzzleModeChoice) {
+    if (mode === "survival") return startSurvival();
+    if (mode === "woodpecker") return startWoodpecker();
+    if (mode === "daily") return startDailyPuzzle();
+    if (mode === "starWars") return startStarWars();
+    if (mode === "adaptiveReview") return startAdaptiveReview();
+    const unreachableMode: never = mode;
+    return unreachableMode;
   }
 
   async function saveWoodpeckerCycleOverview(input: PendingWoodpeckerCycleSave, operationId: number) {
@@ -1156,8 +1176,6 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   if (phase === "select") {
     return (
       <PuzzleModeSetup
-        selectedMode={setupMode}
-        onModeChange={setSetupMode}
         selectedTheme={selectedTheme}
         onThemeChange={chooseTheme}
         selectedLevel={selectedLevel}
@@ -1166,15 +1184,19 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         onWoodpeckerSetSizeChange={setWoodpeckerSetSize}
         autoAdvance={autoAdvance}
         onAutoAdvanceChange={updateAutoAdvance}
-        onStart={setupMode === "survival" ? startSurvival : setupMode === "woodpecker" ? startWoodpecker : startStarWars}
-        onDailyPuzzle={startDailyPuzzle}
+        onStart={startSelectedMode}
         overview={overview}
+        statsContent={statsContent}
       />
     );
   }
 
   if (phase === "star-wars") {
     return <StarWarsTraining onExit={() => setPhase("select")} />;
+  }
+
+  if (phase === "adaptive-review") {
+    return <AdaptiveReviewTrainer autoStart onExit={() => setPhase("select")} />;
   }
 
   if (phase === "summary") {

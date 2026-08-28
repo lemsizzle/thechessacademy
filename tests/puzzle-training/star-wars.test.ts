@@ -13,6 +13,7 @@ import {
   type StarWarsPuzzle,
   type StarWarsState
 } from "@/lib/puzzle-training/starWars";
+import { parseStoredStarWarsBestScore } from "@/lib/puzzle-training/starWarsProgress";
 
 function positionSignature(puzzle: StarWarsPuzzle) {
   return `${puzzle.fen}|${[...puzzle.stars].sort().join(",")}`;
@@ -119,6 +120,13 @@ function expectPerfectRoute(puzzle: StarWarsPuzzle) {
 }
 
 describe("Star Wars training", () => {
+  it("reads the local best score defensively", () => {
+    expect(parseStoredStarWarsBestScore("12")).toBe(12);
+    expect(parseStoredStarWarsBestScore("0")).toBe(0);
+    expect(parseStoredStarWarsBestScore("not-a-score")).toBe(0);
+    expect(parseStoredStarWarsBestScore(null)).toBe(0);
+  });
+
   it("keeps a compatible preview bank made only from valid non-pawn learner pieces", () => {
     expect(STAR_WARS_PUZZLES.length).toBeGreaterThanOrEqual(10);
     expect(STAR_WARS_PUZZLES.some((puzzle) => puzzle.pieces.length > 1)).toBe(true);

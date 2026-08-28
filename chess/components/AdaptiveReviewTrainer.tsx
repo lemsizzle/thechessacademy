@@ -25,8 +25,17 @@ function movePosition(fen: string, uci: string) {
 }
 
 const emptySummary: AdaptiveReviewSummary = { total: 0, due: 0, learning: 0, review: 0, mastered: 0, attempts: 0, correct: 0, accuracy: 0 };
+const REVIEW_PROMPT = "Find the stronger move. The red arrow shows what happened in your game.";
 
-export function AdaptiveReviewTrainer() {
+export function AdaptiveReviewTrainer({
+  autoStart = false,
+  onExit,
+  summaryOnly = false
+}: {
+  autoStart?: boolean;
+  onExit?: () => void;
+  summaryOnly?: boolean;
+}) {
   const [items, setItems] = useState<AdaptiveReviewItem[]>([]);
   const [summary, setSummary] = useState<AdaptiveReviewSummary>(emptySummary);
   const [loading, setLoading] = useState(true);
@@ -37,6 +46,16 @@ export function AdaptiveReviewTrainer() {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const startedAt = useRef(Date.now());
+  const shouldAutoStart = useRef(autoStart);
+
+  const beginItem = useCallback((item: AdaptiveReviewItem) => {
+    setPracticing(true);
+    setDisplayFen(item.fen);
+    setLastMove(null);
+    setResult(null);
+    setMessage(REVIEW_PROMPT);
+    startedAt.current = Date.now();
+  }, []);
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
@@ -46,13 +65,18 @@ export function AdaptiveReviewTrainer() {
       if (!response.ok || !body.items || !body.summary) throw new Error(body.error ?? "Review queue could not be loaded.");
       setItems(body.items);
       setSummary(body.summary);
-      if (!body.items.length) setPracticing(false);
+      if (!body.items.length) {
+        setPracticing(false);
+      } else if (shouldAutoStart.current && !summaryOnly) {
+        shouldAutoStart.current = false;
+        beginItem(body.items[0]);
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Review queue could not be loaded.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [beginItem, summaryOnly]);
 
   useEffect(() => { void loadQueue(); }, [loadQueue]);
 
@@ -60,12 +84,7 @@ export function AdaptiveReviewTrainer() {
 
   function begin() {
     if (!current) return;
-    setPracticing(true);
-    setDisplayFen(current.fen);
-    setLastMove(null);
-    setResult(null);
-    setMessage("Find the stronger move. The red arrow shows what happened in your game.");
-    startedAt.current = Date.now();
+    beginItem(current);
   }
 
   async function submitAttempt(moveUci?: string, reveal = false) {
@@ -116,7 +135,7 @@ export function AdaptiveReviewTrainer() {
     setLastMove(null);
     if (next[0]) {
       setDisplayFen(next[0].fen);
-      setMessage("Find the stronger move. The red arrow shows what happened in your game.");
+      setMessage(REVIEW_PROMPT);
       startedAt.current = Date.now();
     } else {
       setPracticing(false);
@@ -125,7 +144,30 @@ export function AdaptiveReviewTrainer() {
     }
   }
 
-  if (loading) return <Card className="p-5 text-sm text-slate-300">Loading your personal review queue…</Card>;
+  if (loading) return <Card className="p-5 text-sm text-slate-300">{summaryOnly ? "Loading your mistake-review stats…" : "Preparing your mistake review…"}</Card>;
+
+  if (summaryOnly) {
+    return (
+      <Card className="border-violet-300/20 bg-violet-300/5 p-4 sm:p-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-violet-200">Mistake review</p>
+            <h3 className="mt-1 text-xl font-black text-white">Learning progress</h3>
+          </div>
+          <p className="text-xs font-bold text-slate-400">{summary.attempts} attempts · {summary.correct} correct</p>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {[["Due", summary.due], ["Learning", summary.learning], ["Reviewing", summary.review], ["Mastered", summary.mastered], ["Accuracy", `${summary.accuracy}%`]].map(([label, value]) => (
+            <div key={String(label)} className="rounded-md border border-white/10 bg-slate-950/50 p-3 text-center">
+              <p className="text-[10px] font-bold uppercase text-slate-500 sm:text-xs">{label}</p>
+              <p className="mt-1 text-xl font-black text-white">{value}</p>
+            </div>
+          ))}
+        </div>
+        {message && <p className="mt-3 text-sm text-rose-100" role="alert">{message}</p>}
+      </Card>
+    );
+  }
 
   if (!practicing || !current) {
     return <Card className="overflow-hidden border-violet-300/20 bg-violet-300/5 p-0">
@@ -142,6 +184,7 @@ export function AdaptiveReviewTrainer() {
         </div>
         {summary.due > 0 ? <Button type="button" onClick={begin} className="mt-4">Start mistake review</Button> : summary.total > 0 ? <p className="mt-4 rounded-md border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm font-bold text-emerald-100">You are caught up. New reviews will appear here when they are due.</p> : <p className="mt-4 rounded-md border border-cyan-200/20 bg-cyan-300/10 p-3 text-sm leading-6 text-cyan-50">Complete a game, open its analysis, and request a computer analysis. Your mistakes will be added here automatically.</p>}
         {message && <p className="mt-3 text-sm text-slate-300" aria-live="polite">{message}</p>}
+        {onExit && <Button type="button" variant="ghost" onClick={onExit} className="mt-4">Back to Puzzle Modes</Button>}
       </div>
     </Card>;
   }
@@ -179,7 +222,7 @@ export function AdaptiveReviewTrainer() {
         {result?.outcome === "incorrect" && <Button type="button" variant="ghost" disabled={saving} onClick={() => void submitAttempt(undefined, true)} className="mt-3">Show the answer</Button>}
         {!result && <Button type="button" variant="ghost" disabled={saving} onClick={() => void submitAttempt(undefined, true)} className="mt-3">I’m stuck — show me</Button>}
         {solved && <div className="mt-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 p-3"><p className="font-black text-emerald-100">{result.outcome === "correct" ? "You found it!" : `Best move: ${current.bestMoveSan}`}</p><p className="mt-2 text-sm leading-6 text-emerald-50">{current.solutionExplanation}</p>{current.bestLineSan && <p className="mt-2 text-xs text-emerald-100/80">Example line: {current.bestLineSan}</p>}<Button type="button" onClick={nextPosition} className="mt-4">{items.length > 1 ? "Next position" : "Finish review"}</Button></div>}
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs"><Link href={`/student/play/game/${current.sourceGameId}/analysis`} className="font-bold text-cyan-200 underline underline-offset-4">Open the original game</Link><button type="button" onClick={() => setPracticing(false)} className="font-bold text-slate-400 hover:text-white">Exit review</button></div>
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs"><Link href={`/student/play/game/${current.sourceGameId}/analysis`} className="font-bold text-cyan-200 underline underline-offset-4">Open the original game</Link><button type="button" onClick={onExit ?? (() => setPracticing(false))} className="font-bold text-slate-400 hover:text-white">Exit review</button></div>
       </Card>
     </div>
   </div>;

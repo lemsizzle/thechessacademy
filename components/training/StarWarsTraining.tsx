@@ -23,11 +23,14 @@ import {
   type StarWarsMove,
   type StarWarsState
 } from "@/lib/puzzle-training/starWars";
+import {
+  parseStoredStarWarsBestScore,
+  STAR_WARS_BEST_SCORE_STORAGE_KEY
+} from "@/lib/puzzle-training/starWarsProgress";
 
 type RunPhase = "playing" | "solved" | "failed";
 type DrawingGesture = { startSquare: Square; endSquare: Square | null; color: string };
 
-const BEST_SCORE_STORAGE_KEY = "academy-star-wars-best-score:v1";
 const NEXT_MISSION_DELAY_MS = 450;
 const PLAN_ARROW_COLOR = "#c084fc";
 const WRONG_MOVE_COLOR = "#fb7185";
@@ -82,8 +85,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
 
   useEffect(() => {
     try {
-      const saved = Number(window.localStorage.getItem(BEST_SCORE_STORAGE_KEY));
-      if (Number.isInteger(saved) && saved > 0) setBestScore(saved);
+      setBestScore(parseStoredStarWarsBestScore(window.localStorage.getItem(STAR_WARS_BEST_SCORE_STORAGE_KEY)));
     } catch {
       // Storage can be unavailable in private browsing; the run still works.
     }
@@ -141,7 +143,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     if (nextScore <= bestScore) return;
     setBestScore(nextScore);
     try {
-      window.localStorage.setItem(BEST_SCORE_STORAGE_KEY, String(nextScore));
+      window.localStorage.setItem(STAR_WARS_BEST_SCORE_STORAGE_KEY, String(nextScore));
     } catch {
       // A blocked preference write must never interrupt the game.
     }
