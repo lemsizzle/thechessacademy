@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { requireActiveStudent, requireSignedInStudent } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { academyPuzzleDate, dailyPuzzlePivot } from "@/lib/puzzle-training/daily";
-import { calculateWoodpeckerCycleStats, WOODPECKER_MAX_SET_SIZE, WOODPECKER_SET_SIZE_OPTIONS } from "@/lib/puzzle-training/modes";
+import { calculateWoodpeckerCycleStats, WOODPECKER_CYCLE_COUNT, WOODPECKER_MAX_SET_SIZE, WOODPECKER_SET_SIZE_OPTIONS } from "@/lib/puzzle-training/modes";
 import type { WoodpeckerCycleOverview } from "@/lib/puzzle-training/overview";
 import { lichessPuzzleThemes, parsePuzzleTheme, puzzleLevelRatingRange, type ChessPuzzleRow, type PuzzleLevelSlug, type PuzzleThemeSlug, type PuzzleTrainingMode } from "@/lib/puzzle-training/types";
+import { validateCompletedWoodpeckerSet, type SavedWoodpeckerSetAttempt } from "@/lib/puzzle-training/woodpeckerSet";
 
 const puzzleSelect = "id,lichess_puzzle_id,initial_fen,moves,start_mode,accepted_moves,source_kind,source_study_id,source_chapter_id,source_node_id,teacher_prompt,rating,rating_deviation,popularity,number_of_plays,themes,game_url,opening_tags,random_key,is_active";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -178,7 +180,19 @@ export async function saveTrainingAttempt(input: {
   incorrectMoveCount: number;
   hintsUsed: number;
   startedAt: string;
+  woodpeckerRunId?: string;
+  woodpeckerCycleNumber?: number;
 }) {
+  const hasWoodpeckerIdentity = input.woodpeckerRunId !== undefined || input.woodpeckerCycleNumber !== undefined;
+  if (hasWoodpeckerIdentity && (
+    input.trainingMode !== "woodpecker"
+    || !UUID_PATTERN.test(input.woodpeckerRunId ?? "")
+    || !Number.isInteger(input.woodpeckerCycleNumber)
+    || (input.woodpeckerCycleNumber ?? 0) < 1
+    || (input.woodpeckerCycleNumber ?? 0) > WOODPECKER_CYCLE_COUNT
+  )) {
+    throw new Error("Invalid Woodpecker attempt identity.");
+  }
   const elapsedSeconds = Math.max(0, Math.round((Date.now() - new Date(input.startedAt).getTime()) / 1000));
   const record = {
     student_id: input.studentId,
@@ -192,7 +206,11 @@ export async function saveTrainingAttempt(input: {
     elapsed_seconds: elapsedSeconds,
     hints_used: Math.max(0, input.hintsUsed),
     attempted_at: input.startedAt,
-    completed_at: new Date().toISOString()
+    completed_at: new Date().toISOString(),
+    ...(hasWoodpeckerIdentity ? {
+      woodpecker_run_id: input.woodpeckerRunId,
+      woodpecker_cycle_number: input.woodpeckerCycleNumber
+    } : {})
   };
 
   const { error } = await serviceClient()
@@ -202,8 +220,19 @@ export async function saveTrainingAttempt(input: {
   return { elapsedSeconds, firstTryCorrect: record.first_try_correct };
 }
 
-export async function saveCompletedWoodpeckerCycle(studentId: string, sessionId: string, expectedSetSize?: number): Promise<WoodpeckerCycleOverview> {
+export async function saveCompletedWoodpeckerCycle(
+  studentId: string,
+  sessionId: string,
+  expectedSetSize?: number,
+  identity?: { runId: string; cycleNumber: number }
+): Promise<WoodpeckerCycleOverview> {
   if (!UUID_PATTERN.test(sessionId)) throw new Error("Invalid Woodpecker session.");
+  if (identity && (
+    !UUID_PATTERN.test(identity.runId)
+    || !Number.isInteger(identity.cycleNumber)
+    || identity.cycleNumber < 1
+    || identity.cycleNumber > WOODPECKER_CYCLE_COUNT
+  )) throw new Error("Invalid Woodpecker cycle identity.");
   const validExpectedSetSize = WOODPECKER_SET_SIZE_OPTIONS.includes(expectedSetSize as typeof WOODPECKER_SET_SIZE_OPTIONS[number])
     ? expectedSetSize
     : undefined;
@@ -257,7 +286,8 @@ export async function saveCompletedWoodpeckerCycle(studentId: string, sessionId:
       elapsed_seconds: elapsedSeconds,
       puzzles_per_minute: stats.puzzlesPerMinute,
       accuracy: stats.accuracy,
-      completed_at: completedAt
+      completed_at: completedAt,
+      ...(identity ? { run_id: identity.runId, cycle_number: identity.cycleNumber } : {})
     }, { onConflict: "student_id,session_id" });
   if (saveError) throw new Error(saveError.message);
 
@@ -268,4 +298,128 @@ export async function saveCompletedWoodpeckerCycle(studentId: string, sessionId:
     theme: selectedTheme,
     completedAt
   };
+}
+
+type SavedWoodpeckerSetRow = {
+  run_id: string;
+  cycle_sessions_hash: string;
+  puzzle_set_hash: string;
+  selected_theme: string;
+  set_size: number;
+  cycle_count: number;
+  started_at: string;
+  completed_at: string;
+};
+
+const woodpeckerSetSelect = "run_id,cycle_sessions_hash,puzzle_set_hash,selected_theme,set_size,cycle_count,started_at,completed_at";
+
+function fingerprint(values: string[]) {
+  return createHash("sha256").update([...values].sort().join("|")).digest("hex");
+}
+
+function woodpeckerSetOverview(row: SavedWoodpeckerSetRow) {
+  return {
+    setSize: Number(row.set_size),
+    cycleCount: Number(row.cycle_count),
+    theme: parsePuzzleTheme(row.selected_theme),
+    startedAt: row.started_at,
+    completedAt: row.completed_at
+  };
+}
+
+function resolveExistingWoodpeckerSet(
+  rows: SavedWoodpeckerSetRow[],
+  runId: string,
+  cycleSessionsHash: string,
+  puzzleSetHash: string
+) {
+  const matchingRun = rows.find((row) => row.run_id === runId);
+  if (matchingRun && (matchingRun.cycle_sessions_hash !== cycleSessionsHash || matchingRun.puzzle_set_hash !== puzzleSetHash)) {
+    throw new Error("This Woodpecker run was already recorded with different cycles.");
+  }
+  const matchingSessions = rows.find((row) => row.cycle_sessions_hash === cycleSessionsHash);
+  if (matchingSessions && (matchingSessions.run_id !== runId || matchingSessions.puzzle_set_hash !== puzzleSetHash)) {
+    throw new Error("These Woodpecker cycles were already recorded for a different set.");
+  }
+  return matchingRun ?? matchingSessions ?? null;
+}
+
+export async function saveCompletedWoodpeckerSet(input: {
+  studentId: string;
+  runId: string;
+  cycleSessionIds: string[];
+}) {
+  if (!UUID_PATTERN.test(input.runId)
+    || input.cycleSessionIds.length !== WOODPECKER_CYCLE_COUNT
+    || new Set(input.cycleSessionIds).size !== WOODPECKER_CYCLE_COUNT
+    || input.cycleSessionIds.some((sessionId) => typeof sessionId !== "string" || !UUID_PATTERN.test(sessionId))) {
+    throw new Error("Invalid Woodpecker set session.");
+  }
+
+  const client = serviceClient();
+  const { data: attemptData, error: attemptError } = await client
+    .from("student_puzzle_attempts")
+    .select("puzzle_id,session_id,solved,selected_theme,attempted_at,completed_at,woodpecker_run_id,woodpecker_cycle_number")
+    .eq("student_id", input.studentId)
+    .eq("training_mode", "woodpecker")
+    .eq("woodpecker_run_id", input.runId)
+    .in("session_id", input.cycleSessionIds);
+  if (attemptError) throw new Error(attemptError.message);
+
+  const validated = validateCompletedWoodpeckerSet(
+    input.runId,
+    input.cycleSessionIds,
+    (attemptData ?? []) as SavedWoodpeckerSetAttempt[]
+  );
+  const cycleSessionsHash = fingerprint(input.cycleSessionIds);
+  const puzzleSetHash = fingerprint(validated.puzzleIds);
+  const selectedTheme = parsePuzzleTheme(validated.selectedTheme);
+
+  const findExisting = async () => {
+    const { data, error } = await client
+      .from("student_woodpecker_set_results")
+      .select(woodpeckerSetSelect)
+      .eq("student_id", input.studentId)
+      .or(`run_id.eq.${input.runId},cycle_sessions_hash.eq.${cycleSessionsHash}`)
+      .limit(2);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as SavedWoodpeckerSetRow[];
+  };
+
+  const existing = resolveExistingWoodpeckerSet(
+    await findExisting(),
+    input.runId,
+    cycleSessionsHash,
+    puzzleSetHash
+  );
+  if (existing) return woodpeckerSetOverview(existing);
+
+  const record = {
+    student_id: input.studentId,
+    run_id: input.runId,
+    cycle_session_ids: input.cycleSessionIds,
+    cycle_sessions_hash: cycleSessionsHash,
+    puzzle_set_hash: puzzleSetHash,
+    selected_theme: selectedTheme,
+    set_size: validated.setSize,
+    cycle_count: validated.cycleCount,
+    started_at: validated.startedAt,
+    completed_at: validated.completedAt
+  };
+  const { data: saved, error: saveError } = await client
+    .from("student_woodpecker_set_results")
+    .insert(record)
+    .select(woodpeckerSetSelect)
+    .single();
+  if (!saveError && saved) return woodpeckerSetOverview(saved as SavedWoodpeckerSetRow);
+  if (saveError?.code !== "23505") throw new Error(saveError?.message ?? "Woodpecker set could not be saved.");
+
+  const racedExisting = resolveExistingWoodpeckerSet(
+    await findExisting(),
+    input.runId,
+    cycleSessionsHash,
+    puzzleSetHash
+  );
+  if (!racedExisting) throw new Error("Woodpecker set could not be saved.");
+  return woodpeckerSetOverview(racedExisting);
 }

@@ -91,6 +91,8 @@ export async function POST(request: NextRequest) {
         sessionId: payload.sessionId,
         selectedTheme: payload.selectedTheme,
         trainingMode: payload.trainingMode,
+        woodpeckerRunId: payload.woodpeckerRunId,
+        woodpeckerCycleNumber: payload.woodpeckerCycleNumber,
         solved: true,
         incorrectMoveCount: payload.incorrectMoveCount,
         hintsUsed: payload.hintsUsed,
@@ -121,7 +123,9 @@ export async function POST(request: NextRequest) {
           studentId: student.studentId,
           sessionId: payload.sessionId,
           selectedTheme: payload.selectedTheme,
-          trainingMode: payload.trainingMode
+          trainingMode: payload.trainingMode,
+          woodpeckerRunId: payload.woodpeckerRunId,
+          woodpeckerCycleNumber: payload.woodpeckerCycleNumber
         }) : undefined;
         const response = NextResponse.json({
           accepted: true,
@@ -157,6 +161,8 @@ export async function POST(request: NextRequest) {
         sessionId: payload.sessionId,
         selectedTheme: payload.selectedTheme,
         trainingMode: payload.trainingMode,
+        woodpeckerRunId: payload.woodpeckerRunId,
+        woodpeckerCycleNumber: payload.woodpeckerCycleNumber,
         authorizationExpiresAt: payload.version === 2 ? payload.expiresAt : undefined
       }) : undefined;
       const response = NextResponse.json({

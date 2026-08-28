@@ -251,6 +251,7 @@ export type QuestConditionType =
   | "internal_puzzle_first_try_count"
   | "internal_puzzle_accuracy_threshold"
   | "internal_puzzle_theme_solved_count"
+  | "internal_woodpecker_set_completed_count"
   | "manual";
 export type QuestTimeWindow = "daily" | "weekly" | "monthly" | "tournament" | "all_time" | "custom";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateInternalGameQuest, evaluateInternalPuzzleQuest, type InternalQuestGameActivity, type InternalQuestPuzzleActivity } from "@/lib/quests/evaluateInternalQuest";
+import { evaluateInternalGameQuest, evaluateInternalPuzzleQuest, type InternalQuestGameActivity, type InternalQuestPuzzleActivity, type InternalQuestWoodpeckerSetActivity } from "@/lib/quests/evaluateInternalQuest";
 import { getConditionsForSource, isAutomatedQuestSource, requiresComputerOpponentSelection, supportsComputerOpponentFilter } from "@/lib/quests/questOptions";
 import { getSafeQuestLink } from "@/lib/quests/questLinks";
 import type { Quest } from "@/lib/types";
@@ -39,6 +39,13 @@ const puzzles: InternalQuestPuzzleActivity[] = [
   { id: "p1", attemptedAt: "2026-08-02T00:00:00.000Z", solved: true, firstTryCorrect: true, selectedTheme: "mixed", themes: ["fork"] },
   { id: "p2", attemptedAt: "2026-08-03T00:00:00.000Z", solved: true, firstTryCorrect: false, selectedTheme: "pin", themes: ["pin"] },
   { id: "p3", attemptedAt: "2026-08-04T00:00:00.000Z", solved: false, firstTryCorrect: false, selectedTheme: "fork", themes: ["fork"] }
+];
+
+const woodpeckerSets: InternalQuestWoodpeckerSetActivity[] = [
+  { id: "set-20", startedAt: "2026-08-04T00:00:00.000Z", completedAt: "2026-08-05T00:00:00.000Z", setSize: 20, cycleCount: 3 },
+  { id: "set-30", startedAt: "2026-08-05T00:00:00.000Z", completedAt: "2026-08-06T00:00:00.000Z", setSize: 30, cycleCount: 3 },
+  { id: "partial-set", startedAt: "2026-08-06T00:00:00.000Z", completedAt: "2026-08-07T00:00:00.000Z", setSize: 20, cycleCount: 2 },
+  { id: "cross-window", startedAt: "2026-07-31T23:00:00.000Z", completedAt: "2026-08-02T00:00:00.000Z", setSize: 20, cycleCount: 3 }
 ];
 
 describe("internal quest activity", () => {
@@ -90,11 +97,31 @@ describe("internal quest activity", () => {
     expect(accuracy.completed).toBe(true);
   });
 
+  it("completes the Woodpecker quest only for a full three-cycle 20-puzzle set", () => {
+    const progress = evaluateInternalPuzzleQuest(
+      "student",
+      quest({
+        source: "internal_puzzles",
+        conditionType: "internal_woodpecker_set_completed_count",
+        requiredCount: 1
+      }),
+      window,
+      puzzles,
+      undefined,
+      woodpeckerSets
+    );
+
+    expect(progress.currentValue).toBe(1);
+    expect(progress.completed).toBe(true);
+    expect(progress.evidence).toContain("1 full 20-puzzle Woodpecker set");
+  });
+
   it("exposes both Academy sources as automated teacher options", () => {
     expect(isAutomatedQuestSource("internal_games")).toBe(true);
     expect(isAutomatedQuestSource("internal_puzzles")).toBe(true);
     expect(getConditionsForSource("internal_games").map((item) => item.value)).toContain("internal_live_games_won_count");
     expect(getConditionsForSource("internal_puzzles").map((item) => item.value)).toContain("internal_puzzle_accuracy_threshold");
+    expect(getConditionsForSource("internal_puzzles").map((item) => item.value)).toContain("internal_woodpecker_set_completed_count");
     expect(supportsComputerOpponentFilter("internal_computer_games_won_count")).toBe(true);
     expect(supportsComputerOpponentFilter("internal_live_games_won_count")).toBe(false);
     expect(requiresComputerOpponentSelection("internal_computer_games_won_count")).toBe(true);

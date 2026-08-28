@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import type { QuestWindow } from "@/lib/quests/timeWindows";
-import type { InternalQuestGameActivity, InternalQuestPuzzleActivity } from "@/lib/quests/evaluateInternalQuest";
+import type { InternalQuestGameActivity, InternalQuestPuzzleActivity, InternalQuestWoodpeckerSetActivity } from "@/lib/quests/evaluateInternalQuest";
 
 const PAGE_SIZE = 1000;
 
@@ -104,4 +104,34 @@ export async function loadInternalQuestPuzzles(studentId: string, window: QuestW
     selectedTheme: "gameReview",
     themes: []
   }))].sort((left, right) => left.attemptedAt.localeCompare(right.attemptedAt));
+}
+
+export async function loadInternalQuestWoodpeckerSets(studentId: string, window: QuestWindow) {
+  const rows: Array<{ id: string; started_at: string; completed_at: string; set_size: number; cycle_count: number }> = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await serviceClient()
+      .from("student_woodpecker_set_results")
+      .select("id,started_at,completed_at,set_size,cycle_count")
+      .eq("student_id", studentId)
+      .eq("set_size", 20)
+      .eq("cycle_count", 3)
+      .gte("started_at", window.start.toISOString())
+      .gte("completed_at", window.start.toISOString())
+      .lte("completed_at", window.end.toISOString())
+      .order("completed_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as typeof rows;
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+
+  return rows.map((row): InternalQuestWoodpeckerSetActivity => ({
+    id: String(row.id),
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    setSize: row.set_size,
+    cycleCount: row.cycle_count
+  }));
 }

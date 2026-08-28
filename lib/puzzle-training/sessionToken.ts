@@ -14,6 +14,8 @@ type PuzzleSessionBase = {
   sessionId: string;
   selectedTheme: PuzzleThemeSlug;
   trainingMode: PuzzleTrainingMode;
+  woodpeckerRunId?: string;
+  woodpeckerCycleNumber?: 1 | 2 | 3;
   dailyDate?: string;
   nextMoveIndex: number;
   startedAt: string;
@@ -116,6 +118,14 @@ function validatePayload(value: unknown): PuzzleSessionToken {
 
   const trainingMode = parsePuzzleTrainingMode(typeof payload.trainingMode === "string" ? payload.trainingMode : null);
   if (payload.trainingMode !== undefined && !puzzleTrainingModes.includes(payload.trainingMode as PuzzleTrainingMode)) return invalidToken();
+  const hasWoodpeckerRunId = payload.woodpeckerRunId !== undefined;
+  const hasWoodpeckerCycleNumber = payload.woodpeckerCycleNumber !== undefined;
+  if (hasWoodpeckerRunId !== hasWoodpeckerCycleNumber
+    || (hasWoodpeckerRunId && (
+      trainingMode !== "woodpecker"
+      || !UUID_PATTERN.test(payload.woodpeckerRunId ?? "")
+      || ![1, 2, 3].includes(payload.woodpeckerCycleNumber as number)
+    ))) return invalidToken();
 
   const common: PuzzleSessionBase = {
     puzzleId: payload.puzzleId as string,
@@ -123,6 +133,10 @@ function validatePayload(value: unknown): PuzzleSessionToken {
     sessionId: payload.sessionId as string,
     selectedTheme: payload.selectedTheme as PuzzleThemeSlug,
     trainingMode,
+    ...(hasWoodpeckerRunId ? {
+      woodpeckerRunId: payload.woodpeckerRunId as string,
+      woodpeckerCycleNumber: payload.woodpeckerCycleNumber as 1 | 2 | 3
+    } : {}),
     ...(typeof payload.dailyDate === "string" ? { dailyDate: payload.dailyDate } : {}),
     nextMoveIndex: payload.nextMoveIndex as number,
     startedAt: payload.startedAt as string,
@@ -142,13 +156,14 @@ function validatePayload(value: unknown): PuzzleSessionToken {
 }
 
 function createLegacyToken(payload: PuzzleSessionTokenInput) {
-  const encoded = Buffer.from(JSON.stringify({
+  const normalized = validatePayload({
     ...payload,
     version: 1,
     trainingMode: payload.trainingMode ?? "legacy",
     expiresAt: undefined,
     puzzle: undefined
-  }), "utf8").toString("base64url");
+  });
+  const encoded = Buffer.from(JSON.stringify(normalized), "utf8").toString("base64url");
   return `${encoded}.${legacySignature(encoded)}`;
 }
 

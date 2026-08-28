@@ -19,6 +19,7 @@ import { POST } from "@/app/api/student/puzzle-training/move/route";
 
 const studentId = "20000000-0000-4000-8000-000000000002";
 const sessionId = "30000000-0000-4000-8000-000000000003";
+const woodpeckerRunId = "40000000-0000-4000-8000-000000000004";
 
 function requestWithToken(token: string, move = { from: "a2", to: "e6" }, extra: Record<string, unknown> = {}) {
   return new NextRequest("http://localhost/api/student/puzzle-training/move", {
@@ -36,6 +37,8 @@ function basePayload() {
     sessionId,
     selectedTheme: "mixed" as const,
     trainingMode: "woodpecker" as const,
+    woodpeckerRunId,
+    woodpeckerCycleNumber: 2 as const,
     nextMoveIndex: 1,
     startedAt: startedAt.toISOString(),
     incorrectMoveCount: 0,
@@ -139,7 +142,12 @@ describe("puzzle move route", () => {
 
     expect(response.status).toBe(200);
     expect(result).toMatchObject({ accepted: true, completed: true });
+    expect(serverMocks.saveTrainingAttempt).toHaveBeenCalledWith(expect.objectContaining({
+      woodpeckerRunId,
+      woodpeckerCycleNumber: 2
+    }));
     expect(nextPayload.version).toBe(2);
+    expect(nextPayload).toMatchObject({ woodpeckerRunId, woodpeckerCycleNumber: 2 });
     if (nextPayload.version === 2) expect(nextPayload.expiresAt).toBe(authorizationExpiresAt);
   });
 });

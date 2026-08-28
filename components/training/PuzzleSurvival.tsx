@@ -33,6 +33,13 @@ const StarWarsTraining = dynamic(
 
 type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "cycle-summary" | "summary" | "error" | "star-wars";
 type TrainingMode = "survival" | "woodpecker" | "daily";
+type WoodpeckerCycleSaveState = "idle" | "saving" | "saved" | "error";
+type PendingWoodpeckerCycleSave = {
+  sessionId: string;
+  runId: string;
+  cycleNumber: number;
+  cycleSessionIds: string[];
+};
 type MoveSubmissionContext = { fen: string; token: string; isPremove: true };
 
 function formatTime(totalSeconds: number) {
@@ -110,6 +117,10 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   const woodpeckerReviewPuzzleIdsRef = useRef<string[]>([]);
   const woodpeckerReviewIndexRef = useRef(0);
   const woodpeckerReviewingRef = useRef(false);
+  const woodpeckerRunIdRef = useRef<string | null>(null);
+  const woodpeckerCycleSessionIdsRef = useRef<string[]>([]);
+  const pendingWoodpeckerCycleSaveRef = useRef<PendingWoodpeckerCycleSave | null>(null);
+  const woodpeckerCycleSaveInFlightRef = useRef(false);
   const requestedPuzzleIdRef = useRef<string | null>(null);
   const prefetchedNextPuzzleRef = useRef<PublicTrainingPuzzle | null>(null);
   const [woodpeckerCycle, setWoodpeckerCycle] = useState(1);
@@ -119,6 +130,8 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   const [woodpeckerReviewIndex, setWoodpeckerReviewIndex] = useState(0);
   const [woodpeckerReviewing, setWoodpeckerReviewing] = useState(false);
   const [woodpeckerCycleResults, setWoodpeckerCycleResults] = useState<WoodpeckerCycleResult[]>([]);
+  const [woodpeckerCycleSaveState, setWoodpeckerCycleSaveState] = useState<WoodpeckerCycleSaveState>("idle");
+  const [woodpeckerCycleSaveError, setWoodpeckerCycleSaveError] = useState("");
   const [overview, setOverview] = useState(initialOverview);
   const sessionId = useRef(crypto.randomUUID());
   const moveLocked = useRef(false);
@@ -206,7 +219,6 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   function beginNewSession() {
     sessionGenerationRef.current += 1;
     invalidatePuzzleWork();
-    abortActiveCycleStatsSave();
     puzzleTransitionLockedRef.current = false;
     sessionId.current = crypto.randomUUID();
   }
@@ -327,6 +339,10 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       && activePuzzleLoadControllerRef.current === loadController;
     const query = new URLSearchParams({ theme: selectedTheme, level: requestedLevel, sessionId: loadSessionId });
     query.set("mode", mode);
+    if (mode === "woodpecker" && !woodpeckerReviewingRef.current && woodpeckerRunIdRef.current) {
+      query.set("woodpeckerRunId", woodpeckerRunIdRef.current);
+      query.set("woodpeckerCycleNumber", String(woodpeckerCycleRef.current));
+    }
     if (mode === "daily") query.set("daily", "1");
     if (requestedPuzzleId) query.set("puzzleId", requestedPuzzleId);
     const excludedPuzzleIds = mode === "woodpecker" && woodpeckerCycleRef.current === 1
@@ -383,6 +399,10 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     woodpeckerReviewPuzzleIdsRef.current = [];
     woodpeckerReviewIndexRef.current = 0;
     woodpeckerReviewingRef.current = false;
+    woodpeckerRunIdRef.current = null;
+    woodpeckerCycleSessionIdsRef.current = [];
+    pendingWoodpeckerCycleSaveRef.current = null;
+    woodpeckerCycleSaveInFlightRef.current = false;
     setWoodpeckerCycle(1);
     setWoodpeckerIndex(0);
     setWoodpeckerCycleSolved(0);
@@ -390,6 +410,8 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     setWoodpeckerReviewIndex(0);
     setWoodpeckerReviewing(false);
     setWoodpeckerCycleResults([]);
+    setWoodpeckerCycleSaveState("idle");
+    setWoodpeckerCycleSaveError("");
   }
 
   function startSurvival() {
@@ -407,6 +429,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     beginNewSession();
     recentPuzzleIds.current = [];
     resetWoodpeckerProgress();
+    woodpeckerRunIdRef.current = crypto.randomUUID();
     resetTrainingStats();
     void loadPuzzle("woodpecker");
   }
@@ -427,7 +450,7 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     setPhase("star-wars");
   }
 
-  async function saveWoodpeckerCycleOverview(completedSessionId: string) {
+  async function saveWoodpeckerCycleOverview(input: PendingWoodpeckerCycleSave) {
     abortActiveCycleStatsSave();
     const statsRequestId = ++cycleStatsRequestIdRef.current;
     const statsSessionGeneration = sessionGenerationRef.current;
@@ -438,9 +461,8 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
       statsTimedOut = true;
       statsController.abort();
     }, CYCLE_STATS_TIMEOUT_MS);
-    const isCurrentStatsRequest = () => mountedRef.current
+    const ownsStatsRequest = () => mountedRef.current
       && statsRequestId === cycleStatsRequestIdRef.current
-      && statsSessionGeneration === sessionGenerationRef.current
       && activeCycleStatsControllerRef.current === statsController;
 
     try {
@@ -449,18 +471,24 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         headers: { "Content-Type": "application/json" },
         signal: statsController.signal,
         body: JSON.stringify({
-          sessionId: completedSessionId,
-          setSize: activeWoodpeckerSetSize.current
+          sessionId: input.sessionId,
+          setSize: activeWoodpeckerSetSize.current,
+          runId: input.runId,
+          cycleNumber: input.cycleNumber,
+          cycleSessionIds: input.cycleSessionIds
         })
       });
       const data = await response.json() as { stats?: WoodpeckerCycleOverview; error?: string };
-      if (!isCurrentStatsRequest()) return;
+      if (!ownsStatsRequest()) return false;
       if (!response.ok || !data.stats) throw new Error(data.error ?? "Cycle stats could not be saved.");
-      setOverview((current) => ({ ...current, latestWoodpeckerCycle: data.stats! }));
+      if (statsSessionGeneration === sessionGenerationRef.current) {
+        setOverview((current) => ({ ...current, latestWoodpeckerCycle: data.stats! }));
+      }
+      return true;
     } catch (statsError) {
-      if (!isCurrentStatsRequest()) return;
+      if (!ownsStatsRequest()) return false;
       throw statsTimedOut
-        ? new Error("Cycle complete. The stats sync timed out, but training can continue.")
+        ? new Error("Cycle complete. The verification sync timed out. Retry when you are ready.")
         : statsError;
     } finally {
       clearTimeout(statsTimeout);
@@ -468,6 +496,31 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         activeCycleStatsControllerRef.current = null;
       }
     }
+  }
+
+  async function persistWoodpeckerCycleOverview(input: PendingWoodpeckerCycleSave) {
+    if (woodpeckerCycleSaveInFlightRef.current) return;
+    woodpeckerCycleSaveInFlightRef.current = true;
+    pendingWoodpeckerCycleSaveRef.current = input;
+    setWoodpeckerCycleSaveState("saving");
+    setWoodpeckerCycleSaveError("");
+    try {
+      const saved = await saveWoodpeckerCycleOverview(input);
+      if (!saved || pendingWoodpeckerCycleSaveRef.current !== input) return;
+      setWoodpeckerCycleSaveState("saved");
+    } catch (statsError) {
+      if (pendingWoodpeckerCycleSaveRef.current !== input) return;
+      setWoodpeckerCycleSaveState("error");
+      setWoodpeckerCycleSaveError(statsError instanceof Error ? statsError.message : "Cycle stats could not be saved.");
+    } finally {
+      woodpeckerCycleSaveInFlightRef.current = false;
+    }
+  }
+
+  function retryWoodpeckerCycleSave() {
+    const pendingSave = pendingWoodpeckerCycleSaveRef.current;
+    if (!pendingSave || woodpeckerCycleSaveInFlightRef.current) return;
+    void persistWoodpeckerCycleOverview(pendingSave);
   }
 
   function returnToPuzzleSetup() {
@@ -591,6 +644,9 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     setWoodpeckerCycleIncorrectMoves(0);
     setWoodpeckerReviewIndex(0);
     setWoodpeckerReviewing(false);
+    pendingWoodpeckerCycleSaveRef.current = null;
+    setWoodpeckerCycleSaveState("idle");
+    setWoodpeckerCycleSaveError("");
     beginNewSession();
     void loadPuzzle("woodpecker", woodpeckerPuzzleIds.current[nextStep.puzzleIndex]);
   }
@@ -849,10 +905,21 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
             moveLocked.current = false;
             puzzleTransitionLockedRef.current = false;
             const completedCycleSessionId = sessionId.current;
-            const completedCycleSessionGeneration = sessionGenerationRef.current;
-            void saveWoodpeckerCycleOverview(completedCycleSessionId).catch((statsError) => {
-              if (!mountedRef.current || sessionGenerationRef.current !== completedCycleSessionGeneration) return;
-              setError(statsError instanceof Error ? statsError.message : "Cycle stats could not be saved.");
+            const completedCycleNumber = woodpeckerCycleRef.current;
+            const completedRunId = woodpeckerRunIdRef.current;
+            if (!completedRunId) {
+              setWoodpeckerCycleSaveState("error");
+              setWoodpeckerCycleSaveError("This Woodpecker run is missing its verification ID. Start a new set.");
+              return true;
+            }
+            const completedCycleSessionIds = [...woodpeckerCycleSessionIdsRef.current];
+            completedCycleSessionIds[completedCycleNumber - 1] = completedCycleSessionId;
+            woodpeckerCycleSessionIdsRef.current = completedCycleSessionIds;
+            void persistWoodpeckerCycleOverview({
+              sessionId: completedCycleSessionId,
+              runId: completedRunId,
+              cycleNumber: completedCycleNumber,
+              cycleSessionIds: completedCycleSessionIds.slice(0, completedCycleNumber)
             });
             return true;
           }
@@ -1122,7 +1189,10 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     return (
       <WoodpeckerCycleSummary
         result={currentWoodpeckerCycleResult}
+        saveState={woodpeckerCycleSaveState}
+        saveError={woodpeckerCycleSaveError}
         onReviewMistakes={reviewWoodpeckerMistakes}
+        onRetrySave={retryWoodpeckerCycleSave}
         onContinue={continueWoodpeckerTraining}
       />
     );
@@ -1134,6 +1204,19 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
         <p className="text-xs font-black uppercase text-amber-200">{summaryEyebrow}</p>
         <h2 className="mt-2 text-3xl font-black text-white">{summaryTitle}</h2>
         {completion?.dailyReward && <div className={`mt-5 rounded-lg border p-4 ${completion.dailyReward.awarded ? "border-emerald-300/40 bg-emerald-300/10 text-emerald-100" : "border-cyan-200/30 bg-cyan-300/10 text-cyan-100"}`}><p className="font-black">{completion.dailyReward.awarded ? `Reward claimed: +${completion.dailyReward.xpAwarded} XP and +${completion.dailyReward.coinsAwarded} Academy Coins` : "Today’s reward was already claimed. Nice practice replay!"}</p></div>}
+        {trainingMode === "woodpecker"
+          && woodpeckerCycleResults.some((result) => result.cycle >= WOODPECKER_CYCLE_COUNT)
+          && woodpeckerCycleSaveState !== "saved" && (
+          <div className={`mt-5 rounded-lg border p-4 ${woodpeckerCycleSaveState === "error" ? "border-rose-300/40 bg-rose-300/10 text-rose-100" : "border-cyan-300/30 bg-cyan-300/10 text-cyan-100"}`} aria-live="polite">
+            <p className="font-black">{woodpeckerCycleSaveState === "error" ? "Quest verification still needs another try." : "Verifying Conquer the Woodpecker..."}</p>
+            {woodpeckerCycleSaveState === "error" && (
+              <>
+                <p className="mt-1 text-sm text-slate-300">{woodpeckerCycleSaveError || "The completed set could not be verified."}</p>
+                <Button type="button" variant="secondary" onClick={retryWoodpeckerCycleSave} className="mt-3">Retry Verification</Button>
+              </>
+            )}
+          </div>
+        )}
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {[['Solved', solved], ['First try', firstTrySolves], ['Mistakes', incorrectAttempts], ['Accuracy', `${calculatePuzzleAccuracy(solved, incorrectAttempts)}%`], ['Average', formatTime(averageTime)], ['Best streak', bestStreak]].map(([label, value]) => (
             <div key={String(label)} className="rounded-md border border-white/10 bg-white/5 p-3"><p className="text-xs font-bold uppercase text-slate-500">{label}</p><p className="mt-1 text-2xl font-black text-white">{value}</p></div>

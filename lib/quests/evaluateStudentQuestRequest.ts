@@ -7,8 +7,8 @@ import { approveQuestAward } from "@/lib/quests/approveQuestAward";
 import { createPendingQuestAwards } from "@/lib/quests/createPendingQuestAward";
 import { evaluateQuestRules } from "@/lib/quests/evaluateQuestRules";
 import { getActiveQuestAttempt, getAttemptQuestWindow } from "@/lib/quests/questAttempts";
-import { loadInternalQuestGames, loadInternalQuestPuzzles } from "@/lib/quests/internalQuestActivityServer";
-import type { InternalQuestGameActivity, InternalQuestPuzzleActivity } from "@/lib/quests/evaluateInternalQuest";
+import { loadInternalQuestGames, loadInternalQuestPuzzles, loadInternalQuestWoodpeckerSets } from "@/lib/quests/internalQuestActivityServer";
+import type { InternalQuestGameActivity, InternalQuestPuzzleActivity, InternalQuestWoodpeckerSetActivity } from "@/lib/quests/evaluateInternalQuest";
 import { getQuestWindow, type QuestWindow } from "@/lib/quests/timeWindows";
 import type { ArenaTournamentResult, LichessActivitySnapshot, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt } from "@/lib/types";
 
@@ -70,6 +70,7 @@ export async function evaluateStudentQuestRequest(
   const puzzlesByQuest: Record<string, Awaited<ReturnType<typeof fetchStudentPuzzleActivityForWindow>>> = {};
   const internalGamesByQuest: Record<string, InternalQuestGameActivity[]> = {};
   const internalPuzzlesByQuest: Record<string, InternalQuestPuzzleActivity[]> = {};
+  const internalWoodpeckerSetsByQuest: Record<string, InternalQuestWoodpeckerSetActivity[]> = {};
   const modeByQuest: Record<string, "connected" | "mock"> = {};
   const fetchErrorsByQuest: Record<string, string> = {};
   const snapshots: LichessActivitySnapshot[] = [];
@@ -142,28 +143,45 @@ export async function evaluateStudentQuestRequest(
 
   if (internalPuzzleQuests.length) {
     const mergedWindow = mergeWindows(internalPuzzleQuests.map((quest) => windowsByQuest[quest.id]));
-    try {
-      const attempts = await loadInternalQuestPuzzles(input.studentId, mergedWindow);
-      for (const quest of internalPuzzleQuests) {
-        const window = windowsByQuest[quest.id];
-        internalPuzzlesByQuest[quest.id] = attempts.filter((attempt) => isInsideWindow(attempt.attemptedAt, window));
-        snapshots.push({
-          id: `quest-snapshot-${input.studentId}-${quest.id}-${window.start.toISOString()}`,
-          studentId: input.studentId,
-          source: "internal_puzzles",
-          periodStart: window.start.toISOString(),
-          periodEnd: window.end.toISOString(),
-          data: { attempts: internalPuzzlesByQuest[quest.id] },
-          mode: "connected",
-          createdAt: new Date().toISOString()
-        });
+    const needsWoodpeckerSets = internalPuzzleQuests.some((quest) => quest.conditionType === "internal_woodpecker_set_completed_count");
+    const [attemptResult, woodpeckerSetResult] = await Promise.allSettled([
+      loadInternalQuestPuzzles(input.studentId, mergedWindow),
+      needsWoodpeckerSets ? loadInternalQuestWoodpeckerSets(input.studentId, mergedWindow) : Promise.resolve([])
+    ]);
+    const attempts = attemptResult.status === "fulfilled" ? attemptResult.value : [];
+    const woodpeckerSets = woodpeckerSetResult.status === "fulfilled" ? woodpeckerSetResult.value : [];
+
+    for (const quest of internalPuzzleQuests) {
+      const window = windowsByQuest[quest.id];
+      const isWoodpeckerSetQuest = quest.conditionType === "internal_woodpecker_set_completed_count";
+      internalPuzzlesByQuest[quest.id] = attempts.filter((attempt) => isInsideWindow(attempt.attemptedAt, window));
+      internalWoodpeckerSetsByQuest[quest.id] = woodpeckerSets.filter((set) => (
+        isInsideWindow(set.startedAt, window) && isInsideWindow(set.completedAt, window)
+      ));
+
+      const relevantFailure = isWoodpeckerSetQuest
+        ? woodpeckerSetResult.status === "rejected" ? woodpeckerSetResult.reason : undefined
+        : attemptResult.status === "rejected" ? attemptResult.reason : undefined;
+      if (relevantFailure) {
+        fetchErrorsByQuest[quest.id] = relevantFailure instanceof Error
+          ? relevantFailure.message
+          : "Academy puzzle activity could not be read.";
+        continue;
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Academy puzzle activity could not be read.";
-      for (const quest of internalPuzzleQuests) {
-        internalPuzzlesByQuest[quest.id] = [];
-        fetchErrorsByQuest[quest.id] = message;
-      }
+
+      snapshots.push({
+        id: `quest-snapshot-${input.studentId}-${quest.id}-${window.start.toISOString()}`,
+        studentId: input.studentId,
+        source: "internal_puzzles",
+        periodStart: window.start.toISOString(),
+        periodEnd: window.end.toISOString(),
+        data: {
+          attempts: internalPuzzlesByQuest[quest.id],
+          woodpeckerSets: internalWoodpeckerSetsByQuest[quest.id]
+        },
+        mode: "connected",
+        createdAt: new Date().toISOString()
+      });
     }
   }
 
@@ -344,6 +362,7 @@ export async function evaluateStudentQuestRequest(
     puzzlesByQuest,
     internalGamesByQuest,
     internalPuzzlesByQuest,
+    internalWoodpeckerSetsByQuest,
     arenaResults: input.arenaResults ?? [],
     account: syncedAccount,
     modeByQuest,

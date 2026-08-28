@@ -9,7 +9,6 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 
 export async function GET(request: NextRequest) {
   try {
-    const student = await requirePuzzleStudent();
     const theme = parsePuzzleTheme(request.nextUrl.searchParams.get("theme"));
     const level = parsePuzzleLevel(request.nextUrl.searchParams.get("level"));
     const excluded = (request.nextUrl.searchParams.get("exclude") ?? "").split(",").filter(Boolean);
@@ -17,6 +16,23 @@ export async function GET(request: NextRequest) {
     const sessionId = UUID_PATTERN.test(requestedSessionId) ? requestedSessionId : crypto.randomUUID();
     const isDaily = request.nextUrl.searchParams.get("daily") === "1";
     const trainingMode = isDaily ? "daily" : parsePuzzleTrainingMode(request.nextUrl.searchParams.get("mode"));
+    const requestedWoodpeckerRunId = request.nextUrl.searchParams.get("woodpeckerRunId");
+    const requestedWoodpeckerCycleNumber = request.nextUrl.searchParams.get("woodpeckerCycleNumber");
+    const hasWoodpeckerRunId = requestedWoodpeckerRunId !== null;
+    const hasWoodpeckerCycleNumber = requestedWoodpeckerCycleNumber !== null;
+    if (hasWoodpeckerRunId !== hasWoodpeckerCycleNumber
+      || (hasWoodpeckerRunId && (
+        trainingMode !== "woodpecker"
+        || !UUID_PATTERN.test(requestedWoodpeckerRunId ?? "")
+        || !/^[1-3]$/.test(requestedWoodpeckerCycleNumber ?? "")
+      ))) {
+      return NextResponse.json({ error: "Invalid Woodpecker run metadata." }, { status: 400 });
+    }
+    const woodpeckerRunId = requestedWoodpeckerRunId ?? undefined;
+    const woodpeckerCycleNumber = requestedWoodpeckerCycleNumber === null
+      ? undefined
+      : Number(requestedWoodpeckerCycleNumber) as 1 | 2 | 3;
+    const student = await requirePuzzleStudent();
     const requestedPuzzleId = request.nextUrl.searchParams.get("puzzleId");
     const daily = isDaily ? await getDailyTrainingPuzzle(student.studentId) : null;
     const puzzle = isDaily
@@ -35,6 +51,8 @@ export async function GET(request: NextRequest) {
         sessionId,
         selectedTheme: theme,
         trainingMode,
+        woodpeckerRunId,
+        woodpeckerCycleNumber,
         daily
       })
     });

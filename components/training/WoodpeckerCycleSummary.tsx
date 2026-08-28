@@ -12,11 +12,17 @@ function formatActiveTime(totalSeconds: number) {
 
 export function WoodpeckerCycleSummary({
   result,
+  saveState,
+  saveError,
   onReviewMistakes,
+  onRetrySave,
   onContinue
 }: {
   result: WoodpeckerCycleResult;
+  saveState: "idle" | "saving" | "saved" | "error";
+  saveError?: string;
   onReviewMistakes: () => void;
+  onRetrySave: () => void;
   onContinue: () => void;
 }) {
   const isFinalCycle = result.cycle >= WOODPECKER_CYCLE_COUNT;
@@ -52,6 +58,19 @@ export function WoodpeckerCycleSummary({
         {mistakeCount > 0 && <p className="mt-1 text-sm text-slate-300">Mistake review is practice only and will not change these cycle stats.</p>}
         {result.reviewed && <p className="mt-2 text-xs font-black uppercase tracking-wide text-emerald-200">Mistake review completed</p>}
       </div>
+
+      {saveState !== "saved" && (
+        <div className={`mt-4 rounded-lg border p-4 ${saveState === "error" ? "border-rose-300/40 bg-rose-300/10 text-rose-100" : "border-cyan-300/30 bg-cyan-300/10 text-cyan-100"}`} aria-live="polite">
+          <p className="font-black">{saveState === "error" ? "Cycle verification needs another try." : isFinalCycle ? "Verifying Conquer the Woodpecker..." : "Saving your verified cycle..."}</p>
+          {saveState === "error" && (
+            <>
+              <p className="mt-1 text-sm text-slate-300">{saveError || "The cycle could not be saved."}</p>
+              <Button type="button" variant="secondary" onClick={onRetrySave} className="mt-3">Retry Save</Button>
+            </>
+          )}
+          <p className="mt-2 text-xs text-slate-300">Training controls remain available while this sync finishes.</p>
+        </div>
+      )}
 
       <div className="mt-6 flex flex-wrap gap-3">
         {mistakeCount > 0 && <Button type="button" variant="secondary" onClick={onReviewMistakes}>{result.reviewed ? "Review Mistakes Again" : "Review Mistakes"}</Button>}

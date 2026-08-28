@@ -14,6 +14,8 @@ const payload = {
   hintsUsed: 0
 };
 
+const woodpeckerRunId = "40000000-0000-4000-8000-000000000004";
+
 function opaquePayload() {
   const startedAt = new Date();
   return {
@@ -63,6 +65,42 @@ describe("signed puzzle sessions", () => {
     expect(token).not.toContain(source.puzzle.initial_fen);
     expect(token).not.toContain(source.puzzle.moves.join(""));
     expect(readPuzzleSessionToken(token)).toEqual(source);
+  });
+
+  it("binds Woodpecker run and cycle metadata into signed tokens", () => {
+    const source = {
+      ...opaquePayload(),
+      trainingMode: "woodpecker" as const,
+      woodpeckerRunId,
+      woodpeckerCycleNumber: 2 as const
+    };
+
+    expect(readPuzzleSessionToken(createPuzzleSessionToken(source))).toEqual(source);
+    expect(readPuzzleSessionToken(createPuzzleSessionToken({
+      ...payload,
+      trainingMode: "woodpecker",
+      woodpeckerRunId,
+      woodpeckerCycleNumber: 3
+    }))).toMatchObject({ woodpeckerRunId, woodpeckerCycleNumber: 3 });
+  });
+
+  it("rejects partial or non-Woodpecker run metadata", () => {
+    expect(() => readPuzzleSessionToken(createPuzzleSessionToken({
+      ...opaquePayload(),
+      trainingMode: "woodpecker",
+      woodpeckerRunId
+    }))).toThrow(/invalid puzzle session token/i);
+    expect(() => readPuzzleSessionToken(createPuzzleSessionToken({
+      ...opaquePayload(),
+      trainingMode: "survival",
+      woodpeckerRunId,
+      woodpeckerCycleNumber: 1
+    }))).toThrow(/invalid puzzle session token/i);
+    expect(() => readPuzzleSessionToken(createPuzzleSessionToken({
+      ...opaquePayload(),
+      woodpeckerRunId,
+      woodpeckerCycleNumber: 4 as 1
+    }))).toThrow(/invalid puzzle session token/i);
   });
 
   it("uses a fresh nonce and rejects opaque-token tampering", () => {

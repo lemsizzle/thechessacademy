@@ -21,6 +21,14 @@ export type InternalQuestPuzzleActivity = {
   themes: string[];
 };
 
+export type InternalQuestWoodpeckerSetActivity = {
+  id: string;
+  startedAt: string;
+  completedAt: string;
+  setSize: number;
+  cycleCount: number;
+};
+
 function academyReadError(kind: "game" | "puzzle", error: string) {
   const clean = error.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   return `Academy ${kind} quest activity could not be read. ${clean}`.trim();
@@ -74,8 +82,31 @@ export function evaluateInternalPuzzleQuest(
   quest: Quest,
   window: QuestWindow,
   attempts: InternalQuestPuzzleActivity[],
-  fetchError?: string
+  fetchError?: string,
+  woodpeckerSets: InternalQuestWoodpeckerSetActivity[] = []
 ): LichessQuestProgress {
+  if (quest.conditionType === "internal_woodpecker_set_completed_count") {
+    const completedSets = woodpeckerSets.filter((set) => set.setSize === 20
+      && set.cycleCount === 3
+      && Date.parse(set.startedAt) >= window.start.getTime()
+      && Date.parse(set.completedAt) <= window.end.getTime());
+    const requiredValue = quest.requiredCount ?? 1;
+    return {
+      studentId,
+      questId: quest.id,
+      sourcePeriodStart: window.start.toISOString(),
+      sourcePeriodEnd: window.end.toISOString(),
+      currentValue: completedSets.length,
+      requiredValue,
+      completed: completedSets.length >= requiredValue,
+      evidence: fetchError
+        ? academyReadError("puzzle", fetchError)
+        : `Completed ${completedSets.length} full 20-puzzle Woodpecker set${completedSets.length === 1 ? "" : "s"} (three cycles each) during ${window.label}.`,
+      mode: "connected",
+      updatedAt: new Date().toISOString()
+    };
+  }
+
   const solved = attempts.filter((attempt) => attempt.solved);
   const firstTry = solved.filter((attempt) => attempt.firstTryCorrect);
   const themedSolved = quest.requiredTheme

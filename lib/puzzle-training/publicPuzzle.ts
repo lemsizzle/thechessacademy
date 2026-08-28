@@ -14,6 +14,8 @@ export function preparePublicTrainingPuzzle(input: {
   sessionId: string;
   selectedTheme: PuzzleThemeSlug;
   trainingMode: PuzzleTrainingMode;
+  woodpeckerRunId?: string;
+  woodpeckerCycleNumber?: 1 | 2 | 3;
   daily?: DailyPuzzleDetails | null;
   authorizationExpiresAt?: string;
 }): PublicTrainingPuzzle {
@@ -26,6 +28,8 @@ export function preparePublicTrainingPuzzle(input: {
     sessionId: input.sessionId,
     selectedTheme: input.selectedTheme,
     trainingMode: input.trainingMode,
+    woodpeckerRunId: input.woodpeckerRunId,
+    woodpeckerCycleNumber: input.woodpeckerCycleNumber,
     dailyDate: input.daily?.puzzleDate,
     nextMoveIndex: firstStudentMoveIndex(input.puzzle),
     startedAt: startedAt.toISOString(),

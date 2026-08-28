@@ -2,6 +2,25 @@ import type { Quest } from "@/lib/types";
 
 export const quests: Quest[] = [
   {
+    id: "academy-conquer-woodpecker",
+    title: "Conquer the Woodpecker",
+    description: "Complete all three cycles of one 20-puzzle Woodpecker Method set.",
+    type: "weekly",
+    status: "available",
+    isLive: true,
+    category: "Academy",
+    completionUrl: "/student/training",
+    source: "internal_puzzles",
+    conditionType: "internal_woodpecker_set_completed_count",
+    timeWindow: "weekly",
+    requiredCount: 1,
+    xpReward: 200,
+    approvalRequired: false,
+    isActive: true,
+    isRepeatable: true,
+    cooldownDays: 7
+  },
+  {
     id: "lichess-rapid-warrior",
     title: "Rapid Warrior",
     description: "Win 5 rated rapid games in one day. Games under 10 moves do not count.",

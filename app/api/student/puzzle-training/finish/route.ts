@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
       sessionId: payload.sessionId,
       selectedTheme: payload.selectedTheme,
       trainingMode: payload.trainingMode,
+      woodpeckerRunId: payload.woodpeckerRunId,
+      woodpeckerCycleNumber: payload.woodpeckerCycleNumber,
       solved: false,
       incorrectMoveCount: payload.incorrectMoveCount,
       hintsUsed: payload.hintsUsed,
