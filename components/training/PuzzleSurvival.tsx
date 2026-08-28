@@ -541,6 +541,14 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     setPhase("select");
   }
 
+  function returnFromWoodpeckerCycleSummary() {
+    invalidatePuzzleWork();
+    puzzleTransitionLockedRef.current = false;
+    prefetchedNextPuzzleRef.current = null;
+    setCompletion(null);
+    setPhase("select");
+  }
+
   function showPrefetchedWoodpeckerPuzzleOrLoad(requestedPuzzleId?: string) {
     const prefetchedPuzzle = prefetchedNextPuzzleRef.current;
     if (prefetchedPuzzle && (!requestedPuzzleId || prefetchedPuzzle.id === requestedPuzzleId)) {
@@ -1185,19 +1193,6 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
     return <StarWarsTraining onExit={() => setPhase("select")} />;
   }
 
-  if (phase === "cycle-summary" && currentWoodpeckerCycleResult) {
-    return (
-      <WoodpeckerCycleSummary
-        result={currentWoodpeckerCycleResult}
-        saveState={woodpeckerCycleSaveState}
-        saveError={woodpeckerCycleSaveError}
-        onReviewMistakes={reviewWoodpeckerMistakes}
-        onRetrySave={retryWoodpeckerCycleSave}
-        onContinue={continueWoodpeckerTraining}
-      />
-    );
-  }
-
   if (phase === "summary") {
     return (
       <Card className="p-6">
@@ -1241,7 +1236,8 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
   }
 
   return (
-    <div className="space-y-5">
+    <>
+      <div className="space-y-5">
       <Card className="overflow-hidden">
         <div className="grid grid-cols-3 divide-x divide-white/10 sm:grid-cols-6">
           {[["Puzzle", primaryProgress], secondaryMetric, ['Timer', <PuzzleTimer key={`${sessionId.current}:${puzzle?.id ?? "loading"}`} running={phase === "turn" || phase === "reply"} />], ['Accuracy', `${activeAccuracy}%`], ['Streak', currentStreak], ['Best', bestStreak]].map(([label, value]) => (
@@ -1284,6 +1280,19 @@ export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTra
           <p className="text-xs text-slate-500">{puzzle?.sourceKind === "study" ? "Teacher-authored Chess Academy position." : "Puzzle data from the Lichess open database."}</p>
         </div>
       </div>
-    </div>
+      </div>
+
+      {phase === "cycle-summary" && currentWoodpeckerCycleResult && (
+        <WoodpeckerCycleSummary
+          result={currentWoodpeckerCycleResult}
+          saveState={woodpeckerCycleSaveState}
+          saveError={woodpeckerCycleSaveError}
+          onReviewMistakes={reviewWoodpeckerMistakes}
+          onRetrySave={retryWoodpeckerCycleSave}
+          onContinue={continueWoodpeckerTraining}
+          onReturnToTraining={returnFromWoodpeckerCycleSummary}
+        />
+      )}
+    </>
   );
 }
