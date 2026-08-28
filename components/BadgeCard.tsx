@@ -16,7 +16,7 @@ export function BadgeCard({ badge, earned = false, compact = false, statusText }
       <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${aura}`} />
       <div className="flex items-start gap-4">
         <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full border bg-gradient-to-br ${aura} p-1 shadow-glow`}>
-          <img src={imageUrl} alt={`${badge.name} badge art`} className="h-full w-full rounded-full object-cover" />
+          <img src={imageUrl} alt={`${badge.name} badge art`} width={64} height={64} loading="lazy" decoding="async" className="h-full w-full rounded-full object-cover" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

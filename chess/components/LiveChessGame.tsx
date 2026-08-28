@@ -12,7 +12,7 @@ import { PlayerPanel } from "@/chess/components/PlayerPanel";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
 import { VictoryCelebration } from "@/chess/components/VictoryCelebration";
 import { promotionOptions, tryMove } from "@/chess/game/rules";
-import { oppositeColor } from "@/chess/game/config";
+import { oppositeColor } from "@/chess/game/colors";
 import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/material";
 import { useLiveGameSounds } from "@/chess/hooks/useLiveGameSounds";
 import { hasCoachPresence, type RealtimePresenceState } from "@/chess/live/presence";

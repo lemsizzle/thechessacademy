@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { TIME_CONTROLS } from "@/chess/game/config";
+import { TIME_CONTROLS } from "@/chess/game/timeControls";
 import { CHALLENGE_CODE_LENGTH, cleanChallengeCode, isSupportedChallengeCode } from "@/chess/live/challengeCode";
 import type { LiveGameSnapshot, LiveGameSummary } from "@/chess/live/types";
 import type { PlayerColorChoice } from "@/chess/types";

@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { BotPortrait } from "@/chess/components/BotPortrait";
-import { BOT_DIFFICULTIES, TIME_CONTROLS, resolvePlayerColor } from "@/chess/game/config";
+import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { resolvePlayerColor } from "@/chess/game/colors";
+import { TIME_CONTROLS } from "@/chess/game/timeControls";
 import type { BotDifficulty, ComputerGameConfig, PlayerColorChoice, TimeControl } from "@/chess/types";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";

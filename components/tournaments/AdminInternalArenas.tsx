@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { TIME_CONTROLS } from "@/chess/game/config";
+import { TIME_CONTROLS } from "@/chess/game/timeControls";
 import type { InternalArena } from "@/chess/arena/types";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";

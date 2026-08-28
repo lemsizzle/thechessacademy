@@ -1,5 +1,4 @@
 import { allBadges as mockBadges } from "@/data/badges";
-import { students as mockStudents } from "@/data/students";
 import { badgeSelect, mapSupabaseBadge, type SupabaseBadgeRow } from "@/lib/badges/supabaseBadges";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Badge } from "@/lib/types";
@@ -17,28 +16,4 @@ export async function getBadgesResult(): Promise<DataResult<Badge[]>> {
 
   if (shouldUseMock(data, error)) return mockResult(mockBadges, error);
   return supabaseResult((data as SupabaseBadgeRow[]).map(mapSupabaseBadge));
-}
-
-export async function getBadges() {
-  return (await getBadgesResult()).data;
-}
-
-export async function getStudentBadges(studentId: string) {
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    const student = mockStudents.find((item) => item.id === studentId);
-    return mockBadges.filter((badge) => student?.badgeIds.includes(badge.id));
-  }
-
-  const { data, error } = await supabase
-    .from("student_badges")
-    .select(`badges(${badgeSelect})`)
-    .eq("student_id", studentId);
-
-  if (error || !data) return [];
-
-  return data
-    .map((row) => row.badges)
-    .filter(Boolean)
-    .map((row) => mapSupabaseBadge(row as unknown as SupabaseBadgeRow));
 }

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { Chess } from "chess.js";
-import { TIME_CONTROLS } from "@/chess/game/config";
+import { TIME_CONTROLS } from "@/chess/game/timeControls";
 import type { MatchmakingStatus } from "@/chess/rating/types";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { ChessRatingServerError } from "@/chess/persistence/ratingServer";

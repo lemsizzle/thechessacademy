@@ -16,13 +16,6 @@ export function getCurrentStudentUser(): StudentUser | null {
   }
 }
 
-export function setCurrentStudentUser(userId: string) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STUDENT_SESSION_KEY, userId);
-  const seedUser = studentUsers.find((user) => user.id === userId);
-  if (seedUser) window.localStorage.setItem(STUDENT_SESSION_USER_KEY, JSON.stringify(seedUser));
-}
-
 export function setCurrentStudentUserRecord(user: StudentUser) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STUDENT_SESSION_KEY, user.id);

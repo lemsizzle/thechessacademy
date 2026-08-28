@@ -53,7 +53,11 @@ export function ParentStudentLookup({ initialStudents }: { initialStudents?: Stu
         Enter the student&apos;s Lichess username or profile slug to open only their public academy progress page.
       </p>
       <form onSubmit={openStudentProfile} className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+        <label htmlFor="parent-student-lookup" className="sr-only">Lichess username or profile slug</label>
         <input
+          id="parent-student-lookup"
+          name="student"
+          autoComplete="username"
           className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-300/60"
           value={username}
           onChange={(event) => {

@@ -1,5 +1,5 @@
 import { Chess } from "chess.js";
-import { NAG_VALUES, type AnalysisNag, type AnalysisNode, type AnalysisShape, type AnalysisTree, type CompletedGameMove, type GuidedExercise } from "@/chess/analysis/types";
+import { NAG_VALUES, type AnalysisNag, type AnalysisNode, type AnalysisTree, type CompletedGameMove, type GuidedExercise } from "@/chess/analysis/types";
 
 const SQUARE = /^[a-h][1-8]$/;
 const UCI = /^([a-h][1-8])([a-h][1-8])([qrbn])?$/;

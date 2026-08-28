@@ -20,7 +20,9 @@ export function TournamentLiveIndicator() {
 
   useEffect(() => {
     void refresh();
-    const interval = window.setInterval(() => void refresh(), REFRESH_INTERVAL_MS);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, REFRESH_INTERVAL_MS);
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible") void refresh();
     };

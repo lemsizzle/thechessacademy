@@ -46,7 +46,7 @@ export function getCooldownSeconds(state?: LichessSyncState | null) {
   return Math.max(0, Math.ceil((new Date(state.nextAllowedSyncAt).getTime() - Date.now()) / 1000));
 }
 
-export function nextBackoffSeconds(previousRateLimitCount: number, retryAfterSeconds = 60) {
+function nextBackoffSeconds(previousRateLimitCount: number, retryAfterSeconds = 60) {
   const schedule = [60, 120, 300];
   const scheduled = schedule[Math.min(previousRateLimitCount, schedule.length - 1)] ?? 300;
   return Math.max(scheduled, retryAfterSeconds);

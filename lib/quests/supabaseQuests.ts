@@ -1,6 +1,6 @@
 import "server-only";
 
-import { BOT_DIFFICULTIES } from "@/chess/game/config";
+import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
 import { mapSupabaseQuest, type QuestRow } from "@/lib/data/quests";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isAutomatedQuestSource, requiresComputerOpponentSelection, supportsComputerOpponentFilter } from "@/lib/quests/questOptions";

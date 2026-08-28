@@ -151,7 +151,3 @@ export async function getQuestsResult(): Promise<DataResult<Quest[]>> {
 
   return mockResult(mockQuests, "Could not read quests from Supabase.");
 }
-
-export async function getQuests() {
-  return (await getQuestsResult()).data;
-}

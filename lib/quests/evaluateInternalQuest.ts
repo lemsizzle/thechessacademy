@@ -1,4 +1,4 @@
-import { BOT_DIFFICULTIES } from "@/chess/game/config";
+import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
 import { mapLichessThemeToTactic } from "@/lib/lichess/gameTacticThemeMap";
 import type { LichessQuestProgress, Quest } from "@/lib/types";
 import type { QuestWindow } from "@/lib/quests/timeWindows";

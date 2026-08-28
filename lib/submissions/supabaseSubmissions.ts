@@ -41,6 +41,61 @@ type ScoreSubmissionRow = {
   tactic_progress_added: number | null;
 };
 
+type JoinedColumns<T extends readonly string[]> = T extends readonly []
+  ? ""
+  : T extends readonly [infer Column extends string]
+    ? Column
+    : T extends readonly [infer Column extends string, ...infer Rest extends readonly string[]]
+      ? `${Column},${JoinedColumns<Rest>}`
+      : string;
+
+function joinColumns<const T extends readonly string[]>(columns: T): JoinedColumns<T> {
+  return columns.join(",") as JoinedColumns<T>;
+}
+
+const gameSubmissionColumns = [
+  "id",
+  "student_id",
+  "game_url",
+  "platform",
+  "lichess_game_id",
+  "played_as",
+  "game_type",
+  "opponent_name",
+  "notes",
+  "status",
+  "submitted_at",
+  "reviewed_at",
+  "reviewed_by",
+  "teacher_note",
+  "rejection_reason",
+  "linked_analysis_request_id"
+] as const satisfies readonly (keyof GameSubmissionRow)[];
+
+const scoreSubmissionColumns = [
+  "id",
+  "student_id",
+  "challenge_name",
+  "tactic_theme",
+  "score",
+  "total_questions",
+  "time_limit",
+  "platform",
+  "screenshot_url",
+  "notes",
+  "status",
+  "submitted_at",
+  "reviewed_at",
+  "reviewed_by",
+  "teacher_note",
+  "rejection_reason",
+  "xp_awarded",
+  "tactic_progress_added"
+] as const satisfies readonly (keyof ScoreSubmissionRow)[];
+
+const gameSubmissionSelect = joinColumns(gameSubmissionColumns);
+const scoreSubmissionSelect = joinColumns(scoreSubmissionColumns);
+
 function mapGame(row: GameSubmissionRow): StudentGameSubmission {
   return {
     id: row.id,
@@ -90,8 +145,8 @@ export async function listSupabaseSubmissions(studentId?: string) {
   const supabase = getSupabaseServiceClient();
   if (!supabase) return { configured: false, games: [], scores: [] };
 
-  let gamesQuery = supabase.from("student_game_submissions").select("*");
-  let scoresQuery = supabase.from("student_score_submissions").select("*");
+  let gamesQuery = supabase.from("student_game_submissions").select(gameSubmissionSelect);
+  let scoresQuery = supabase.from("student_score_submissions").select(scoreSubmissionSelect);
   if (studentId) {
     gamesQuery = gamesQuery.eq("student_id", studentId);
     scoresQuery = scoresQuery.eq("student_id", studentId);
@@ -132,7 +187,7 @@ export async function insertSupabaseGameSubmission(submission: StudentGameSubmis
       status: submission.status,
       submitted_at: submission.submittedAt
     })
-    .select("*")
+    .select(gameSubmissionSelect)
     .single();
 
   if (error) throw new Error(error.message);
@@ -160,7 +215,7 @@ export async function insertSupabaseScoreSubmission(submission: StudentScoreSubm
       status: submission.status,
       submitted_at: submission.submittedAt
     })
-    .select("*")
+    .select(scoreSubmissionSelect)
     .single();
 
   if (error) throw new Error(error.message);
@@ -183,7 +238,7 @@ export async function updateSupabaseGameSubmission(submission: StudentGameSubmis
       linked_analysis_request_id: submission.linkedAnalysisRequestId ?? null
     })
     .eq("id", submission.id)
-    .select("*")
+    .select(gameSubmissionSelect)
     .single();
 
   if (error) throw new Error(error.message);
@@ -207,7 +262,7 @@ export async function updateSupabaseScoreSubmission(submission: StudentScoreSubm
       tactic_progress_added: submission.tacticProgressAdded ?? null
     })
     .eq("id", submission.id)
-    .select("*")
+    .select(scoreSubmissionSelect)
     .single();
 
   if (error) throw new Error(error.message);

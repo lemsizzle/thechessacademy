@@ -33,12 +33,3 @@ export async function getXpEventsResult(): Promise<DataResult<XpEvent[]>> {
   if (shouldUseMock(data, error)) return mockResult(mockXpEvents, error);
   return supabaseResult((data as XpEventRow[]).map(mapXpEvent));
 }
-
-export async function getXpEvents() {
-  return (await getXpEventsResult()).data;
-}
-
-export async function getXpEventsForStudent(studentId: string) {
-  const events = await getXpEvents();
-  return events.filter((event) => event.studentId === studentId);
-}

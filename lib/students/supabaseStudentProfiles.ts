@@ -1,6 +1,7 @@
 import { getSupabaseServerReadClient, getSupabaseServiceClient, isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import { grantAcademyCoinsForXp } from "@/lib/avatar/supabaseAvatar";
 import { UNASSIGNED_CLASS } from "@/lib/classes";
+import { groupStudentRelations } from "@/lib/students/groupStudentRelations";
 import type { Badge, BadgeTier, Student, StudentSession, XpEvent } from "@/lib/types";
 
 type SupabaseStudentRow = {
@@ -32,7 +33,11 @@ export type StudentProfileLookup = {
   error?: string;
 };
 
-export function slugifyStudent(value: string) {
+type StudentProfileLookupOptions = {
+  includeRelations?: boolean;
+};
+
+function slugifyStudent(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || `student-${Date.now()}`;
 }
 
@@ -56,7 +61,12 @@ function toStudent(row: SupabaseStudentRow, badgeIds: string[] = [], completedQu
 
 const studentSelect = "id,display_name,public_slug,avatar_url,class_group,total_xp,is_active,lichess_id,lichess_username";
 
-async function hydrateStudentRows(rows: SupabaseStudentRow[]) {
+async function hydrateStudentRows(
+  rows: SupabaseStudentRow[],
+  { includeRelations = true }: StudentProfileLookupOptions = {}
+) {
+  if (!includeRelations) return rows.map((row) => toStudent(row));
+
   const supabase = getSupabaseServerReadClient() ?? getSupabaseServiceClient();
   if (!supabase || !rows.length) return rows.map((row) => toStudent(row));
 
@@ -68,11 +78,15 @@ async function hydrateStudentRows(rows: SupabaseStudentRow[]) {
 
   const badgeRows = badges.error ? [] : ((badges.data ?? []) as StudentBadgeRow[]);
   const questRows = quests.error ? [] : ((quests.data ?? []) as StudentQuestRow[]);
+  const badgesByStudent = groupStudentRelations(badgeRows);
+  const completedQuestsByStudent = groupStudentRelations(
+    questRows.filter((quest) => quest.status === "completed")
+  );
 
   return rows.map((row) => toStudent(
     row,
-    badgeRows.filter((badge) => badge.student_id === row.id).map((badge) => badge.badge_id),
-    questRows.filter((quest) => quest.student_id === row.id && quest.status === "completed").map((quest) => quest.quest_id)
+    (badgesByStudent.get(row.id) ?? []).map((badge) => badge.badge_id),
+    (completedQuestsByStudent.get(row.id) ?? []).map((quest) => quest.quest_id)
   ));
 }
 
@@ -80,11 +94,14 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-export function isSupabaseStudentId(value: string) {
+function isSupabaseStudentId(value: string) {
   return isUuid(value);
 }
 
-export async function findSupabaseStudentById(studentId: string): Promise<StudentProfileLookup> {
+export async function findSupabaseStudentById(
+  studentId: string,
+  options: StudentProfileLookupOptions = {}
+): Promise<StudentProfileLookup> {
   const supabase = getSupabaseServerReadClient() ?? getSupabaseServiceClient();
   if (!supabase) {
     return isSupabaseProjectConfigured()
@@ -101,7 +118,7 @@ export async function findSupabaseStudentById(studentId: string): Promise<Studen
     .maybeSingle();
 
   if (error) return { configured: true, student: null, error: error.message };
-  const [student] = data ? await hydrateStudentRows([data as SupabaseStudentRow]) : [];
+  const [student] = data ? await hydrateStudentRows([data as SupabaseStudentRow], options) : [];
   return { configured: true, student: student ?? null };
 }
 
@@ -123,7 +140,11 @@ export async function listSupabaseStudents(): Promise<StudentProfileLookup & { s
   return { configured: true, student: null, students: await hydrateStudentRows((data ?? []) as SupabaseStudentRow[]) };
 }
 
-export async function findSupabaseStudentByLichess(lichessId: string, lichessUsername: string): Promise<StudentProfileLookup> {
+export async function findSupabaseStudentByLichess(
+  lichessId: string,
+  lichessUsername: string,
+  options: StudentProfileLookupOptions = {}
+): Promise<StudentProfileLookup> {
   const supabase = getSupabaseServerReadClient() ?? getSupabaseServiceClient();
   if (!supabase) {
     return isSupabaseProjectConfigured()
@@ -144,7 +165,7 @@ export async function findSupabaseStudentByLichess(lichessId: string, lichessUse
 
     if (byId.error) return { configured: true, student: null, error: byId.error.message };
     if (byId.data) {
-      const [student] = await hydrateStudentRows([byId.data as SupabaseStudentRow]);
+      const [student] = await hydrateStudentRows([byId.data as SupabaseStudentRow], options);
       return { configured: true, student: student ?? null };
     }
   }
@@ -159,7 +180,7 @@ export async function findSupabaseStudentByLichess(lichessId: string, lichessUse
 
     if (byUsername.error) return { configured: true, student: null, error: byUsername.error.message };
     if (byUsername.data) {
-      const [student] = await hydrateStudentRows([byUsername.data as SupabaseStudentRow]);
+      const [student] = await hydrateStudentRows([byUsername.data as SupabaseStudentRow], options);
       return { configured: true, student: student ?? null };
     }
   }

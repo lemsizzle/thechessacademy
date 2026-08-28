@@ -1,5 +1,5 @@
 import { Chess, type Move, type Square } from "chess.js";
-import { chessJsColor, fromChessJsColor, oppositeColor } from "@/chess/game/config";
+import { chessJsColor, fromChessJsColor, oppositeColor } from "@/chess/game/colors";
 import type { ChessColor, GameMove, GameOutcome, GameResultReason, PromotionPiece } from "@/chess/types";
 
 export type MoveInput = { from: string; to: string; promotion?: PromotionPiece };

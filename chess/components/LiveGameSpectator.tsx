@@ -6,7 +6,7 @@ import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles"
 import { BoardSoundSettings } from "@/chess/components/BoardSoundSettings";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
-import { oppositeColor } from "@/chess/game/config";
+import { oppositeColor } from "@/chess/game/colors";
 import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/material";
 import { useLiveGameSounds } from "@/chess/hooks/useLiveGameSounds";
 import { replayFenAtPly, stepReplayPly } from "@/chess/live/replay";

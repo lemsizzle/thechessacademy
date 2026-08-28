@@ -24,7 +24,7 @@ function decode(value: string): KnownLichessStudent[] {
   }
 }
 
-export function readKnownLichessStudents(cookieStore: { get: (name: string) => { value: string } | undefined }) {
+function readKnownLichessStudents(cookieStore: { get: (name: string) => { value: string } | undefined }) {
   const raw = cookieStore.get(KNOWN_LICHESS_STUDENTS_COOKIE)?.value;
   return raw ? decode(raw) : [];
 }

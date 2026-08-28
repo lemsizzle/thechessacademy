@@ -1,4 +1,3 @@
-import type { StudentLichessAccount } from "@/lib/types";
 import { getRetryAfterSeconds, LichessRateLimitError } from "@/lib/lichess/rateLimit";
 
 type LichessPerf = {

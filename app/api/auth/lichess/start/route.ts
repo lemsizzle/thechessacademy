@@ -1,4 +1,3 @@
-import { LICHESS_TOKEN_COOKIE } from "@/lib/auth/roles";
 import { buildPkceChallenge, createPkceVerifier, getLichessClientId, getLichessOAuthScopeParam, getLichessRedirectUri, getMissingLichessOAuthConfig, hasLichessOAuthConfig, setLichessOAuthCookies } from "@/lib/auth/lichessOAuth";
 import { NextResponse } from "next/server";
 
@@ -11,12 +10,6 @@ function cleanToken(value: string | null) {
 function safeReturnTo(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "";
   return value;
-}
-
-function withLichessStatus(url: URL, status: "connected" | "error", student?: string) {
-  url.searchParams.set("lichess", status);
-  if (student) url.searchParams.set("student", student);
-  return url;
 }
 
 export async function GET(request: Request) {

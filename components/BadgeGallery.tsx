@@ -79,7 +79,7 @@ export function BadgeGallery({ badges }: { badges: Badge[] }) {
               <div className="p-4">
                 <div className="flex items-start gap-4">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-cyan-100/50 bg-gradient-to-br from-white via-cyan-100 to-fuchsia-200 p-1 shadow-glow">
-                    <img src={imageUrl} alt={`${group.theme} badge art`} className="h-full w-full rounded-full object-cover" />
+                    <img src={imageUrl} alt={`${group.theme} badge art`} width={64} height={64} loading="lazy" decoding="async" className="h-full w-full rounded-full object-cover" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h2 className="font-black text-white">{group.theme}</h2>
@@ -115,7 +115,7 @@ export function BadgeGallery({ badges }: { badges: Badge[] }) {
                 <div className="p-4">
                   <div className="flex items-start gap-4">
                     <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full border bg-gradient-to-br ${getTierAura()} p-1 shadow-glow`}>
-                      <img src={imageUrl} alt={`${badge.name} badge art`} className="h-full w-full rounded-full object-cover" />
+                      <img src={imageUrl} alt={`${badge.name} badge art`} width={64} height={64} loading="lazy" decoding="async" className="h-full w-full rounded-full object-cover" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h2 className="font-black text-white">{badge.name}</h2>

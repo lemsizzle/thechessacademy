@@ -68,7 +68,7 @@ function reviewedTitle(status: string, type: string) {
 
 export async function getAdminRosterActivity(limit = 300): Promise<AdminRosterActivityItem[]> {
   const supabase = getSupabaseAdminClient();
-  const perSourceLimit = Math.max(100, Math.min(500, limit));
+  const perSourceLimit = Math.max(1, Math.min(500, limit));
 
   const [
     studentsResult,

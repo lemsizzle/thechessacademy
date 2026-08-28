@@ -5,7 +5,7 @@ import { Chessboard, type ChessboardOptions } from "react-chessboard";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { annotationColorForModifiers, BOARD_ANNOTATION_COLORS } from "@/chess/components/boardAnnotations";
 import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
-import { chessJsColor } from "@/chess/game/config";
+import { chessJsColor } from "@/chess/game/colors";
 import { boardDropAction, checkedKingSquare, legalMovesFrom } from "@/chess/game/rules";
 import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
 import type { ChessColor } from "@/chess/types";

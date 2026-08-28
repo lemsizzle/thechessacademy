@@ -1,9 +1,11 @@
+import { ADMIN_SESSION_COOKIE, isAuthorizedAdminRequest } from "@/lib/auth/adminSession";
 import { detectTacticCandidates } from "@/lib/game-analysis/detectTacticCandidates";
 import { explainTacticWithAI } from "@/lib/game-analysis/explainTacticWithAI";
 import { replayGame } from "@/lib/game-analysis/replayGame";
 import { fetchLichessGameById } from "@/lib/lichess/fetchLichessGameById";
 import { parseLichessGameUrl } from "@/lib/lichess/parseLichessGameUrl";
 import type { GameAnalysisRequest, StudentColor } from "@/lib/types";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 function chooseColor(input: StudentColor, parsedColor: StudentColor, studentUsername: string | undefined, whiteUsername: string, blackUsername: string): "white" | "black" {
@@ -16,6 +18,11 @@ function chooseColor(input: StudentColor, parsedColor: StudentColor, studentUser
 }
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies();
+  if (!await isAuthorizedAdminRequest(cookieStore.get(ADMIN_SESSION_COOKIE)?.value, request.headers.get("x-admin-action-token"))) {
+    return NextResponse.json({ error: "Teacher log in required." }, { status: 401 });
+  }
+
   const body = await request.json().catch(() => ({})) as {
     url?: string;
     studentId?: string;

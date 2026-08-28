@@ -42,11 +42,3 @@ export function getClosestNextTacticBadge(studentId: string) {
 
   return nextBadges.sort((a, b) => a.remaining - b.remaining || (a.badge.requiredPuzzleCount ?? 0) - (b.badge.requiredPuzzleCount ?? 0))[0];
 }
-
-export function evaluateTacticBadgeUnlocks(studentId: string, tacticTheme: TacticTheme, puzzlesSolved: number, existingBadgeIds: string[] = []) {
-  return badges.filter((badge) => (
-    badge.tacticTheme === tacticTheme &&
-    (badge.requiredPuzzleCount ?? 0) <= puzzlesSolved &&
-    !existingBadgeIds.includes(badge.id)
-  ));
-}

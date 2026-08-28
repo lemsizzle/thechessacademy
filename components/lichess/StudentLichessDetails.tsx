@@ -9,7 +9,7 @@ import { mockArenaTournamentResults } from "@/data/tournamentResults";
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
 import { readAdminStore } from "@/lib/mockStorage";
 
-export function StudentLichessDetails({ slug, profileBasePath = "/app/students" }: { slug?: string; showSubmissionForm?: boolean; profileBasePath?: string }) {
+export function StudentLichessDetails({ slug, profileBasePath = "/app/students" }: { slug?: string; profileBasePath?: string }) {
   const { students, studentLichessAccounts, studentGameSubmissions, pendingAwards } = useMockAdminState();
   const student = slug ? students.find((item) => item.slug === slug) : students[0];
 

@@ -78,7 +78,11 @@ export function LoginHub({ initialMode = "student" }: { initialMode?: LoginMode 
             <h2 className="font-black text-white">Teacher Log In</h2>
             <p className="mt-2 text-sm text-slate-400">Teacher access is protected by the server-side ADMIN_PASSWORD setting.</p>
             <form onSubmit={submitTeacherLogin} className="mt-5 space-y-3">
+              <label htmlFor="teacher-password" className="sr-only">Teacher password</label>
               <input
+                id="teacher-password"
+                name="password"
+                autoComplete="current-password"
                 className="w-full rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-white"
                 type="password"
                 value={password}

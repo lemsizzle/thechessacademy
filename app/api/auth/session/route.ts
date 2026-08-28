@@ -10,8 +10,12 @@ export async function GET() {
   const session = readStudentSession(await cookies());
   if (!session) return NextResponse.json({ user: null }, { status: 401 });
 
-  const byId = session.onboardingCompleted ? await findSupabaseStudentById(session.studentId) : { configured: false, student: null };
-  const linked = byId.student ? byId : await findSupabaseStudentByLichess(session.lichessUserId, session.lichessUsername);
+  const byId = session.onboardingCompleted
+    ? await findSupabaseStudentById(session.studentId, { includeRelations: false })
+    : { configured: false, student: null };
+  const linked = byId.student
+    ? byId
+    : await findSupabaseStudentByLichess(session.lichessUserId, session.lichessUsername, { includeRelations: false });
 
   if (linked.configured) {
     const repairedSession = createStudentSession({

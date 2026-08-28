@@ -1,4 +1,4 @@
-import { oppositeColor } from "@/chess/game/config";
+import { oppositeColor } from "@/chess/game/colors";
 import type { ChessColor, ClockSnapshot, TimeControl } from "@/chess/types";
 
 export type RunningClock = ClockSnapshot & { startedAt: number };

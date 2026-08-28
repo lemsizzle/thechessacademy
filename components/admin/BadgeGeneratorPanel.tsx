@@ -83,7 +83,7 @@ export function BadgeGeneratorPanel({ badge, adminActionToken, onSave }: { badge
               onClick={() => setSelected(option)}
               className={`rounded-lg border p-3 text-left transition ${selected === option ? "border-amber-300 bg-amber-300/10" : "border-white/10 bg-white/5 hover:bg-white/10"}`}
             >
-              <img src={option} alt={`Generated mock option ${index + 1}`} className="mx-auto aspect-square w-28 rounded-full" />
+              <img src={option} alt={`Generated mock option ${index + 1}`} width={112} height={112} loading="lazy" decoding="async" className="mx-auto aspect-square w-28 rounded-full" />
               <p className="mt-2 text-center text-xs font-bold text-slate-200">Option {index + 1}</p>
             </button>
           ))}

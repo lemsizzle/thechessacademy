@@ -1,7 +1,8 @@
 import "server-only";
 
 import { Chess } from "chess.js";
-import { TIME_CONTROLS, oppositeColor, resolvePlayerColor } from "@/chess/game/config";
+import { oppositeColor, resolvePlayerColor } from "@/chess/game/colors";
+import { TIME_CONTROLS } from "@/chess/game/timeControls";
 import { liveClockAt, livePlayerColor, replayLiveMoves, timeoutCompletion, applyLiveMove, LiveGameRuleError, type LiveGameCompletion } from "@/chess/live/rules";
 import { cleanChallengeCode, generateChallengeCode, isSupportedChallengeCode, MAX_CHALLENGE_CODE_ATTEMPTS } from "@/chess/live/challengeCode";
 import type { LiveGameAction, LiveGamePlayer, LiveGameRecord, LiveGameSnapshot, LiveGameSummary, LiveMoveInput, TeacherLiveGameSnapshot, TeacherLiveGameSummary } from "@/chess/live/types";

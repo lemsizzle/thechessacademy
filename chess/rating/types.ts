@@ -11,30 +11,10 @@ export type ChessRatingProfile = {
   updatedAt: string;
 };
 
-export type ChessRatingEvent = {
-  id: string;
-  eventType: "game" | "admin";
-  gameId: string | null;
-  opponentId: string | null;
-  opponentName: string | null;
-  result: "win" | "draw" | "loss" | null;
-  ratingBefore: number;
-  ratingAfter: number;
-  ratingChange: number;
-  reason: string;
-  createdAt: string;
-};
-
 export type ChessRatingLeaderboardEntry = ChessRatingProfile & {
   rank: number;
   name: string;
   classGroup: string;
-};
-
-export type ChessRatingDashboard = {
-  profile: ChessRatingProfile;
-  events: ChessRatingEvent[];
-  leaderboard: ChessRatingLeaderboardEntry[];
 };
 
 export type MatchmakingTicketStatus = "idle" | "waiting" | "matched" | "cancelled" | "expired";

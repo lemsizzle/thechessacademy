@@ -6,7 +6,7 @@ import { Card } from "@/components/Card";
 import { StudentActivityTimeline } from "@/components/StudentActivityTimeline";
 import { BadgeGeneratorPanel } from "@/components/admin/BadgeGeneratorPanel";
 import { AdminStudentAvatarRewards } from "@/components/admin/AdminStudentAvatarRewards";
-import { BOT_DIFFICULTIES } from "@/chess/game/config";
+import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
 import { activity } from "@/data/activity";
 import { allBadges as seedBadges, conceptThemes, tacticThemes } from "@/data/badges";
 import { classGroups as seedClassGroups } from "@/data/classGroups";
@@ -20,7 +20,7 @@ import { ADMIN_STORE_KEY, readAdminStore, updateAdminStore } from "@/lib/mockSto
 import { buildDefaultBadgeImagePrompt } from "@/lib/badges";
 import { persistStudentXpChange } from "@/lib/adminXpClient";
 import { ALL_CLASSES, UNASSIGNED_CLASS, getClassGroupNames, getClassRoster, getClassStudentCount } from "@/lib/classes";
-import { createPendingAwardsFromProgress, getTacticProgressCount } from "@/lib/lichess";
+import { getTacticProgressCount } from "@/lib/lichess";
 import { getStudentXpWithLichess, withLichessActivityBaseline } from "@/lib/lichessXp";
 import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
 import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, isAutomatedQuestSource, questSources, questTacticThemes, questTimeWindows, requiresComputerOpponentSelection } from "@/lib/quests/questOptions";

@@ -1,5 +1,7 @@
 import { Chess } from "chess.js";
-import { BOT_DIFFICULTIES, TIME_CONTROLS, oppositeColor } from "@/chess/game/config";
+import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { oppositeColor } from "@/chess/game/colors";
+import { TIME_CONTROLS } from "@/chess/game/timeControls";
 import { canColorPossiblyCheckmate, detectBoardOutcome, resultHeader } from "@/chess/game/rules";
 import type { ChessColor, GameMove, GameOutcome, GameResult, GameResultReason, PromotionPiece } from "@/chess/types";
 

@@ -33,7 +33,3 @@ export async function getActivityEventsResult(): Promise<DataResult<ActivityEven
   if (shouldUseMock(data, error)) return mockResult(mockActivity, error);
   return supabaseResult((data as ActivityRow[]).map(mapActivity));
 }
-
-export async function getActivityEvents() {
-  return (await getActivityEventsResult()).data;
-}

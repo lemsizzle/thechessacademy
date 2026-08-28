@@ -1,4 +1,5 @@
 import { students as mockStudents } from "@/data/students";
+import { groupStudentRelations } from "@/lib/students/groupStudentRelations";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Student } from "@/lib/types";
 import { mockResult, shouldUseMock, supabaseResult, type DataResult } from "./shared";
@@ -61,13 +62,14 @@ async function hydrateStudents(rows: StudentRow[]) {
     supabase.from("student_quests").select("student_id,quest_id,status").in("student_id", studentIds)
   ]);
 
+  const badgesByStudent = groupStudentRelations((badgeRows ?? []) as StudentBadgeRow[]);
+  const completedQuestsByStudent = groupStudentRelations(
+    ((questRows ?? []) as StudentQuestRow[]).filter((quest) => quest.status === "completed")
+  );
+
   return rows.map((row) => {
-    const badgeIds = ((badgeRows ?? []) as StudentBadgeRow[])
-      .filter((badge) => badge.student_id === row.id)
-      .map((badge) => badge.badge_id);
-    const completedQuestIds = ((questRows ?? []) as StudentQuestRow[])
-      .filter((quest) => quest.student_id === row.id && quest.status === "completed")
-      .map((quest) => quest.quest_id);
+    const badgeIds = (badgesByStudent.get(row.id) ?? []).map((badge) => badge.badge_id);
+    const completedQuestIds = (completedQuestsByStudent.get(row.id) ?? []).map((quest) => quest.quest_id);
     return mapStudent(row, badgeIds, completedQuestIds);
   });
 }
@@ -84,10 +86,6 @@ export async function getStudentsResult(): Promise<DataResult<Student[]>> {
 
   if (shouldUseMock(data, error)) return mockResult(mockStudents, error);
   return supabaseResult(await hydrateStudents(data as StudentRow[]));
-}
-
-export async function getStudents() {
-  return (await getStudentsResult()).data;
 }
 
 export async function getStudentBySlug(slug: string) {

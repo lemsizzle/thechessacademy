@@ -2,7 +2,7 @@
 
 import { Chess } from "chess.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { chessJsColor, fromChessJsColor, oppositeColor } from "@/chess/game/config";
+import { chessJsColor, fromChessJsColor, oppositeColor } from "@/chess/game/colors";
 import { canColorPossiblyCheckmate, createOutcome, detectBoardOutcome, gameMoves, hasHumanMove, promotionOptions, resultHeader, tryMove, undoComputerTurn } from "@/chess/game/rules";
 import { useChessSounds } from "@/chess/hooks/useChessSounds";
 import { useBoardCaptureEffect } from "@/chess/hooks/useBoardCaptureEffect";

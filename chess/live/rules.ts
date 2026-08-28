@@ -1,6 +1,6 @@
 import { Chess } from "chess.js";
 import { completeClockMove, clockAt, expiredClockColor, type RunningClock } from "@/chess/game/clock";
-import { fromChessJsColor, oppositeColor } from "@/chess/game/config";
+import { fromChessJsColor, oppositeColor } from "@/chess/game/colors";
 import { canColorPossiblyCheckmate } from "@/chess/game/rules";
 import type { ChessColor, GameMove, GameResultReason, PromotionPiece } from "@/chess/types";
 import type { LiveGameRecord, LiveMoveInput } from "@/chess/live/types";

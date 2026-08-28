@@ -110,8 +110,8 @@ reimplement chess rules.
 
 ## Stockfish Web Worker
 
-The app pins `stockfish@18.0.8` and serves the unmodified Stockfish 18
-`lite single-threaded` JavaScript/WASM pair from `public/vendor/stockfish/`.
+The app vendors the unmodified Stockfish 18.0.8 `lite single-threaded`
+JavaScript/WASM pair in `public/vendor/stockfish/`.
 The engine always runs inside a dedicated browser Web Worker. No move request
 is sent to Lichess, Chess.com, or another external service.
 

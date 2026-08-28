@@ -1,9 +1,16 @@
 import { mockArenaTournamentResults } from "@/data/tournamentResults";
+import { ADMIN_SESSION_COOKIE, isAuthorizedAdminRequest } from "@/lib/auth/adminSession";
 import { fetchArenaTournamentResults } from "@/lib/lichess/fetchArenaTournamentResults";
 import { normalizeArenaTournamentResult } from "@/lib/tournaments/normalizeArenaTournamentResult";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies();
+  if (!await isAuthorizedAdminRequest(cookieStore.get(ADMIN_SESSION_COOKIE)?.value, request.headers.get("x-admin-action-token"))) {
+    return NextResponse.json({ error: "Teacher log in required." }, { status: 401 });
+  }
+
   const body = await request.json() as { tournamentId?: string; lichessTournamentId?: string; status?: string; startsAt?: string };
   if (!body.tournamentId || !body.lichessTournamentId) {
     return NextResponse.json({ error: "Tournament ID is required." }, { status: 400 });

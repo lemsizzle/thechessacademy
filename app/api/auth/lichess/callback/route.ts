@@ -67,7 +67,7 @@ export async function GET(request: Request) {
     if (!token.access_token) throw new Error("Missing access token");
 
     const profile = await fetchAuthenticatedLichessAccount(token.access_token);
-    const supabaseLookup = await findSupabaseStudentByLichess(profile.id, profile.username);
+    const supabaseLookup = await findSupabaseStudentByLichess(profile.id, profile.username, { includeRelations: false });
     const knownStudent = process.env.NODE_ENV !== "production" && !supabaseLookup.configured
       ? findKnownLichessStudent(cookieStore, profile.id, profile.username)
       : null;

@@ -3,7 +3,7 @@ import "server-only";
 import { Chess } from "chess.js";
 import { currentArenaStatus, rankArenaStandings } from "@/chess/arena/scoring";
 import type { CreateInternalArenaInput, InternalArena, InternalArenaChatMessage, InternalArenaEntryStatus, InternalArenaLobby, InternalArenaMatchmaking, InternalArenaPairing, InternalArenaStanding, InternalArenaStatus } from "@/chess/arena/types";
-import { TIME_CONTROLS } from "@/chess/game/config";
+import { TIME_CONTROLS } from "@/chess/game/timeControls";
 import { generateChallengeCode, MAX_CHALLENGE_CODE_ATTEMPTS } from "@/chess/live/challengeCode";
 import type { TimeControl } from "@/chess/types";
 import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";

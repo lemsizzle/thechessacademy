@@ -9,8 +9,12 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const cookieStore = await cookies();
   const session = readStudentSession(cookieStore);
-  const byId = session?.studentId ? await findSupabaseStudentById(session.studentId) : { configured: false, student: null };
-  const byLichess = session ? await findSupabaseStudentByLichess(session.lichessUserId, session.lichessUsername) : { configured: false, student: null };
+  const byId = session?.studentId
+    ? await findSupabaseStudentById(session.studentId, { includeRelations: false })
+    : { configured: false, student: null };
+  const byLichess = session
+    ? await findSupabaseStudentByLichess(session.lichessUserId, session.lichessUsername, { includeRelations: false })
+    : { configured: false, student: null };
 
   return NextResponse.json({
     studentSessionCookieExists: Boolean(cookieStore.get(STUDENT_APP_SESSION_COOKIE)?.value),

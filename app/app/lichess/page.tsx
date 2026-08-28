@@ -16,7 +16,7 @@ export default function LichessPage() {
             <Button href="/student/submit" variant="secondary">Submit Work</Button>
           </div>
         </Card>
-        <StudentLichessDetails showSubmissionForm={false} />
+        <StudentLichessDetails />
       </div>
     </AppShell>
   );
