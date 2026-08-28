@@ -1,6 +1,7 @@
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { QuestConditionBadge } from "@/components/quests/QuestConditionBadge";
+import { coinsFromXp } from "@/lib/avatar/economy";
 import { formatQuestEvidence } from "@/lib/quests/formatQuestEvidence";
 import { formatCountdown } from "@/lib/quests/questAttempts";
 import { getSafeQuestLink } from "@/lib/quests/questLinks";
@@ -46,13 +47,29 @@ export function LichessQuestProgressCard({
   const evidence = formatQuestEvidence(completion?.evidence ?? progress?.evidence ?? "");
   const countdown = attempt ? formatCountdown(new Date(attempt.expiresAt).getTime() - now) : "";
   const completionLink = getSafeQuestLink(quest.completionUrl);
+  const xpAwarded = completion?.xpAwarded ?? 0;
+  const coinsAwarded = coinsFromXp(xpAwarded);
 
   return (
-    <Card className="p-4">
+    <Card className={`p-4 ${completion ? "border-emerald-300/30 bg-emerald-300/[0.06]" : ""}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <QuestConditionBadge quest={quest} />
-          <h3 className="mt-2 font-black text-white">{quest.title}</h3>
+        <div className="flex min-w-0 items-start gap-3">
+          {completion && (
+            <div
+              className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-emerald-200/70 bg-emerald-300/20 text-2xl font-black text-emerald-100 shadow-lg shadow-emerald-400/20"
+              role="img"
+              aria-label="Quest completed successfully"
+            >
+              <span aria-hidden="true">☺</span>
+              <span aria-hidden="true" className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-slate-950 bg-emerald-300 text-sm text-emerald-950">
+                ✓
+              </span>
+            </div>
+          )}
+          <div className="min-w-0">
+            <QuestConditionBadge quest={quest} />
+            <h3 className="mt-2 font-black text-white">{quest.title}</h3>
+          </div>
         </div>
         <span className="rounded bg-white/10 px-2 py-1 text-xs font-bold text-slate-200">{status}</span>
       </div>
@@ -61,7 +78,7 @@ export function LichessQuestProgressCard({
         {completion ? (
           <>
             <span>Completed {new Date(completion.completedAt).toLocaleString()}</span>
-            <span className="text-emerald-100">XP awarded</span>
+            <span className="text-emerald-100">Rewards earned</span>
           </>
         ) : attempt ? (
           <>
@@ -75,12 +92,22 @@ export function LichessQuestProgressCard({
           </>
         )}
       </div>
+      {completion && (
+        <div className="mt-3 grid grid-cols-2 gap-2 text-center text-sm font-black">
+          <div className="rounded border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-amber-100">
+            {xpAwarded} XP earned
+          </div>
+          <div className="rounded border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-cyan-100">
+            {coinsAwarded} coins earned
+          </div>
+        </div>
+      )}
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
         <div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-amber-200" style={{ width: `${percent}%` }} />
       </div>
       <div className="mt-2 flex items-center justify-between text-xs font-bold text-slate-400">
         <span>{currentValue !== undefined ? `${currentValue} / ${requiredValue}` : "Not synced"}</span>
-        <span>{quest.xpReward} XP</span>
+        <span>{completion ? "Rewards claimed" : `${quest.xpReward} XP`}</span>
       </div>
       {completionLink && (
         <div className="mt-3">

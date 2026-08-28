@@ -9,7 +9,7 @@ import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
 import { createStudentQuestAttempt } from "@/lib/quests/questAttempts";
 import { isAutomatedQuestSource } from "@/lib/quests/questOptions";
-import { findAttemptForPeriod, selectQuestCompletion, selectQuestLifecycle, selectQuestProgress, selectQuestTrackingForAttempt } from "@/lib/quests/selectQuestProgress";
+import { findAttemptForPeriod, selectQuestCompletion, selectQuestLifecycle, selectQuestProgress, selectQuestTrackingForAttempt, selectStartedQuests } from "@/lib/quests/selectQuestProgress";
 import { STUDENT_LICHESS_FULL_SYNC_EVENT, syncStudentLichessEverything } from "@/lib/studentLichessFullSync";
 import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent, StudentQuestAttempt, StudentUser } from "@/lib/types";
 import { useEffect, useState } from "react";
@@ -191,8 +191,9 @@ export function StudentLichessQuestList() {
     completions,
     now
   })]));
-  const activeQuests = quests.filter((quest) => questLifecycleById.get(quest.id)?.state === "active");
-  const completedQuests = quests.filter((quest) => questLifecycleById.get(quest.id)?.state === "completed");
+  const startedQuests = selectStartedQuests(quests, questLifecycleById);
+  const activeQuests = startedQuests.filter((quest) => questLifecycleById.get(quest.id)?.state === "active");
+  const completedQuests = startedQuests.filter((quest) => questLifecycleById.get(quest.id)?.state === "completed");
   const availableQuests = quests.filter((quest) => questLifecycleById.get(quest.id)?.state === "available");
   const questById = new Map(quests.map((quest) => [quest.id, quest]));
 
@@ -272,17 +273,19 @@ export function StudentLichessQuestList() {
           <Card className="p-4 text-sm text-slate-300">No live automated quests are available right now.</Card>
         )}
       </section>
-      {activeQuests.length > 0 && (
+      {startedQuests.length > 0 && (
         <section>
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <h2 className="font-black text-white">Started Quests</h2>
-              <p className="mt-1 text-sm text-slate-400">These timers are already running. Finish them before the countdown ends.</p>
+              <p className="mt-1 text-sm text-slate-400">Active and completed quests stay here until their countdown expires.</p>
             </div>
-            <span className="rounded bg-cyan-300/15 px-2 py-1 text-xs font-black text-cyan-100">{activeQuests.length} active</span>
+            <span className="rounded bg-cyan-300/15 px-2 py-1 text-xs font-black text-cyan-100">
+              {activeQuests.length} active · {completedQuests.length} completed
+            </span>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {activeQuests.map(renderQuestCard)}
+            {startedQuests.map(renderQuestCard)}
           </div>
         </section>
       )}

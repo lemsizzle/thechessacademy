@@ -99,6 +99,16 @@ export function isQuestCompletionCurrent({
 
 export type QuestLifecycleState = "available" | "active" | "completed";
 
+export function selectStartedQuests<T extends { id: string }>(
+  quests: T[],
+  lifecycleById: ReadonlyMap<string, { state: QuestLifecycleState }>
+) {
+  return quests.filter((quest) => {
+    const state = lifecycleById.get(quest.id)?.state;
+    return state === "active" || state === "completed";
+  });
+}
+
 export function selectQuestLifecycle({
   studentId,
   quest,
