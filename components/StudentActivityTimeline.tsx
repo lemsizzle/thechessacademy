@@ -1,5 +1,3 @@
-"use client";
-
 import type { StudentActivityItem } from "@/lib/studentActivity";
 
 const kindStyles: Record<StudentActivityItem["kind"], { icon: string; className: string }> = {

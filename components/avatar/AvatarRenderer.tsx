@@ -1,5 +1,3 @@
-"use client";
-
 import { avatarCategories, seedAvatarItems } from "@/lib/avatar/catalog";
 import { AVATAR_CANVAS_HEIGHT, AVATAR_CANVAS_WIDTH } from "@/lib/avatar/geometry";
 import type { AvatarCategory, AvatarItem, StudentAvatarConfig } from "@/lib/types";

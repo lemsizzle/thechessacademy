@@ -9,9 +9,19 @@ import { syncStudentLichessEverything } from "@/lib/studentLichessFullSync";
 import type { StudentUser } from "@/lib/types";
 import { usePathname } from "next/navigation";
 
-export function StudentPortalShell({ children, title, subtitle }: { children: ReactNode; title: string; subtitle?: string }) {
-  const [user, setUser] = useState<StudentUser | null>(null);
-  const [checked, setChecked] = useState(false);
+export function StudentPortalShell({
+  children,
+  title,
+  subtitle,
+  initialUser = null
+}: {
+  children: ReactNode;
+  title: string;
+  subtitle?: string;
+  initialUser?: StudentUser | null;
+}) {
+  const [user, setUser] = useState<StudentUser | null>(initialUser);
+  const [checked, setChecked] = useState(Boolean(initialUser));
   const pathname = usePathname();
   const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const allowLocalMockSession = process.env.NODE_ENV !== "production" && !supabaseBackedApp;
