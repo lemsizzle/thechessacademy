@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   initialPuzzleLauncherState,
   PUZZLE_MODE_OPTIONS,
+  puzzleLauncherDismissAction,
   puzzleLauncherReducer
 } from "@/lib/puzzle-training/launcher";
 
@@ -43,5 +44,11 @@ describe("puzzle training launcher", () => {
       selectedMode: null
     });
     expect(puzzleLauncherReducer(stats, { type: "OPEN_CHOICES" })).toEqual(initialPuzzleLauncherState);
+  });
+
+  it("uses dismiss as back inside a mode or stats, and only closes from the selector", () => {
+    expect(puzzleLauncherDismissAction("details")).toEqual({ type: "BACK" });
+    expect(puzzleLauncherDismissAction("stats")).toEqual({ type: "BACK" });
+    expect(puzzleLauncherDismissAction("choices")).toEqual({ type: "CLOSE" });
   });
 });

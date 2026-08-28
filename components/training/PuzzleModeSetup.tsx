@@ -13,6 +13,7 @@ import { PuzzleTrainingStats } from "@/components/training/PuzzleTrainingStats";
 import {
   initialPuzzleLauncherState,
   PUZZLE_MODE_OPTIONS,
+  puzzleLauncherDismissAction,
   puzzleLauncherReducer,
   type PuzzleModeChoice
 } from "@/lib/puzzle-training/launcher";
@@ -292,10 +293,6 @@ export function PuzzleModeSetup({
     return () => window.cancelAnimationFrame(frame);
   }, [launcher.open, launcher.screen]);
 
-  function closeDialog() {
-    dispatch({ type: "CLOSE" });
-  }
-
   function showChoices() {
     dispatch({ type: "OPEN_CHOICES" });
   }
@@ -308,8 +305,7 @@ export function PuzzleModeSetup({
   function handleDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
-      if (launcher.screen === "choices") closeDialog();
-      else dispatch({ type: "BACK" });
+      dispatch(puzzleLauncherDismissAction(launcher.screen));
       return;
     }
     if (event.key !== "Tab") return;
@@ -406,8 +402,8 @@ export function PuzzleModeSetup({
                   </div>
                   <button
                     type="button"
-                    aria-label="Close puzzle training window"
-                    onClick={closeDialog}
+                    aria-label={launcher.screen === "choices" ? "Close puzzle training window" : "Back to puzzle mode selector"}
+                    onClick={() => dispatch(puzzleLauncherDismissAction(launcher.screen))}
                     className="grid size-10 shrink-0 place-items-center rounded-md border border-white/10 bg-white/5 text-xl font-black text-slate-300 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
                   >
                     ×

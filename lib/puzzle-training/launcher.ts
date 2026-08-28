@@ -78,6 +78,10 @@ export const initialPuzzleLauncherState: PuzzleLauncherState = {
   selectedMode: null
 };
 
+export function puzzleLauncherDismissAction(screen: PuzzleLauncherScreen): PuzzleLauncherAction {
+  return screen === "choices" ? { type: "CLOSE" } : { type: "BACK" };
+}
+
 export function puzzleLauncherReducer(
   state: PuzzleLauncherState,
   action: PuzzleLauncherAction
