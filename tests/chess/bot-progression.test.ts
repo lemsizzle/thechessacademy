@@ -15,7 +15,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 import { getStudentBotProgression, requireStudentBotUnlocked } from "@/chess/persistence/botProgressionServer";
 
-function computerWinsQuery(opponentIds: string[]) {
+function botDefeatsQuery(botIds: string[]) {
   const query: {
     select: ReturnType<typeof vi.fn>;
     eq: ReturnType<typeof vi.fn>;
@@ -25,10 +25,8 @@ function computerWinsQuery(opponentIds: string[]) {
   };
   query.select.mockReturnValue(query);
   query.eq
-    .mockReturnValueOnce(query)
-    .mockReturnValueOnce(query)
     .mockResolvedValueOnce({
-      data: opponentIds.map((opponentId) => ({ opponent_id: opponentId })),
+      data: botIds.map((botId) => ({ bot_id: botId })),
       error: null
     });
   return {
@@ -85,22 +83,20 @@ describe("computer opponent progression", () => {
     expect(botButton(markup, "Benny Bishop")).toContain("disabled");
   });
 
-  it("derives current-student unlocks from saved computer wins", async () => {
-    const client = computerWinsQuery(["pawny", "knight"]);
+  it("derives unlocks only from the post-reset progression ledger", async () => {
+    const client = botDefeatsQuery(["pawny", "knight"]);
     mocks.getSupabaseServiceClient.mockReturnValue(client);
 
     await expect(getStudentBotProgression("student-1")).resolves.toEqual({
       defeatedBotIds: ["pawny", "knight"],
       unlockedBotIds: ["pawny", "knight", "bishop", "so-pawny"]
     });
-    expect(client.from).toHaveBeenCalledWith("internal_chess_games");
-    expect(client.query.eq).toHaveBeenNthCalledWith(1, "player_id", "student-1");
-    expect(client.query.eq).toHaveBeenNthCalledWith(2, "opponent_type", "computer");
-    expect(client.query.eq).toHaveBeenNthCalledWith(3, "result", "win");
+    expect(client.from).toHaveBeenCalledWith("student_bot_defeats");
+    expect(client.query.eq).toHaveBeenCalledWith("student_id", "student-1");
   });
 
   it("rejects a locked opponent on the server", async () => {
-    mocks.getSupabaseServiceClient.mockReturnValue(computerWinsQuery(["pawny"]));
+    mocks.getSupabaseServiceClient.mockReturnValue(botDefeatsQuery(["pawny"]));
 
     await expect(requireStudentBotUnlocked("student-1", "bishop")).rejects.toThrow(
       "Defeat Zippy Knight to unlock this opponent."

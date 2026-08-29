@@ -3,8 +3,8 @@ import "server-only";
 import { getBotProgression, getBotUnlockRequirement, isBotUnlocked } from "@/chess/bots/progression";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
-type ComputerWinRow = {
-  opponent_id: string | null;
+type BotDefeatRow = {
+  bot_id: string | null;
 };
 
 export class BotLockedError extends Error {
@@ -19,14 +19,12 @@ export async function getStudentBotProgression(studentId: string) {
   if (!client) throw new Error("Computer opponent progression is not configured.");
 
   const { data, error } = await client
-    .from("internal_chess_games")
-    .select("opponent_id")
-    .eq("player_id", studentId)
-    .eq("opponent_type", "computer")
-    .eq("result", "win");
+    .from("student_bot_defeats")
+    .select("bot_id")
+    .eq("student_id", studentId);
 
   if (error) throw new Error(error.message);
-  return getBotProgression(((data ?? []) as ComputerWinRow[]).flatMap((row) => row.opponent_id ? [row.opponent_id] : []));
+  return getBotProgression(((data ?? []) as BotDefeatRow[]).flatMap((row) => row.bot_id ? [row.bot_id] : []));
 }
 
 export async function requireStudentBotUnlocked(studentId: string, botId: string) {
