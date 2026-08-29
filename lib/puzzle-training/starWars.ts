@@ -56,7 +56,7 @@ type GeneratedLayout = {
 
 type RandomSource = () => number;
 
-const GENERATOR_VERSION = 5;
+export const STAR_WARS_GENERATOR_VERSION = 5;
 const MAX_GENERATION_ATTEMPTS = 128;
 const MAX_GENERATED_PUZZLE_CACHE_ENTRIES = 2_048;
 const MAX_ROUTE_CACHE_ENTRIES = 10_000;
@@ -369,7 +369,7 @@ function generatedTitle(types: readonly StarWarsPieceSymbol[]) {
 function generatedPuzzle(score: number, runVariant: number, attempt: number): StarWarsPuzzle | null {
   const tier = starWarsTierForScore(score);
   const profile = TIER_PROFILES[tier];
-  const seed = `star-wars-v${GENERATOR_VERSION}:${runVariant}:${score}:${attempt}`;
+  const seed = `star-wars-v${STAR_WARS_GENERATOR_VERSION}:${runVariant}:${score}:${attempt}`;
   const random = randomSource(seed);
   const types = choosePieceTypes(profile, random);
   const layout = createLayout(types, random);
@@ -409,7 +409,7 @@ function generatedPuzzle(score: number, runVariant: number, attempt: number): St
   const starSquares = shuffled([...stars], random);
   const positionFingerprint = hashString(`${layout.fen}|${[...starSquares].sort().join(",")}`).toString(36);
   const puzzle = buildPuzzle({
-    id: `star-wars-v${GENERATOR_VERSION}-${runVariant.toString(36)}-${score.toString(36)}-${positionFingerprint}`,
+    id: `star-wars-v${STAR_WARS_GENERATOR_VERSION}-${runVariant.toString(36)}-${score.toString(36)}-${positionFingerprint}`,
     title: generatedTitle(types),
     briefing: tierBriefings[tier],
     tier,
@@ -434,7 +434,7 @@ function fallbackPuzzle(score: number, runVariant: number): StarWarsPuzzle {
   const pieces = fallbackPieces.slice(0, profile.pieces);
   const stars = fallbackStars.slice(0, profile.stars);
   const puzzle = buildPuzzle({
-    id: `star-wars-v${GENERATOR_VERSION}-${runVariant.toString(36)}-${score.toString(36)}-fallback`,
+    id: `star-wars-v${STAR_WARS_GENERATOR_VERSION}-${runVariant.toString(36)}-${score.toString(36)}-fallback`,
     title: generatedTitle(pieces.map((piece) => piece.type)),
     briefing: tierBriefings[tier],
     tier,

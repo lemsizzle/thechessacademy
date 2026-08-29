@@ -4,16 +4,18 @@ import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 import { getBadgesResult } from "@/lib/data/badges";
 import { getStudentsResult } from "@/lib/data/students";
 import { getXpEventsResult } from "@/lib/data/xpEvents";
+import { getStarWarsLeaderboardScores } from "@/lib/leaderboard/starWarsServer";
 import { getSurvivalLeaderboardScores } from "@/lib/leaderboard/survivalServer";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentLeaderboardPage() {
-  const [students, xpEvents, badges, survivalScores] = await Promise.all([
+  const [students, xpEvents, badges, survivalScores, starWarsScores] = await Promise.all([
     getStudentsResult(),
     getXpEventsResult(),
     getBadgesResult(),
-    getSurvivalLeaderboardScores()
+    getSurvivalLeaderboardScores(),
+    getStarWarsLeaderboardScores()
   ]);
   const avatarDisplay = await getStudentAvatarDisplayData(students.data.map((student) => student.id));
 
@@ -26,6 +28,7 @@ export default async function StudentLeaderboardPage() {
         avatarItems={avatarDisplay.items}
         studentAvatars={avatarDisplay.avatars}
         survivalScores={survivalScores}
+        starWarsScores={starWarsScores}
         profileBasePath="/student/students"
       />
     </StudentPortalShell>

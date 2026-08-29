@@ -28,8 +28,17 @@ import {
   STAR_WARS_BEST_SCORE_STORAGE_KEY
 } from "@/lib/puzzle-training/starWarsProgress";
 
-type RunPhase = "playing" | "solved" | "failed";
+type RunPhase = "loading" | "playing" | "solved" | "failed" | "unavailable";
+type ScoreSyncState = "idle" | "saving" | "saved" | "error";
 type DrawingGesture = { startSquare: Square; endSquare: Square | null; color: string };
+type StarWarsStartResponse = {
+  run?: { runId: string; runVariant: number; score: number; personalBest: number };
+  error?: string;
+};
+type StarWarsProgressResponse = {
+  result?: { score: number; personalBest: number };
+  error?: string;
+};
 
 const NEXT_MISSION_DELAY_MS = 450;
 const PLAN_ARROW_COLOR = "#c084fc";
@@ -52,22 +61,15 @@ function routeLabel(route: readonly StarWarsMove[]) {
   return route.map((move) => `${move.from}→${move.to}`).join(" · ");
 }
 
-function randomRunVariant() {
-  if (typeof globalThis.crypto?.getRandomValues === "function") {
-    const seed = new Uint32Array(1);
-    globalThis.crypto.getRandomValues(seed);
-    return seed[0] ?? 0;
-  }
-  return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
-}
-
 export function StarWarsTraining({ onExit }: { onExit: () => void }) {
-  const [runVariant, setRunVariant] = useState(randomRunVariant);
+  const [runId, setRunId] = useState<string | null>(null);
+  const [runVariant, setRunVariant] = useState(0);
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(0);
-  const [puzzle, setPuzzle] = useState(() => starWarsPuzzleForScore(0, runVariant));
+  const [puzzle, setPuzzle] = useState(() => starWarsPuzzleForScore(0, 0));
   const [gameState, setGameState] = useState<StarWarsState>(() => initialStarWarsState(puzzle));
-  const [phase, setPhase] = useState<RunPhase>("playing");
+  const [phase, setPhase] = useState<RunPhase>("loading");
+  const [scoreSyncState, setScoreSyncState] = useState<ScoreSyncState>("idle");
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
   const [failedMove, setFailedMove] = useState<StarWarsMove | null>(null);
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
@@ -77,10 +79,17 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   const [planArrows, setPlanArrows] = useState<BoardArrow[]>([]);
   const [planCircles, setPlanCircles] = useState<BoardCircle[]>([]);
   const [drawingGesture, setDrawingGesture] = useState<DrawingGesture | null>(null);
-  const [feedback, setFeedback] = useState("Plan the entire route before moving. Every move must land on a star.");
+  const [feedback, setFeedback] = useState("Preparing a verified Star Wars run...");
   const [failureRoute, setFailureRoute] = useState<StarWarsMove[]>([]);
   const nextMissionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rightGestureRef = useRef<Omit<DrawingGesture, "endSquare"> | null>(null);
+  const missionRouteRef = useRef<StarWarsMove[]>([]);
+  const completedRoutesRef = useRef<StarWarsMove[][]>([]);
+  const activeRunIdRef = useRef<string | null>(null);
+  const latestSubmittedScoreRef = useRef(0);
+  const latestSavedScoreRef = useRef(0);
+  const mountedRef = useRef(true);
+  const startRequestedRef = useRef(false);
   const { play: playSound, prepare: prepareSound } = useChessSounds();
 
   useEffect(() => {
@@ -91,8 +100,16 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     }
   }, []);
 
-  useEffect(() => () => {
-    if (nextMissionTimer.current) clearTimeout(nextMissionTimer.current);
+  useEffect(() => {
+    mountedRef.current = true;
+    if (!startRequestedRef.current) {
+      startRequestedRef.current = true;
+      void beginServerRun();
+    }
+    return () => {
+      mountedRef.current = false;
+      if (nextMissionTimer.current) clearTimeout(nextMissionTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -133,6 +150,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     setPlanCircles([]);
     setDrawingGesture(null);
     rightGestureRef.current = null;
+    missionRouteRef.current = [];
     setFailureRoute([]);
     setFeedback(celebrateScore
       ? `+1 point! Score ${nextScore}. Plan a ${nextPuzzle.stars.length}-move route and collect one star on every move.`
@@ -140,12 +158,85 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   }
 
   function saveBest(nextScore: number) {
-    if (nextScore <= bestScore) return;
-    setBestScore(nextScore);
+    setBestScore((currentBest) => {
+      if (nextScore <= currentBest) return currentBest;
+      try {
+        window.localStorage.setItem(STAR_WARS_BEST_SCORE_STORAGE_KEY, String(nextScore));
+      } catch {
+        // A blocked preference write must never interrupt the game.
+      }
+      return nextScore;
+    });
+  }
+
+  async function beginServerRun() {
+    if (nextMissionTimer.current) {
+      clearTimeout(nextMissionTimer.current);
+      nextMissionTimer.current = null;
+    }
+    setPhase("loading");
+    activeRunIdRef.current = null;
+    setScoreSyncState("idle");
+    setFeedback("Preparing a verified Star Wars run...");
     try {
-      window.localStorage.setItem(STAR_WARS_BEST_SCORE_STORAGE_KEY, String(nextScore));
+      const response = await fetch("/api/student/star-wars/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store"
+      });
+      const body = await response.json() as StarWarsStartResponse;
+      if (!response.ok || !body.run) throw new Error(body.error ?? "Star Wars could not start.");
+      if (!mountedRef.current) return;
+      setRunId(body.run.runId);
+      activeRunIdRef.current = body.run.runId;
+      setRunVariant(body.run.runVariant);
+      setScore(body.run.score);
+      completedRoutesRef.current = [];
+      missionRouteRef.current = [];
+      latestSubmittedScoreRef.current = body.run.score;
+      latestSavedScoreRef.current = body.run.score;
+      saveBest(body.run.personalBest);
+      loadMission(body.run.score, body.run.runVariant);
+    } catch (error) {
+      if (!mountedRef.current) return;
+      setRunId(null);
+      activeRunIdRef.current = null;
+      setPhase("unavailable");
+      setFeedback(error instanceof Error ? error.message : "Star Wars could not start.");
+    }
+  }
+
+  async function submitProgress(routes: StarWarsMove[][], targetRunId: string) {
+    const submittedScore = routes.length;
+    const startScore = Math.min(latestSavedScoreRef.current, submittedScore);
+    const pendingRoutes = routes.slice(startScore);
+    if (!pendingRoutes.length) {
+      setScoreSyncState("saved");
+      return;
+    }
+    latestSubmittedScoreRef.current = Math.max(latestSubmittedScoreRef.current, submittedScore);
+    setScoreSyncState("saving");
+    try {
+      const requestBody = JSON.stringify({ runId: targetRunId, startScore, routes: pendingRoutes });
+      const response = await fetch("/api/student/star-wars/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: requestBody,
+        cache: "no-store",
+        keepalive: requestBody.length < 60_000
+      });
+      const body = await response.json() as StarWarsProgressResponse;
+      if (!response.ok || !body.result) throw new Error(body.error ?? "Score save failed.");
+      if (!mountedRef.current || activeRunIdRef.current !== targetRunId) return;
+      latestSavedScoreRef.current = Math.max(latestSavedScoreRef.current, body.result.score);
+      saveBest(body.result.personalBest);
+      if (latestSavedScoreRef.current >= latestSubmittedScoreRef.current) setScoreSyncState("saved");
     } catch {
-      // A blocked preference write must never interrupt the game.
+      if (mountedRef.current
+        && activeRunIdRef.current === targetRunId
+        && latestSavedScoreRef.current < latestSubmittedScoreRef.current) {
+        setScoreSyncState("error");
+      }
     }
   }
 
@@ -168,16 +259,22 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       return false;
     }
 
+    const completedMove = result.move;
     setGameState(result.state);
-    setLastMove([result.move.from, result.move.to]);
+    setLastMove([completedMove.from, completedMove.to]);
     playSound("capture");
 
     if (result.status === "solved") {
       setSelectedSquare(null);
       setLegalSquares([]);
       const nextScore = score + 1;
+      const completedRoute = [...missionRouteRef.current, completedMove];
+      const completedRoutes = [...completedRoutesRef.current, completedRoute];
+      missionRouteRef.current = [];
+      completedRoutesRef.current = completedRoutes;
       setScore(nextScore);
       saveBest(nextScore);
+      if (runId) void submitProgress(completedRoutes, runId);
       setPhase("solved");
       setFeedback(`Perfect route! +1 point. Score ${nextScore}. Loading the next mission...`);
       playSound("end");
@@ -189,6 +286,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       return true;
     }
 
+    missionRouteRef.current = [...missionRouteRef.current, completedMove];
     setSelectedSquare(result.move.to);
     setLegalSquares(starWarsLegalDestinations(result.state, result.move.to));
     setFeedback(`${result.state.remainingStars.length} ${result.state.remainingStars.length === 1 ? "star" : "stars"} left. Keep following your plan.`);
@@ -264,11 +362,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   }
 
   function startNewRun() {
-    let nextVariant = randomRunVariant();
-    if (nextVariant === runVariant) nextVariant = (nextVariant + 1) >>> 0;
-    setRunVariant(nextVariant);
-    setScore(0);
-    loadMission(0, nextVariant);
+    void beginServerRun();
   }
 
   const movesUsed = puzzle.stars.length - gameState.remainingStars.length;
@@ -397,6 +491,18 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
         </div>
       </Card>
 
+      {phase === "unavailable" ? (
+        <Card className="border-rose-300/35 bg-rose-300/10 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" role="alert">
+            <div>
+              <p className="font-black text-rose-100">Star Wars could not start</p>
+              <p className="mt-1 text-sm text-rose-100/80">{feedback}</p>
+            </div>
+            <Button type="button" variant="secondary" onClick={() => void beginServerRun()}>Try Again</Button>
+          </div>
+        </Card>
+      ) : null}
+
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
         <div className="mx-auto aspect-square w-full max-w-[640px] overflow-hidden rounded-xl border border-violet-200/25 bg-slate-950/80 p-1 sm:p-2">
           <Chessboard key={`star-wars-board-${puzzle.id}-${runVariant}`} options={boardOptions} />
@@ -426,6 +532,20 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
               <div className={`mt-4 rounded-lg border p-4 text-sm font-bold leading-6 ${phase === "failed" ? "border-rose-300/35 bg-rose-300/10 text-rose-100" : phase === "solved" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-white/10 bg-white/5 text-slate-200"}`} role="status" aria-live="polite" aria-atomic="true">
                 {feedback}
               </div>
+              {scoreSyncState === "error" ? (
+                <div className="mt-3 flex flex-col gap-2 rounded-lg border border-amber-200/30 bg-amber-300/10 p-3 sm:flex-row sm:items-center sm:justify-between" role="alert">
+                  <p className="text-sm font-bold text-amber-100">Your run is safe here, but the leaderboard save needs another try.</p>
+                  <Button type="button" variant="secondary" onClick={() => {
+                    if (runId && completedRoutesRef.current.length) {
+                      void submitProgress(completedRoutesRef.current, runId);
+                    }
+                  }}>Retry Save</Button>
+                </div>
+              ) : scoreSyncState === "saving" ? (
+                <p className="mt-3 text-xs font-bold text-cyan-100" role="status">Saving your leaderboard score...</p>
+              ) : scoreSyncState === "saved" ? (
+                <p className="mt-3 text-xs font-bold text-emerald-200" role="status">Leaderboard score saved.</p>
+              ) : null}
               <p className="mt-3 text-xs font-bold text-slate-500">Move {Math.min(movesUsed + 1, puzzle.stars.length)} of {puzzle.stars.length} · The run ends only when a legal move does not collect a star.</p>
             </div>
           </Card>

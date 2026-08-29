@@ -5,6 +5,7 @@ import { LevelBadge } from "@/components/LevelBadge";
 import { allBadges } from "@/data/badges";
 import { xpEvents } from "@/data/xpEvents";
 import { getDefaultEquippedItems, seedAvatarItems } from "@/lib/avatar/catalog";
+import { getStarWarsLeaderboardScore, hasStarWarsLeaderboardScore, type StarWarsLeaderboardScore } from "@/lib/leaderboard/starWars";
 import { getSurvivalLeaderboardScore, hasSurvivalLeaderboardScore, survivalLeaderboardScoreKey, type LeaderboardTimeWindow, type SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
 import { findStudentLichessAccount, getStudentXpWithLichess } from "@/lib/lichessXp";
 import { readAdminStore } from "@/lib/mockStorage";
@@ -15,7 +16,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type TimeWindow = LeaderboardTimeWindow;
-type Focus = "Overall XP" | "Survival Puzzles";
+type Focus = "Overall XP" | "Survival Puzzles" | "Star Wars";
 
 const timeOptions: Array<{ value: TimeWindow; label: string }> = [
   { value: "week", label: "This Week" },
@@ -45,6 +46,7 @@ export function LeaderboardTable({
   students,
   lichessAccounts,
   survivalScores,
+  starWarsScores,
   xpEvents: initialXpEvents,
   badges = allBadges,
   avatarItems = seedAvatarItems,
@@ -58,6 +60,7 @@ export function LeaderboardTable({
   students: Student[];
   lichessAccounts: StudentLichessAccount[];
   survivalScores: SurvivalLeaderboardScore[];
+  starWarsScores?: StarWarsLeaderboardScore[];
   xpEvents?: XpEvent[];
   badges?: typeof allBadges;
   avatarItems?: AvatarItem[];
@@ -75,6 +78,8 @@ export function LeaderboardTable({
   const [recentXpEvents, setRecentXpEvents] = useState<XpEvent[]>(initialXpEvents ?? xpEvents);
   const defaultEquippedItems = useMemo(() => getDefaultEquippedItems(avatarItems), [avatarItems]);
   const survivalScoresByStudentAndTheme = useMemo(() => new Map(survivalScores.map((score) => [survivalLeaderboardScoreKey(score.studentId, score.theme), score])), [survivalScores]);
+  const starWarsScoresByStudent = useMemo(() => new Map((starWarsScores ?? []).map((score) => [score.studentId, score])), [starWarsScores]);
+  const hasStarWarsFocus = starWarsScores !== undefined;
 
   useEffect(() => {
     const store = readAdminStore();
@@ -91,20 +96,38 @@ export function LeaderboardTable({
   const ranked = useMemo(() => {
     const filtered = classGroup === "All" ? students : students.filter((student) => student.classGroup === classGroup);
     return filtered
-      .filter((student) => focus === "Overall XP" || hasSurvivalLeaderboardScore(survivalScoresByStudentAndTheme.get(survivalLeaderboardScoreKey(student.id, survivalTheme)), timeWindow))
+      .filter((student) => (
+        focus === "Overall XP"
+        || (focus === "Survival Puzzles" && hasSurvivalLeaderboardScore(
+          survivalScoresByStudentAndTheme.get(survivalLeaderboardScoreKey(student.id, survivalTheme)),
+          timeWindow
+        ))
+        || (focus === "Star Wars" && hasStarWarsLeaderboardScore(
+          starWarsScoresByStudent.get(student.id),
+          timeWindow
+        ))
+      ))
       .map((student) => {
         const account = findStudentLichessAccount(student, lichessAccounts);
         const xp = getStudentXpWithLichess(student, account);
-        const score = focus === "Overall XP"
-          ? getStudentXpScore(student, timeWindow, recentXpEvents, account)
-          : getSurvivalLeaderboardScore(survivalScoresByStudentAndTheme.get(survivalLeaderboardScoreKey(student.id, survivalTheme)), timeWindow);
+        let score = getStudentXpScore(student, timeWindow, recentXpEvents, account);
+        if (focus === "Survival Puzzles") {
+          score = getSurvivalLeaderboardScore(survivalScoresByStudentAndTheme.get(survivalLeaderboardScoreKey(student.id, survivalTheme)), timeWindow);
+        } else if (focus === "Star Wars") {
+          score = getStarWarsLeaderboardScore(starWarsScoresByStudent.get(student.id), timeWindow);
+        }
         return { ...student, score, effectiveXp: xp.totalXp, lichessXp: xp.lichessXp };
       })
       .sort((a, b) => b.score - a.score || b.effectiveXp - a.effectiveXp || a.name.localeCompare(b.name))
       .map((student, index) => ({ ...student, rank: index + 1 }));
-  }, [classGroup, focus, lichessAccounts, recentXpEvents, students, survivalScoresByStudentAndTheme, survivalTheme, timeWindow]);
+  }, [classGroup, focus, lichessAccounts, recentXpEvents, starWarsScoresByStudent, students, survivalScoresByStudentAndTheme, survivalTheme, timeWindow]);
   const podium = ranked.slice(0, 3);
-  const scoreLabel = focus === "Overall XP" ? (timeWindow === "all" ? "Total XP" : "XP Earned") : "Best Survival Run";
+  const scoreLabel = focus === "Overall XP"
+    ? (timeWindow === "all" ? "Total XP" : "XP Earned")
+    : focus === "Survival Puzzles"
+      ? "Best Survival Run"
+      : "Best Star Wars Run";
+  const scoreUnit = focus === "Overall XP" ? "XP" : focus === "Survival Puzzles" ? "puzzles" : "points";
   const survivalThemeLabel = survivalTheme === "mixed"
     ? "Mixed themes"
     : puzzleThemeOptions.find((option) => option.id === survivalTheme)?.name ?? "Mixed themes";
@@ -141,6 +164,7 @@ export function LeaderboardTable({
                 <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={focus} onChange={(event) => setFocus(event.target.value as Focus)}>
                   <option>Overall XP</option>
                   <option>Survival Puzzles</option>
+                  {hasStarWarsFocus ? <option>Star Wars</option> : null}
                 </select>
               </label>
             )}
@@ -153,6 +177,12 @@ export function LeaderboardTable({
             )}
           </div>
         </div>
+        {focus === "Star Wars" && ranked.length === 0 ? (
+          <div className="mt-4 rounded-md border border-violet-200/20 bg-violet-300/[0.06] p-4" role="status">
+            <p className="font-black text-white">No Star Wars scores found</p>
+            <p className="mt-1 text-sm text-slate-400">No verified runs match this class and time period yet.</p>
+          </div>
+        ) : null}
         <div className="mt-4 grid gap-2 md:grid-cols-3">
           {podium.map((student) => (
               <Link key={student.id} href={getStudentHref(student)} className="flex items-center gap-3 rounded-md border border-white/10 bg-white/5 p-3 transition hover:border-cyan-200/50 hover:bg-cyan-300/10">
@@ -160,7 +190,7 @@ export function LeaderboardTable({
                 <AvatarRenderer items={avatarItems} avatar={getStudentAvatar(student.id)} size="sm" label={`${student.name}'s avatar`} />
                 <span className="min-w-0">
                   <span className="block truncate font-black text-white">{student.name}</span>
-                  <span className="text-xs font-bold text-cyan-100">{student.score.toLocaleString()} {focus === "Overall XP" ? "XP" : "puzzles"}</span>
+                  <span className="text-xs font-bold text-cyan-100">{student.score.toLocaleString()} {scoreUnit}</span>
                 </span>
               </Link>
           ))}
@@ -203,7 +233,7 @@ export function LeaderboardTable({
                   <td className="px-4 py-4">
                     <span className="font-black text-slate-100">{student.score.toLocaleString()}</span>
                     {focus === "Overall XP" && student.lichessXp > 0 && <span className="ml-2 text-xs text-cyan-200">+{student.lichessXp.toLocaleString()} Lichess</span>}
-                    {focus !== "Overall XP" && <span className="ml-2 text-xs text-slate-500">puzzles</span>}
+                    {focus !== "Overall XP" && <span className="ml-2 text-xs text-slate-500">{scoreUnit}</span>}
                   </td>
                   <td className="px-4 py-4 text-slate-300">{latestBadge?.name ?? "No badge yet"}</td>
                 </tr>

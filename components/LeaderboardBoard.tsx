@@ -2,6 +2,7 @@
 
 import { EmptyState } from "@/components/EmptyState";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
+import type { StarWarsLeaderboardScore } from "@/lib/leaderboard/starWars";
 import type { SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
 import type { AvatarItem, Badge, Student, StudentAvatarConfig, XpEvent } from "@/lib/types";
 import { useMockAdminState } from "@/lib/useMockAdminState";
@@ -15,6 +16,7 @@ export function LeaderboardBoard({
   avatarItems,
   studentAvatars,
   survivalScores = [],
+  starWarsScores,
   initialFocus,
   lockFocus = false,
   heading
@@ -27,7 +29,8 @@ export function LeaderboardBoard({
   avatarItems?: AvatarItem[];
   studentAvatars?: Record<string, StudentAvatarConfig>;
   survivalScores?: SurvivalLeaderboardScore[];
-  initialFocus?: "Overall XP" | "Survival Puzzles";
+  starWarsScores?: StarWarsLeaderboardScore[];
+  initialFocus?: "Overall XP" | "Survival Puzzles" | "Star Wars";
   lockFocus?: boolean;
   heading?: string;
 }) {
@@ -43,6 +46,7 @@ export function LeaderboardBoard({
       students={students}
       lichessAccounts={studentLichessAccounts}
       survivalScores={survivalScores}
+      starWarsScores={starWarsScores}
       profileBasePath={profileBasePath}
       linkMode={linkMode}
       xpEvents={initialXpEvents}
