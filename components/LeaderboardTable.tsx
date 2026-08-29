@@ -5,6 +5,7 @@ import { LevelBadge } from "@/components/LevelBadge";
 import { allBadges } from "@/data/badges";
 import { xpEvents } from "@/data/xpEvents";
 import { getDefaultEquippedItems, seedAvatarItems } from "@/lib/avatar/catalog";
+import { getHideAndSeekLeaderboardScore, hasHideAndSeekLeaderboardScore, type HideAndSeekLeaderboardScore } from "@/lib/leaderboard/hideAndSeek";
 import { getStarWarsLeaderboardScore, hasStarWarsLeaderboardScore, type StarWarsLeaderboardScore } from "@/lib/leaderboard/starWars";
 import { getSurvivalLeaderboardScore, hasSurvivalLeaderboardScore, survivalLeaderboardScoreKey, type LeaderboardTimeWindow, type SurvivalLeaderboardScore } from "@/lib/leaderboard/survival";
 import { findStudentLichessAccount, getStudentXpWithLichess } from "@/lib/lichessXp";
@@ -16,7 +17,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type TimeWindow = LeaderboardTimeWindow;
-type Focus = "Overall XP" | "Survival Puzzles" | "Star Wars";
+type Focus = "Overall XP" | "Survival Puzzles" | "Hide and Seek" | "Star Wars";
 
 const timeOptions: Array<{ value: TimeWindow; label: string }> = [
   { value: "week", label: "This Week" },
@@ -46,6 +47,7 @@ export function LeaderboardTable({
   students,
   lichessAccounts,
   survivalScores,
+  hideAndSeekScores,
   starWarsScores,
   xpEvents: initialXpEvents,
   badges = allBadges,
@@ -60,6 +62,7 @@ export function LeaderboardTable({
   students: Student[];
   lichessAccounts: StudentLichessAccount[];
   survivalScores: SurvivalLeaderboardScore[];
+  hideAndSeekScores?: HideAndSeekLeaderboardScore[];
   starWarsScores?: StarWarsLeaderboardScore[];
   xpEvents?: XpEvent[];
   badges?: typeof allBadges;
@@ -78,7 +81,9 @@ export function LeaderboardTable({
   const [recentXpEvents, setRecentXpEvents] = useState<XpEvent[]>(initialXpEvents ?? xpEvents);
   const defaultEquippedItems = useMemo(() => getDefaultEquippedItems(avatarItems), [avatarItems]);
   const survivalScoresByStudentAndTheme = useMemo(() => new Map(survivalScores.map((score) => [survivalLeaderboardScoreKey(score.studentId, score.theme), score])), [survivalScores]);
+  const hideAndSeekScoresByStudent = useMemo(() => new Map((hideAndSeekScores ?? []).map((score) => [score.studentId, score])), [hideAndSeekScores]);
   const starWarsScoresByStudent = useMemo(() => new Map((starWarsScores ?? []).map((score) => [score.studentId, score])), [starWarsScores]);
+  const hasHideAndSeekFocus = hideAndSeekScores !== undefined;
   const hasStarWarsFocus = starWarsScores !== undefined;
 
   useEffect(() => {
@@ -102,6 +107,10 @@ export function LeaderboardTable({
           survivalScoresByStudentAndTheme.get(survivalLeaderboardScoreKey(student.id, survivalTheme)),
           timeWindow
         ))
+        || (focus === "Hide and Seek" && hasHideAndSeekLeaderboardScore(
+          hideAndSeekScoresByStudent.get(student.id),
+          timeWindow
+        ))
         || (focus === "Star Wars" && hasStarWarsLeaderboardScore(
           starWarsScoresByStudent.get(student.id),
           timeWindow
@@ -113,6 +122,8 @@ export function LeaderboardTable({
         let score = getStudentXpScore(student, timeWindow, recentXpEvents, account);
         if (focus === "Survival Puzzles") {
           score = getSurvivalLeaderboardScore(survivalScoresByStudentAndTheme.get(survivalLeaderboardScoreKey(student.id, survivalTheme)), timeWindow);
+        } else if (focus === "Hide and Seek") {
+          score = getHideAndSeekLeaderboardScore(hideAndSeekScoresByStudent.get(student.id), timeWindow);
         } else if (focus === "Star Wars") {
           score = getStarWarsLeaderboardScore(starWarsScoresByStudent.get(student.id), timeWindow);
         }
@@ -120,13 +131,15 @@ export function LeaderboardTable({
       })
       .sort((a, b) => b.score - a.score || b.effectiveXp - a.effectiveXp || a.name.localeCompare(b.name))
       .map((student, index) => ({ ...student, rank: index + 1 }));
-  }, [classGroup, focus, lichessAccounts, recentXpEvents, starWarsScoresByStudent, students, survivalScoresByStudentAndTheme, survivalTheme, timeWindow]);
+  }, [classGroup, focus, hideAndSeekScoresByStudent, lichessAccounts, recentXpEvents, starWarsScoresByStudent, students, survivalScoresByStudentAndTheme, survivalTheme, timeWindow]);
   const podium = ranked.slice(0, 3);
   const scoreLabel = focus === "Overall XP"
     ? (timeWindow === "all" ? "Total XP" : "XP Earned")
     : focus === "Survival Puzzles"
       ? "Best Survival Run"
-      : "Best Star Wars Run";
+      : focus === "Hide and Seek"
+        ? "Best Hide and Seek Score"
+        : "Best Star Wars Run";
   const scoreUnit = focus === "Overall XP" ? "XP" : focus === "Survival Puzzles" ? "puzzles" : "points";
   const survivalThemeLabel = survivalTheme === "mixed"
     ? "Mixed themes"
@@ -164,6 +177,7 @@ export function LeaderboardTable({
                 <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={focus} onChange={(event) => setFocus(event.target.value as Focus)}>
                   <option>Overall XP</option>
                   <option>Survival Puzzles</option>
+                  {hasHideAndSeekFocus ? <option>Hide and Seek</option> : null}
                   {hasStarWarsFocus ? <option>Star Wars</option> : null}
                 </select>
               </label>
@@ -177,6 +191,12 @@ export function LeaderboardTable({
             )}
           </div>
         </div>
+        {focus === "Hide and Seek" && ranked.length === 0 ? (
+          <div className="mt-4 rounded-md border border-violet-200/20 bg-violet-300/[0.06] p-4" role="status">
+            <p className="font-black text-white">No Hide and Seek attempts found</p>
+            <p className="mt-1 text-sm text-slate-400">No saved attempts match this class and time period yet.</p>
+          </div>
+        ) : null}
         {focus === "Star Wars" && ranked.length === 0 ? (
           <div className="mt-4 rounded-md border border-violet-200/20 bg-violet-300/[0.06] p-4" role="status">
             <p className="font-black text-white">No Star Wars scores found</p>

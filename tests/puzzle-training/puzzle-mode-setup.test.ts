@@ -20,7 +20,15 @@ function renderSetup() {
       survival: { allTimeScore: 29, monthScore: 12, weekScore: 5 },
       survivalByTheme: [],
       latestWoodpeckerCycle: null,
-      woodpecker: { completedCycles: 0, completedSets: 0, recentCycles: [], recentSets: [] }
+      woodpecker: { completedCycles: 0, completedSets: 0, recentCycles: [], recentSets: [] },
+      hideAndSeek: {
+        attempts: 0,
+        personalBest: 0,
+        averageFoundPercent: 0,
+        averageWrongCount: 0,
+        averageElapsedMs: 0,
+        latestAttemptAt: null
+      }
     }
   }));
 }
@@ -36,6 +44,7 @@ describe("puzzle mode setup", () => {
     expect(html).toContain("Woodpecker Method");
     expect(html).toContain("Puzzle of the Day");
     expect(html).toContain("Star Wars");
+    expect(html).toContain("Hide and Seek");
     expect(html).toContain("Learn From Your Mistakes");
     expect(html).toContain("View My Stats");
     expect(html).not.toContain("<select");

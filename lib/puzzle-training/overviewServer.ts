@@ -46,6 +46,15 @@ type WoodpeckerSetRow = {
   completed_at: string;
 };
 
+type HideAndSeekOverviewRow = {
+  attempts: number | string | null;
+  personal_best: number | string | null;
+  average_found_percent: number | string | null;
+  average_wrong_count: number | string | null;
+  average_elapsed_ms: number | string | null;
+  latest_attempt_at: string | null;
+};
+
 function nonNegativeNumber(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
@@ -125,7 +134,8 @@ export async function getStudentPuzzleTrainingOverview(
     overall,
     dailyResult,
     woodpeckerCycleResult,
-    woodpeckerSetResult
+    woodpeckerSetResult,
+    hideAndSeekResult
   ] = await Promise.all([
     preloadedSurvivalScores ?? getSurvivalLeaderboardScores(),
     loadPuzzleAttemptOverview(client, studentId),
@@ -146,12 +156,14 @@ export async function getStudentPuzzleTrainingOverview(
       .select("set_size,cycle_count,selected_theme,started_at,completed_at", { count: "exact" })
       .eq("student_id", studentId)
       .order("completed_at", { ascending: false })
-      .limit(RECENT_WOODPECKER_SET_LIMIT)
+      .limit(RECENT_WOODPECKER_SET_LIMIT),
+    client.rpc("get_student_hide_and_seek_overview", { p_student_id: studentId })
   ]);
 
   if (dailyResult.error) throw new Error(dailyResult.error.message);
   if (woodpeckerCycleResult.error) throw new Error(woodpeckerCycleResult.error.message);
   if (woodpeckerSetResult.error) throw new Error(woodpeckerSetResult.error.message);
+  if (hideAndSeekResult.error) throw new Error(hideAndSeekResult.error.message);
 
   const survivalByTheme = getStudentSurvivalPersonalRecords(survivalScores, studentId);
   const mixedSurvival = survivalByTheme.find((score) => score.theme === "mixed");
@@ -159,6 +171,7 @@ export async function getStudentPuzzleTrainingOverview(
   const completedDailyPuzzles = nonNegativeInteger(dailyResult.count ?? 0);
   const recentCycles = ((woodpeckerCycleResult.data ?? []) as WoodpeckerCycleRow[]).map(mapWoodpeckerCycle);
   const recentSets = ((woodpeckerSetResult.data ?? []) as WoodpeckerSetRow[]).map(mapWoodpeckerSet);
+  const hideAndSeekRow = ((hideAndSeekResult.data ?? []) as HideAndSeekOverviewRow[])[0];
 
   return {
     overall,
@@ -182,6 +195,18 @@ export async function getStudentPuzzleTrainingOverview(
       completedSets: nonNegativeInteger(woodpeckerSetResult.count ?? 0),
       recentCycles,
       recentSets
-    }
+    },
+    hideAndSeek: hideAndSeekRow
+      ? {
+        attempts: nonNegativeInteger(hideAndSeekRow.attempts),
+        personalBest: Math.min(1_000, nonNegativeInteger(hideAndSeekRow.personal_best)),
+        averageFoundPercent: Math.min(100, nonNegativeNumber(hideAndSeekRow.average_found_percent)),
+        averageWrongCount: nonNegativeNumber(hideAndSeekRow.average_wrong_count),
+        averageElapsedMs: nonNegativeInteger(hideAndSeekRow.average_elapsed_ms),
+        latestAttemptAt: typeof hideAndSeekRow.latest_attempt_at === "string"
+          ? hideAndSeekRow.latest_attempt_at
+          : null
+      }
+      : emptyPuzzleTrainingOverview.hideAndSeek
   };
 }

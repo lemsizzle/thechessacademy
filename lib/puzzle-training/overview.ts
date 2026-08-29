@@ -42,6 +42,15 @@ export type WoodpeckerHistoryOverview = {
   recentSets: WoodpeckerSetOverview[];
 };
 
+export type HideAndSeekOverview = {
+  attempts: number;
+  personalBest: number;
+  averageFoundPercent: number;
+  averageWrongCount: number;
+  averageElapsedMs: number;
+  latestAttemptAt: string | null;
+};
+
 export type SurvivalPersonalRecord = Pick<
   SurvivalLeaderboardScore,
   "theme" | "weekScore" | "monthScore" | "allTimeScore"
@@ -54,6 +63,7 @@ export type PuzzleTrainingOverview = {
   survivalByTheme: SurvivalPersonalRecord[];
   latestWoodpeckerCycle: WoodpeckerCycleOverview | null;
   woodpecker: WoodpeckerHistoryOverview;
+  hideAndSeek: HideAndSeekOverview;
 };
 
 export const emptyPuzzleTrainingOverview: PuzzleTrainingOverview = {
@@ -62,7 +72,15 @@ export const emptyPuzzleTrainingOverview: PuzzleTrainingOverview = {
   survival: { weekScore: 0, monthScore: 0, allTimeScore: 0 },
   survivalByTheme: [],
   latestWoodpeckerCycle: null,
-  woodpecker: { completedCycles: 0, completedSets: 0, recentCycles: [], recentSets: [] }
+  woodpecker: { completedCycles: 0, completedSets: 0, recentCycles: [], recentSets: [] },
+  hideAndSeek: {
+    attempts: 0,
+    personalBest: 0,
+    averageFoundPercent: 0,
+    averageWrongCount: 0,
+    averageElapsedMs: 0,
+    latestAttemptAt: null
+  }
 };
 
 export function summarizePuzzleAttempts(

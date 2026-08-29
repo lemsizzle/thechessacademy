@@ -53,6 +53,14 @@ const overview: PuzzleTrainingOverview = {
       startedAt: "2026-08-26T03:00:00.000Z",
       completedAt: "2026-08-27T04:00:00.000Z"
     }]
+  },
+  hideAndSeek: {
+    attempts: 9,
+    personalBest: 948,
+    averageFoundPercent: 84.6,
+    averageWrongCount: 1.2,
+    averageElapsedMs: 41_500,
+    latestAttemptAt: "2026-08-28T05:00:00.000Z"
   }
 };
 
@@ -104,6 +112,16 @@ describe("puzzle training stats", () => {
     expect(html).toContain("20 puzzles × 3 cycles");
     expect(html).toContain("#3");
     expect(html).toContain("Aug 27, 2026");
+  });
+
+  it("shows durable Hide and Seek records", () => {
+    const html = renderStats();
+
+    expect(html).toContain("Board-vision records");
+    expect(html).toContain("948 pts");
+    expect(html).toContain("84.6%");
+    expect(html).toContain("42s");
+    expect(html).toContain("Saved to your student account");
   });
 
   it("keeps browser-only and adaptive stats clearly separated from server records", () => {

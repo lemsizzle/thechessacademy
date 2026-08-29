@@ -10,7 +10,7 @@ describe("puzzle training launcher", () => {
   it("offers every existing puzzle training experience exactly once", () => {
     const ids = PUZZLE_MODE_OPTIONS.map((mode) => mode.id);
 
-    expect(ids).toEqual(["survival", "woodpecker", "daily", "starWars", "adaptiveReview"]);
+    expect(ids).toEqual(["survival", "woodpecker", "daily", "starWars", "hideAndSeek", "adaptiveReview"]);
     expect(new Set(ids).size).toBe(ids.length);
     for (const mode of PUZZLE_MODE_OPTIONS) {
       expect(mode.name.trim()).not.toBe("");

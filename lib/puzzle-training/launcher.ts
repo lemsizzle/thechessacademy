@@ -4,7 +4,7 @@ import {
   WOODPECKER_SET_SIZE_OPTIONS
 } from "@/lib/puzzle-training/modes";
 
-export type PuzzleModeChoice = "daily" | "survival" | "woodpecker" | "starWars" | "adaptiveReview";
+export type PuzzleModeChoice = "daily" | "survival" | "woodpecker" | "starWars" | "hideAndSeek" | "adaptiveReview";
 export type PuzzleLauncherScreen = "choices" | "details" | "stats";
 
 export type PuzzleModeOption = {
@@ -48,6 +48,14 @@ export const PUZZLE_MODE_OPTIONS: ReadonlyArray<PuzzleModeOption> = [
     summary: "Route planning · score attack",
     description: "Plan the complete route before moving. Every move must land a non-pawn piece on exactly one star; the first missed star ends the run.",
     startLabel: "Launch Star Wars"
+  },
+  {
+    id: "hideAndSeek",
+    name: "Hide and Seek",
+    icon: "✦",
+    summary: "Board vision · timed search",
+    description: "Find every empty square the black pieces cannot see. Mark the safe hiding places, then stop the clock to check your accuracy.",
+    startLabel: "Start Hide and Seek"
   },
   {
     id: "adaptiveReview",

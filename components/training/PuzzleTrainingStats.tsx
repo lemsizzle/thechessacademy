@@ -53,6 +53,10 @@ function formatDuration(totalSeconds: number) {
   return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 }
 
+function formatAverage(value: number) {
+  return Number.isInteger(value) ? value.toString() : value.toFixed(1);
+}
+
 function personalSurvivalRecords(overview: PuzzleTrainingOverview) {
   const records = new Map<PuzzleThemeSlug, SurvivalPersonalRecord>();
   records.set("mixed", { theme: "mixed", ...overview.survival });
@@ -234,6 +238,24 @@ export function PuzzleTrainingStatsSummary({
 
       <SurvivalRecords overview={overview} />
       <WoodpeckerHistory overview={overview} />
+
+      <Card className="border-violet-300/20 bg-violet-300/[0.04] p-4 sm:p-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-violet-200">Hide and Seek</p>
+            <h3 className="mt-1 text-xl font-black text-white">Board-vision records</h3>
+          </div>
+          <p className="text-xs text-slate-400">Saved to your student account</p>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+          <StatTile label="Searches" value={overview.hideAndSeek.attempts} />
+          <StatTile label="Personal best" value={`${overview.hideAndSeek.personalBest} pts`} />
+          <StatTile label="Safe squares found" value={`${formatAverage(overview.hideAndSeek.averageFoundPercent)}%`} />
+          <StatTile label="Wrong guesses" value={formatAverage(overview.hideAndSeek.averageWrongCount)} />
+          <StatTile label="Average time" value={formatDuration(overview.hideAndSeek.averageElapsedMs / 1_000)} />
+          <StatTile label="Latest search" value={formatDate(overview.hideAndSeek.latestAttemptAt)} />
+        </div>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(220px,0.65fr)_minmax(0,1.35fr)]">
         <Card className="border-amber-300/20 bg-amber-300/[0.05] p-4 sm:p-5">

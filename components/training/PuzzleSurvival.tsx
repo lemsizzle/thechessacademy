@@ -31,12 +31,17 @@ const StarWarsTraining = dynamic(
   { ssr: false, loading: () => <Card className="p-6 text-sm font-bold text-slate-300">Preparing the Star Wars board...</Card> }
 );
 
+const HideAndSeekTraining = dynamic(
+  () => import("@/components/training/HideAndSeekTraining").then((module) => module.HideAndSeekTraining),
+  { ssr: false, loading: () => <Card className="p-6 text-sm font-bold text-slate-300">Preparing the Hide and Seek board...</Card> }
+);
+
 const AdaptiveReviewTrainer = dynamic(
   () => import("@/chess/components/AdaptiveReviewTrainer").then((module) => module.AdaptiveReviewTrainer),
   { ssr: false, loading: () => <Card className="p-6 text-sm font-bold text-slate-300">Preparing your mistake review...</Card> }
 );
 
-type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "cycle-summary" | "summary" | "error" | "star-wars" | "adaptive-review";
+type TrainerPhase = "select" | "loading" | "turn" | "reply" | "solved" | "cycle-summary" | "summary" | "error" | "star-wars" | "hide-and-seek" | "adaptive-review";
 type TrainingMode = "survival" | "woodpecker" | "daily";
 type WoodpeckerCycleSaveState = "idle" | "saving" | "saved" | "error";
 type PendingWoodpeckerCycleSave = WoodpeckerCycleVerificationInput;
@@ -443,6 +448,12 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
     setPhase("star-wars");
   }
 
+  function startHideAndSeek() {
+    invalidatePuzzleWork();
+    puzzleTransitionLockedRef.current = false;
+    setPhase("hide-and-seek");
+  }
+
   function startAdaptiveReview() {
     invalidatePuzzleWork();
     puzzleTransitionLockedRef.current = false;
@@ -454,6 +465,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
     if (mode === "woodpecker") return startWoodpecker();
     if (mode === "daily") return startDailyPuzzle();
     if (mode === "starWars") return startStarWars();
+    if (mode === "hideAndSeek") return startHideAndSeek();
     if (mode === "adaptiveReview") return startAdaptiveReview();
     const unreachableMode: never = mode;
     return unreachableMode;
@@ -1193,6 +1205,33 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
 
   if (phase === "star-wars") {
     return <StarWarsTraining onExit={() => setPhase("select")} />;
+  }
+
+  if (phase === "hide-and-seek") {
+    return (
+      <HideAndSeekTraining
+        initialBestScore={overview.hideAndSeek.personalBest}
+        onComplete={(completion) => setOverview((current) => {
+          const previous = current.hideAndSeek;
+          const attempts = previous.attempts + 1;
+          const average = (currentAverage: number, nextValue: number) => (
+            Math.round((((currentAverage * previous.attempts) + nextValue) / attempts) * 10) / 10
+          );
+          return {
+            ...current,
+            hideAndSeek: {
+              attempts,
+              personalBest: completion.personalBest,
+              averageFoundPercent: average(previous.averageFoundPercent, completion.foundPercent),
+              averageWrongCount: average(previous.averageWrongCount, completion.wrongCount),
+              averageElapsedMs: Math.round(((previous.averageElapsedMs * previous.attempts) + completion.elapsedMs) / attempts),
+              latestAttemptAt: completion.completedAt
+            }
+          };
+        })}
+        onExit={() => setPhase("select")}
+      />
+    );
   }
 
   if (phase === "adaptive-review") {

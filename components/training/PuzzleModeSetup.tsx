@@ -151,6 +151,24 @@ function StarWarsDetails() {
   );
 }
 
+function HideAndSeekDetails() {
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      {[
+        ["1", "Study the board", "The timer begins only when you reveal the scattered black pieces."],
+        ["2", "Stamp safe squares", "Tap each empty square that no black piece can see. Pieces block sliding attacks."],
+        ["3", "Stop and score", "Accuracy matters most, with a smaller bonus for finding every hiding place quickly."]
+      ].map(([step, title, description]) => (
+        <div key={step} className="rounded-lg border border-emerald-200/20 bg-emerald-300/5 p-4">
+          <span className="grid size-8 place-items-center rounded-full border border-emerald-200/30 bg-emerald-300/10 text-sm font-black text-emerald-100">{step}</span>
+          <p className="mt-3 font-black text-white">{title}</p>
+          <p className="mt-1 text-sm leading-5 text-slate-400">{description}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ModeDetails({
   mode,
   selectedTheme,
@@ -184,6 +202,7 @@ function ModeDetails({
     );
   }
   if (mode === "starWars") return <StarWarsDetails />;
+  if (mode === "hideAndSeek") return <HideAndSeekDetails />;
   if (mode === "daily") {
     return (
       <div className="rounded-lg border border-amber-300/25 bg-amber-300/[0.07] p-4">

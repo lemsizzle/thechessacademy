@@ -18,7 +18,10 @@ type TableFixture = {
   maxRows?: number;
 };
 
-function createServiceClient(fixtures: Record<string, TableFixture>) {
+function createServiceClient(
+  fixtures: Record<string, TableFixture>,
+  rpcFixtures: Record<string, { data?: unknown; error?: { message: string } | null }> = {}
+) {
   const from = vi.fn((table: string) => {
     const fixture = fixtures[table] ?? { rows: [] };
     let limit: number | null = null;
@@ -58,7 +61,12 @@ function createServiceClient(fixtures: Record<string, TableFixture>) {
     return query;
   });
 
-  return { from };
+  const rpc = vi.fn(async (name: string) => ({
+    data: rpcFixtures[name]?.data ?? [],
+    error: rpcFixtures[name]?.error ?? null
+  }));
+
+  return { from, rpc };
 }
 
 describe("getStudentPuzzleTrainingOverview", () => {
@@ -121,6 +129,17 @@ describe("getStudentPuzzleTrainingOverview", () => {
           completed_at: "2026-08-28T08:00:00.000Z"
         }]
       }
+    }, {
+      get_student_hide_and_seek_overview: {
+        data: [{
+          attempts: "9",
+          personal_best: "948",
+          average_found_percent: "84.6",
+          average_wrong_count: "1.2",
+          average_elapsed_ms: "41500",
+          latest_attempt_at: "2026-08-28T05:00:00.000Z"
+        }]
+      }
     });
     mocks.getSupabaseServiceClient.mockReturnValue(client);
     mocks.getSurvivalLeaderboardScores.mockResolvedValue([
@@ -165,6 +184,15 @@ describe("getStudentPuzzleTrainingOverview", () => {
       startedAt: "2026-08-27T07:00:00.000Z",
       completedAt: "2026-08-28T08:00:00.000Z"
     }]);
+    expect(overview.hideAndSeek).toEqual({
+      attempts: 9,
+      personalBest: 948,
+      averageFoundPercent: 84.6,
+      averageWrongCount: 1.2,
+      averageElapsedMs: 41_500,
+      latestAttemptAt: "2026-08-28T05:00:00.000Z"
+    });
+    expect(client.rpc).toHaveBeenCalledWith("get_student_hide_and_seek_overview", { p_student_id: "student-a" });
     expect(client.from.mock.calls.filter(([table]) => table === "student_puzzle_attempts")).toHaveLength(2);
   });
 
