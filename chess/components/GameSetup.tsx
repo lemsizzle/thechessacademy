@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BotPortrait } from "@/chess/components/BotPortrait";
 import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { getBotUnlockRequirement, isBotUnlocked } from "@/chess/bots/progression";
 import { resolvePlayerColor } from "@/chess/game/colors";
 import { TIME_CONTROLS } from "@/chess/game/timeControls";
 import type { BotDifficulty, ComputerGameConfig, PlayerColorChoice, TimeControl } from "@/chess/types";
@@ -15,7 +16,7 @@ const colorChoices: Array<{ id: PlayerColorChoice; label: string; symbol: string
   { id: "random", label: "Random", symbol: "◈" }
 ];
 
-export function GameSetup({ onStart }: { onStart: (config: ComputerGameConfig) => void }) {
+export function GameSetup({ unlockedBotIds, onStart }: { unlockedBotIds: string[]; onStart: (config: ComputerGameConfig) => void }) {
   const [bot, setBot] = useState<BotDifficulty>(BOT_DIFFICULTIES[0]);
   const [color, setColor] = useState<PlayerColorChoice>("white");
   const [timeControl, setTimeControl] = useState<TimeControl>(TIME_CONTROLS[0]);
@@ -26,20 +27,36 @@ export function GameSetup({ onStart }: { onStart: (config: ComputerGameConfig) =
         <div className="border-b border-white/10 bg-gradient-to-r from-cyan-300/10 via-transparent to-amber-300/10 p-4 sm:p-6">
           <p className="text-xs font-black uppercase tracking-[.2em] text-cyan-200">Vs Computer</p>
           <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">Choose your academy opponent</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Pick a rival, choose your side, and set the clock. You can change everything before each new game.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Pawny and Sir Lem are always ready. Defeat each academy bot to unlock the next challenge.</p>
         </div>
         <div className="min-w-0 p-4 sm:p-6">
           <fieldset>
             <legend className="text-sm font-black uppercase tracking-wider text-slate-300">Opponent</legend>
             <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
-              {BOT_DIFFICULTIES.map((difficulty) => (
-                <button key={difficulty.id} type="button" onClick={() => setBot(difficulty)} aria-pressed={bot.id === difficulty.id} className={`h-full min-h-48 min-w-0 overflow-hidden rounded-lg border p-3 text-left transition active:scale-[.99] sm:min-h-64 sm:p-4 ${bot.id === difficulty.id ? "border-amber-300 bg-amber-300/12 shadow-gold" : "border-white/10 bg-slate-950/60 hover:border-cyan-200/35 hover:bg-cyan-300/5"}`}>
-                  <BotPortrait src={difficulty.portrait} size="card" selected={bot.id === difficulty.id} />
-                  <span className="mt-2 block text-base font-black text-white sm:text-lg">{difficulty.name}</span>
-                  <span className="block break-words text-[11px] font-bold uppercase leading-4 text-cyan-200 sm:text-xs sm:leading-5">{difficulty.title} · ~{difficulty.estimatedRating}</span>
-                  <span className="mt-2 hidden text-pretty text-xs leading-5 text-slate-400 sm:block">{difficulty.description}</span>
-                </button>
-              ))}
+              {BOT_DIFFICULTIES.map((difficulty) => {
+                const locked = !isBotUnlocked(difficulty.id, unlockedBotIds);
+                const requirement = getBotUnlockRequirement(difficulty.id);
+                const descriptionId = `bot-${difficulty.id}-status`;
+                return (
+                  <button
+                    key={difficulty.id}
+                    type="button"
+                    disabled={locked}
+                    onClick={() => setBot(difficulty)}
+                    aria-pressed={bot.id === difficulty.id}
+                    aria-describedby={descriptionId}
+                    className={`relative h-full min-h-48 min-w-0 overflow-hidden rounded-lg border p-3 text-left transition sm:min-h-64 sm:p-4 ${locked ? "cursor-not-allowed border-white/10 bg-slate-950/80 opacity-55" : bot.id === difficulty.id ? "border-amber-300 bg-amber-300/12 shadow-gold active:scale-[.99]" : "border-white/10 bg-slate-950/60 hover:border-cyan-200/35 hover:bg-cyan-300/5 active:scale-[.99]"}`}
+                  >
+                    {locked ? <span className="absolute right-2 top-2 z-10 rounded-full border border-white/15 bg-slate-950/90 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-200">🔒 Locked</span> : null}
+                    <BotPortrait src={difficulty.portrait} size="card" selected={!locked && bot.id === difficulty.id} />
+                    <span className="mt-2 block text-base font-black text-white sm:text-lg">{difficulty.name}</span>
+                    <span className="block break-words text-[11px] font-bold uppercase leading-4 text-cyan-200 sm:text-xs sm:leading-5">{difficulty.title} · ~{difficulty.estimatedRating}</span>
+                    <span id={descriptionId} className={`mt-2 block text-pretty text-xs font-bold leading-5 ${locked ? "text-amber-100" : "hidden text-slate-400 sm:block"}`}>
+                      {locked && requirement ? `Defeat ${requirement.botName} to unlock.` : difficulty.description}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </fieldset>
 

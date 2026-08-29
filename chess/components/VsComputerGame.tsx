@@ -25,8 +25,9 @@ const boardColumnStyle = {
   width: "min(100%, 700px, max(80px, calc(100dvh - 14.25rem)))"
 };
 
-export function VsComputerGame({ studentName, studentAvatar, avatarItems }: { studentName: string; studentAvatar: StudentAvatarConfig; avatarItems: AvatarItem[] }) {
-  const game = useComputerGame();
+export function VsComputerGame({ studentName, studentAvatar, avatarItems, initialUnlockedBotIds }: { studentName: string; studentAvatar: StudentAvatarConfig; avatarItems: AvatarItem[]; initialUnlockedBotIds: string[] }) {
+  const [unlockedBotIds, setUnlockedBotIds] = useState(initialUnlockedBotIds);
+  const game = useComputerGame(setUnlockedBotIds);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [addStudyOpen, setAddStudyOpen] = useState(false);
   const [annotationMode, setAnnotationMode] = useState<"arrow" | "circle" | null>(null);
@@ -41,7 +42,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems }: { st
     setAnnotationStart(null);
   }, [game.fen]);
 
-  if (!game.config) return <GameSetup onStart={(config) => {
+  if (!game.config) return <GameSetup unlockedBotIds={unlockedBotIds} onStart={(config) => {
     clearBoardAnnotations();
     setAnnotationMode(null);
     game.startGame(config);

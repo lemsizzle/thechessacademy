@@ -4,12 +4,16 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
+import { getStudentBotProgression } from "@/chess/persistence/botProgressionServer";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentPlayPage() {
   const student = await requireActiveStudent();
-  const avatarDisplay = await getStudentAvatarDisplayData([student.studentId]);
+  const [avatarDisplay, botProgression] = await Promise.all([
+    getStudentAvatarDisplayData([student.studentId]),
+    getStudentBotProgression(student.studentId)
+  ]);
   const studentAvatar = avatarDisplay.avatars[student.studentId];
   const equippedItemIds = new Set(Object.values(studentAvatar.equippedItems));
   const equippedAvatarItems = avatarDisplay.items.filter((item) => equippedItemIds.has(item.id));
@@ -41,7 +45,7 @@ export default async function StudentPlayPage() {
         </div>
         <div>
           <p className="mb-3 text-xs font-black uppercase tracking-wider text-slate-400">Play the computer</p>
-          <VsComputerGame studentName={student.name} studentAvatar={studentAvatar} avatarItems={equippedAvatarItems} />
+          <VsComputerGame studentName={student.name} studentAvatar={studentAvatar} avatarItems={equippedAvatarItems} initialUnlockedBotIds={botProgression.unlockedBotIds} />
         </div>
       </div>
     </StudentPortalShell>

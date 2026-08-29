@@ -1,10 +1,13 @@
 import "server-only";
 
+import { getBotProgression } from "@/chess/bots/progression";
+import { requireStudentBotUnlocked } from "@/chess/persistence/botProgressionServer";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { validateCompletedGame } from "@/chess/persistence/completedGame";
 
 export async function saveCompletedGame(studentId: string, payload: unknown) {
   const game = validateCompletedGame(payload);
+  const progression = await requireStudentBotUnlocked(studentId, game.opponentId);
   const supabase = getSupabaseServiceClient();
   if (!supabase) throw new Error("Completed game storage is not configured.");
 
@@ -32,5 +35,11 @@ export async function saveCompletedGame(studentId: string, payload: unknown) {
     .single();
 
   if (error) throw new Error(error.message);
-  return { id: (data as { id: string }).id };
+  const updatedProgression = game.result === "win"
+    ? getBotProgression([...progression.defeatedBotIds, game.opponentId])
+    : progression;
+  return {
+    id: (data as { id: string }).id,
+    unlockedBotIds: updatedProgression.unlockedBotIds
+  };
 }

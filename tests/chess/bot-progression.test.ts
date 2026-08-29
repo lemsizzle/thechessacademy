@@ -1,0 +1,109 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { getBotProgression, getBotUnlockRequirement } from "@/chess/bots/progression";
+import { GameSetup } from "@/chess/components/GameSetup";
+
+const mocks = vi.hoisted(() => ({
+  getSupabaseServiceClient: vi.fn()
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  getSupabaseServiceClient: mocks.getSupabaseServiceClient
+}));
+
+import { getStudentBotProgression, requireStudentBotUnlocked } from "@/chess/persistence/botProgressionServer";
+
+function computerWinsQuery(opponentIds: string[]) {
+  const query: {
+    select: ReturnType<typeof vi.fn>;
+    eq: ReturnType<typeof vi.fn>;
+  } = {
+    select: vi.fn(),
+    eq: vi.fn()
+  };
+  query.select.mockReturnValue(query);
+  query.eq
+    .mockReturnValueOnce(query)
+    .mockReturnValueOnce(query)
+    .mockResolvedValueOnce({
+      data: opponentIds.map((opponentId) => ({ opponent_id: opponentId })),
+      error: null
+    });
+  return {
+    from: vi.fn().mockReturnValue(query),
+    query
+  };
+}
+
+function botButton(markup: string, botName: string) {
+  const nameIndex = markup.indexOf(`>${botName}<`);
+  const buttonStart = markup.lastIndexOf("<button", nameIndex);
+  const buttonEnd = markup.indexOf("</button>", nameIndex);
+  return markup.slice(buttonStart, buttonEnd);
+}
+
+describe("computer opponent progression", () => {
+  beforeEach(() => {
+    mocks.getSupabaseServiceClient.mockReset();
+  });
+
+  it("starts every student with only Pawny and Sir Lem unlocked", () => {
+    expect(getBotProgression([]).unlockedBotIds).toEqual(["pawny", "so-pawny"]);
+  });
+
+  it("unlocks each academy bot only after the previous bot is defeated", () => {
+    expect(getBotProgression(["pawny"]).unlockedBotIds).toEqual(["pawny", "knight", "so-pawny"]);
+    expect(getBotProgression(["pawny", "knight"]).unlockedBotIds).toEqual(["pawny", "knight", "bishop", "so-pawny"]);
+    expect(getBotProgression(["pawny", "knight", "bishop", "rook"]).unlockedBotIds).toEqual(
+      BOT_DIFFICULTIES.map((bot) => bot.id)
+    );
+  });
+
+  it("does not let historical wins skip an earlier opponent", () => {
+    const progression = getBotProgression(["knight", "bishop", "rook", "queen", "so-pawny"]);
+    expect(progression.unlockedBotIds).toEqual(["pawny", "so-pawny"]);
+  });
+
+  it("explains which opponent unlocks a locked bot", () => {
+    expect(getBotUnlockRequirement("knight")).toEqual({ botId: "pawny", botName: "Pawny" });
+    expect(getBotUnlockRequirement("queen")).toEqual({ botId: "rook", botName: "Rocky Rook" });
+    expect(getBotUnlockRequirement("so-pawny")).toBeNull();
+  });
+
+  it("renders the starting bots as playable and later bots as disabled", () => {
+    const markup = renderToStaticMarkup(createElement(GameSetup, {
+      unlockedBotIds: ["pawny", "so-pawny"],
+      onStart: vi.fn()
+    }));
+
+    expect(botButton(markup, "Pawny")).not.toContain("disabled");
+    expect(botButton(markup, "Sir Lem")).not.toContain("disabled");
+    expect(botButton(markup, "Zippy Knight")).toContain("disabled");
+    expect(botButton(markup, "Zippy Knight")).toContain("Defeat Pawny to unlock.");
+    expect(botButton(markup, "Benny Bishop")).toContain("disabled");
+  });
+
+  it("derives current-student unlocks from saved computer wins", async () => {
+    const client = computerWinsQuery(["pawny", "knight"]);
+    mocks.getSupabaseServiceClient.mockReturnValue(client);
+
+    await expect(getStudentBotProgression("student-1")).resolves.toEqual({
+      defeatedBotIds: ["pawny", "knight"],
+      unlockedBotIds: ["pawny", "knight", "bishop", "so-pawny"]
+    });
+    expect(client.from).toHaveBeenCalledWith("internal_chess_games");
+    expect(client.query.eq).toHaveBeenNthCalledWith(1, "player_id", "student-1");
+    expect(client.query.eq).toHaveBeenNthCalledWith(2, "opponent_type", "computer");
+    expect(client.query.eq).toHaveBeenNthCalledWith(3, "result", "win");
+  });
+
+  it("rejects a locked opponent on the server", async () => {
+    mocks.getSupabaseServiceClient.mockReturnValue(computerWinsQuery(["pawny"]));
+
+    await expect(requireStudentBotUnlocked("student-1", "bishop")).rejects.toThrow(
+      "Defeat Zippy Knight to unlock this opponent."
+    );
+  });
+});
