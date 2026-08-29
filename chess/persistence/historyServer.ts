@@ -13,6 +13,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
 type HistoryRow = {
   id: string;
+  game_mode: "live" | "correspondence" | null;
   opponent_type: Exclude<ChessHistoryMode, "all">;
   opponent_name: string;
   player_color: "white" | "black";
@@ -60,6 +61,7 @@ async function countGames(
 function mapHistoryGame(row: HistoryRow): ChessHistoryGame {
   return {
     id: row.id,
+    gameMode: row.game_mode ?? "live",
     opponentType: row.opponent_type,
     opponentName: row.opponent_name,
     playerColor: row.player_color,
@@ -81,7 +83,7 @@ export async function getStudentChessHistory(
   let pageQuery = client()
     .from("internal_chess_games")
     .select(
-      "id,opponent_type,opponent_name,player_color,result,result_reason,moves,started_at,completed_at,time_control",
+      "id,game_mode,opponent_type,opponent_name,player_color,result,result_reason,moves,started_at,completed_at,time_control",
       { count: "exact" }
     )
     .eq("player_id", studentId);

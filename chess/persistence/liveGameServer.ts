@@ -3,7 +3,7 @@ import "server-only";
 import { Chess } from "chess.js";
 import { oppositeColor, resolvePlayerColor } from "@/chess/game/colors";
 import { TIME_CONTROLS } from "@/chess/game/timeControls";
-import { liveClockAt, livePlayerColor, replayLiveMoves, timeoutCompletion, applyLiveMove, LiveGameRuleError, type LiveGameCompletion } from "@/chess/live/rules";
+import { liveClockAt, livePlayerColor, replayLiveMoves, timeoutCompletion, correspondenceTimeoutCompletion, applyLiveMove, LiveGameRuleError, type LiveGameCompletion } from "@/chess/live/rules";
 import { cleanChallengeCode, generateChallengeCode, isSupportedChallengeCode, MAX_CHALLENGE_CODE_ATTEMPTS } from "@/chess/live/challengeCode";
 import type { LiveGameAction, LiveGamePlayer, LiveGameRecord, LiveGameSnapshot, LiveGameSummary, LiveMoveInput, TeacherLiveGameSnapshot, TeacherLiveGameSummary } from "@/chess/live/types";
 import type { ChessColor, GameResult, PlayerColorChoice } from "@/chess/types";
@@ -28,7 +28,13 @@ function serviceClient() {
 }
 
 function normalizeRecord(value: unknown) {
-  return value as LiveGameRecord;
+  const record = value as LiveGameRecord;
+  return {
+    ...record,
+    game_mode: record.game_mode ?? "live",
+    days_per_move: record.days_per_move ?? null,
+    turn_deadline_at: record.turn_deadline_at ?? null
+  } satisfies LiveGameRecord;
 }
 
 function cleanGameId(value: string) {
@@ -116,6 +122,9 @@ async function snapshotFor(game: LiveGameRecord, studentId: string): Promise<Liv
     status: game.status,
     version: game.version,
     realtimeTopic: `live-game:${game.id}:${game.realtime_token}`,
+    gameMode: game.game_mode,
+    daysPerMove: game.days_per_move,
+    turnDeadlineAt: game.turn_deadline_at,
     viewer: { id: studentId, color: viewerColor },
     players: {
       white: game.white_player_id ? players.get(game.white_player_id) ?? { id: game.white_player_id, name: "Student" } : null,
@@ -193,7 +202,7 @@ async function pgnFor(game: LiveGameRecord, completion: LiveGameCompletion, comp
   const blackName = game.black_player_id ? players.get(game.black_player_id)?.name ?? "Student" : "Student";
   const result = completion.winnerColor === "white" ? "1-0" : completion.winnerColor === "black" ? "0-1" : "1/2-1/2";
   chess.header(
-    "Event", "Chess Academy Live Game",
+    "Event", game.game_mode === "correspondence" ? "Chess Academy Correspondence Game" : "Chess Academy Live Game",
     "Site", "The Chess Academy",
     "Date", completedAt.slice(0, 10).replaceAll("-", "."),
     "White", whiteName,
@@ -239,7 +248,8 @@ async function persistCompletedPlayers(game: LiveGameRecord) {
       moves: game.moves,
       started_at: game.started_at,
       completed_at: game.completed_at,
-      source_live_game_id: game.id
+      source_live_game_id: game.id,
+      game_mode: game.game_mode
   }));
   if (!missing.length) return;
   const { error } = await serviceClient().from("internal_chess_games").insert(missing);
@@ -247,9 +257,72 @@ async function persistCompletedPlayers(game: LiveGameRecord) {
 }
 
 async function persistCompletedOutputs(game: LiveGameRecord) {
-  await persistCompletedPlayers(game);
-  if (game.rated) await applyRatingForCompletedGame(game.id);
-  if (game.arena_tournament_id) await finalizeInternalArenaGame(game.id);
+  let completedGame = game;
+  if (game.status === "completed" && !game.pgn && game.result_reason && game.completed_at) {
+    const pgn = await pgnFor(game, { winnerColor: game.winner_color, reason: game.result_reason }, game.completed_at);
+    const { data, error } = await serviceClient()
+      .from("live_chess_games")
+      .update({ pgn })
+      .eq("id", game.id)
+      .eq("version", game.version)
+      .select("*")
+      .maybeSingle();
+    if (error) throw new LiveGameServerError(error.message, 500);
+    if (data) completedGame = normalizeRecord(data);
+  }
+  await persistCompletedPlayers(completedGame);
+  if (completedGame.rated && completedGame.game_mode === "live") await applyRatingForCompletedGame(completedGame.id);
+  if (completedGame.game_mode === "live" && completedGame.arena_tournament_id) await finalizeInternalArenaGame(completedGame.id);
+}
+
+type SettledCorrespondenceResult = { settledGameIds?: unknown; settled_game_ids?: unknown };
+
+export async function settleCorrespondenceDeadlines(input: { studentId?: string; gameId?: string } = {}) {
+  const { data, error } = await serviceClient().rpc("settle_correspondence_game_deadlines", {
+    p_student_id: input.studentId ?? null,
+    p_game_id: input.gameId ? cleanGameId(input.gameId) : null
+  });
+  if (error) throw new LiveGameServerError(error.message, 500);
+  const result = data && typeof data === "object" ? data as SettledCorrespondenceResult : {};
+  const rawIds = result.settledGameIds ?? result.settled_game_ids;
+  const settledGameIds = Array.isArray(rawIds)
+    ? rawIds.map(String).filter((id) => UUID_PATTERN.test(id))
+    : [];
+  for (const settledGameId of settledGameIds) {
+    const settled = await loadRecord(settledGameId);
+    await persistCompletedOutputs(settled);
+  }
+  return settledGameIds;
+}
+
+export async function persistRecentCorrespondenceCompletions(studentId: string) {
+  const gameResult = await serviceClient()
+    .from("live_chess_games")
+    .select("*")
+    .eq("game_mode", "correspondence")
+    .eq("status", "completed")
+    .or(`white_player_id.eq.${studentId},black_player_id.eq.${studentId}`)
+    .order("completed_at", { ascending: false })
+    .limit(20);
+  if (gameResult.error) throw new LiveGameServerError(gameResult.error.message, 500);
+  const games = (gameResult.data ?? []).map(normalizeRecord);
+  if (!games.length) return;
+  const gameIds = games.map((game) => game.id);
+  const persistedResult = await serviceClient()
+    .from("internal_chess_games")
+    .select("source_live_game_id,player_id")
+    .in("source_live_game_id", gameIds);
+  if (persistedResult.error) throw new LiveGameServerError(persistedResult.error.message, 500);
+  const counts = new Map<string, Set<string>>();
+  for (const row of persistedResult.data ?? []) {
+    const gameId = String(row.source_live_game_id ?? "");
+    const players = counts.get(gameId) ?? new Set<string>();
+    players.add(String(row.player_id ?? ""));
+    counts.set(gameId, players);
+  }
+  for (const game of games) {
+    if ((counts.get(game.id)?.size ?? 0) < 2) await persistCompletedOutputs(game);
+  }
 }
 
 async function updateWithVersion(game: LiveGameRecord, update: Record<string, unknown>) {
@@ -260,7 +333,13 @@ async function updateWithVersion(game: LiveGameRecord, update: Record<string, un
     .eq("version", game.version)
     .select("*")
     .maybeSingle();
-  if (error) throw new LiveGameServerError(error.message, 500);
+  if (error) {
+    if (game.game_mode === "correspondence" && error.message.toLowerCase().includes("deadline")) {
+      await settleCorrespondenceDeadlines({ gameId: game.id });
+      throw new LiveGameServerError("The correspondence move deadline expired before this action was received.", 409);
+    }
+    throw new LiveGameServerError(error.message, 500);
+  }
   if (!data) throw new LiveGameServerError("The game changed. Refresh and try again.", 409);
   return normalizeRecord(data);
 }
@@ -276,6 +355,9 @@ export async function createLiveGame(studentId: string, input: unknown) {
     const { data, error } = await serviceClient().from("live_chess_games").insert({
       challenge_code: generateChallengeCode(),
       created_by: studentId,
+      game_mode: "live",
+      days_per_move: null,
+      turn_deadline_at: null,
       white_player_id: creatorColor === "white" ? studentId : null,
       black_player_id: creatorColor === "black" ? studentId : null,
       status: "waiting",
@@ -316,7 +398,11 @@ export async function joinLiveGame(studentId: string, input: unknown) {
 }
 
 export async function getLiveGame(studentId: string, gameId: string) {
-  const game = await loadRecord(gameId);
+  let game = await loadRecord(gameId);
+  if (game.game_mode === "correspondence" && game.status === "active") {
+    await settleCorrespondenceDeadlines({ studentId, gameId: game.id });
+    game = await loadRecord(game.id);
+  }
   if (game.status === "completed") await persistCompletedOutputs(game);
   return snapshotFor(await loadRecord(gameId), studentId);
 }
@@ -325,6 +411,7 @@ export async function listLiveGames(studentId: string): Promise<LiveGameSummary[
   const { data, error } = await serviceClient()
     .from("live_chess_games")
     .select("*")
+    .eq("game_mode", "live")
     .or(`white_player_id.eq.${studentId},black_player_id.eq.${studentId}`)
     .order("updated_at", { ascending: false })
     .limit(20);
@@ -338,6 +425,9 @@ export async function listLiveGames(studentId: string): Promise<LiveGameSummary[
       id: game.id,
       challengeCode: game.challenge_code,
       status: game.status,
+      gameMode: game.game_mode,
+      daysPerMove: game.days_per_move,
+      turnDeadlineAt: game.turn_deadline_at,
       viewerColor,
       opponent: opponentId ? players.get(opponentId) ?? { id: opponentId, name: "Student" } : null,
       timeControl: game.time_control,
@@ -356,6 +446,7 @@ export async function listTeacherLiveGames(): Promise<TeacherLiveGameSummary[]> 
     .from("live_chess_games")
     .select("*")
     .eq("status", "active")
+    .eq("game_mode", "live")
     .order("updated_at", { ascending: false });
   if (error) throw new LiveGameServerError(error.message, 500);
   const games = (data ?? []).map(normalizeRecord);
@@ -379,7 +470,7 @@ export async function listTeacherLiveGames(): Promise<TeacherLiveGameSummary[]> 
 
 export async function getTeacherLiveGame(gameId: string) {
   const game = await loadRecord(gameId);
-  if (game.status === "waiting" || game.status === "cancelled") throw new LiveGameServerError("This game is not available to watch.", 404);
+  if (game.game_mode !== "live" || game.status === "waiting" || game.status === "cancelled") throw new LiveGameServerError("This game is not available to watch.", 404);
   return teacherSnapshotFor(game);
 }
 
@@ -393,7 +484,15 @@ export async function submitLiveMove(studentId: string, gameId: string, input: u
   };
   if (!/^[a-h][1-8]$/.test(moveInput.from) || !/^[a-h][1-8]$/.test(moveInput.to)) throw new LiveGameServerError("Invalid move coordinates.");
   if (moveInput.promotion && !["q", "r", "b", "n"].includes(moveInput.promotion)) throw new LiveGameServerError("Invalid promotion piece.");
-  const game = await loadRecord(gameId);
+  let game = await loadRecord(gameId);
+  if (game.game_mode === "correspondence" && game.status === "active") {
+    await settleCorrespondenceDeadlines({ studentId, gameId: game.id });
+    game = await loadRecord(game.id);
+    if (game.status === "completed" && game.result_reason === "timeout") {
+      await persistCompletedOutputs(game);
+      throw new LiveGameServerError("The correspondence move deadline expired before this move was received.", 409);
+    }
+  }
   let applied;
   try {
     applied = applyLiveMove(game, studentId, moveInput, Date.now());
@@ -430,6 +529,7 @@ async function completeByAction(game: LiveGameRecord, completion: LiveGameComple
     winner_color: completion.winnerColor,
     result_reason: completion.reason,
     draw_offered_by: null,
+    turn_deadline_at: null,
     completed_at: completedAt,
     version: game.version + 1
   };
@@ -447,10 +547,24 @@ export async function performLiveGameAction(studentId: string, gameId: string, i
   if (!["cancel", "resign", "offer_draw", "accept_draw", "decline_draw", "claim_timeout"].includes(action)) {
     throw new LiveGameServerError("Invalid live game action.");
   }
-  const game = await loadRecord(gameId);
+  let game = await loadRecord(gameId);
+  if (game.game_mode === "correspondence" && game.status === "active") {
+    await settleCorrespondenceDeadlines({ studentId, gameId: game.id });
+    game = await loadRecord(game.id);
+    if (action === "claim_timeout" && game.status === "completed" && game.result_reason === "timeout") {
+      await persistCompletedOutputs(game);
+      return snapshotFor(game, studentId);
+    }
+  }
   if (version !== game.version) throw new LiveGameServerError("The game changed. Refresh and try again.", 409);
   const playerColor = assertParticipant(game, studentId);
   const nowMs = Date.now();
+  if (correspondenceTimeoutCompletion(game, nowMs)) {
+    await settleCorrespondenceDeadlines({ studentId, gameId: game.id });
+    const settled = await loadRecord(game.id);
+    if (action === "claim_timeout") return snapshotFor(settled, studentId);
+    throw new LiveGameServerError("The correspondence move deadline expired before this action was received.", 409);
+  }
 
   if (action === "cancel") {
     if (game.status !== "waiting" || game.created_by !== studentId) throw new LiveGameServerError("Only the challenge creator can cancel a waiting game.", 403);
@@ -463,7 +577,9 @@ export async function performLiveGameAction(studentId: string, gameId: string, i
   if (action === "resign") {
     updated = await completeByAction(game, { winnerColor: oppositeColor(playerColor), reason: "resignation" }, nowMs);
   } else if (action === "claim_timeout") {
-    const completion = timeoutCompletion(game, nowMs);
+    const completion = game.game_mode === "correspondence"
+      ? correspondenceTimeoutCompletion(game, nowMs)
+      : timeoutCompletion(game, nowMs);
     if (!completion) throw new LiveGameServerError("Neither clock has expired.");
     updated = await completeByAction(game, completion, nowMs);
   } else if (action === "offer_draw") {
@@ -483,6 +599,9 @@ export async function requestLiveGameRematch(studentId: string, gameId: string) 
   cleanGameId(gameId);
   const source = await loadRecord(gameId);
   assertParticipant(source, studentId);
+  if (source.game_mode === "correspondence") {
+    throw new LiveGameServerError("Start a new correspondence challenge instead of requesting a live rematch.", 409);
+  }
   if (source.arena_tournament_id) {
     throw new LiveGameServerError("Arena opponents are assigned by tournament matchmaking.", 409);
   }

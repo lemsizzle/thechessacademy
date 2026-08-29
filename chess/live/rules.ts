@@ -68,6 +68,7 @@ export function applyLiveMove(game: LiveGameRecord, studentId: string, input: Li
   const playerColor = livePlayerColor(game, studentId);
   if (!playerColor) throw new LiveGameRuleError("You are not a player in this game.");
   if (playerColor !== game.active_color) throw new LiveGameRuleError("It is not your turn.");
+  if (correspondenceTimeoutCompletion(game, nowMs)) throw new LiveGameRuleError("The correspondence move deadline has expired.");
 
   const currentClock = runningClock(game);
   const clockBeforeMove = currentClock ? clockAt(currentClock, nowMs) : null;
@@ -97,6 +98,9 @@ export function applyLiveMove(game: LiveGameRecord, studentId: string, input: Li
   const nextClock = currentClock
     ? completeClockMove(currentClock, playerColor, game.time_control.incrementMs, nowMs)
     : null;
+  const correspondenceDeadline = game.game_mode === "correspondence" && !completion
+    ? new Date(nowMs + (game.days_per_move ?? 3) * 24 * 60 * 60 * 1_000).toISOString()
+    : null;
 
   return {
     savedMove,
@@ -113,10 +117,19 @@ export function applyLiveMove(game: LiveGameRecord, studentId: string, input: Li
       winner_color: completion?.winnerColor ?? null,
       result_reason: completion?.reason ?? null,
       completed_at: completion ? new Date(nowMs).toISOString() : null,
+      turn_deadline_at: correspondenceDeadline,
       version: game.version + 1
     },
     chess
   };
+}
+
+export function correspondenceTimeoutCompletion(game: LiveGameRecord, nowMs: number): LiveGameCompletion | null {
+  if (game.status !== "active" || game.game_mode !== "correspondence" || !game.turn_deadline_at) return null;
+  const deadlineMs = Date.parse(game.turn_deadline_at);
+  if (!Number.isFinite(deadlineMs)) throw new LiveGameRuleError("The correspondence deadline is invalid.");
+  if (nowMs < deadlineMs) return null;
+  return { winnerColor: oppositeColor(game.active_color), reason: "timeout" };
 }
 
 export function timeoutCompletion(game: LiveGameRecord, nowMs: number): LiveGameCompletion | null {

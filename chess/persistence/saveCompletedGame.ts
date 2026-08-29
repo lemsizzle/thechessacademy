@@ -15,6 +15,7 @@ export async function saveCompletedGame(studentId: string, payload: unknown) {
     .from("internal_chess_games")
     .insert({
       player_id: studentId,
+      game_mode: "live",
       opponent_type: game.opponentType,
       opponent_id: game.opponentId,
       opponent_name: game.opponentName,

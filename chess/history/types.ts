@@ -13,6 +13,7 @@ export type ChessHistoryFilters = {
 
 export type ChessHistoryGame = {
   id: string;
+  gameMode: "live" | "correspondence";
   opponentType: Exclude<ChessHistoryMode, "all">;
   opponentName: string;
   playerColor: "white" | "black";

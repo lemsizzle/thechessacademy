@@ -56,6 +56,7 @@ export type CompletedGameMove = {
 
 export type CompletedGameRecord = {
   id: string;
+  gameMode: "live" | "correspondence";
   playerId: string;
   opponentName: string;
   playerColor: "white" | "black";

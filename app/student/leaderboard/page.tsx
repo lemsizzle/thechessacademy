@@ -7,10 +7,13 @@ import { getXpEventsResult } from "@/lib/data/xpEvents";
 import { getHideAndSeekLeaderboardScores } from "@/lib/leaderboard/hideAndSeekServer";
 import { getStarWarsLeaderboardScores } from "@/lib/leaderboard/starWarsServer";
 import { getSurvivalLeaderboardScores } from "@/lib/leaderboard/survivalServer";
+import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
+import { sessionToStudentUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentLeaderboardPage() {
+  const session = await requireActiveStudent();
   const [students, xpEvents, badges, survivalScores, hideAndSeekScores, starWarsScores] = await Promise.all([
     getStudentsResult(),
     getXpEventsResult(),
@@ -22,7 +25,7 @@ export default async function StudentLeaderboardPage() {
   const avatarDisplay = await getStudentAvatarDisplayData(students.data.map((student) => student.id));
 
   return (
-    <StudentPortalShell title="Leaderboard" subtitle="Class rankings without leaving your student portal.">
+    <StudentPortalShell title="Leaderboard" subtitle="Class rankings without leaving your student portal." initialUser={sessionToStudentUser(session)}>
       <LeaderboardBoard
         initialStudents={students.data}
         initialXpEvents={xpEvents.data}
@@ -33,6 +36,8 @@ export default async function StudentLeaderboardPage() {
         hideAndSeekScores={hideAndSeekScores}
         starWarsScores={starWarsScores}
         profileBasePath="/student/students"
+        enableCorrespondenceChallenges
+        viewerStudentId={session.studentId}
       />
     </StudentPortalShell>
   );

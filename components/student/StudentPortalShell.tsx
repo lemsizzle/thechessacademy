@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
+import { CorrespondenceProvider } from "@/components/correspondence/CorrespondenceProvider";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { clearCurrentStudentUser, getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/getCurrentUser";
@@ -131,26 +132,28 @@ export function StudentPortalShell({
   }
 
   return (
-    <div className="academy-grid min-h-screen">
-      <div className="flex min-h-screen">
-        <Sidebar variant="student" />
-        <div className="min-w-0 flex-1">
-          <TopNav variant="student" />
-          <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-6">
-            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase text-cyan-100">{user.name}</p>
-                <h1 className="mt-1 text-2xl font-black text-white sm:text-3xl">{title}</h1>
-                {subtitle && <p className="mt-2 max-w-3xl text-sm text-slate-400 sm:text-base">{subtitle}</p>}
+    <CorrespondenceProvider studentId={user.studentId}>
+      <div className="academy-grid min-h-screen">
+        <div className="flex min-h-screen">
+          <Sidebar variant="student" />
+          <div className="min-w-0 flex-1">
+            <TopNav variant="student" />
+            <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-6">
+              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase text-cyan-100">{user.name}</p>
+                  <h1 className="mt-1 text-2xl font-black text-white sm:text-3xl">{title}</h1>
+                  {subtitle && <p className="mt-2 max-w-3xl text-sm text-slate-400 sm:text-base">{subtitle}</p>}
+                </div>
+                <button onClick={logout} className="w-fit rounded-md border border-rose-300/30 bg-rose-300/10 px-3 py-2 text-xs font-bold text-rose-100 transition active:translate-y-px active:scale-[0.98]">
+                  Logout
+                </button>
               </div>
-              <button onClick={logout} className="w-fit rounded-md border border-rose-300/30 bg-rose-300/10 px-3 py-2 text-xs font-bold text-rose-100 transition active:translate-y-px active:scale-[0.98]">
-                Logout
-              </button>
-            </div>
-            {children}
-          </main>
+              {children}
+            </main>
+          </div>
         </div>
       </div>
-    </div>
+    </CorrespondenceProvider>
   );
 }

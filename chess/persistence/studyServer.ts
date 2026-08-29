@@ -33,7 +33,8 @@ function cleanText(value: unknown, name: string, max: number) {
 
 function mapGame(row: Record<string, unknown>): CompletedGameRecord {
   return {
-    id: String(row.id), playerId: String(row.player_id), opponentName: String(row.opponent_name),
+    id: String(row.id), gameMode: row.game_mode === "correspondence" ? "correspondence" : "live",
+    playerId: String(row.player_id), opponentName: String(row.opponent_name),
     playerColor: row.player_color as CompletedGameRecord["playerColor"], result: row.result as CompletedGameRecord["result"],
     resultReason: String(row.result_reason), initialFen: String(row.initial_fen), finalFen: String(row.final_fen),
     pgn: String(row.pgn), moves: row.moves as CompletedGameMove[], startedAt: String(row.started_at),
@@ -43,7 +44,7 @@ function mapGame(row: Record<string, unknown>): CompletedGameRecord {
 
 export async function listCompletedGames(actor: ChessActor, limit = 30) {
   let query = client().from("internal_chess_games")
-    .select("id,player_id,opponent_name,player_color,result,result_reason,initial_fen,final_fen,pgn,moves,started_at,completed_at,time_control")
+    .select("id,game_mode,player_id,opponent_name,player_color,result,result_reason,initial_fen,final_fen,pgn,moves,started_at,completed_at,time_control")
     .order("completed_at", { ascending: false }).limit(Math.min(100, Math.max(1, limit)));
   if (actor.kind === "student") query = query.eq("player_id", actor.studentId);
   const { data, error } = await query;
@@ -53,7 +54,7 @@ export async function listCompletedGames(actor: ChessActor, limit = 30) {
 
 export async function getCompletedGame(actor: ChessActor, gameId: string) {
   let query = client().from("internal_chess_games")
-    .select("id,player_id,opponent_name,player_color,result,result_reason,initial_fen,final_fen,pgn,moves,started_at,completed_at,time_control")
+    .select("id,game_mode,player_id,opponent_name,player_color,result,result_reason,initial_fen,final_fen,pgn,moves,started_at,completed_at,time_control")
     .eq("id", gameId);
   if (actor.kind === "student") query = query.eq("player_id", actor.studentId);
   const { data, error } = await query.maybeSingle();

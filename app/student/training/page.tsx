@@ -36,6 +36,8 @@ export default async function StudentPuzzleTrainingPage() {
               lockFocus
               heading="Survival Puzzle Leaderboard"
               profileBasePath="/student/students"
+              enableCorrespondenceChallenges
+              viewerStudentId={student.studentId}
             />
           )}
         />

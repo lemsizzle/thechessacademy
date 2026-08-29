@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Chess } from "chess.js";
-import { applyLiveMove, liveClockAt, livePlayerColor, LiveGameRuleError, replayLiveMoves, timeoutCompletion } from "@/chess/live/rules";
+import { applyLiveMove, correspondenceTimeoutCompletion, liveClockAt, livePlayerColor, LiveGameRuleError, replayLiveMoves, timeoutCompletion } from "@/chess/live/rules";
 import type { LiveGameRecord, LiveMoveInput } from "@/chess/live/types";
 
 const WHITE_ID = "11111111-1111-4111-8111-111111111111";
@@ -13,6 +13,9 @@ function record(overrides: Partial<LiveGameRecord> = {}): LiveGameRecord {
     challenge_code: "A7K2",
     realtime_token: "44444444-4444-4444-8444-444444444444",
     created_by: WHITE_ID,
+    game_mode: "live",
+    days_per_move: null,
+    turn_deadline_at: null,
     white_player_id: WHITE_ID,
     black_player_id: BLACK_ID,
     status: "active",
@@ -110,5 +113,37 @@ describe("live chess game rules", () => {
   it("requires timeout claims before accepting moves after flag fall", () => {
     const game = record({ white_ms: 500, clock_started_at: "2026-08-21T12:00:00.000Z" });
     expect(() => applyLiveMove(game, WHITE_ID, { from: "e2", to: "e4", version: 1 }, Date.parse("2026-08-21T12:00:01Z"))).toThrow(LiveGameRuleError);
+  });
+
+  it("resets a correspondence deadline after every legal move", () => {
+    const now = Date.parse("2026-08-21T12:00:00.000Z");
+    const game = record({
+      game_mode: "correspondence",
+      days_per_move: 3,
+      turn_deadline_at: "2026-08-24T12:00:00.000Z",
+      time_control_id: "none",
+      time_control: { id: "none", name: "No Clock", initialMs: null, incrementMs: 0 },
+      white_ms: null,
+      black_ms: null,
+      clock_started_at: null
+    });
+    const result = applyLiveMove(game, WHITE_ID, { from: "e2", to: "e4", version: 1 }, now);
+    expect(result.update.turn_deadline_at).toBe("2026-08-24T12:00:00.000Z");
+  });
+
+  it("awards an expired correspondence turn to the waiting opponent", () => {
+    const game = record({
+      game_mode: "correspondence",
+      days_per_move: 3,
+      turn_deadline_at: "2026-08-24T12:00:00.000Z",
+      time_control_id: "none",
+      time_control: { id: "none", name: "No Clock", initialMs: null, incrementMs: 0 },
+      white_ms: null,
+      black_ms: null,
+      clock_started_at: null
+    });
+    expect(correspondenceTimeoutCompletion(game, Date.parse("2026-08-24T11:59:59.999Z"))).toBeNull();
+    expect(correspondenceTimeoutCompletion(game, Date.parse("2026-08-24T12:00:00.000Z"))).toEqual({ winnerColor: "black", reason: "timeout" });
+    expect(() => applyLiveMove(game, WHITE_ID, { from: "e2", to: "e4", version: 1 }, Date.parse("2026-08-24T12:00:00.000Z"))).toThrow("deadline has expired");
   });
 });

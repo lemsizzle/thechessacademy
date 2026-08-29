@@ -19,6 +19,7 @@ export async function loadInternalQuestGames(studentId: string, window: QuestWin
       .from("internal_chess_games")
       .select("id,completed_at,opponent_type,opponent_id,result,takeback_count")
       .eq("player_id", studentId)
+      .eq("game_mode", "live")
       .gte("completed_at", window.start.toISOString())
       .lte("completed_at", window.end.toISOString())
       .order("completed_at", { ascending: true })

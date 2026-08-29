@@ -37,11 +37,17 @@ function formatDate(value: string) {
 }
 
 function formatTimeControl(game: ChessHistoryGame) {
+  if (game.gameMode === "correspondence") return "3 days per move";
   if (game.timeControl.name) return game.timeControl.name;
   const initial = game.timeControl.initialSeconds;
   const increment = game.timeControl.incrementSeconds;
   if (typeof initial === "number") return `${Math.round(initial / 60)}+${increment ?? 0}`;
   return game.opponentType === "computer" ? "No clock" : "Live game";
+}
+
+function formatOpponentType(game: ChessHistoryGame) {
+  if (game.opponentType === "computer") return "Computer";
+  return game.gameMode === "correspondence" ? "Correspondence" : "Live classmate";
 }
 
 function formatReason(value: string) {
@@ -115,7 +121,7 @@ export function ChessHistoryDashboard() {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryCard label="Games" value={summary.total} detail={`${summary.computerGames} computer · ${summary.liveGames} live`} />
+        <SummaryCard label="Games" value={summary.total} detail={`${summary.computerGames} computer · ${summary.liveGames} student`} />
         <SummaryCard label="Wins" value={summary.wins} detail="Completed victories" tone="text-emerald-200" />
         <SummaryCard label="Draws / losses" value={`${summary.draws} / ${summary.losses}`} detail="Drawn and lost games" />
         <SummaryCard label="Win rate" value={`${summary.winRate}%`} detail="Across all completed games" tone="text-amber-200" />
@@ -180,7 +186,7 @@ export function ChessHistoryDashboard() {
                     <div className="min-w-0">
                       <p className="truncate font-black text-white">vs {game.opponentName}</p>
                       <p className="mt-1 text-sm text-slate-400">
-                        {game.opponentType === "computer" ? "Computer" : "Live classmate"} · Played {game.playerColor} · {formatTimeControl(game)}
+                        {formatOpponentType(game)} · Played {game.playerColor} · {formatTimeControl(game)}
                       </p>
                       <p className="mt-1 text-xs capitalize text-slate-500">
                         {formatReason(game.resultReason)} · {game.moveCount} {game.moveCount === 1 ? "move" : "moves"} · {formatDate(game.completedAt)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
+import { CorrespondenceIdentityMenu } from "@/components/correspondence/CorrespondenceIdentityMenu";
 import { LevelBadge } from "@/components/LevelBadge";
 import { allBadges } from "@/data/badges";
 import { xpEvents } from "@/data/xpEvents";
@@ -13,7 +14,6 @@ import { readAdminStore } from "@/lib/mockStorage";
 import { puzzleThemeOptions, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 import type { AvatarItem, Student, StudentAvatarConfig, StudentLichessAccount, XpEvent } from "@/lib/types";
 import { getLevelFromXp } from "@/lib/xp";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type TimeWindow = LeaderboardTimeWindow;
@@ -57,7 +57,9 @@ export function LeaderboardTable({
   linkMode = "profile",
   initialFocus = "Overall XP",
   lockFocus = false,
-  heading = "Class Leaderboard"
+  heading = "Class Leaderboard",
+  enableCorrespondenceChallenges = false,
+  viewerStudentId
 }: {
   students: Student[];
   lichessAccounts: StudentLichessAccount[];
@@ -73,6 +75,8 @@ export function LeaderboardTable({
   initialFocus?: Focus;
   lockFocus?: boolean;
   heading?: string;
+  enableCorrespondenceChallenges?: boolean;
+  viewerStudentId?: string;
 }) {
   const [classGroup, setClassGroup] = useState("All");
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
@@ -205,14 +209,22 @@ export function LeaderboardTable({
         ) : null}
         <div className="mt-4 grid gap-2 md:grid-cols-3">
           {podium.map((student) => (
-              <Link key={student.id} href={getStudentHref(student)} className="flex items-center gap-3 rounded-md border border-white/10 bg-white/5 p-3 transition hover:border-cyan-200/50 hover:bg-cyan-300/10">
+            <CorrespondenceIdentityMenu
+              key={student.id}
+              studentId={student.id}
+              studentName={student.name}
+              profileHref={getStudentHref(student)}
+              viewerStudentId={viewerStudentId}
+              enabled={enableCorrespondenceChallenges}
+              className="flex w-full items-center gap-3 rounded-md border border-white/10 bg-white/5 p-3 text-left transition hover:border-cyan-200/50 hover:bg-cyan-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70"
+            >
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-200 text-sm font-black text-slate-950">#{student.rank}</span>
                 <AvatarRenderer items={avatarItems} avatar={getStudentAvatar(student.id)} size="sm" label={`${student.name}'s avatar`} />
                 <span className="min-w-0">
                   <span className="block truncate font-black text-white">{student.name}</span>
                   <span className="text-xs font-bold text-cyan-100">{student.score.toLocaleString()} {scoreUnit}</span>
                 </span>
-              </Link>
+            </CorrespondenceIdentityMenu>
           ))}
         </div>
       </div>
@@ -236,17 +248,24 @@ export function LeaderboardTable({
                 <tr key={student.id} className="hover:bg-white/[0.03]">
                   <td className="px-4 py-4 font-black text-amber-100">#{student.rank}</td>
                   <td className="px-4 py-4">
-                    <div className="flex items-center gap-3">
+                    <CorrespondenceIdentityMenu
+                      studentId={student.id}
+                      studentName={student.name}
+                      profileHref={getStudentHref(student)}
+                      viewerStudentId={viewerStudentId}
+                      enabled={enableCorrespondenceChallenges}
+                      className="group flex max-w-full items-center gap-3 rounded-md p-1 text-left transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70"
+                    >
                       <AvatarRenderer items={avatarItems} avatar={getStudentAvatar(student.id)} size="sm" label={`${student.name}'s avatar`} />
                       <div className="min-w-0">
-                        <Link href={getStudentHref(student)} className="font-bold text-white transition hover:text-amber-100">
+                        <span className="block font-bold text-white transition group-hover:text-amber-100">
                           {student.name}
-                        </Link>
-                        <Link href={getStudentHref(student)} className="mt-1 block w-fit text-xs font-bold text-cyan-200 transition hover:text-cyan-100 hover:underline">
+                        </span>
+                        <span className="mt-1 block w-fit text-xs font-bold text-cyan-200">
                           ID: {student.lichessUsername ?? student.slug}
-                        </Link>
+                        </span>
                       </div>
-                    </div>
+                    </CorrespondenceIdentityMenu>
                   </td>
                   <td className="px-4 py-4 text-slate-300">{student.classGroup}</td>
                   <td className="px-4 py-4"><LevelBadge level={level} showTitle /></td>

@@ -21,7 +21,9 @@ export function LeaderboardBoard({
   starWarsScores,
   initialFocus,
   lockFocus = false,
-  heading
+  heading,
+  enableCorrespondenceChallenges = false,
+  viewerStudentId
 }: {
   profileBasePath?: string;
   linkMode?: "profile" | "admin";
@@ -36,6 +38,8 @@ export function LeaderboardBoard({
   initialFocus?: "Overall XP" | "Survival Puzzles" | "Hide and Seek" | "Star Wars";
   lockFocus?: boolean;
   heading?: string;
+  enableCorrespondenceChallenges?: boolean;
+  viewerStudentId?: string;
 }) {
   const { students: adminStudents, studentLichessAccounts } = useMockAdminState();
   const students = initialStudents ?? adminStudents;
@@ -60,6 +64,8 @@ export function LeaderboardBoard({
       initialFocus={initialFocus}
       lockFocus={lockFocus}
       heading={heading}
+      enableCorrespondenceChallenges={enableCorrespondenceChallenges}
+      viewerStudentId={viewerStudentId}
     />
   );
 }

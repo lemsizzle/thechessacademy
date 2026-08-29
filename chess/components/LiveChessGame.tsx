@@ -20,6 +20,8 @@ import type { LiveGameAction, LiveGameSnapshot } from "@/chess/live/types";
 import type { ChessColor, PromotionPiece } from "@/chess/types";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { useOptionalCorrespondence } from "@/components/correspondence/CorrespondenceProvider";
+import { formatCorrespondenceTimeLeft } from "@/lib/correspondence/clientTypes";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -52,8 +54,9 @@ function completionText(game: LiveGameSnapshot) {
   return game.winnerColor === game.viewer.color ? `You won by ${reason}.` : `You lost by ${reason}.`;
 }
 
-export function LiveChessGame({ gameId }: { gameId: string }) {
+export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?: "live" | "correspondence" }) {
   const router = useRouter();
+  const correspondence = useOptionalCorrespondence();
   const [game, setGame] = useState<LiveGameSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
@@ -67,6 +70,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [resultOpen, setResultOpen] = useState(false);
   const [rematchPending, setRematchPending] = useState(false);
+  const [challengeAgainSent, setChallengeAgainSent] = useState(false);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
   const [annotationMode, setAnnotationMode] = useState<"arrow" | "circle" | null>(null);
   const [annotationStart, setAnnotationStart] = useState<string | null>(null);
@@ -76,14 +80,21 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   const claimRetryAt = useRef(0);
   const announcedCompletedGame = useRef<string | null>(null);
   const { muted, toggleMuted, receiveGameSnapshot, captureEffect } = useLiveGameSounds();
+  const isCorrespondence = mode === "correspondence" || game?.gameMode === "correspondence";
 
   const receiveGame = useCallback((next: LiveGameSnapshot) => {
+    if (next.gameMode !== mode) {
+      setGame(null);
+      setError(`Open this game from ${next.gameMode === "correspondence" ? "Correspondence" : "Live Games"}.`);
+      setLoading(false);
+      return;
+    }
     receiveGameSnapshot({ id: next.id, status: next.status, moves: next.moves });
     setGame(next);
     setServerOffsetMs(Date.now() - new Date(next.serverNow).getTime());
     setError("");
     setLoading(false);
-  }, [receiveGameSnapshot]);
+  }, [mode, receiveGameSnapshot]);
 
   const refresh = useCallback(async () => {
     try {
@@ -131,14 +142,14 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
     if (!game || game.status === "cancelled") return;
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
-    }, connection === "live" ? 15_000 : 3_000);
+    }, isCorrespondence ? 30_000 : connection === "live" ? 15_000 : 3_000);
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
     };
-  }, [connection, game?.status, refresh]);
+  }, [connection, game?.status, isCorrespondence, refresh]);
 
   useEffect(() => {
     if (!game || game.status !== "completed" || announcedCompletedGame.current === game.id) return;
@@ -147,13 +158,17 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   }, [game]);
 
   useEffect(() => {
-    if (!game || game.status !== "active" || game.clocks.whiteMs === null) return;
+    if (!game || game.status !== "active" || (game.clocks.whiteMs === null && !isCorrespondence)) return;
     let timeout: number;
     const tick = () => {
       const nextNow = Date.now();
       setNowMs(nextNow);
-      const remaining = clockValue(game, game.activeColor, nextNow, serverOffsetMs);
-      const delay = remaining !== null && remaining < 10_000
+      const remaining = isCorrespondence && game.turnDeadlineAt
+        ? Math.max(0, new Date(game.turnDeadlineAt).getTime() - (nextNow - serverOffsetMs))
+        : clockValue(game, game.activeColor, nextNow, serverOffsetMs);
+      const delay = isCorrespondence && remaining !== null
+        ? remaining < 60_000 ? 1_000 : Math.max(1_000, Math.min(30_000, remaining % 30_000 || 30_000))
+        : remaining !== null && remaining < 10_000
         ? 100
         : remaining !== null
           ? Math.max(100, Math.min(1_000, remaining % 1_000 || 1_000))
@@ -162,7 +177,18 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
     };
     timeout = window.setTimeout(tick, 100);
     return () => window.clearTimeout(timeout);
-  }, [game, serverOffsetMs]);
+  }, [game, isCorrespondence, serverOffsetMs]);
+
+  useEffect(() => {
+    if (!isCorrespondence || game?.status !== "active" || !game.turnDeadlineAt) return;
+    const remaining = new Date(game.turnDeadlineAt).getTime() - (Date.now() - serverOffsetMs);
+    if (remaining <= 0) {
+      void refresh();
+      return;
+    }
+    const timeout = window.setTimeout(() => void refresh(), Math.min(remaining + 250, 2_147_000_000));
+    return () => window.clearTimeout(timeout);
+  }, [game?.status, game?.turnDeadlineAt, isCorrespondence, refresh, serverOffsetMs]);
 
   useEffect(() => {
     setBoardArrows([]);
@@ -181,6 +207,9 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
     white: clockValue(game, "white", nowMs, serverOffsetMs),
     black: clockValue(game, "black", nowMs, serverOffsetMs)
   } : { white: null, black: null }, [game, nowMs, serverOffsetMs]);
+  const correspondenceDeadlineText = isCorrespondence
+    ? formatCorrespondenceTimeLeft(game?.turnDeadlineAt ?? null, nowMs - serverOffsetMs)
+    : "";
   const materialBalance = useMemo(
     () => game ? whiteMaterialAdvantage(optimisticFen ?? game.fen) : 0,
     [game, optimisticFen]
@@ -296,6 +325,19 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   async function requestRematch() {
     if (!game || rematchPending) return;
     setRematchPending(true); setError("");
+    if (isCorrespondence) {
+      const otherColor = oppositeColor(game.viewer.color);
+      const opponent = game.players[otherColor];
+      if (!opponent || !correspondence) {
+        setError("This student could not be challenged right now.");
+        setRematchPending(false);
+        return;
+      }
+      const sent = await correspondence.sendChallenge(opponent.id, opponent.name);
+      setChallengeAgainSent(sent);
+      setRematchPending(false);
+      return;
+    }
     try {
       const response = await fetch(`/api/student/live-games/${game.id}/rematch`, { method: "POST" });
       const body = await response.json() as RematchResponse;
@@ -309,8 +351,8 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
     finally { setRematchPending(false); }
   }
 
-  if (loading) return <Card className="p-6 text-sm text-slate-300">Connecting to the live game...</Card>;
-  if (!game) return <Card className="p-6"><p className="text-rose-100" role="alert">{error || "Live game could not be loaded."}</p><Button href="/student/play/live" variant="secondary" className="mt-4">Back to Live Games</Button></Card>;
+  if (loading) return <Card className="p-6 text-sm text-slate-300">{isCorrespondence ? "Opening your correspondence board..." : "Connecting to the live game..."}</Card>;
+  if (!game) return <Card className="p-6"><p className="text-rose-100" role="alert">{error || `${isCorrespondence ? "Correspondence" : "Live"} game could not be loaded.`}</p><Button href={isCorrespondence ? "/student/play/correspondence" : "/student/play/live"} variant="secondary" className="mt-4">Back to {isCorrespondence ? "Correspondence" : "Live Games"}</Button></Card>;
 
   const viewerColor = game.viewer.color;
   const opponentColor = oppositeColor(viewerColor);
@@ -322,7 +364,9 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   const viewerOfferedDraw = game.drawOfferedBy === game.viewer.id;
   const viewerRequestedRematch = game.rematchRequestedBy === game.viewer.id;
   const opponentRequestedRematch = Boolean(game.rematchRequestedBy && !viewerRequestedRematch);
-  const rematchLabel = rematchPending
+  const rematchLabel = isCorrespondence
+    ? challengeAgainSent ? "Challenge Sent" : rematchPending ? "Sending..." : "Challenge Again"
+    : rematchPending
     ? "Requesting..."
     : viewerRequestedRematch
       ? "Waiting for Opponent"
@@ -338,7 +382,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
   return (
     <div className="space-y-4">
       {game.status === "completed" && game.winnerColor === viewerColor ? <VictoryCelebration /> : null}
-      {game.status === "waiting" ? (
+      {game.status === "waiting" && !isCorrespondence ? (
         <Card className="p-5 text-center sm:p-6">
           <p className="text-xs font-black uppercase tracking-wider text-amber-200">Private challenge code</p>
           <p className="mt-3 font-mono text-3xl font-black tracking-[0.18em] text-white sm:text-4xl">{game.challengeCode}</p>
@@ -354,7 +398,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
 
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
         <div className="mx-auto min-w-0 space-y-3" style={boardColumnStyle}>
-          <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} />
+          <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${isCorrespondence ? "3 days per move" : game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} />
           <div>
             <div className="mb-2 flex justify-end"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
             <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
@@ -362,20 +406,26 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
               <BoardCaptureParticles effect={captureEffect} orientation={orientation} />
             </div>
           </div>
-          <PlayerPanel name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} avatar={viewer?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />
+          <PlayerPanel name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}${isCorrespondence ? " · 3 days per move" : ""}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} avatar={viewer?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-4">
           <Card className="p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Live game</p>
+                <p className="text-xs font-black uppercase tracking-wider text-cyan-200">{isCorrespondence ? "Correspondence game" : "Live game"}</p>
                 <h2 className="mt-1 text-xl font-black text-white">{opponent ? `vs ${opponent.name}` : "Waiting challenge"}</h2>
-                <p className="mt-1 text-xs font-bold text-slate-400">{game.matchmaking ? "Academy match" : "Private challenge"} · {game.timeControl.name}</p>
+                <p className="mt-1 text-xs font-bold text-slate-400">{isCorrespondence ? "Casual · random colors · 3 days per move" : `${game.matchmaking ? "Academy match" : "Private challenge"} · ${game.timeControl.name}`}</p>
               </div>
-              <span className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${connection === "live" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{connection === "live" ? "Live" : connection}</span>
+              <span className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${connection === "live" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{connection === "live" ? (isCorrespondence ? "Synced" : "Live") : connection}</span>
             </div>
             <p className="mt-4 rounded-md border border-white/10 bg-white/5 p-3 text-sm font-bold leading-5 text-slate-200" aria-live="polite">{statusText}</p>
+            {isCorrespondence && game.status === "active" ? (
+              <div className={`mt-3 rounded-md border p-3 ${game.activeColor === viewerColor ? "border-amber-200/30 bg-amber-200/10" : "border-cyan-200/25 bg-cyan-200/10"}`}>
+                <p className={`text-xs font-black uppercase tracking-wider ${game.activeColor === viewerColor ? "text-amber-100" : "text-cyan-100"}`}>{game.activeColor === viewerColor ? "Time for your move" : `${opponent?.name ?? "Opponent"}'s time`}</p>
+                <p className="mt-1 text-xl font-black text-white" aria-live="polite">{correspondenceDeadlineText}</p>
+              </div>
+            ) : null}
             {game.status === "active" && coachSpectating ? (
               <p className="mt-3 flex items-center gap-2 rounded-md border border-cyan-200/25 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100" aria-live="polite">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300" aria-hidden="true" />
@@ -392,9 +442,11 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
               <div className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3">
                 <p className="text-xs font-black uppercase tracking-wider text-amber-200">Play again</p>
                 <p className="mt-1 text-sm font-bold text-amber-50">
-                  {viewerRequestedRematch ? "Your opponent has been invited. This game will open automatically when they accept." : opponentRequestedRematch ? "Your opponent wants a rematch." : "Challenge the same opponent to another game with colors swapped."}
+                  {isCorrespondence
+                    ? challengeAgainSent ? "Your new challenge has been sent." : "Invite the same student to a fresh correspondence game with random colors."
+                    : viewerRequestedRematch ? "Your opponent has been invited. This game will open automatically when they accept." : opponentRequestedRematch ? "Your opponent wants a rematch." : "Challenge the same opponent to another game with colors swapped."}
                 </p>
-                <Button type="button" className="mt-3 w-full" disabled={rematchPending || viewerRequestedRematch} onClick={() => void requestRematch()}>{rematchLabel}</Button>
+                <Button type="button" className="mt-3 w-full" disabled={rematchPending || viewerRequestedRematch || challengeAgainSent} onClick={() => void requestRematch()}>{rematchLabel}</Button>
               </div>
             ) : null}
             {opponentOfferedDraw ? (
@@ -414,7 +466,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
             <h2 className="font-black text-white">Game controls</h2>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Button type="button" variant="ghost" onClick={() => setOrientation((value) => oppositeColor(value))}>⇅ Flip Board</Button>
-              <Button href={game.arenaTournamentId ? "/student/tournaments" : "/student/play/live"} variant="ghost">{game.arenaTournamentId ? "Arena" : "Live Games"}</Button>
+              <Button href={game.arenaTournamentId ? "/student/tournaments" : isCorrespondence ? "/student/play/correspondence" : "/student/play/live"} variant="ghost">{game.arenaTournamentId ? "Arena" : isCorrespondence ? "Correspondence" : "Live Games"}</Button>
               {game.status === "active" ? <Button type="button" variant="ghost" disabled={pending || Boolean(game.drawOfferedBy)} onClick={() => void sendAction("offer_draw")}>{viewerOfferedDraw ? "Draw Offered" : "Offer Draw"}</Button> : null}
               {game.status === "active" ? <Button type="button" variant="ghost" className="border-rose-300/25 text-rose-100" disabled={pending} onClick={() => setConfirmation("resign")}>⚑ Resign</Button> : null}
             </div>
@@ -432,7 +484,7 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
       </div>
 
       {pendingPromotion ? <PromotionDialog color={viewerColor} onChoose={(piece) => void sendMove(pendingPromotion.from, pendingPromotion.to, piece)} onCancel={() => setPendingPromotion(null)} /> : null}
-      {confirmation ? <GameDialog title={confirmation === "resign" ? "Resign this live game?" : "Cancel this challenge?"} description={confirmation === "resign" ? "Your opponent will win immediately." : "The private challenge code will stop working."} primaryLabel={confirmation === "resign" ? "Resign" : "Cancel Challenge"} onPrimary={() => void sendAction(confirmation)} secondaryLabel="Keep Playing" onSecondary={() => setConfirmation(null)} /> : null}
+      {confirmation ? <GameDialog title={confirmation === "resign" ? `Resign this ${isCorrespondence ? "correspondence" : "live"} game?` : "Cancel this challenge?"} description={confirmation === "resign" ? "Your opponent will win immediately." : "The private challenge code will stop working."} primaryLabel={confirmation === "resign" ? "Resign" : "Cancel Challenge"} onPrimary={() => void sendAction(confirmation)} secondaryLabel="Keep Playing" onSecondary={() => setConfirmation(null)} /> : null}
       {resultOpen && game.status === "completed" && game.arenaTournamentId ? (
         <GameDialog
           title="Arena Game Complete"
@@ -449,13 +501,15 @@ export function LiveChessGame({ gameId }: { gameId: string }) {
           title="Good Game"
           description={completionText(game)}
           primaryLabel={rematchLabel}
-          primaryDisabled={rematchPending || viewerRequestedRematch}
+          primaryDisabled={rematchPending || viewerRequestedRematch || challengeAgainSent}
           onPrimary={() => void requestRematch()}
           secondaryLabel="Close"
           onSecondary={() => setResultOpen(false)}
         >
           <p className="mt-3 text-sm font-bold text-slate-300">
-            {viewerRequestedRematch ? "Waiting for your opponent to accept. The rematch will open automatically." : opponentRequestedRematch ? "Your opponent has already requested another game." : "Want another game? Request a rematch and your opponent can accept from this screen."}
+            {isCorrespondence
+              ? challengeAgainSent ? "Your challenge is waiting in the other student's inbox." : "Want another slow game? Send a new correspondence challenge."
+              : viewerRequestedRematch ? "Waiting for your opponent to accept. The rematch will open automatically." : opponentRequestedRematch ? "Your opponent has already requested another game." : "Want another game? Request a rematch and your opponent can accept from this screen."}
           </p>
         </GameDialog>
       ) : null}
