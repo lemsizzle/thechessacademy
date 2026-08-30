@@ -8,6 +8,7 @@ import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/compone
 import { chessJsColor } from "@/chess/game/colors";
 import { boardDropAction, checkedKingSquare, legalMovesFrom } from "@/chess/game/rules";
 import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
+import { premoveMovesFrom } from "@/chess/live/premove";
 import type { ChessColor } from "@/chess/types";
 
 type Props = {
@@ -19,6 +20,9 @@ type Props = {
   onMove: (from: string, to: string) => void;
   arrows?: Array<{ startSquare: string; endSquare: string; color: string }>;
   circles?: Array<{ square: string; color: string }>;
+  /** Allow the human pieces to queue a move while the opponent's clock is running. */
+  allowPremoves?: boolean;
+  premove?: [string, string] | null;
   allowDrawingArrows?: boolean;
   annotationMode?: "arrow" | "circle" | null;
   onAnnotationSquare?: (square: string) => void;
@@ -28,7 +32,7 @@ type Props = {
   boardId?: string;
 };
 
-export function AcademyChessboard({ fen, orientation, humanColor, interactive, lastMove, onMove, arrows = [], circles = [], allowDrawingArrows = false, annotationMode = null, onAnnotationSquare, onArrowsChange, onCircleToggle, onClearAnnotations, boardId = "academy-play-board" }: Props) {
+export function AcademyChessboard({ fen, orientation, humanColor, interactive, lastMove, onMove, arrows = [], circles = [], allowPremoves = false, premove = null, allowDrawingArrows = false, annotationMode = null, onAnnotationSquare, onArrowsChange, onCircleToggle, onClearAnnotations, boardId = "academy-play-board" }: Props) {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const rightGestureRef = useRef<{ startSquare: string; color: string } | null>(null);
   const boardRef = useOutsideBoardAnnotationClear(onClearAnnotations ? () => {
@@ -36,7 +40,16 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
     onClearAnnotations();
   } : undefined);
   const chess = useMemo(() => new Chess(fen), [fen]);
-  const legalMoves = useMemo(() => selectedSquare ? legalMovesFrom(chess, selectedSquare) : [], [chess, selectedSquare]);
+  const legalMoves = useMemo(() => {
+    if (!selectedSquare) return [];
+    const selectedPiece = chess.get(selectedSquare as Square);
+    const isPremoveSelection = allowPremoves
+      && selectedPiece?.color === chessJsColor(humanColor)
+      && selectedPiece.color !== chess.turn();
+    return isPremoveSelection
+      ? premoveMovesFrom(chess, selectedSquare)
+      : legalMovesFrom(chess, selectedSquare);
+  }, [allowPremoves, chess, humanColor, selectedSquare]);
 
   useEffect(() => {
     setSelectedSquare(null);
@@ -48,13 +61,17 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
       return;
     }
     if (!interactive) return;
+    if (selectedSquare === square) {
+      setSelectedSquare(null);
+      return;
+    }
     const target = legalMoves.find((move) => move.to === square);
     if (selectedSquare && target) {
       onMove(selectedSquare, square);
       return;
     }
     const piece = chess.get(square as Square);
-    if (piece?.color === chessJsColor(humanColor) && piece.color === chess.turn()) {
+    if (piece?.color === chessJsColor(humanColor) && (piece.color === chess.turn() || allowPremoves)) {
       setSelectedSquare(square);
     } else {
       setSelectedSquare(null);
@@ -93,6 +110,18 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
             backgroundImage: "radial-gradient(circle, rgba(15,23,42,.6) 0 15%, transparent 18%)"
           };
     }
+    if (premove) {
+      styles[premove[0]] = {
+        ...styles[premove[0]],
+        boxShadow: "inset 0 0 0 5px rgba(192,132,252,.95)",
+        backgroundColor: "rgba(168,85,247,.26)"
+      };
+      styles[premove[1]] = {
+        ...styles[premove[1]],
+        boxShadow: "inset 0 0 0 5px rgba(232,121,249,.95)",
+        backgroundColor: "rgba(217,70,239,.26)"
+      };
+    }
     for (const circle of circles) {
       styles[circle.square] = {
         ...styles[circle.square],
@@ -101,7 +130,7 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
       };
     }
     return styles;
-  }, [chess, circles, lastMove, legalMoves, selectedSquare]);
+  }, [chess, circles, lastMove, legalMoves, premove, selectedSquare]);
 
   const options: ChessboardOptions = {
     id: boardId,
@@ -152,8 +181,8 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
     },
     canDragPiece: ({ piece }) => interactive
       && !annotationMode
-      && chess.turn() === chessJsColor(humanColor)
-      && piece.pieceType.startsWith(chessJsColor(humanColor)),
+      && piece.pieceType.startsWith(chessJsColor(humanColor))
+      && (chess.turn() === chessJsColor(humanColor) || allowPremoves),
     onSquareClick: ({ square }) => selectOrMove(square),
     onSquareMouseDown: ({ square }, event) => {
       if (event.button === 2) {
@@ -175,6 +204,15 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
     },
     onPieceDrop: ({ sourceSquare, targetSquare }) => {
       if (!interactive || !targetSquare) return false;
+      const sourcePiece = chess.get(sourceSquare as Square);
+      const isPremoveAttempt = allowPremoves
+        && sourcePiece?.color === chessJsColor(humanColor)
+        && sourcePiece.color !== chess.turn();
+      if (isPremoveAttempt) {
+        if (!premoveMovesFrom(chess, sourceSquare).some((move) => move.to === targetSquare)) return false;
+        onMove(sourceSquare, targetSquare);
+        return true;
+      }
       const action = boardDropAction(chess, sourceSquare, targetSquare);
       if (action === "illegal") return false;
       onMove(sourceSquare, targetSquare);

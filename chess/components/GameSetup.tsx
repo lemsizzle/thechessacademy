@@ -27,7 +27,7 @@ export function GameSetup({ unlockedBotIds, onStart }: { unlockedBotIds: string[
         <div className="border-b border-white/10 bg-gradient-to-r from-cyan-300/10 via-transparent to-amber-300/10 p-4 sm:p-6">
           <p className="text-xs font-black uppercase tracking-[.2em] text-cyan-200">Vs Computer</p>
           <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">Choose your academy opponent</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Pawny and Sir Lem are always ready. Defeat each academy bot to unlock the next challenge.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Pawny and Sir Lem are always ready. Defeat each academy bot without takebacks to unlock the next challenge.</p>
         </div>
         <div className="min-w-0 p-4 sm:p-6">
           <fieldset>
@@ -52,7 +52,7 @@ export function GameSetup({ unlockedBotIds, onStart }: { unlockedBotIds: string[
                     <span className="mt-2 block text-base font-black text-white sm:text-lg">{difficulty.name}</span>
                     <span className="block break-words text-[11px] font-bold uppercase leading-4 text-cyan-200 sm:text-xs sm:leading-5">{difficulty.title} · ~{difficulty.estimatedRating}</span>
                     <span id={descriptionId} className={`mt-2 block text-pretty text-xs font-bold leading-5 ${locked ? "text-amber-100" : "hidden text-slate-400 sm:block"}`}>
-                      {locked && requirement ? `Defeat ${requirement.botName} to unlock.` : difficulty.description}
+                      {locked && requirement ? `Defeat ${requirement.botName} without takebacks to unlock.` : difficulty.description}
                     </span>
                   </button>
                 );

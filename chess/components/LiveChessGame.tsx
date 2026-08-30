@@ -14,7 +14,9 @@ import { VictoryCelebration } from "@/chess/components/VictoryCelebration";
 import { promotionOptions, tryMove } from "@/chess/game/rules";
 import { oppositeColor } from "@/chess/game/colors";
 import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/material";
+import { crossedOneMinuteWarning } from "@/chess/game/clockWarning";
 import { useLiveGameSounds } from "@/chess/hooks/useLiveGameSounds";
+import { canPlayPremove, isPremovePromotion, type LivePremove } from "@/chess/live/premove";
 import { hasCoachPresence, type RealtimePresenceState } from "@/chess/live/presence";
 import type { LiveGameAction, LiveGameSnapshot } from "@/chess/live/types";
 import type { ChessColor, PromotionPiece } from "@/chess/types";
@@ -30,7 +32,7 @@ type Confirmation = "cancel" | "resign" | null;
 type RematchResponse = { ok: boolean; rematch?: { status: "waiting" | "matched"; gameId: string | null; source: LiveGameSnapshot }; error?: string };
 
 const boardColumnStyle = {
-  width: "min(100%, 700px, max(80px, calc(100dvh - 14.25rem)))"
+  width: "min(100%, 700px, max(220px, calc(100svh - 25rem)))"
 };
 
 function clockValue(game: LiveGameSnapshot, color: ChessColor, nowMs: number, serverOffsetMs: number) {
@@ -71,7 +73,9 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   const [resultOpen, setResultOpen] = useState(false);
   const [rematchPending, setRematchPending] = useState(false);
   const [challengeAgainSent, setChallengeAgainSent] = useState(false);
-  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string; mode: "move" | "premove" } | null>(null);
+  const [premove, setPremove] = useState<LivePremove | null>(null);
+  const [pendingMoveAtMs, setPendingMoveAtMs] = useState<number | null>(null);
   const [annotationMode, setAnnotationMode] = useState<"arrow" | "circle" | null>(null);
   const [annotationStart, setAnnotationStart] = useState<string | null>(null);
   const [boardArrows, setBoardArrows] = useState<Array<{ startSquare: string; endSquare: string; color: string }>>([]);
@@ -79,7 +83,8 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   const claimedVersion = useRef<number | null>(null);
   const claimRetryAt = useRef(0);
   const announcedCompletedGame = useRef<string | null>(null);
-  const { muted, toggleMuted, receiveGameSnapshot, captureEffect } = useLiveGameSounds();
+  const previousViewerClockRef = useRef<{ gameId: string; milliseconds: number | null } | null>(null);
+  const { muted, toggleMuted, receiveGameSnapshot, playClockWarning, captureEffect } = useLiveGameSounds();
   const isCorrespondence = mode === "correspondence" || game?.gameMode === "correspondence";
 
   const receiveGame = useCallback((next: LiveGameSnapshot) => {
@@ -200,13 +205,19 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   }, [gameId, game?.fen, game?.version]);
 
   useEffect(() => {
+    if (game?.status === "active") return;
+    setPremove(null);
+  }, [game?.status]);
+
+  useEffect(() => {
     if (game?.rematchGameId) router.push(`/student/play/live/${game.rematchGameId}`);
   }, [game?.rematchGameId, router]);
 
+  const clockNowMs = pendingMoveAtMs ?? nowMs;
   const displayedClocks = useMemo(() => game ? {
-    white: clockValue(game, "white", nowMs, serverOffsetMs),
-    black: clockValue(game, "black", nowMs, serverOffsetMs)
-  } : { white: null, black: null }, [game, nowMs, serverOffsetMs]);
+    white: clockValue(game, "white", clockNowMs, serverOffsetMs),
+    black: clockValue(game, "black", clockNowMs, serverOffsetMs)
+  } : { white: null, black: null }, [clockNowMs, game, serverOffsetMs]);
   const correspondenceDeadlineText = isCorrespondence
     ? formatCorrespondenceTimeLeft(game?.turnDeadlineAt ?? null, nowMs - serverOffsetMs)
     : "";
@@ -214,6 +225,17 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
     () => game ? whiteMaterialAdvantage(optimisticFen ?? game.fen) : 0,
     [game, optimisticFen]
   );
+
+  useEffect(() => {
+    if (!game) return;
+    const current = displayedClocks[game.viewer.color];
+    const previous = previousViewerClockRef.current;
+    if (previous?.gameId === game.id
+      && game.status === "active"
+      && game.activeColor === game.viewer.color
+      && crossedOneMinuteWarning(previous.milliseconds, current)) playClockWarning();
+    previousViewerClockRef.current = { gameId: game.id, milliseconds: current };
+  }, [displayedClocks, game, playClockWarning]);
 
   const sendAction = useCallback(async (action: LiveGameAction) => {
     if (!game || pending) return;
@@ -254,6 +276,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
     const chess = new Chess(game.fen);
     if (!tryMove(chess, { from, to, promotion })) return;
     setOptimisticFen(chess.fen());
+    setPendingMoveAtMs(Date.now());
     setPending(true);
     setError("");
     try {
@@ -272,15 +295,35 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
       await refresh();
     } finally {
       setPending(false);
+      setPendingMoveAtMs(null);
       setPendingPromotion(null);
     }
   }, [game, pending, receiveGame, refresh]);
 
+  useEffect(() => {
+    if (!game || !premove || pending || game.status !== "active" || game.activeColor !== game.viewer.color) return;
+    const queued = premove;
+    setPremove(null);
+    if (!canPlayPremove(game.fen, queued)) {
+      setError("That premove is no longer legal after your opponent's reply.");
+      return;
+    }
+    void sendMove(queued.from, queued.to, queued.promotion);
+  }, [game, pending, premove, sendMove]);
+
   function attemptMove(from: string, to: string) {
     if (!game) return;
+    if (!isCorrespondence && game.status === "active" && game.activeColor !== game.viewer.color) {
+      if (isPremovePromotion(new Chess(game.fen), game.viewer.color, from, to)) {
+        setPendingPromotion({ from, to, mode: "premove" });
+      } else {
+        setPremove({ from, to });
+      }
+      return;
+    }
     const options = promotionOptions(new Chess(game.fen), from, to);
     if (options.length) {
-      setPendingPromotion({ from, to });
+      setPendingPromotion({ from, to, mode: "move" });
       return;
     }
     void sendMove(from, to);
@@ -359,7 +402,8 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   const opponent = game.players[opponentColor];
   const viewer = game.players[viewerColor];
   const lastMove = game.moves.length ? [game.moves[game.moves.length - 1].from, game.moves[game.moves.length - 1].to] as [string, string] : null;
-  const interactive = game.status === "active" && game.activeColor === viewerColor && !pending;
+  const canQueuePremove = !isCorrespondence && game.status === "active" && game.activeColor !== viewerColor && !pending;
+  const interactive = game.status === "active" && !pending && (game.activeColor === viewerColor || canQueuePremove);
   const opponentOfferedDraw = Boolean(game.drawOfferedBy && game.drawOfferedBy !== game.viewer.id);
   const viewerOfferedDraw = game.drawOfferedBy === game.viewer.id;
   const viewerRequestedRematch = game.rematchRequestedBy === game.viewer.id;
@@ -376,7 +420,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   const statusText = game.status === "waiting"
     ? "Waiting for your opponent to join. This page will update automatically."
     : game.status === "active"
-      ? pending ? "Confirming with the server..." : game.activeColor === viewerColor ? "Your move." : `Waiting for ${opponent?.name ?? "your opponent"}.`
+      ? pending ? "Move sent. Your clock is paused while the server confirms." : game.activeColor === viewerColor ? "Your move." : premove ? "Premove queued. It will play after your opponent moves." : `Waiting for ${opponent?.name ?? "your opponent"}. You can queue a premove.`
       : completionText(game);
 
   return (
@@ -397,12 +441,12 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
 
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
-        <div className="mx-auto min-w-0 space-y-3" style={boardColumnStyle}>
+        <div className="mx-auto min-w-0 space-y-2" style={boardColumnStyle}>
           <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${isCorrespondence ? "3 days per move" : game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} />
-          <div>
-            <div className="mb-2 flex justify-end"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
+          <div className="relative">
+            <div className="absolute right-2 top-2 z-30"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
             <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
-              <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
+              <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} allowPremoves={canQueuePremove} premove={premove ? [premove.from, premove.to] : null} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
               <BoardCaptureParticles effect={captureEffect} orientation={orientation} />
             </div>
           </div>
@@ -420,6 +464,12 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
               <span className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${connection === "live" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{connection === "live" ? (isCorrespondence ? "Synced" : "Live") : connection}</span>
             </div>
             <p className="mt-4 rounded-md border border-white/10 bg-white/5 p-3 text-sm font-bold leading-5 text-slate-200" aria-live="polite">{statusText}</p>
+            {premove ? (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-fuchsia-300/30 bg-fuchsia-300/10 p-3 text-sm font-bold text-fuchsia-100">
+                <span>Premove: {premove.from} → {premove.to}</span>
+                <Button type="button" variant="ghost" className="px-3 py-1.5 text-xs" onClick={() => setPremove(null)}>Cancel</Button>
+              </div>
+            ) : null}
             {isCorrespondence && game.status === "active" ? (
               <div className={`mt-3 rounded-md border p-3 ${game.activeColor === viewerColor ? "border-amber-200/30 bg-amber-200/10" : "border-cyan-200/25 bg-cyan-200/10"}`}>
                 <p className={`text-xs font-black uppercase tracking-wider ${game.activeColor === viewerColor ? "text-amber-100" : "text-cyan-100"}`}>{game.activeColor === viewerColor ? "Time for your move" : `${opponent?.name ?? "Opponent"}'s time`}</p>
@@ -483,7 +533,14 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
         </aside>
       </div>
 
-      {pendingPromotion ? <PromotionDialog color={viewerColor} onChoose={(piece) => void sendMove(pendingPromotion.from, pendingPromotion.to, piece)} onCancel={() => setPendingPromotion(null)} /> : null}
+      {pendingPromotion ? <PromotionDialog color={viewerColor} onChoose={(piece) => {
+        if (pendingPromotion.mode === "premove") {
+          setPremove({ from: pendingPromotion.from, to: pendingPromotion.to, promotion: piece });
+          setPendingPromotion(null);
+          return;
+        }
+        void sendMove(pendingPromotion.from, pendingPromotion.to, piece);
+      }} onCancel={() => setPendingPromotion(null)} /> : null}
       {confirmation ? <GameDialog title={confirmation === "resign" ? `Resign this ${isCorrespondence ? "correspondence" : "live"} game?` : "Cancel this challenge?"} description={confirmation === "resign" ? "Your opponent will win immediately." : "The private challenge code will stop working."} primaryLabel={confirmation === "resign" ? "Resign" : "Cancel Challenge"} onPrimary={() => void sendAction(confirmation)} secondaryLabel="Keep Playing" onSecondary={() => setConfirmation(null)} /> : null}
       {resultOpen && game.status === "completed" && game.arenaTournamentId ? (
         <GameDialog

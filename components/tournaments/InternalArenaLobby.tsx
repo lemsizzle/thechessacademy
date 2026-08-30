@@ -70,14 +70,20 @@ function ArenaPodium({ lobby }: { lobby: LobbyData }) {
   );
 }
 
-function PairingRow({ pairing, role, viewerStudentId }: { pairing: InternalArenaPairing; role: LobbyRole; viewerStudentId?: string }) {
+function PairingRow({ pairing, role, tournamentId, viewerStudentId }: { pairing: InternalArenaPairing; role: LobbyRole; tournamentId: string; viewerStudentId?: string }) {
   const viewerGame = viewerStudentId === pairing.whiteStudentId || viewerStudentId === pairing.blackStudentId;
-  const href = role === "teacher" ? `/admin/live-games/${pairing.gameId}` : viewerGame ? `/student/play/live/${pairing.gameId}` : null;
+  const href = role === "teacher"
+    ? `/admin/live-games/${pairing.gameId}`
+    : viewerGame
+      ? `/student/play/live/${pairing.gameId}`
+      : pairing.status === "active"
+        ? `/student/tournaments/${tournamentId}/watch/${pairing.gameId}`
+        : null;
   return (
     <div className="rounded-lg border border-white/10 bg-slate-950/70 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-black text-white"><span aria-label="White">♔</span> {pairing.whiteName} <span className="mx-1 text-slate-500">vs</span> {pairing.blackName} <span aria-label="Black">♚</span></p>
-        {href ? <Button href={href} variant="ghost" className="px-3 py-1.5 text-xs">{role === "teacher" ? "Watch" : "Open Game"}</Button> : null}
+        {href ? <Button href={href} variant="ghost" className="px-3 py-1.5 text-xs">{role === "teacher" || !viewerGame ? "Watch" : "Open Game"}</Button> : null}
       </div>
       <p className={`mt-1 text-xs font-bold ${pairing.status === "active" ? "text-emerald-200" : "text-slate-400"}`}>{resultText(pairing)}</p>
     </div>
@@ -239,10 +245,10 @@ export function InternalArenaLobby({ tournamentId, role, adminActionToken = "" }
             <p className="text-xs font-black uppercase text-amber-200">Boards in play</p>
             <h2 className="mt-1 text-xl font-black text-white">Current Pairings</h2>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {activePairings.map((pairing) => <PairingRow key={pairing.id} pairing={pairing} role={role} viewerStudentId={arena.entry?.studentId} />)}
+              {activePairings.map((pairing) => <PairingRow key={pairing.id} pairing={pairing} role={role} tournamentId={tournamentId} viewerStudentId={arena.entry?.studentId} />)}
             </div>
             {!activePairings.length ? <p className="mt-4 rounded-md border border-dashed border-white/10 p-4 text-sm text-slate-400">No games are in progress right now.</p> : null}
-            {recentPairings.length ? <><h3 className="mt-6 text-sm font-black uppercase text-slate-300">Recent results</h3><div className="mt-3 grid gap-3 md:grid-cols-2">{recentPairings.map((pairing) => <PairingRow key={pairing.id} pairing={pairing} role={role} viewerStudentId={arena.entry?.studentId} />)}</div></> : null}
+            {recentPairings.length ? <><h3 className="mt-6 text-sm font-black uppercase text-slate-300">Recent results</h3><div className="mt-3 grid gap-3 md:grid-cols-2">{recentPairings.map((pairing) => <PairingRow key={pairing.id} pairing={pairing} role={role} tournamentId={tournamentId} viewerStudentId={arena.entry?.studentId} />)}</div></> : null}
           </Card>
         </div>
 

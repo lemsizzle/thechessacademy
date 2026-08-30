@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getBotProgression } from "@/chess/bots/progression";
+import { getBotProgression, qualifiesForBotUnlock } from "@/chess/bots/progression";
 import { requireStudentBotUnlocked } from "@/chess/persistence/botProgressionServer";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { validateCompletedGame } from "@/chess/persistence/completedGame";
@@ -36,7 +36,7 @@ export async function saveCompletedGame(studentId: string, payload: unknown) {
     .single();
 
   if (error) throw new Error(error.message);
-  const updatedProgression = game.result === "win"
+  const updatedProgression = qualifiesForBotUnlock(game.result, game.takebackCount)
     ? getBotProgression([...progression.defeatedBotIds, game.opponentId])
     : progression;
   return {

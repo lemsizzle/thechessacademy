@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
-import { getBotProgression, getBotUnlockRequirement } from "@/chess/bots/progression";
+import { getBotProgression, getBotUnlockRequirement, qualifiesForBotUnlock } from "@/chess/bots/progression";
 import { GameSetup } from "@/chess/components/GameSetup";
 
 const mocks = vi.hoisted(() => ({
@@ -70,6 +70,13 @@ describe("computer opponent progression", () => {
     expect(getBotUnlockRequirement("so-pawny")).toBeNull();
   });
 
+  it("requires a win with no takebacks to unlock the next bot", () => {
+    expect(qualifiesForBotUnlock("win", 0)).toBe(true);
+    expect(qualifiesForBotUnlock("win", 1)).toBe(false);
+    expect(qualifiesForBotUnlock("draw", 0)).toBe(false);
+    expect(qualifiesForBotUnlock("loss", 0)).toBe(false);
+  });
+
   it("renders the starting bots as playable and later bots as disabled", () => {
     const markup = renderToStaticMarkup(createElement(GameSetup, {
       unlockedBotIds: ["pawny", "so-pawny"],
@@ -79,7 +86,7 @@ describe("computer opponent progression", () => {
     expect(botButton(markup, "Pawny")).not.toContain("disabled");
     expect(botButton(markup, "Sir Lem")).not.toContain("disabled");
     expect(botButton(markup, "Zippy Knight")).toContain("disabled");
-    expect(botButton(markup, "Zippy Knight")).toContain("Defeat Pawny to unlock.");
+    expect(botButton(markup, "Zippy Knight")).toContain("Defeat Pawny without takebacks to unlock.");
     expect(botButton(markup, "Benny Bishop")).toContain("disabled");
   });
 

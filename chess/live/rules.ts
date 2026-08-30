@@ -62,16 +62,16 @@ export function detectLiveBoardCompletion(chess: Chess): LiveGameCompletion | nu
   return null;
 }
 
-export function applyLiveMove(game: LiveGameRecord, studentId: string, input: LiveMoveInput, nowMs: number) {
+export function applyLiveMove(game: LiveGameRecord, studentId: string, input: LiveMoveInput, moveReceivedAtMs: number, nextTurnStartedAtMs = moveReceivedAtMs) {
   if (game.status !== "active") throw new LiveGameRuleError("This game is not active.");
   if (input.version !== game.version) throw new LiveGameRuleError("The game changed. Refresh and try again.");
   const playerColor = livePlayerColor(game, studentId);
   if (!playerColor) throw new LiveGameRuleError("You are not a player in this game.");
   if (playerColor !== game.active_color) throw new LiveGameRuleError("It is not your turn.");
-  if (correspondenceTimeoutCompletion(game, nowMs)) throw new LiveGameRuleError("The correspondence move deadline has expired.");
+  if (correspondenceTimeoutCompletion(game, moveReceivedAtMs)) throw new LiveGameRuleError("The correspondence move deadline has expired.");
 
   const currentClock = runningClock(game);
-  const clockBeforeMove = currentClock ? clockAt(currentClock, nowMs) : null;
+  const clockBeforeMove = currentClock ? clockAt(currentClock, moveReceivedAtMs) : null;
   if (clockBeforeMove && expiredClockColor(clockBeforeMove)) throw new LiveGameRuleError("The clock has expired. Claim the timeout first.");
 
   const chess = replayLiveMoves(game.initial_fen, game.moves);
@@ -96,10 +96,10 @@ export function applyLiveMove(game: LiveGameRecord, studentId: string, input: Li
   };
   const completion = detectLiveBoardCompletion(chess);
   const nextClock = currentClock
-    ? completeClockMove(currentClock, playerColor, game.time_control.incrementMs, nowMs)
+    ? completeClockMove(currentClock, playerColor, game.time_control.incrementMs, moveReceivedAtMs)
     : null;
   const correspondenceDeadline = game.game_mode === "correspondence" && !completion
-    ? new Date(nowMs + (game.days_per_move ?? 3) * 24 * 60 * 60 * 1_000).toISOString()
+    ? new Date(nextTurnStartedAtMs + (game.days_per_move ?? 3) * 24 * 60 * 60 * 1_000).toISOString()
     : null;
 
   return {
@@ -111,12 +111,12 @@ export function applyLiveMove(game: LiveGameRecord, studentId: string, input: Li
       active_color: oppositeColor(playerColor),
       white_ms: nextClock?.whiteMs ?? null,
       black_ms: nextClock?.blackMs ?? null,
-      clock_started_at: completion || !nextClock ? null : new Date(nowMs).toISOString(),
+      clock_started_at: completion || !nextClock ? null : new Date(nextTurnStartedAtMs).toISOString(),
       draw_offered_by: null,
       status: completion ? "completed" as const : "active" as const,
       winner_color: completion?.winnerColor ?? null,
       result_reason: completion?.reason ?? null,
-      completed_at: completion ? new Date(nowMs).toISOString() : null,
+      completed_at: completion ? new Date(moveReceivedAtMs).toISOString() : null,
       turn_deadline_at: correspondenceDeadline,
       version: game.version + 1
     },

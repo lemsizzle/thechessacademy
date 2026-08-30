@@ -79,6 +79,16 @@ describe("live chess game rules", () => {
     expect(result.update.current_fen).toBe(result.savedMove.fenAfter);
   });
 
+  it("does not charge either clock while the server confirms a submitted move", () => {
+    const game = record();
+    const receivedAt = Date.parse("2026-08-21T12:00:02Z");
+    const readyAt = Date.parse("2026-08-21T12:00:05Z");
+    const result = applyLiveMove(game, WHITE_ID, { from: "e2", to: "e4", version: 1 }, receivedAt, readyAt);
+    expect(result.update.white_ms).toBe(603_000);
+    expect(result.update.black_ms).toBe(600_000);
+    expect(result.update.clock_started_at).toBe("2026-08-21T12:00:05.000Z");
+  });
+
   it("detects a server-replayed checkmate and completes the game", () => {
     let game = record({ time_control_id: "none", time_control: { id: "none", name: "No Clock", initialMs: null, incrementMs: 0 }, white_ms: null, black_ms: null, clock_started_at: null });
     game = play(game, WHITE_ID, { from: "f2", to: "f3" }, 1);

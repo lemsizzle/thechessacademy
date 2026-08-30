@@ -5,10 +5,11 @@ import { LiveGameServerError, submitLiveMove } from "@/chess/persistence/liveGam
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, { params }: { params: Promise<{ gameId: string }> }) {
+  const moveReceivedAtMs = Date.now();
   try {
     const student = await requireActiveStudent();
     const [{ gameId }, body] = await Promise.all([params, request.json().catch(() => null)]);
-    return NextResponse.json({ ok: true, game: await submitLiveMove(student.studentId, gameId, body) });
+    return NextResponse.json({ ok: true, game: await submitLiveMove(student.studentId, gameId, body, moveReceivedAtMs) });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Move could not be played.";
     const status = error instanceof StudentAuthenticationError ? 401 : error instanceof LiveGameServerError ? error.status : 500;

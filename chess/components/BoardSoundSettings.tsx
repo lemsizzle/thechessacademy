@@ -38,7 +38,7 @@ export function BoardSoundSettings({ muted, onToggleMuted }: { muted: boolean; o
       {open ? (
         <div id={settingsId} className="absolute right-0 top-11 z-30 w-56 rounded-lg border border-white/15 bg-slate-950 p-3 text-left shadow-2xl" role="group" aria-label="Game sound settings">
           <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Game sounds</p>
-          <p className="mt-1 text-xs leading-5 text-slate-400">Move sounds and the game-over cue.</p>
+          <p className="mt-1 text-xs leading-5 text-slate-400">Moves, the one-minute warning, and the game-over cue.</p>
           <button
             type="button"
             className="mt-3 flex w-full items-center justify-between rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-slate-100 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70"

@@ -29,6 +29,10 @@ export function isBotUnlocked(botId: string, unlockedBotIds: readonly string[]) 
   return unlockedBotIds.includes(botId);
 }
 
+export function qualifiesForBotUnlock(result: string, takebackCount: number) {
+  return result === "win" && takebackCount === 0;
+}
+
 export function getBotUnlockRequirement(botId: string) {
   const index = BOT_PROGRESSION_IDS.indexOf(botId as (typeof BOT_PROGRESSION_IDS)[number]);
   if (index <= 0) return null;

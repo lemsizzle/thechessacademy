@@ -474,7 +474,29 @@ export async function getTeacherLiveGame(gameId: string) {
   return teacherSnapshotFor(game);
 }
 
-export async function submitLiveMove(studentId: string, gameId: string, input: unknown) {
+export async function getStudentArenaGame(studentId: string, tournamentId: string, gameId: string) {
+  const game = await loadRecord(gameId);
+  const arenaId = cleanGameId(tournamentId);
+  if (game.arena_tournament_id !== arenaId || game.game_mode !== "live" || game.status === "waiting" || game.status === "cancelled") {
+    throw new LiveGameServerError("This Arena game is not available to watch.", 404);
+  }
+
+  const [arenaResult, studentResult] = await Promise.all([
+    serviceClient().from("internal_arena_tournaments").select("id,class_group,status").eq("id", arenaId).maybeSingle(),
+    serviceClient().from("students").select("class_group").eq("id", studentId).maybeSingle()
+  ]);
+  if (arenaResult.error) throw new LiveGameServerError(arenaResult.error.message, 500);
+  if (studentResult.error) throw new LiveGameServerError(studentResult.error.message, 500);
+  if (!arenaResult.data || !studentResult.data || arenaResult.data.status === "cancelled") {
+    throw new LiveGameServerError("This Arena game is not available to watch.", 404);
+  }
+  if (arenaResult.data.class_group && arenaResult.data.class_group !== studentResult.data.class_group) {
+    throw new LiveGameServerError("This Arena is for another class.", 403);
+  }
+  return teacherSnapshotFor(game);
+}
+
+export async function submitLiveMove(studentId: string, gameId: string, input: unknown, moveReceivedAtMs = Date.now()) {
   const body = input && typeof input === "object" ? input as Record<string, unknown> : {};
   const moveInput: LiveMoveInput = {
     from: String(body.from ?? ""),
@@ -495,7 +517,7 @@ export async function submitLiveMove(studentId: string, gameId: string, input: u
   }
   let applied;
   try {
-    applied = applyLiveMove(game, studentId, moveInput, Date.now());
+    applied = applyLiveMove(game, studentId, moveInput, moveReceivedAtMs, Date.now());
   } catch (error) {
     if (error instanceof LiveGameRuleError) throw new LiveGameServerError(error.message, error.message.includes("changed") ? 409 : 400);
     throw error;

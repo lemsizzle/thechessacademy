@@ -22,7 +22,7 @@ import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
 type Confirmation = "resign" | "new-game" | null;
 
 const boardColumnStyle = {
-  width: "min(100%, 700px, max(80px, calc(100dvh - 14.25rem)))"
+  width: "min(100%, 700px, max(220px, calc(100svh - 25rem)))"
 };
 
 export function VsComputerGame({ studentName, studentAvatar, avatarItems, initialUnlockedBotIds }: { studentName: string; studentAvatar: StudentAvatarConfig; avatarItems: AvatarItem[]; initialUnlockedBotIds: string[] }) {

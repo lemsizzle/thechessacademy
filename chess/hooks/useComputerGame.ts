@@ -8,6 +8,7 @@ import { useChessSounds } from "@/chess/hooks/useChessSounds";
 import { useBoardCaptureEffect } from "@/chess/hooks/useBoardCaptureEffect";
 import { useGameClock } from "@/chess/hooks/useGameClock";
 import { useStockfish } from "@/chess/hooks/useStockfish";
+import { crossedOneMinuteWarning } from "@/chess/game/clockWarning";
 import type { ClockSnapshot, ComputerGameConfig, GameOutcome, PromotionPiece } from "@/chess/types";
 
 const STANDARD_FEN = new Chess().fen();
@@ -22,6 +23,7 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
   const completedAtRef = useRef("");
   const saveStartedRef = useRef(false);
   const takebackCountRef = useRef(0);
+  const previousHumanClockRef = useRef<number | null>(null);
   const [config, setConfig] = useState<ComputerGameConfig | null>(null);
   const [fen, setFen] = useState(STANDARD_FEN);
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
@@ -81,6 +83,9 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     saveStartedRef.current = false;
     takebackCountRef.current = 0;
     const initialClock = resetClock(nextConfig.timeControl);
+    previousHumanClockRef.current = initialClock
+      ? nextConfig.humanColor === "white" ? initialClock.whiteMs : initialClock.blackMs
+      : null;
     clockHistoryRef.current = [initialClock];
     setConfig(nextConfig);
     setFen(chess.fen());
@@ -186,6 +191,15 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     const winnerColor = canColorPossiblyCheckmate(chessRef.current, candidateWinner) ? candidateWinner : null;
     finishGame(createOutcome("timeout", winnerColor, config.humanColor));
   }, [config, expiredColor, finishGame]);
+
+  useEffect(() => {
+    if (!config || outcomeRef.current) return;
+    const current = clockDisplay
+      ? config.humanColor === "white" ? clockDisplay.whiteMs : clockDisplay.blackMs
+      : null;
+    if (crossedOneMinuteWarning(previousHumanClockRef.current, current)) playSound("warning");
+    previousHumanClockRef.current = current;
+  }, [clockDisplay, config, playSound]);
 
   useEffect(() => {
     if (!config || !outcome || saveStartedRef.current) return;

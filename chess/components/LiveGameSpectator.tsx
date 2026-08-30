@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
 import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles";
 import { BoardSoundSettings } from "@/chess/components/BoardSoundSettings";
@@ -8,6 +8,7 @@ import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
 import { oppositeColor } from "@/chess/game/colors";
 import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/material";
+import { crossedOneMinuteWarning } from "@/chess/game/clockWarning";
 import { useLiveGameSounds } from "@/chess/hooks/useLiveGameSounds";
 import { replayFenAtPly, stepReplayPly } from "@/chess/live/replay";
 import type { TeacherLiveGameSnapshot } from "@/chess/live/types";
@@ -19,7 +20,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 type GameResponse = { ok?: boolean; game?: TeacherLiveGameSnapshot; error?: string };
 
 const boardColumnStyle = {
-  width: "min(100%, 700px, max(80px, calc(100dvh - 14.25rem)))"
+  width: "min(100%, 700px, max(220px, calc(100svh - 25rem)))"
 };
 
 function clockValue(game: TeacherLiveGameSnapshot, color: ChessColor, nowMs: number, serverOffsetMs: number) {
@@ -36,7 +37,7 @@ function completedStatus(game: TeacherLiveGameSnapshot) {
   return game.winnerColor ? `${game.players[game.winnerColor].name} won by ${reason}.` : `Draw by ${reason}.`;
 }
 
-export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string; adminActionToken: string }) {
+export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teacher", tournamentId = "" }: { gameId: string; adminActionToken?: string; role?: "teacher" | "student"; tournamentId?: string }) {
   const [game, setGame] = useState<TeacherLiveGameSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -46,7 +47,10 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [boardArrows, setBoardArrows] = useState<Array<{ startSquare: string; endSquare: string; color: string }>>([]);
   const [selectedPly, setSelectedPly] = useState<number | null>(null);
-  const { muted, toggleMuted, receiveGameSnapshot, captureEffect } = useLiveGameSounds();
+  const previousClocksRef = useRef<{ gameId: string; white: number | null; black: number | null } | null>(null);
+  const { muted, toggleMuted, receiveGameSnapshot, playClockWarning, captureEffect } = useLiveGameSounds();
+  const isTeacher = role === "teacher";
+  const backHref = isTeacher ? "/admin/live-games" : `/student/tournaments/${tournamentId}`;
 
   const receiveGame = useCallback((next: TeacherLiveGameSnapshot) => {
     receiveGameSnapshot({ id: next.id, status: next.status, moves: next.moves });
@@ -58,10 +62,13 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
 
   const refresh = useCallback(async () => {
     try {
-      const response = await fetch(`/api/admin/live-games/${gameId}`, {
+      const endpoint = isTeacher
+        ? `/api/admin/live-games/${gameId}`
+        : `/api/student/internal-arenas/${tournamentId}/games/${gameId}`;
+      const response = await fetch(endpoint, {
         cache: "no-store",
         credentials: "same-origin",
-        headers: { "x-admin-action-token": adminActionToken }
+        headers: isTeacher ? { "x-admin-action-token": adminActionToken } : undefined
       });
       const body = await response.json() as GameResponse;
       if (!response.ok || !body.game) throw new Error(body.error || "Live game could not be loaded.");
@@ -70,7 +77,7 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
       setError(caught instanceof Error ? caught.message : "Live game could not be loaded.");
       setLoading(false);
     }
-  }, [adminActionToken, gameId, receiveGame]);
+  }, [adminActionToken, gameId, isTeacher, receiveGame, tournamentId]);
 
   useEffect(() => {
     void refresh();
@@ -84,21 +91,22 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
       return;
     }
     setConnection("connecting");
+    const presenceRole = isTeacher ? "coach" : "spectator";
     const channel = client
       .channel(game.realtimeTopic, {
-        config: { presence: { key: `coach-${crypto.randomUUID()}` } }
+        config: { presence: { key: `${presenceRole}-${crypto.randomUUID()}` } }
       })
       .on("broadcast", { event: "game_changed" }, () => void refresh())
       .subscribe((status) => {
         setConnection(status === "SUBSCRIBED" ? "live" : status === "CHANNEL_ERROR" || status === "TIMED_OUT" ? "polling" : "connecting");
         if (status === "SUBSCRIBED") {
-          void channel.track({ role: "coach", onlineAt: new Date().toISOString() });
+          void channel.track({ role: presenceRole, onlineAt: new Date().toISOString() });
         }
       });
     return () => {
       void client.removeChannel(channel);
     };
-  }, [game?.realtimeTopic, game?.status, refresh]);
+  }, [game?.realtimeTopic, game?.status, isTeacher, refresh]);
 
   useEffect(() => {
     if (!game || game.status !== "active") return;
@@ -130,6 +138,16 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
     white: clockValue(game, "white", nowMs, serverOffsetMs),
     black: clockValue(game, "black", nowMs, serverOffsetMs)
   } : { white: null, black: null }, [game, nowMs, serverOffsetMs]);
+
+  useEffect(() => {
+    if (!game) return;
+    const previous = previousClocksRef.current;
+    if (previous?.gameId === game.id && (
+      crossedOneMinuteWarning(previous.white, displayedClocks.white)
+      || crossedOneMinuteWarning(previous.black, displayedClocks.black)
+    )) playClockWarning();
+    previousClocksRef.current = { gameId: game.id, ...displayedClocks };
+  }, [displayedClocks, game, playClockWarning]);
   const viewedPly = selectedPly ?? game?.moves.length ?? 0;
   const viewedFen = useMemo(
     () => game ? replayFenAtPly(game.initialFen, game.moves, viewedPly) : "",
@@ -156,7 +174,7 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
   }, [game?.moves.length]);
 
   if (loading) return <Card className="p-6 text-sm text-slate-300">Connecting to the live game...</Card>;
-  if (!game) return <Card className="p-6"><p className="text-rose-100" role="alert">{error || "Live game could not be loaded."}</p><Button href="/admin/live-games" variant="secondary" className="mt-4">Back to Live Games</Button></Card>;
+  if (!game) return <Card className="p-6"><p className="text-rose-100" role="alert">{error || "Live game could not be loaded."}</p><Button href={backHref} variant="secondary" className="mt-4">Back to {isTeacher ? "Live Games" : "Arena"}</Button></Card>;
 
   const topColor = oppositeColor(orientation);
   const bottomColor = orientation;
@@ -167,10 +185,10 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
     <div className="space-y-4">
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
-        <div className="mx-auto min-w-0 space-y-3" style={boardColumnStyle}>
+        <div className="mx-auto min-w-0 space-y-2" style={boardColumnStyle}>
           <PlayerPanel name={game.players[topColor].name} subtitle={`Playing ${topColor}`} clockMs={displayedClocks[topColor]} active={game.status === "active" && game.activeColor === topColor} avatar={game.players[topColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, topColor)} />
-          <div>
-            <div className="mb-2 flex justify-end"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
+          <div className="relative">
+            <div className="absolute right-2 top-2 z-30"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
             <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
               <AcademyChessboard fen={viewedFen} orientation={orientation} humanColor={orientation} interactive={false} lastMove={lastMove} onMove={() => undefined} arrows={boardArrows} allowDrawingArrows onArrowsChange={setBoardArrows} onClearAnnotations={() => setBoardArrows([])} boardId={`teacher-watch-${game.id}`} />
               <BoardCaptureParticles effect={selectedPly === null ? captureEffect : null} orientation={orientation} />
@@ -183,7 +201,7 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
           <Card className="p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Teacher spectator mode</p>
+                <p className="text-xs font-black uppercase tracking-wider text-cyan-200">{isTeacher ? "Teacher spectator mode" : "Arena spectator mode"}</p>
                 <h2 className="mt-1 text-xl font-black text-white">{game.players.white.name} vs {game.players.black.name}</h2>
                 <p className="mt-1 text-xs font-bold text-slate-400">{game.matchmaking ? "Academy match" : "Private challenge"} · {game.rated ? "Rated" : "Casual"} · {game.timeControl.name}</p>
               </div>
@@ -206,7 +224,7 @@ export function LiveGameSpectator({ gameId, adminActionToken }: { gameId: string
             <h2 className="font-black text-white">Spectator controls</h2>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Button type="button" variant="ghost" onClick={() => setOrientation((value) => oppositeColor(value))}>⇅ Flip Board</Button>
-              <Button href="/admin/live-games" variant="ghost">All Live Games</Button>
+              <Button href={backHref} variant="ghost">{isTeacher ? "All Live Games" : "Arena Lobby"}</Button>
             </div>
             <div className="mt-4 border-t border-white/10 pt-4">
               <div className="flex items-center justify-between gap-3">

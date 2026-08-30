@@ -43,5 +43,7 @@ export function useLiveGameSounds() {
     setMuted(next);
   }, [muted, prepare, setMuted]);
 
-  return { muted, toggleMuted, receiveGameSnapshot, captureEffect };
+  const playClockWarning = useCallback(() => play("warning"), [play]);
+
+  return { muted, toggleMuted, receiveGameSnapshot, playClockWarning, captureEffect };
 }

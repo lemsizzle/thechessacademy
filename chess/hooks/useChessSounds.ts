@@ -2,12 +2,13 @@
 
 import { useCallback, useRef, useState } from "react";
 
-export type ChessSound = "move" | "capture" | "check" | "end";
+export type ChessSound = "move" | "capture" | "check" | "warning" | "end";
 
 const soundFrequency: Record<ChessSound, number> = {
   move: 330,
   capture: 220,
   check: 520,
+  warning: 880,
   end: 660
 };
 
@@ -26,6 +27,23 @@ function playGameEndCadence(context: AudioContext) {
     gain.connect(context.destination);
     oscillator.start(startsAt);
     oscillator.stop(startsAt + 0.24);
+  }
+}
+
+function playClockWarning(context: AudioContext) {
+  for (const [index, frequency] of [880, 660].entries()) {
+    const startsAt = context.currentTime + index * 0.16;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.frequency.value = frequency;
+    oscillator.type = "triangle";
+    gain.gain.setValueAtTime(0.001, startsAt);
+    gain.gain.exponentialRampToValueAtTime(0.09, startsAt + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.001, startsAt + 0.18);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(startsAt);
+    oscillator.stop(startsAt + 0.2);
   }
 }
 
@@ -53,11 +71,15 @@ export function useChessSounds(initialMuted = false) {
         playGameEndCadence(context);
         return;
       }
+      if (sound === "warning") {
+        playClockWarning(context);
+        return;
+      }
       const oscillator = context.createOscillator();
       const gain = context.createGain();
       oscillator.frequency.value = soundFrequency[sound];
       oscillator.type = sound === "capture" ? "square" : "sine";
-      gain.gain.setValueAtTime(0.045, context.currentTime);
+      gain.gain.setValueAtTime(0.075, context.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.12);
       oscillator.connect(gain);
       gain.connect(context.destination);
