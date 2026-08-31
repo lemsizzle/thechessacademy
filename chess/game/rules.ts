@@ -1,4 +1,4 @@
-import { Chess, type Move, type Square } from "chess.js";
+import { Chess, type Move, type PieceSymbol, type Square } from "chess.js";
 import { chessJsColor, fromChessJsColor, oppositeColor } from "@/chess/game/colors";
 import type { ChessColor, GameMove, GameOutcome, GameResultReason, PromotionPiece } from "@/chess/types";
 
@@ -7,6 +7,80 @@ export type MoveInput = { from: string; to: string; promotion?: PromotionPiece }
 export function legalMovesFrom(chess: Chess, square: string) {
   return chess.moves({ square: square as Square, verbose: true });
 }
+
+export type PseudoLegalMove = {
+  from: Square;
+  to: Square;
+  piece: PieceSymbol;
+  captured?: PieceSymbol;
+};
+
+/** Piece movement without king-safety filtering, for instructional attempts. */
+export function pseudoLegalMovesFrom(chess: Chess, square: string, includeKingTargets = false): PseudoLegalMove[] {
+  const from = square as Square;
+  const piece = chess.get(from);
+  if (!piece) return [];
+  const files = "abcdefgh";
+  const file = files.indexOf(from[0]);
+  const rank = Number(from[1]) - 1;
+  const moves: PseudoLegalMove[] = [];
+  const onBoard = (targetFile: number, targetRank: number) => targetFile >= 0 && targetFile < 8 && targetRank >= 0 && targetRank < 8;
+  const squareAt = (targetFile: number, targetRank: number) => `${files[targetFile]}${targetRank + 1}` as Square;
+  const addTarget = (targetFile: number, targetRank: number, captureOnly = false) => {
+    if (!onBoard(targetFile, targetRank)) return;
+    const to = squareAt(targetFile, targetRank);
+    const target = chess.get(to);
+    if (target?.color === piece.color || (target?.type === "k" && !includeKingTargets)) return;
+    if (captureOnly && !target) return;
+    moves.push({ from, to, piece: piece.type, captured: target?.type });
+  };
+  const addRay = (fileStep: number, rankStep: number) => {
+    let targetFile = file + fileStep;
+    let targetRank = rank + rankStep;
+    while (onBoard(targetFile, targetRank)) {
+      const to = squareAt(targetFile, targetRank);
+      const target = chess.get(to);
+      if (target) {
+        if (target.color !== piece.color && (includeKingTargets || target.type !== "k")) {
+          moves.push({ from, to, piece: piece.type, captured: target.type });
+        }
+        return;
+      }
+      moves.push({ from, to, piece: piece.type });
+      targetFile += fileStep;
+      targetRank += rankStep;
+    }
+  };
+
+  if (piece.type === "p") {
+    const direction = piece.color === "w" ? 1 : -1;
+    const oneRank = rank + direction;
+    if (onBoard(file, oneRank) && !chess.get(squareAt(file, oneRank))) {
+      addTarget(file, oneRank);
+      const startingRank = piece.color === "w" ? 1 : 6;
+      const twoRank = rank + direction * 2;
+      if (rank === startingRank && !chess.get(squareAt(file, twoRank))) addTarget(file, twoRank);
+    }
+    addTarget(file - 1, oneRank, true);
+    addTarget(file + 1, oneRank, true);
+  } else if (piece.type === "n") {
+    for (const [fileStep, rankStep] of [[1, -2], [-1, -2], [2, -1], [-2, -1], [2, 1], [-2, 1], [1, 2], [-1, 2]]) {
+      addTarget(file + fileStep, rank + rankStep);
+    }
+  } else if (piece.type === "k") {
+    for (const [fileStep, rankStep] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) {
+      addTarget(file + fileStep, rank + rankStep);
+    }
+  } else {
+    const straight = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    const diagonal = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+    const directions = piece.type === "r" ? straight : piece.type === "b" ? diagonal : [...straight, ...diagonal];
+    for (const [fileStep, rankStep] of directions) addRay(fileStep, rankStep);
+  }
+
+  return moves;
+}
+
 export function promotionOptions(chess: Chess, from: string, to: string): PromotionPiece[] {
   const options = legalMovesFrom(chess, from)
     .filter((move) => move.to === to && move.promotion)

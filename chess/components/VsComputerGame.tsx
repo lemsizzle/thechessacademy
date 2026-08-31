@@ -231,10 +231,10 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
             secondaryLabel="Review Board"
             onSecondary={() => game.setResultOpen(false)}
           >
+            {game.savedGameId && <Button className="mt-4 w-full" href={`/student/play/game/${game.savedGameId}/analysis`}>Review my three key moments</Button>}
             <div className={`mt-4 rounded-lg border p-4 text-center ${game.outcome.result === "win" ? "border-emerald-300/35 bg-emerald-300/10" : game.outcome.result === "loss" ? "border-rose-300/35 bg-rose-300/10" : "border-cyan-200/35 bg-cyan-300/10"}`}>
               <p className="text-3xl font-black text-white">{game.outcome.result === "win" ? "Victory!" : game.outcome.result === "loss" ? "Good game!" : "Draw"}</p>
             </div>
-            {game.savedGameId && <Button className="mt-3 w-full" variant="secondary" href={`/student/play/game/${game.savedGameId}/analysis`}>Analyze Game</Button>}
             {game.savedGameId && <Button className="mt-2 w-full" variant="ghost" type="button" onClick={() => setAddStudyOpen(true)}>Add to Study</Button>}
           </GameDialog>
         </>

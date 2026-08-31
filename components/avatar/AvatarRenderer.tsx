@@ -17,6 +17,13 @@ const sizeClasses = {
   studio: "aspect-square w-72 max-w-full"
 };
 
+const superSaiyanSeparationFilters = {
+  sm: "drop-shadow(0 0 1.5px rgb(5 20 37)) drop-shadow(0 0 2px rgb(5 20 37))",
+  md: "drop-shadow(0 0 2px rgb(5 20 37)) drop-shadow(0 0 3px rgb(5 20 37))",
+  lg: "drop-shadow(0 0 4px rgb(5 20 37)) drop-shadow(0 0 5px rgb(5 20 37))",
+  studio: "drop-shadow(0 0 5px rgb(5 20 37)) drop-shadow(0 0 7px rgb(5 20 37))"
+};
+
 const structuralDefaults = new Map<AvatarCategory, AvatarItem>([
   ["base_face", seedAvatarItems.find((item) => item.slug === "academy-face")!],
   ["skin_tone", seedAvatarItems.find((item) => item.slug === "warm-skin-tone")!]
@@ -35,6 +42,25 @@ export function AvatarRenderer({ items, avatar, previewItem, size = "md", label 
     })
     .filter((item): item is AvatarItem => Boolean(item))
     .sort((a, b) => a.layerOrder - b.layerOrder);
+  const effectLayers = layers.filter((item) => item.category === "background" || item.category === "aura_effect");
+  const foregroundLayers = layers.filter((item) => item.category !== "background" && item.category !== "aura_effect");
+  const separatesSuperSaiyanAura = effectLayers.some((item) => item.category === "aura_effect" && item.slug === "super-saiyan");
+
+  const renderLayer = (item: AvatarItem) => item.assetUrl ? (
+    <img
+      key={`${item.category}-${item.id}`}
+      src={item.assetUrl}
+      alt=""
+      width={AVATAR_CANVAS_WIDTH}
+      height={AVATAR_CANVAS_HEIGHT}
+      className="absolute inset-0 block h-full w-full object-fill object-center"
+      draggable={false}
+    />
+  ) : (
+    <div key={`${item.category}-${item.id}`} className="absolute inset-3 grid place-items-center rounded-full bg-white/10 text-xs font-black text-cyan-100">
+      {item.name.slice(0, 2).toUpperCase()}
+    </div>
+  );
 
   return (
     <div
@@ -44,21 +70,14 @@ export function AvatarRenderer({ items, avatar, previewItem, size = "md", label 
       data-avatar-canvas={`${AVATAR_CANVAS_WIDTH}x${AVATAR_CANVAS_HEIGHT}`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(125,211,252,0.24),transparent_54%)]" />
-      {layers.map((item) => item.assetUrl ? (
-        <img
-          key={`${item.category}-${item.id}`}
-          src={item.assetUrl}
-          alt=""
-          width={AVATAR_CANVAS_WIDTH}
-          height={AVATAR_CANVAS_HEIGHT}
-          className="absolute inset-0 block h-full w-full object-fill object-center"
-          draggable={false}
-        />
-      ) : (
-        <div key={`${item.category}-${item.id}`} className="absolute inset-3 grid place-items-center rounded-full bg-white/10 text-xs font-black text-cyan-100">
-          {item.name.slice(0, 2).toUpperCase()}
-        </div>
-      ))}
+      {effectLayers.map(renderLayer)}
+      <div
+        className="absolute inset-0"
+        data-aura-separation={separatesSuperSaiyanAura ? "super-saiyan" : undefined}
+        style={separatesSuperSaiyanAura ? { filter: superSaiyanSeparationFilters[size] } : undefined}
+      >
+        {foregroundLayers.map(renderLayer)}
+      </div>
     </div>
   );
 }

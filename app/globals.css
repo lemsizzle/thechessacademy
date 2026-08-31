@@ -96,6 +96,17 @@ textarea {
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.75); }
 }
 
+@keyframes adventure-scene-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes adventure-restoration {
+  0% { opacity: 0; transform: scale(.97); }
+  16%, 72% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.02); }
+}
+
 .academy-confetti {
   animation-name: academy-confetti-fall;
   animation-timing-function: cubic-bezier(.15, .75, .3, 1);
@@ -119,6 +130,16 @@ textarea {
   animation: academy-capture-flash 560ms ease-out both;
 }
 
+.adventure-scene-fade {
+  animation: adventure-scene-fade 180ms ease-out both;
+}
+
+.adventure-restoration {
+  animation-name: adventure-restoration;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .academy-confetti,
   .academy-victory-glow,
@@ -126,5 +147,13 @@ textarea {
   .academy-capture-particle,
   .academy-capture-flash {
     display: none;
+  }
+
+  .adventure-scene-fade {
+    animation: none;
+  }
+
+  .adventure-restoration {
+    animation: none;
   }
 }

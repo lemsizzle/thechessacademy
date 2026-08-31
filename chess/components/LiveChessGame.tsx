@@ -597,6 +597,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           secondaryLabel="Close"
           onSecondary={() => setResultOpen(false)}
         >
+          <Button className="mt-4 w-full" href={`/student/play/game/${encodeURIComponent(game.id)}/analysis`}>Review my three key moments</Button>
           <p className="mt-3 text-sm font-bold text-slate-300">Your result has been added to the standings. You will be paired again when another Arena player is ready.</p>
         </GameDialog>
       ) : resultOpen && game.status === "completed" ? (
@@ -609,6 +610,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           secondaryLabel={opponentRequestedRematch && !isCorrespondence ? "Decline & Return to Play" : "Close"}
           onSecondary={opponentRequestedRematch && !isCorrespondence ? declineRematch : () => setResultOpen(false)}
         >
+          <Button className="mt-4 w-full" href={`/student/play/game/${encodeURIComponent(game.id)}/analysis`}>Review my three key moments</Button>
           <p className="mt-3 text-sm font-bold text-slate-300">
             {isCorrespondence
               ? challengeAgainSent ? "Your challenge is waiting in the other student's inbox." : "Want another slow game? Send a new correspondence challenge."

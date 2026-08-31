@@ -3,6 +3,7 @@ import type { AnalysisTree } from "@/chess/analysis/types";
 import type { StockfishCandidate } from "@/chess/types";
 
 export const MISTAKE_EQUIVALENT_MOVE_MARGIN_CP = 35;
+export const MAX_KEY_MOMENTS = 3;
 
 export type MistakeSeverity = "inaccuracy" | "mistake" | "blunder";
 
@@ -35,6 +36,13 @@ export type MistakePuzzle = {
   centipawnLoss: number;
   severity: MistakeSeverity;
 };
+
+export function selectKeyMoments<T extends Pick<MistakePuzzle, "centipawnLoss" | "ply">>(puzzles: T[], limit = MAX_KEY_MOMENTS) {
+  return [...puzzles]
+    .sort((left, right) => right.centipawnLoss - left.centipawnLoss || left.ply - right.ply)
+    .slice(0, Math.max(0, limit))
+    .sort((left, right) => left.ply - right.ply);
+}
 
 export function mainlineNodeIds(tree: AnalysisTree) {
   const ids = [tree.rootId];
@@ -245,5 +253,5 @@ export function buildMistakePuzzles(
     });
   }
 
-  return puzzles.sort((left, right) => left.ply - right.ply);
+  return selectKeyMoments(puzzles);
 }

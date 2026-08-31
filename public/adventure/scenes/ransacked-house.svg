@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Ransacked house placeholder</title>
+  <desc id="desc">Dad's wooden chessboard, Lem glowing among books, and a family portrait.</desc>
+  <defs><linearGradient id="wall" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#2e1065"/><stop offset="1" stop-color="#111827"/></linearGradient><radialGradient id="glow"><stop stop-color="#fde68a" stop-opacity=".8"/><stop offset="1" stop-color="#f59e0b" stop-opacity="0"/></radialGradient></defs>
+  <rect width="1600" height="900" fill="url(#wall)"/>
+  <path d="M0 690h1600v210H0z" fill="#24140e"/>
+  <path d="M0 706h1600M0 780h1600M200 690v210M510 690v210M820 690v210M1130 690v210M1430 690v210" stroke="#a16207" stroke-opacity=".25" stroke-width="7"/>
+  <g transform="translate(72 520)"><path d="M0 60l380-40 65 240H35z" fill="#422006" stroke="#fcd34d" stroke-opacity=".35" stroke-width="7"/><g fill="#d6d3d1"><circle cx="100" cy="95" r="28"/><path d="M73 160h54l-10-62H83z"/><rect x="190" y="80" width="55" height="110"/><path d="M300 190l30-105 30 105z"/></g><path d="M50 214h340M65 160h305M80 106h270" stroke="#fde68a" stroke-opacity=".35" stroke-width="5"/></g>
+  <circle cx="800" cy="470" r="260" fill="url(#glow)"/>
+  <g transform="translate(674 315)"><path d="M0 60q126-100 252 0v300q-126-78-252 0z" fill="#fef3c7" stroke="#f59e0b" stroke-width="12"/><path d="M126 30v310" stroke="#f59e0b" stroke-width="8"/><path d="M38 112q80-36 160 0M38 168q80-36 160 0M38 224q80-36 160 0" stroke="#92400e" stroke-width="8" opacity=".55"/><circle cx="126" cy="176" r="42" fill="#f59e0b" opacity=".22"/></g>
+  <g transform="translate(1180 120)"><rect width="260" height="250" rx="8" fill="#422006" stroke="#fde68a" stroke-opacity=".6" stroke-width="12"/><rect x="25" y="25" width="210" height="200" fill="#1e3a5f"/><circle cx="92" cy="100" r="40" fill="#fdba74"/><circle cx="166" cy="100" r="40" fill="#fca5a5"/><path d="M45 202q50-105 100 0M117 202q50-105 100 0" fill="#0f172a"/></g>
+  <g fill="#cbd5e1" opacity=".45"><rect x="480" y="680" width="180" height="28" transform="rotate(-12 480 680)"/><rect x="980" y="730" width="220" height="30" transform="rotate(8 980 730)"/><rect x="1040" y="618" width="130" height="25" transform="rotate(-25 1040 618)"/></g>
+  <text x="48" y="70" fill="#ede9fe" font-family="sans-serif" font-size="28" font-weight="700" letter-spacing="7">PLACEHOLDER • RANSACKED HOUSE</text>
+</svg>

@@ -190,7 +190,7 @@ export function ChessHistoryDashboard() {
                       </p>
                     </div>
                     <Button href={`/student/play/game/${encodeURIComponent(game.id)}/analysis`} variant="secondary" className="w-full sm:w-auto">
-                      Analyze
+                      Review key moments
                     </Button>
                   </li>
                 ))}

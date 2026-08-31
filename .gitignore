@@ -20,6 +20,7 @@ lichess_db_puzzle.csv.zst
 .codex/
 .vercel/
 .gitrepo/
+supabase/.temp/
 
 .vercel
 .env*

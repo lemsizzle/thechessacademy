@@ -1,6 +1,6 @@
 import { Chess } from "chess.js";
 import { describe, expect, it } from "vitest";
-import { buildMistakePuzzles, classifyCentipawnLoss, equivalentEngineMoves, evaluationAsCentipawns, explainBestMove, explainMistake, mainlineNodeIds, type PositionEvaluation } from "@/chess/analysis/mistakes";
+import { buildMistakePuzzles, classifyCentipawnLoss, equivalentEngineMoves, evaluationAsCentipawns, explainBestMove, explainMistake, mainlineNodeIds, selectKeyMoments, type PositionEvaluation } from "@/chess/analysis/mistakes";
 import type { StockfishCandidate } from "@/chess/types";
 import { createAnalysisTree } from "@/chess/analysis/tree";
 import type { CompletedGameMove } from "@/chess/analysis/types";
@@ -27,6 +27,15 @@ function evaluation(nodeId: string, scoreWhiteCp: number, bestMoveUci: string): 
 }
 
 describe("learn from your mistakes", () => {
+  it("keeps the three largest turning points and presents them in game order", () => {
+    expect(selectKeyMoments([
+      { id: "early", ply: 5, centipawnLoss: 120 },
+      { id: "small", ply: 9, centipawnLoss: 105 },
+      { id: "largest", ply: 18, centipawnLoss: 420 },
+      { id: "middle", ply: 12, centipawnLoss: 250 }
+    ]).map((moment) => moment.id)).toEqual(["early", "middle", "largest"]);
+  });
+
   it("explains why the best move works in beginner language", () => {
     expect(explainBestMove({
       fen: "8/8/1p6/2B5/8/8/8/4K2k w - - 0 1",

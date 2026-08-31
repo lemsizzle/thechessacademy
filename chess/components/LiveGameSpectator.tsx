@@ -164,7 +164,7 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target;
-      if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable='true'], [data-board-square]")) return;
       if (!game?.moves.length) return;
       event.preventDefault();
       setSelectedPly((current) => stepReplayPly(current, event.key === "ArrowLeft" ? -1 : 1, game.moves.length));

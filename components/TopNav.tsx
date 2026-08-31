@@ -1,7 +1,20 @@
 import Link from "next/link";
 import { getNavigationGroups, getTopNavActions, type NavVariant } from "@/components/navigation";
+import { StudentNavigation } from "@/components/student/StudentNavigation";
 
-export function TopNav({ variant = "public" }: { variant?: NavVariant }) {
+export function TopNav({
+  variant = "public",
+  studentName,
+  onStudentLogout
+}: {
+  variant?: NavVariant;
+  studentName?: string;
+  onStudentLogout?: () => void;
+}) {
+  if (variant === "student" && studentName && onStudentLogout) {
+    return <StudentNavigation studentName={studentName} onLogout={onStudentLogout} />;
+  }
+
   const actions = getTopNavActions(variant);
   const groups = getNavigationGroups(variant);
   const homeHref = variant === "student" ? "/student" : variant === "admin" ? "/admin" : "/app";

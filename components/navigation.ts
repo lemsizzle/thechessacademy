@@ -18,6 +18,7 @@ const exploreLinks: NavLink[] = [
 ];
 
 const studentExploreLinks: NavLink[] = [
+  { href: "/student/adventure", label: "Chess Adventure", icon: "\u{1F5FA}\uFE0F" },
   { href: "/student/play", label: "Play", icon: "\u265E" },
   { href: "/student/play/correspondence", label: "Correspondence", icon: "\u2709\uFE0F" },
   { href: "/student/play/history", label: "Game History", icon: "\u{1F4CA}" },
@@ -32,6 +33,13 @@ const studentExploreLinks: NavLink[] = [
 const studentQuestLinks: NavLink[] = [
   { href: "/student/avatar", label: "Avatar & Store", icon: "\u{1F9D9}" },
   { href: "/student/submit", label: "Submit Work", icon: "\u{1F4DD}" }
+];
+
+const studentMobilePrimaryLinks: NavLink[] = [
+  { href: "/student", label: "Dashboard", icon: "\u{1F9ED}" },
+  { href: "/student/training", label: "Train", icon: "\u{1F9E9}" },
+  { href: "/student/play", label: "Play", icon: "\u265E" },
+  { href: "/student/quests", label: "Quests", icon: "\u{1F4DC}" }
 ];
 
 const teacherCoreLinks: NavLink[] = [
@@ -84,4 +92,15 @@ export function getTopNavActions(variant: NavVariant): NavLink[] {
   if (variant === "admin") return [{ href: "/app", label: "View Portal" }, { href: "/api/admin/logout", label: "Log Out" }];
   if (variant === "student") return [];
   return [{ href: "/api/auth/lichess/start", label: "Log in with Lichess" }];
+}
+
+export function getStudentMobilePrimaryLinks(): NavLink[] {
+  return studentMobilePrimaryLinks.map((link) => ({ ...link }));
+}
+
+export function getStudentMobileMoreLinks(): NavLink[] {
+  const primaryHrefs = new Set(studentMobilePrimaryLinks.map((link) => link.href));
+  return [...studentQuestLinks, ...studentExploreLinks]
+    .filter((link) => !primaryHrefs.has(link.href))
+    .map((link) => ({ ...link }));
 }

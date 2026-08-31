@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Kingpin hall placeholder</title>
+  <desc id="desc">Kingpin stands before a black throne, with a locked door and Dad's battle record on a table.</desc>
+  <defs><linearGradient id="hall" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#020617"/><stop offset=".55" stop-color="#3f0718"/><stop offset="1" stop-color="#111827"/></linearGradient><radialGradient id="throne"><stop stop-color="#fb7185" stop-opacity=".3"/><stop offset="1" stop-color="#be123c" stop-opacity="0"/></radialGradient></defs>
+  <rect width="1600" height="900" fill="url(#hall)"/>
+  <circle cx="810" cy="380" r="420" fill="url(#throne)"/>
+  <path d="M570 720l40-510 200-120 200 120 40 510z" fill="#09090b" stroke="#fb7185" stroke-opacity=".35" stroke-width="12"/>
+  <path d="M675 220l135-95 135 95-52 102H727z" fill="#4c0519"/>
+  <g transform="translate(650 205)"><path d="M40 165l120-125 120 125-40 70H80z" fill="#facc15"/><circle cx="160" cy="185" r="70" fill="#fda4af"/><path d="M35 525q15-280 125-280t125 280z" fill="#18181b" stroke="#fb7185" stroke-opacity=".6" stroke-width="12"/><path d="M70 330l-75 180M250 330l75 180" stroke="#18181b" stroke-width="78" stroke-linecap="round"/></g>
+  <g transform="translate(90 250)"><rect width="290" height="440" rx="16" fill="#111827" stroke="#94a3b8" stroke-opacity=".45" stroke-width="12"/><path d="M52 0v440M238 0v440" stroke="#020617" stroke-width="18"/><circle cx="225" cy="225" r="18" fill="#facc15"/><rect x="100" y="170" width="90" height="110" rx="12" fill="#020617"/><path d="M124 170v-44q0-56 42-56t42 56v44" fill="none" stroke="#facc15" stroke-width="14"/></g>
+  <g transform="translate(1080 510)"><path d="M0 70h390l70 250H-65z" fill="#422006" stroke="#fbbf24" stroke-opacity=".35" stroke-width="10"/><rect x="95" y="10" width="220" height="140" transform="rotate(-7 95 10)" fill="#fef3c7"/><path d="M130 45h145M122 76h160M115 108h120" stroke="#9a3412" stroke-width="8"/><circle cx="280" cy="122" r="28" fill="#be123c" opacity=".8"/></g>
+  <path d="M0 755h1600v145H0z" fill="#09090b"/><path d="M0 770h1600" stroke="#f59e0b" stroke-opacity=".25" stroke-width="7"/>
+  <text x="48" y="70" fill="#fecdd3" font-family="sans-serif" font-size="28" font-weight="700" letter-spacing="7">PLACEHOLDER • KINGPIN HALL</text>
+</svg>

@@ -154,6 +154,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   const [engineOn, setEngineOn] = useState(false);
   const [showBoardTools, setShowBoardTools] = useState(false);
   const [showPositionNotes, setShowPositionNotes] = useState(false);
+  const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(!gameMode);
   const [annotationMode, setAnnotationMode] = useState<"arrow" | "circle" | null>(null);
   const [annotationStart, setAnnotationStart] = useState<string | null>(null);
   const [shapeStyle, setShapeStyle] = useState<BoardAnnotationStyle>("primary");
@@ -235,7 +236,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
-      if (target?.matches("input, textarea, select, [contenteditable=true]")) return;
+      if (target?.matches("input, textarea, select, [contenteditable=true], [data-board-square]")) return;
       let next = activeId;
       if (event.key === "ArrowLeft") next = previousNodeId(tree, activeId);
       else if (event.key === "ArrowRight") next = nextNodeId(tree, activeId);
@@ -383,12 +384,28 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   const whitePercent = topLine?.mateWhite !== null && topLine?.mateWhite !== undefined
     ? topLine.mateWhite > 0 ? 96 : 4
     : Math.max(4, Math.min(96, 50 + evaluation / 20));
+  const reviewPanel = gameMode && reviewColor ? <MistakeReviewPanel
+    status={mistakeReview.status}
+    progress={mistakeReview.progress}
+    error={mistakeReview.error}
+    puzzles={mistakeReview.puzzles}
+    activeIndex={mistakeReview.activeIndex}
+    activePuzzle={mistakeReview.activePuzzle}
+    result={mistakeReview.result}
+    queueSave={mistakeReview.queueSave}
+    onScan={mistakeReview.scan}
+    onCancel={mistakeReview.cancel}
+    onOpen={mistakeReview.open}
+    onClose={mistakeReview.close}
+    onGoTo={mistakeReview.goTo}
+    onReveal={mistakeReview.reveal}
+  /> : null;
 
   return (
     <div className="min-w-0 space-y-4">
       <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-slate-950/60 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Analysis board</p>
+          <p className="text-xs font-black uppercase tracking-wider text-cyan-200">{gameMode ? "Game review" : "Analysis board"}</p>
           <h2 className="truncate text-xl font-black text-white">{title}</h2>
           {subtitle && <p className="mt-1 text-sm text-slate-400">{subtitle}</p>}
         </div>
@@ -397,6 +414,8 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
           {actions}
         </div>
       </div>
+
+      {!mistakeReviewActive ? reviewPanel : null}
 
       <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,720px)_minmax(360px,520px)] xl:justify-center">
         <div className="mx-auto w-full max-w-[720px] min-w-0 space-y-3">
@@ -493,22 +512,26 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
         </div>
 
         <aside className="min-w-0 space-y-4 xl:sticky xl:top-4">
-          {gameMode && reviewColor && <MistakeReviewPanel
-            status={mistakeReview.status}
-            progress={mistakeReview.progress}
-            error={mistakeReview.error}
-            puzzles={mistakeReview.puzzles}
-            activeIndex={mistakeReview.activeIndex}
-            activePuzzle={mistakeReview.activePuzzle}
-            result={mistakeReview.result}
-            queueSave={mistakeReview.queueSave}
-            onScan={mistakeReview.scan}
-            onCancel={mistakeReview.cancel}
-            onOpen={mistakeReview.open}
-            onClose={mistakeReview.close}
-            onGoTo={mistakeReview.goTo}
-            onReveal={mistakeReview.reveal}
-          />}
+          {mistakeReviewActive ? reviewPanel : null}
+          {gameMode ? <Card className="overflow-hidden p-0">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-4 p-4 text-left hover:bg-white/[.04]"
+              aria-expanded={showAdvancedAnalysis}
+              aria-controls="advanced-game-analysis"
+              onClick={() => {
+                if (showAdvancedAnalysis) setEngineOn(false);
+                setShowAdvancedAnalysis((visible) => !visible);
+              }}
+            >
+              <span>
+                <span className="block font-black text-white">Advanced analysis</span>
+                <span className="mt-0.5 block text-xs text-slate-400">Engine controls and the full move tree</span>
+              </span>
+              <span className="shrink-0 text-xs font-black text-cyan-200">{showAdvancedAnalysis ? "Hide" : "Show"}</span>
+            </button>
+          </Card> : null}
+          <div id="advanced-game-analysis" className="space-y-4" hidden={!showAdvancedAnalysis}>
           <Card className="p-4">
             <div className="flex items-center justify-between gap-3">
               <div><p className="text-xs font-black uppercase text-cyan-200">Local Stockfish</p><h3 className="font-black text-white">Engine analysis</h3></div>
@@ -578,6 +601,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
               {!moveRows.length && !variationRows.length ? <p className="p-3 text-sm text-slate-500">Make a legal move on the board to begin a line.</p> : null}
             </div>
           </Card>
+          </div>
 
           <Card className="p-4">
             <button type="button" className="flex w-full items-center justify-between text-left" aria-expanded={showPositionNotes} aria-controls="analysis-position-notes" onClick={() => setShowPositionNotes((visible) => !visible)}>
