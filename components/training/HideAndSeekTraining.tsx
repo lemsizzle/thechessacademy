@@ -6,8 +6,11 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent
+  type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent
 } from "react";
+import { annotationColorForModifiers, toggleBoardArrow, type BoardArrow } from "@/chess/components/boardAnnotations";
+import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import type {
@@ -57,6 +60,25 @@ const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"] as const;
 const BOARD_SQUARES = RANKS.flatMap((rank) => FILES.map((file) => `${file}${rank}` as HideAndSeekSquare));
 const BOARD_SQUARE_INDEX = new Map(BOARD_SQUARES.map((square, index) => [square, index]));
+
+export function hideAndSeekArrowLine(arrow: Pick<BoardArrow, "startSquare" | "endSquare">) {
+  const center = (square: string) => {
+    const file = FILES.indexOf(square[0] as (typeof FILES)[number]);
+    const rank = Number(square[1]);
+    return { x: (file + 0.5) * 12.5, y: (8 - rank + 0.5) * 12.5 };
+  };
+  const start = center(arrow.startSquare);
+  const target = center(arrow.endSquare);
+  const dx = target.x - start.x;
+  const dy = target.y - start.y;
+  const distance = Math.hypot(dx, dy) || 1;
+  return {
+    x1: start.x,
+    y1: start.y,
+    x2: target.x - (dx / distance) * 4,
+    y2: target.y - (dy / distance) * 4
+  };
+}
 
 const PIECE_NAMES: Record<HideAndSeekPieceCode, string> = {
   bK: "black king",
@@ -212,16 +234,23 @@ function SearchBoard({
   phase,
   selectedSquares,
   result,
-  onToggle
+  arrows,
+  onToggle,
+  onArrowsChange
 }: {
   round: ActiveSearchRound;
   phase: HideAndSeekSearchPhase;
   selectedSquares: ReadonlySet<HideAndSeekSquare>;
   result: SearchResult | null;
+  arrows: BoardArrow[];
   onToggle: (square: HideAndSeekSquare) => void;
+  onArrowsChange: (arrows: BoardArrow[]) => void;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [previewArrow, setPreviewArrow] = useState<BoardArrow | null>(null);
   const squareRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const drawingRef = useRef<{ startSquare: HideAndSeekSquare; color: string } | null>(null);
+  const boardRef = useOutsideBoardAnnotationClear(() => onArrowsChange([]));
   const pieceBySquare = useMemo(
     () => new Map(round.pieces.map((placement) => [placement.square, placement.piece])),
     [round.pieces]
@@ -238,6 +267,44 @@ function SearchBoard({
     const frame = window.requestAnimationFrame(() => squareRefs.current[nextIndex]?.focus());
     return () => window.cancelAnimationFrame(frame);
   }, [phase, pieceBySquare]);
+
+  useEffect(() => {
+    function cancelDrawing(event: MouseEvent) {
+      if (event.button !== 2) return;
+      drawingRef.current = null;
+      setPreviewArrow(null);
+    }
+    window.addEventListener("mouseup", cancelDrawing);
+    return () => window.removeEventListener("mouseup", cancelDrawing);
+  }, []);
+
+  function startArrow(square: HideAndSeekSquare, event: ReactMouseEvent<HTMLButtonElement>) {
+    if (event.button !== 2) return;
+    event.preventDefault();
+    drawingRef.current = { startSquare: square, color: annotationColorForModifiers(event) };
+    setPreviewArrow(null);
+  }
+
+  function previewArrowTo(square: HideAndSeekSquare) {
+    const drawing = drawingRef.current;
+    if (!drawing || drawing.startSquare === square) {
+      setPreviewArrow(null);
+      return;
+    }
+    setPreviewArrow({ ...drawing, endSquare: square });
+  }
+
+  function finishArrow(square: HideAndSeekSquare, event: ReactMouseEvent<HTMLButtonElement>) {
+    if (event.button !== 2) return;
+    event.preventDefault();
+    const drawing = drawingRef.current;
+    drawingRef.current = null;
+    setPreviewArrow(null);
+    if (!drawing || drawing.startSquare === square) return;
+    onArrowsChange(toggleBoardArrow(arrows, { ...drawing, endSquare: square }));
+  }
+
+  const visibleArrows = [...arrows, ...(previewArrow ? [previewArrow] : [])];
 
   function moveFocus(index: number, key: string) {
     const row = Math.floor(index / 8);
@@ -267,8 +334,8 @@ function SearchBoard({
   }
 
   return (
-    <div className="aspect-square w-full overflow-hidden rounded-xl border border-emerald-200/25 bg-slate-950 p-1 shadow-[0_0_48px_rgba(52,211,153,.16)] sm:p-2">
-      <div className="grid h-full grid-rows-8 overflow-hidden rounded-lg" role="grid" aria-label="Hide and Seek chessboard">
+    <div ref={boardRef} className="aspect-square w-full overflow-hidden rounded-xl border border-emerald-200/25 bg-slate-950 p-1 shadow-[0_0_48px_rgba(52,211,153,.16)] sm:p-2">
+      <div className="relative grid h-full grid-rows-8 overflow-hidden rounded-lg" role="grid" aria-label="Hide and Seek chessboard">
         {RANKS.map((rank, row) => (
           <div key={rank} className="grid grid-cols-8" role="row">
             {FILES.map((file, column) => {
@@ -302,6 +369,10 @@ function SearchBoard({
                   onFocus={() => setActiveIndex(index)}
                   onClick={() => onToggle(square)}
                   onKeyDown={(event) => handleSquareKeyDown(event, square, index)}
+                  onMouseDown={(event) => startArrow(square, event)}
+                  onMouseEnter={() => previewArrowTo(square)}
+                  onMouseUp={(event) => finishArrow(square, event)}
+                  onContextMenu={(event) => event.preventDefault()}
                   className={`relative grid min-h-0 min-w-0 place-items-center overflow-hidden ring-0 transition focus-visible:z-10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-violet-300 ${light ? "bg-cyan-100" : "bg-cyan-700"} ${resultClass} ${canToggle ? "cursor-pointer hover:brightness-110 active:brightness-95" : "cursor-default"}`}
                 >
                   {piece ? <BoardPiece piece={piece} square={square} /> : null}
@@ -321,6 +392,21 @@ function SearchBoard({
             })}
           </div>
         ))}
+        {visibleArrows.length ? (
+          <svg aria-hidden="true" className="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <defs>
+              {visibleArrows.map((arrow, index) => (
+                <marker key={`marker-${index}`} id={`hide-and-seek-arrow-${index}`} markerWidth="4" markerHeight="4" refX="3.2" refY="2" orient="auto" markerUnits="strokeWidth">
+                  <path d="M0,0 L4,2 L0,4 Z" fill={arrow.color} />
+                </marker>
+              ))}
+            </defs>
+            {visibleArrows.map((arrow, index) => {
+              const line = hideAndSeekArrowLine(arrow);
+              return <line key={`${arrow.startSquare}-${arrow.endSquare}-${arrow.color}-${index}`} {...line} stroke={arrow.color} strokeWidth="2.2" strokeLinecap="round" opacity="0.78" markerEnd={`url(#hide-and-seek-arrow-${index})`} />;
+            })}
+          </svg>
+        ) : null}
       </div>
     </div>
   );
@@ -339,6 +425,7 @@ export function HideAndSeekTraining({
   const [round, setRound] = useState<ActiveSearchRound | null>(null);
   const [token, setToken] = useState("");
   const [selectedSquares, setSelectedSquares] = useState<Set<HideAndSeekSquare>>(() => new Set());
+  const [boardArrows, setBoardArrows] = useState<BoardArrow[]>([]);
   const [result, setResult] = useState<SearchResult | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [personalBest, setPersonalBest] = useState(Math.max(0, initialBestScore));
@@ -382,6 +469,7 @@ export function HideAndSeekTraining({
     setRound(null);
     setToken("");
     setSelectedSquares(new Set());
+    setBoardArrows([]);
     setResult(null);
     setElapsedMs(0);
     setError("");
@@ -512,7 +600,9 @@ export function HideAndSeekTraining({
               phase={phase}
               selectedSquares={selectedSquares}
               result={result}
+              arrows={boardArrows}
               onToggle={toggleSquare}
+              onArrowsChange={setBoardArrows}
             />
           ) : <CoveredBoard />}
         </div>
@@ -569,7 +659,7 @@ export function HideAndSeekTraining({
                       Board revealed — you can start marking now. Stop &amp; Score will unlock as soon as the official timer is active.
                     </p>
                   ) : null}
-                  <p className="mt-4 text-sm leading-6 text-slate-300">Click or tap to stamp a square. With a keyboard, use the arrow keys to move and Enter or Space to stamp.</p>
+                  <p className="mt-4 text-sm leading-6 text-slate-300">Click or tap to stamp a square. Right-drag to sketch private arrows; they do not affect your score. With a keyboard, use the arrow keys to move and Enter or Space to stamp.</p>
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <Button type="button" variant="ghost" onClick={() => setSelectedSquares(new Set())} disabled={phase === "finishing" || selectedSquares.size === 0}>Clear Marks</Button>
                     <Button type="button" onClick={() => void finishSearch()} disabled={!canScoreHideAndSeekBoard({ phase, token, selectedCount: selectedSquares.size })}>{phase === "finishing" ? "Scoring..." : token ? "Stop & Score" : "Activating..."}</Button>

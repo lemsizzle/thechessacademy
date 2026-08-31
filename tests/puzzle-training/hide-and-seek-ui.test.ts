@@ -5,6 +5,7 @@ import {
   canMarkHideAndSeekBoard,
   canScoreHideAndSeekBoard,
   HideAndSeekTraining,
+  hideAndSeekArrowLine,
   hideAndSeekRevealDelay,
   hideAndSeekSynchronizedStartOffset,
   isTerminalHideAndSeekFinishFailure,
@@ -52,6 +53,18 @@ describe("Hide and Seek training UI", () => {
       requestStartedAt: 1,
       responseReceivedAt: 2
     })).toBeNull();
+  });
+
+  it("positions planning arrows over the correct board squares", () => {
+    expect(hideAndSeekArrowLine({ startSquare: "a8", endSquare: "h8" })).toEqual({
+      x1: 6.25,
+      y1: 6.25,
+      x2: 89.75,
+      y2: 6.25
+    });
+    const diagonal = hideAndSeekArrowLine({ startSquare: "a8", endSquare: "h1" });
+    expect(diagonal.x2).toBeCloseTo(90.92, 2);
+    expect(diagonal.y2).toBeCloseTo(90.92, 2);
   });
 
   it("locks marking outside the active search and treats finish authorization failures as terminal", () => {

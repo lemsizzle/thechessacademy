@@ -29,7 +29,8 @@ import { useRouter } from "next/navigation";
 
 type GameResponse = { ok: boolean; game?: LiveGameSnapshot; error?: string };
 type Confirmation = "cancel" | "resign" | null;
-type RematchResponse = { ok: boolean; rematch?: { status: "waiting" | "matched"; gameId: string | null; source: LiveGameSnapshot }; error?: string };
+type RematchDecision = "request" | "accept" | "decline";
+type RematchResponse = { ok: boolean; rematch?: { status: "waiting" | "matched" | "declined"; gameId: string | null; source: LiveGameSnapshot }; error?: string };
 
 const boardColumnStyle = {
   width: "min(100%, 700px, max(220px, calc(100svh - 25rem)))"
@@ -83,6 +84,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   const claimedVersion = useRef<number | null>(null);
   const claimRetryAt = useRef(0);
   const announcedCompletedGame = useRef<string | null>(null);
+  const awaitingRematchResponse = useRef(false);
   const previousViewerClockRef = useRef<{ gameId: string; milliseconds: number | null } | null>(null);
   const { muted, toggleMuted, receiveGameSnapshot, playClockWarning, captureEffect } = useLiveGameSounds();
   const isCorrespondence = mode === "correspondence" || game?.gameMode === "correspondence";
@@ -210,8 +212,22 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   }, [game?.status]);
 
   useEffect(() => {
-    if (game?.rematchGameId) router.push(`/student/play/live/${game.rematchGameId}`);
-  }, [game?.rematchGameId, router]);
+    if (!game || isCorrespondence) return;
+    if (game.rematchGameId) {
+      awaitingRematchResponse.current = false;
+      router.push(`/student/play/live/${game.rematchGameId}`);
+      return;
+    }
+    if (game.rematchRequestedBy === game.viewer.id) {
+      awaitingRematchResponse.current = true;
+      return;
+    }
+    if (awaitingRematchResponse.current && !game.rematchRequestedBy) {
+      awaitingRematchResponse.current = false;
+      setResultOpen(false);
+      router.replace("/student/play");
+    }
+  }, [game, isCorrespondence, router]);
 
   const clockNowMs = pendingMoveAtMs ?? nowMs;
   const displayedClocks = useMemo(() => game ? {
@@ -365,7 +381,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
     }
   }
 
-  async function requestRematch() {
+  async function submitRematchDecision(decision: RematchDecision) {
     if (!game || rematchPending) return;
     setRematchPending(true); setError("");
     if (isCorrespondence) {
@@ -381,17 +397,40 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
       setRematchPending(false);
       return;
     }
+    if (decision === "request") awaitingRematchResponse.current = true;
     try {
-      const response = await fetch(`/api/student/live-games/${game.id}/rematch`, { method: "POST" });
+      const response = await fetch(`/api/student/live-games/${game.id}/rematch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision, version: game.version })
+      });
       const body = await response.json() as RematchResponse;
-      if (!response.ok || !body.rematch) throw new Error(body.error || "Rematch could not be requested.");
+      if (!response.ok || !body.rematch) throw new Error(body.error || "The rematch decision could not be saved.");
       receiveGame(body.rematch.source);
+      if (decision === "decline" || body.rematch.status === "declined") {
+        awaitingRematchResponse.current = false;
+        setResultOpen(false);
+        router.push("/student/play");
+        return;
+      }
       if (body.rematch.gameId) {
+        awaitingRematchResponse.current = false;
         setResultOpen(false);
         router.push(`/student/play/live/${body.rematch.gameId}`);
       }
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "Rematch could not be requested."); }
+    } catch (caught) {
+      if (decision === "request") awaitingRematchResponse.current = false;
+      setError(caught instanceof Error ? caught.message : "The rematch decision could not be saved.");
+    }
     finally { setRematchPending(false); }
+  }
+
+  function requestRematch() {
+    void submitRematchDecision(opponentRequestedRematch ? "accept" : "request");
+  }
+
+  function declineRematch() {
+    void submitRematchDecision("decline");
   }
 
   if (loading) return <Card className="p-6 text-sm text-slate-300">{isCorrespondence ? "Opening your correspondence board..." : "Connecting to the live game..."}</Card>;
@@ -496,7 +535,14 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
                     ? challengeAgainSent ? "Your new challenge has been sent." : "Invite the same student to a fresh correspondence game with random colors."
                     : viewerRequestedRematch ? "Your opponent has been invited. This game will open automatically when they accept." : opponentRequestedRematch ? "Your opponent wants a rematch." : "Challenge the same opponent to another game with colors swapped."}
                 </p>
-                <Button type="button" className="mt-3 w-full" disabled={rematchPending || viewerRequestedRematch || challengeAgainSent} onClick={() => void requestRematch()}>{rematchLabel}</Button>
+                {opponentRequestedRematch && !isCorrespondence ? (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button type="button" variant="ghost" disabled={rematchPending} onClick={declineRematch}>Decline</Button>
+                    <Button type="button" disabled={rematchPending} onClick={requestRematch}>{rematchLabel}</Button>
+                  </div>
+                ) : (
+                  <Button type="button" className="mt-3 w-full" disabled={rematchPending || viewerRequestedRematch || challengeAgainSent} onClick={requestRematch}>{rematchLabel}</Button>
+                )}
               </div>
             ) : null}
             {opponentOfferedDraw ? (
@@ -559,9 +605,9 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           description={completionText(game)}
           primaryLabel={rematchLabel}
           primaryDisabled={rematchPending || viewerRequestedRematch || challengeAgainSent}
-          onPrimary={() => void requestRematch()}
-          secondaryLabel="Close"
-          onSecondary={() => setResultOpen(false)}
+          onPrimary={requestRematch}
+          secondaryLabel={opponentRequestedRematch && !isCorrespondence ? "Decline & Return to Play" : "Close"}
+          onSecondary={opponentRequestedRematch && !isCorrespondence ? declineRematch : () => setResultOpen(false)}
         >
           <p className="mt-3 text-sm font-bold text-slate-300">
             {isCorrespondence

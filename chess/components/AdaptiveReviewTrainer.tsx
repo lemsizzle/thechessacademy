@@ -4,7 +4,7 @@ import { Chess } from "chess.js";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
-import { BOARD_ANNOTATION_COLORS } from "@/chess/components/boardAnnotations";
+import { BOARD_ANNOTATION_COLORS, type BoardArrow } from "@/chess/components/boardAnnotations";
 import type { AdaptiveReviewItem, AdaptiveReviewSummary } from "@/chess/training/adaptiveReviewServer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -42,6 +42,7 @@ export function AdaptiveReviewTrainer({
   const [practicing, setPracticing] = useState(false);
   const [displayFen, setDisplayFen] = useState("");
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
+  const [practiceArrows, setPracticeArrows] = useState<BoardArrow[]>([]);
   const [result, setResult] = useState<AttemptResult | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -52,6 +53,7 @@ export function AdaptiveReviewTrainer({
     setPracticing(true);
     setDisplayFen(item.fen);
     setLastMove(null);
+    setPracticeArrows([]);
     setResult(null);
     setMessage(REVIEW_PROMPT);
     startedAt.current = Date.now();
@@ -133,6 +135,7 @@ export function AdaptiveReviewTrainer({
     setItems(next);
     setResult(null);
     setLastMove(null);
+    setPracticeArrows([]);
     if (next[0]) {
       setDisplayFen(next[0].fen);
       setMessage(REVIEW_PROMPT);
@@ -189,7 +192,7 @@ export function AdaptiveReviewTrainer({
     </Card>;
   }
 
-  const oldMoveArrow = [{
+  const oldMoveArrow: BoardArrow[] = [{
     startSquare: current.playedMoveUci.slice(0, 2),
     endSquare: current.playedMoveUci.slice(2, 4),
     color: BOARD_ANNOTATION_COLORS.danger
@@ -205,7 +208,14 @@ export function AdaptiveReviewTrainer({
         humanColor={current.color}
         interactive={!solved && !saving}
         lastMove={lastMove}
-        arrows={!lastMove ? oldMoveArrow : []}
+        arrows={[...(!lastMove ? oldMoveArrow : []), ...practiceArrows]}
+        allowDrawingArrows
+        onArrowsChange={(arrows) => setPracticeArrows(arrows.filter((arrow) => !oldMoveArrow.some((guide) => (
+          guide.startSquare === arrow.startSquare
+          && guide.endSquare === arrow.endSquare
+          && guide.color === arrow.color
+        ))))}
+        onClearAnnotations={() => setPracticeArrows([])}
         onMove={(from, to) => {
           const piece = new Chess(current.fen).get(from as Parameters<Chess["get"]>[0]);
           const promotion = piece?.type === "p" && /[18]$/.test(to) ? "q" : "";

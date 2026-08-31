@@ -617,8 +617,18 @@ export async function performLiveGameAction(studentId: string, gameId: string, i
   return snapshotFor(updated, studentId);
 }
 
-export async function requestLiveGameRematch(studentId: string, gameId: string) {
+type LiveGameRematchDecision = "request" | "accept" | "decline";
+
+function normalizedRematchDecision(value: unknown): LiveGameRematchDecision {
+  if (value === "request" || value === "accept" || value === "decline") return value;
+  throw new LiveGameServerError("Choose whether to request, accept, or decline the rematch.");
+}
+
+export async function resolveLiveGameRematch(studentId: string, gameId: string, input: unknown) {
   cleanGameId(gameId);
+  const values = input && typeof input === "object" ? input as Record<string, unknown> : {};
+  const decision = normalizedRematchDecision(values.decision);
+  const version = normalizedVersion(values.version);
   const source = await loadRecord(gameId);
   assertParticipant(source, studentId);
   if (source.game_mode === "correspondence") {
@@ -628,13 +638,15 @@ export async function requestLiveGameRematch(studentId: string, gameId: string) 
     throw new LiveGameServerError("Arena opponents are assigned by tournament matchmaking.", 409);
   }
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { data, error } = await serviceClient().rpc("request_live_chess_rematch", {
+    const { data, error } = await serviceClient().rpc("resolve_live_chess_rematch", {
       p_game_id: gameId,
       p_student_id: studentId,
+      p_decision: decision,
+      p_expected_version: version,
       p_challenge_code: internalChallengeCode()
     });
     if (!error) {
-      const result = data as { status: "waiting" | "matched"; gameId: string | null };
+      const result = data as { status: "waiting" | "matched" | "declined"; gameId: string | null };
       return {
         status: result.status,
         gameId: result.gameId,
@@ -642,7 +654,9 @@ export async function requestLiveGameRematch(studentId: string, gameId: string) 
         source: await getLiveGame(studentId, gameId)
       };
     }
-    if (error.code !== "23505") throw new LiveGameServerError(error.message, 500);
+    if (error.code !== "23505" || decision !== "accept") {
+      throw new LiveGameServerError(error.message, error.code === "P0001" ? 409 : 500);
+    }
   }
   throw new LiveGameServerError("A rematch could not be created. Try again.", 500);
 }

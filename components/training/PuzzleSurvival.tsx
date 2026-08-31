@@ -276,6 +276,8 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   }
 
   function clearBoardMarks() {
+    setHasBoardAnnotations(false);
+    setAnnotationResetKey((value) => value + 1);
     setSelectedSquare(null);
     setLegalSquares([]);
     setLastMove(null);
@@ -1134,6 +1136,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
     animationDurationInMs: trainingMode === "woodpecker" ? 0 : BOARD_MOTION_OPTIONS.animationDurationInMs,
     showAnimations: trainingMode !== "woodpecker",
     allowDragging: phase === "turn" || phase === "reply",
+    allowDrawingArrows: true,
     squareStyles,
     arrows: queuedPremove ? [{ startSquare: queuedPremove.from, endSquare: queuedPremove.to, color: "#c084fc" }] : [],
     onArrowsChange: ({ arrows }) => setHasBoardAnnotations(arrows.length > 0),
