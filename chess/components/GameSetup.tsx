@@ -22,17 +22,19 @@ export function GameSetup({ unlockedBotIds, onStart }: { unlockedBotIds: string[
   const [timeControl, setTimeControl] = useState<TimeControl>(TIME_CONTROLS[0]);
 
   return (
-    <div className="min-w-0 space-y-6">
+    <div className="min-w-0">
       <Card className="min-w-0 overflow-hidden">
-        <div className="border-b border-white/10 bg-gradient-to-r from-cyan-300/10 via-transparent to-amber-300/10 p-4 sm:p-6">
-          <p className="text-xs font-black uppercase tracking-[.2em] text-cyan-200">Vs Computer</p>
-          <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">Choose your academy opponent</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Pawny and Sir Lem are always ready. Defeat each academy bot without takebacks to unlock the next challenge.</p>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3 sm:px-5">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Opponent</p>
+            <h3 className="mt-0.5 text-lg font-black text-white">Choose a bot</h3>
+          </div>
+          <p className="text-xs font-bold text-slate-500">Win without takebacks to unlock the next bot.</p>
         </div>
-        <div className="min-w-0 p-4 sm:p-6">
+        <div className="min-w-0 p-4 sm:p-5">
           <fieldset>
-            <legend className="text-sm font-black uppercase tracking-wider text-slate-300">Opponent</legend>
-            <div className="mt-3 grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
+            <legend className="sr-only">Opponent</legend>
+            <div className="grid min-w-0 grid-cols-3 gap-2 sm:grid-cols-6">
               {BOT_DIFFICULTIES.map((difficulty) => {
                 const locked = !isBotUnlocked(difficulty.id, unlockedBotIds);
                 const requirement = getBotUnlockRequirement(difficulty.id);
@@ -45,52 +47,51 @@ export function GameSetup({ unlockedBotIds, onStart }: { unlockedBotIds: string[
                     onClick={() => setBot(difficulty)}
                     aria-pressed={bot.id === difficulty.id}
                     aria-describedby={descriptionId}
-                    className={`relative h-full min-h-48 min-w-0 overflow-hidden rounded-lg border p-3 text-left transition sm:min-h-64 sm:p-4 ${locked ? "cursor-not-allowed border-white/10 bg-slate-950/80 opacity-55" : bot.id === difficulty.id ? "border-amber-300 bg-amber-300/12 shadow-gold active:scale-[.99]" : "border-white/10 bg-slate-950/60 hover:border-cyan-200/35 hover:bg-cyan-300/5 active:scale-[.99]"}`}
+                    className={`relative min-w-0 overflow-hidden rounded-xl border p-2 text-center transition active:scale-[.98] ${locked ? "cursor-not-allowed border-white/10 bg-slate-950 opacity-45" : bot.id === difficulty.id ? "border-amber-200/70 bg-amber-200/10 shadow-[0_0_22px_rgba(251,191,36,.12)]" : "border-white/10 bg-white/[.035] hover:border-cyan-200/30 hover:bg-white/[.06]"}`}
                   >
-                    {locked ? <span className="absolute right-2 top-2 z-10 rounded-full border border-white/15 bg-slate-950/90 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-slate-200">🔒 Locked</span> : null}
-                    <BotPortrait src={difficulty.portrait} size="card" selected={!locked && bot.id === difficulty.id} />
-                    <span className="mt-2 block text-base font-black text-white sm:text-lg">{difficulty.name}</span>
-                    <span className="block break-words text-[11px] font-bold uppercase leading-4 text-cyan-200 sm:text-xs sm:leading-5">{difficulty.title} · ~{difficulty.estimatedRating}</span>
-                    <span id={descriptionId} className={`mt-2 block text-pretty text-xs font-bold leading-5 ${locked ? "text-amber-100" : "hidden text-slate-400 sm:block"}`}>
-                      {locked && requirement ? `Defeat ${requirement.botName} without takebacks to unlock.` : difficulty.description}
-                    </span>
+                    {locked ? <span aria-hidden="true" className="absolute right-1.5 top-1.5 z-10 grid size-6 place-items-center rounded-full border border-white/10 bg-slate-950/90 text-[11px]">🔒</span> : null}
+                    <BotPortrait src={difficulty.portrait} size="choice" selected={!locked && bot.id === difficulty.id} />
+                    <span className="mt-1.5 block truncate text-xs font-black text-white sm:text-sm">{difficulty.name}</span>
+                    <span className="block text-[10px] font-bold text-slate-400 sm:text-xs">~{difficulty.estimatedRating}</span>
+                    <span id={descriptionId} className="sr-only">{locked && requirement ? `Defeat ${requirement.botName} without takebacks to unlock.` : difficulty.description}</span>
                   </button>
                 );
               })}
             </div>
           </fieldset>
 
-          <div className="mt-7 grid gap-6 lg:grid-cols-2">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[.035] px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="font-black text-white">{bot.name} <span className="font-bold text-cyan-200">· {bot.title}</span></p>
+              <p className="mt-0.5 text-xs text-slate-400">{bot.description}</p>
+            </div>
+            <span className="shrink-0 rounded-full border border-white/10 bg-slate-950 px-2.5 py-1 text-xs font-black text-slate-300">~{bot.estimatedRating}</span>
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)_auto] lg:items-end">
             <fieldset>
-              <legend className="text-sm font-black uppercase tracking-wider text-slate-300">Play as</legend>
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <legend className="text-xs font-black uppercase tracking-wider text-slate-400">Play as</legend>
+              <div className="mt-2 grid grid-cols-3 gap-2">
                 {colorChoices.map((choice) => (
-                  <button key={choice.id} type="button" onClick={() => setColor(choice.id)} aria-pressed={color === choice.id} className={`rounded-lg border p-3 text-center transition active:scale-[.98] ${color === choice.id ? "border-cyan-200 bg-cyan-300/12 text-white" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}>
-                    <span className="block text-2xl" aria-hidden="true">{choice.symbol}</span>
-                    <span className="mt-1 block text-sm font-black">{choice.label}</span>
+                  <button key={choice.id} type="button" onClick={() => setColor(choice.id)} aria-pressed={color === choice.id} className={`rounded-lg border px-2 py-2 text-center transition active:scale-[.98] ${color === choice.id ? "border-cyan-200/70 bg-cyan-200/10 text-white" : "border-white/10 bg-white/[.035] text-slate-300 hover:bg-white/[.07]"}`}>
+                    <span className="text-base" aria-hidden="true">{choice.symbol}</span>
+                    <span className="ml-1.5 text-xs font-black">{choice.label}</span>
                   </button>
                 ))}
               </div>
             </fieldset>
 
             <fieldset>
-              <legend className="text-sm font-black uppercase tracking-wider text-slate-300">Time control</legend>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+              <legend className="text-xs font-black uppercase tracking-wider text-slate-400">Clock</legend>
+              <div className="mt-2 grid grid-cols-4 gap-2">
                 {TIME_CONTROLS.map((control) => (
-                  <button key={control.id} type="button" onClick={() => setTimeControl(control)} aria-pressed={timeControl.id === control.id} className={`rounded-lg border px-3 py-4 text-sm font-black transition active:scale-[.98] ${timeControl.id === control.id ? "border-cyan-200 bg-cyan-300/12 text-white" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}>
+                  <button key={control.id} type="button" onClick={() => setTimeControl(control)} aria-pressed={timeControl.id === control.id} className={`rounded-lg border px-2 py-2 text-xs font-black transition active:scale-[.98] sm:text-sm ${timeControl.id === control.id ? "border-cyan-200/70 bg-cyan-200/10 text-white" : "border-white/10 bg-white/[.035] text-slate-300 hover:bg-white/[.07]"}`}>
                     {control.name}
                   </button>
                 ))}
               </div>
             </fieldset>
-          </div>
-
-          <div className="mt-7 flex min-w-0 flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="break-words font-black text-white">{bot.name} · {color === "random" ? "Random color" : color} · {timeControl.name}</p>
-              <p className="mt-1 text-xs text-slate-400">The computer runs entirely in your browser. The first load may take a moment.</p>
-            </div>
-            <Button type="button" className="w-full shrink-0 px-6 py-3 sm:w-auto" onClick={() => onStart({ bot, humanColor: resolvePlayerColor(color), timeControl })}>Start Game</Button>
+            <Button type="button" className="w-full shrink-0 px-6 lg:w-auto" onClick={() => onStart({ bot, humanColor: resolvePlayerColor(color), timeControl })}>Start vs {bot.name}</Button>
           </div>
         </div>
       </Card>

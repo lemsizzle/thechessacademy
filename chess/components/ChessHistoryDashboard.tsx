@@ -54,17 +54,15 @@ function formatReason(value: string) {
   return value.replaceAll("_", " ").replaceAll("-", " ");
 }
 
-function SummaryCard({ label, value, detail, tone = "text-white" }: {
+function SummaryCard({ label, value, tone = "text-white" }: {
   label: string;
   value: string | number;
-  detail: string;
   tone?: string;
 }) {
   return (
-    <Card className="min-w-0 p-4 sm:p-5">
+    <Card className="min-w-0 p-3 sm:p-4">
       <p className="text-xs font-black uppercase tracking-wider text-slate-400">{label}</p>
-      <p className={`mt-2 text-3xl font-black ${tone}`}>{value}</p>
-      <p className="mt-1 text-xs text-slate-400">{detail}</p>
+      <p className={`mt-1 text-2xl font-black ${tone}`}>{value}</p>
     </Card>
   );
 }
@@ -121,10 +119,10 @@ export function ChessHistoryDashboard() {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryCard label="Games" value={summary.total} detail={`${summary.computerGames} computer · ${summary.liveGames} student`} />
-        <SummaryCard label="Wins" value={summary.wins} detail="Completed victories" tone="text-emerald-200" />
-        <SummaryCard label="Draws / losses" value={`${summary.draws} / ${summary.losses}`} detail="Drawn and lost games" />
-        <SummaryCard label="Win rate" value={`${summary.winRate}%`} detail="Across all completed games" tone="text-amber-200" />
+        <SummaryCard label="Games" value={summary.total} />
+        <SummaryCard label="Wins" value={summary.wins} tone="text-emerald-200" />
+        <SummaryCard label="Draws / losses" value={`${summary.draws} / ${summary.losses}`} />
+        <SummaryCard label="Win rate" value={`${summary.winRate}%`} tone="text-amber-200" />
       </div>
 
       <Card className="overflow-hidden">
@@ -133,7 +131,6 @@ export function ChessHistoryDashboard() {
             <div>
               <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Completed games</p>
               <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Your game record</h2>
-              <p className="mt-1 text-sm text-slate-400">Open any game to replay it, draw variations, and save analysis.</p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:w-auto">
               <label className="text-xs font-bold text-slate-300">

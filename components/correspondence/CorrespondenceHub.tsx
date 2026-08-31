@@ -25,7 +25,7 @@ function ChallengeCard({ challenge, incoming, pending, onAction }: {
         </div>
         <span className="rounded-full border border-amber-200/20 bg-amber-200/10 px-2 py-1 text-[11px] font-black uppercase text-amber-100">Pending</span>
       </div>
-      <p className="mt-3 text-xs text-slate-500">Random colors · 3 days for each move</p>
+          <p className="mt-3 text-xs text-slate-500">Random colors · 3 days per move</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {incoming ? (
           <>
@@ -51,7 +51,7 @@ function GameCard({ game, nowMs }: { game: CorrespondenceGameSummary; nowMs: num
           {formatCorrespondenceTimeLeft(game.turnDeadlineAt, nowMs)}
         </span>
       </div>
-      <p className="mt-4 text-xs text-slate-500">You are playing {game.viewerColor}. Open the board to {yourMove ? "make your move" : "review the position"}.</p>
+      <p className="mt-3 text-xs capitalize text-slate-500">{game.viewerColor} · {yourMove ? "Ready to move" : "Position available to review"}</p>
     </Link>
   );
 }
@@ -78,22 +78,17 @@ export function CorrespondenceHub() {
 
   return (
     <div className="space-y-5">
-      <Card className="overflow-hidden">
-        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
-          <div>
-            <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Thoughtful chess over a few days</p>
-            <h2 className="mt-1 text-2xl font-black text-white">Your correspondence desk</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Challenge any Academy student from the leaderboard. Colors are random, and each player gets three days to make every move.</p>
+      <Card className="p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2" aria-label="Correspondence summary">
+            <span className="rounded-lg border border-amber-200/20 bg-amber-200/10 px-3 py-2 text-sm font-bold text-amber-100"><strong className="mr-1 text-lg">{yourMove.length}</strong> to move</span>
+            <span className="rounded-lg border border-cyan-200/20 bg-cyan-200/10 px-3 py-2 text-sm font-bold text-cyan-100"><strong className="mr-1 text-lg">{waiting.length}</strong> waiting</span>
+            <span className="rounded-lg border border-white/10 bg-white/[.035] px-3 py-2 text-sm font-bold text-slate-200"><strong className="mr-1 text-lg text-white">{incoming.length}</strong> invites</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button href="/student/leaderboard">Challenge a student</Button>
+            <Button href="/student/leaderboard">New Challenge</Button>
             <Button type="button" variant="ghost" disabled={loading} onClick={() => void refresh()}>Refresh</Button>
           </div>
-        </div>
-        <div className="grid border-t border-white/10 sm:grid-cols-3">
-          <div className="border-b border-white/10 p-4 sm:border-b-0 sm:border-r"><p className="text-2xl font-black text-amber-100">{yourMove.length}</p><p className="mt-1 text-xs font-bold uppercase text-slate-500">Your move</p></div>
-          <div className="border-b border-white/10 p-4 sm:border-b-0 sm:border-r"><p className="text-2xl font-black text-cyan-100">{waiting.length}</p><p className="mt-1 text-xs font-bold uppercase text-slate-500">Waiting</p></div>
-          <div className="p-4"><p className="text-2xl font-black text-white">{incoming.length}</p><p className="mt-1 text-xs font-bold uppercase text-slate-500">Challenges to answer</p></div>
         </div>
       </Card>
 
@@ -102,7 +97,7 @@ export function CorrespondenceHub() {
 
       <section aria-labelledby="your-move-title">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <div><p className="text-xs font-black uppercase tracking-wider text-amber-200">Ready for you</p><h2 id="your-move-title" className="mt-1 text-xl font-black text-white">Your move</h2></div>
+          <h2 id="your-move-title" className="text-xl font-black text-white">Your move</h2>
           <span className="text-sm font-bold text-slate-500">{yourMove.length} game{yourMove.length === 1 ? "" : "s"}</span>
         </div>
         {yourMove.length ? <div className="grid gap-3 md:grid-cols-2">{yourMove.map((game) => <GameCard key={game.id} game={game} nowMs={nowMs} />)}</div> : (

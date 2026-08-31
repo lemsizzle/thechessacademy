@@ -2,12 +2,13 @@ import Image from "next/image";
 
 type BotPortraitProps = {
   src: string;
-  size?: "card" | "panel";
+  size?: "card" | "choice" | "panel";
   selected?: boolean;
 };
 
 const sizeClasses = {
   card: "h-24 w-full sm:h-28",
+  choice: "h-14 w-full sm:h-20",
   panel: "h-11 w-11 sm:h-12 sm:w-12"
 };
 
@@ -22,7 +23,7 @@ export function BotPortrait({ src, size = "panel", selected = false }: BotPortra
         alt=""
         width={180}
         height={180}
-        sizes={size === "card" ? "(max-width: 640px) 42vw, (max-width: 1536px) 28vw, 160px" : "48px"}
+        sizes={size === "card" ? "(max-width: 640px) 42vw, (max-width: 1536px) 28vw, 160px" : size === "choice" ? "(max-width: 640px) 28vw, 120px" : "48px"}
         className="h-full w-full object-contain p-0.5 drop-shadow-[0_8px_12px_rgba(0,0,0,0.4)]"
       />
     </span>

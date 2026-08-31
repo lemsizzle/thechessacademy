@@ -10,7 +10,7 @@ export default async function CorrespondencePage() {
   return (
     <StudentPortalShell
       title="Correspondence Games"
-      subtitle="Take your time, plan ahead, and keep several friendly games going with other Academy students."
+      subtitle="Three days per move."
       initialUser={sessionToStudentUser(session)}
     >
       <CorrespondenceHub />
