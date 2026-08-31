@@ -2,6 +2,8 @@ import type { Square } from "chess.js";
 
 export type HideAndSeekSquare = Square;
 
+export type HideAndSeekMode = "classic" | "time_trial";
+
 export type HideAndSeekPieceCode = "bK" | "bQ" | "bR" | "bB" | "bN";
 
 export type HideAndSeekPiecePlacement = {
@@ -21,6 +23,7 @@ export type HideAndSeekScoreInput = {
   safeSquares: readonly HideAndSeekSquare[];
   selectedSquares: readonly HideAndSeekSquare[];
   elapsedMs: number;
+  mode?: HideAndSeekMode;
 };
 
 export type HideAndSeekScore = {
@@ -44,6 +47,10 @@ export const HIDE_AND_SEEK_MIN_SAFE_SQUARES = 10;
 export const HIDE_AND_SEEK_MAX_SAFE_SQUARES = 24;
 export const HIDE_AND_SEEK_TARGET_SAFE_SQUARES = 17;
 export const HIDE_AND_SEEK_MAX_GENERATION_CANDIDATES = 128;
+export const HIDE_AND_SEEK_ACCURACY_POINTS = 600;
+export const HIDE_AND_SEEK_SPEED_POINTS = 400;
+export const HIDE_AND_SEEK_CLASSIC_SPEED_WINDOW_MS = 120_000;
+export const HIDE_AND_SEEK_TIME_TRIAL_LIMIT_MS = 60_000;
 
 export const HIDE_AND_SEEK_ARMY: readonly HideAndSeekPieceCode[] = Object.freeze([
   "bK",
@@ -96,6 +103,10 @@ const pieceToFen: Record<HideAndSeekPieceCode, string> = {
 
 export function isHideAndSeekSquare(value: unknown): value is HideAndSeekSquare {
   return typeof value === "string" && /^[a-h][1-8]$/.test(value);
+}
+
+export function isHideAndSeekMode(value: unknown): value is HideAndSeekMode {
+  return value === "classic" || value === "time_trial";
 }
 
 function assertValidPlacements(pieces: readonly HideAndSeekPiecePlacement[]) {
@@ -377,12 +388,17 @@ export function calculateHideAndSeekScore(input: HideAndSeekScoreInput): HideAnd
   const elapsedMs = Number.isFinite(input.elapsedMs)
     ? Math.max(0, input.elapsedMs)
     : 0;
-  const elapsedSeconds = elapsedMs / 1_000;
   const denominator = totalSafe + wrongCount;
   const accuracyFactor = denominator > 0 ? correctCount / denominator : 0;
-  const speedFactor = Math.max(0, 1 - elapsedSeconds / 120);
+  const speedWindowMs = input.mode === "time_trial"
+    ? HIDE_AND_SEEK_TIME_TRIAL_LIMIT_MS
+    : HIDE_AND_SEEK_CLASSIC_SPEED_WINDOW_MS;
+  const speedFactor = Math.max(0, 1 - elapsedMs / speedWindowMs);
   const score = Math.min(1_000, Math.max(0, Math.round(
-    accuracyFactor * (800 + 200 * speedFactor)
+    accuracyFactor * (
+      HIDE_AND_SEEK_ACCURACY_POINTS
+      + HIDE_AND_SEEK_SPEED_POINTS * speedFactor
+    )
   )));
   const foundPercent = totalSafe > 0
     ? Math.round((correctCount / totalSafe) * 1_000) / 10

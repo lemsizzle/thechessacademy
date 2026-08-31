@@ -7,6 +7,7 @@ import {
 import {
   HIDE_AND_SEEK_ACTIVATION_GRACE_MS,
   HIDE_AND_SEEK_ROUND_DURATION_MS,
+  HIDE_AND_SEEK_TIME_TRIAL_SUBMISSION_GRACE_MS,
   createHideAndSeekRoundToken,
   readHideAndSeekRoundToken
 } from "@/lib/puzzle-training/hideAndSeekToken";
@@ -41,7 +42,10 @@ function acceptedSeed() {
   throw new Error("Test could not find a balanced board seed.");
 }
 
-function roundToken(roundId: string, seed: string) {
+function roundToken(roundId: string, seed: string, mode: "classic" | "time_trial" = "classic") {
+  const durationMs = mode === "time_trial"
+    ? 60_000 + HIDE_AND_SEEK_TIME_TRIAL_SUBMISSION_GRACE_MS
+    : 30 * 60_000;
   return createHideAndSeekRoundToken({
     version: 1,
     stage: "active",
@@ -49,8 +53,9 @@ function roundToken(roundId: string, seed: string) {
     roundId,
     generatorVersion: 1,
     seed,
+    mode,
     startedAt: new Date(startedAtMs).toISOString(),
-    expiresAt: new Date(startedAtMs + 30 * 60_000).toISOString()
+    expiresAt: new Date(startedAtMs + durationMs).toISOString()
   });
 }
 
@@ -106,20 +111,47 @@ describe("Hide and Seek server persistence", () => {
     expect(() => parseHideAndSeekSelections(["a1", "a1"])).toThrow(/only be selected once/i);
     expect(() => parseHideAndSeekSelections(["z9"])).toThrow(/invalid/i);
     expect(() => parseHideAndSeekSelections([])).toThrow(/at least one/i);
+    expect(parseHideAndSeekSelections([], { allowEmpty: true })).toEqual([]);
   });
 
   it("issues one fixed authoritative start for each newly generated round", () => {
     const first = startHideAndSeekRound(studentId, startedAtMs);
     const second = startHideAndSeekRound(studentId, startedAtMs + 1_500);
 
-    expect(first.round).toEqual(expect.objectContaining({ id: expect.any(String), pieces: expect.any(Array) }));
+    expect(first.round).toEqual(expect.objectContaining({
+      id: expect.any(String),
+      pieces: expect.any(Array),
+      mode: "classic",
+      timeLimitMs: null
+    }));
     expect(first.serverSentAt).toBe(new Date(startedAtMs).toISOString());
     expect(first.round.startedAt).toBe(new Date(startedAtMs + HIDE_AND_SEEK_ACTIVATION_GRACE_MS).toISOString());
     expect(second.round.id).not.toBe(first.round.id);
 
     const payload = readHideAndSeekRoundToken(first.token, Date.parse(first.round.startedAt));
-    expect(payload).toMatchObject({ roundId: first.round.id, startedAt: first.round.startedAt });
+    expect(payload).toMatchObject({ roundId: first.round.id, mode: "classic", startedAt: first.round.startedAt });
     expect(generateHideAndSeekBoard(payload.seed).pieces).toEqual(first.round.pieces);
+  });
+
+  it("issues and accepts a zero-mark 60-second Time Trial result", async () => {
+    const client = createAttemptClient();
+    mocks.getSupabaseServiceClient.mockReturnValue(client);
+    const started = startHideAndSeekRound(studentId, startedAtMs, "time_trial");
+
+    expect(started.round).toMatchObject({ mode: "time_trial", timeLimitMs: 60_000 });
+    expect(Date.parse(started.round.expiresAt) - Date.parse(started.round.startedAt)).toBe(
+      60_000 + HIDE_AND_SEEK_TIME_TRIAL_SUBMISSION_GRACE_MS
+    );
+
+    const result = await finishHideAndSeekRound({
+      studentId,
+      token: started.token,
+      selectedSquares: [],
+      nowMs: Date.parse(started.round.startedAt) + 61_000
+    });
+
+    expect(result).toMatchObject({ mode: "time_trial", elapsedMs: 60_000, score: 0 });
+    expect([...client.rows.values()][0]).toMatchObject({ mode: "time_trial", selected_squares: [] });
   });
 
   it("recomputes, saves, and returns the authoritative result", async () => {
@@ -137,6 +169,7 @@ describe("Hide and Seek server persistence", () => {
     });
 
     expect(result).toMatchObject({
+      mode: "classic",
       correctCount: 1,
       wrongCount: 0,
       elapsedMs: 10_000,
@@ -147,6 +180,7 @@ describe("Hide and Seek server persistence", () => {
     expect(client.insert).toHaveBeenCalledTimes(1);
     expect([...client.rows.values()][0]).toMatchObject({
       student_id: studentId,
+      mode: "classic",
       seed,
       selected_squares: [board.safeSquares[0]],
       safe_square_count: board.safeSquares.length,

@@ -1,9 +1,11 @@
 import "server-only";
 
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
+import { isHideAndSeekMode, type HideAndSeekMode } from "@/lib/puzzle-training/hideAndSeek";
 
 export const HIDE_AND_SEEK_ACTIVATION_GRACE_MS = 2_000;
 export const HIDE_AND_SEEK_ROUND_DURATION_MS = 30 * 60 * 1_000;
+export const HIDE_AND_SEEK_TIME_TRIAL_SUBMISSION_GRACE_MS = 15_000;
 
 type HideAndSeekTokenBase = {
   version: 1;
@@ -11,6 +13,7 @@ type HideAndSeekTokenBase = {
   roundId: string;
   generatorVersion: number;
   seed: string;
+  mode: HideAndSeekMode;
   stage: "active";
   startedAt: string;
   expiresAt: string;
@@ -72,13 +75,17 @@ function validatePayload(value: unknown): HideAndSeekRoundToken {
     || !SEED_PATTERN.test(payload.seed)
     || typeof payload.expiresAt !== "string") return invalidToken();
 
-  if (typeof payload.startedAt !== "string") return invalidToken();
+  const mode = payload.mode === undefined ? "classic" : payload.mode;
+  if (!isHideAndSeekMode(mode) || typeof payload.startedAt !== "string") return invalidToken();
   const issuedAtMs = Date.parse(payload.startedAt);
   const expiresAtMs = Date.parse(payload.expiresAt);
+  const maximumDurationMs = mode === "time_trial"
+    ? 60_000 + HIDE_AND_SEEK_TIME_TRIAL_SUBMISSION_GRACE_MS
+    : HIDE_AND_SEEK_ROUND_DURATION_MS;
   if (!Number.isFinite(issuedAtMs)
     || !Number.isFinite(expiresAtMs)
     || expiresAtMs <= issuedAtMs
-    || expiresAtMs - issuedAtMs > HIDE_AND_SEEK_ROUND_DURATION_MS) return invalidToken();
+    || expiresAtMs - issuedAtMs > maximumDurationMs) return invalidToken();
 
   const base: HideAndSeekTokenBase = {
     version: 1,
@@ -86,6 +93,7 @@ function validatePayload(value: unknown): HideAndSeekRoundToken {
     roundId: payload.roundId,
     generatorVersion: payload.generatorVersion as number,
     seed: payload.seed,
+    mode,
     stage: "active",
     startedAt: payload.startedAt,
     expiresAt: payload.expiresAt

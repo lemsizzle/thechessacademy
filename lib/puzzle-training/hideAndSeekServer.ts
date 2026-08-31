@@ -5,17 +5,20 @@ import { StudentAuthenticationError, requireActiveStudent } from "@/lib/auth/req
 import {
   HIDE_AND_SEEK_MAX_SAFE_SQUARES,
   HIDE_AND_SEEK_MIN_SAFE_SQUARES,
+  HIDE_AND_SEEK_TIME_TRIAL_LIMIT_MS,
   calculateHideAndSeekScore,
   generateHideAndSeekBoard,
   generateHideAndSeekBoardForVersion,
   isHideAndSeekSquare,
   type HideAndSeekBoard,
+  type HideAndSeekMode,
   type HideAndSeekPiecePlacement,
   type HideAndSeekSquare
 } from "@/lib/puzzle-training/hideAndSeek";
 import {
   HIDE_AND_SEEK_ACTIVATION_GRACE_MS,
   HIDE_AND_SEEK_ROUND_DURATION_MS,
+  HIDE_AND_SEEK_TIME_TRIAL_SUBMISSION_GRACE_MS,
   assertHideAndSeekTokenStudent,
   assertHideAndSeekTokenNotExpired,
   createHideAndSeekRoundToken,
@@ -34,6 +37,8 @@ export type HideAndSeekStartResponse = {
   round: {
     id: string;
     pieces: readonly HideAndSeekPiecePlacement[];
+    mode: HideAndSeekMode;
+    timeLimitMs: number | null;
     startedAt: string;
     expiresAt: string;
   };
@@ -42,6 +47,7 @@ export type HideAndSeekStartResponse = {
 };
 
 export type HideAndSeekFinishResult = {
+  mode: HideAndSeekMode;
   score: number;
   totalSafe: number;
   correctCount: number;
@@ -59,6 +65,7 @@ export type HideAndSeekFinishResult = {
 type HideAndSeekAttemptRow = {
   student_id: string;
   round_id: string;
+  mode?: string | null;
   generator_version: number | string;
   seed: string;
   selected_squares: string[];
@@ -67,7 +74,7 @@ type HideAndSeekAttemptRow = {
 };
 
 const MAX_BOARD_GENERATION_ATTEMPTS = 16;
-const ATTEMPT_SELECT = "student_id,round_id,generator_version,seed,selected_squares,elapsed_ms,completed_at";
+const ATTEMPT_SELECT = "student_id,round_id,mode,generator_version,seed,selected_squares,elapsed_ms,completed_at";
 
 function serviceClient() {
   const client = getSupabaseServiceClient();
@@ -84,8 +91,12 @@ function generateAcceptedBoard(): HideAndSeekBoard {
   throw new Error("Hide and Seek could not prepare a balanced board. Please try again.");
 }
 
-export function parseHideAndSeekSelections(value: unknown): HideAndSeekSquare[] {
-  if (!Array.isArray(value) || value.length < 1 || value.length > 56) {
+export function parseHideAndSeekSelections(
+  value: unknown,
+  options: { allowEmpty?: boolean } = {}
+): HideAndSeekSquare[] {
+  const minimum = options.allowEmpty ? 0 : 1;
+  if (!Array.isArray(value) || value.length < minimum || value.length > 56) {
     throw new HideAndSeekInputError("Choose at least one square before scoring your search.");
   }
   const squares: HideAndSeekSquare[] = [];
@@ -107,13 +118,21 @@ export async function requireHideAndSeekStudent() {
   return requireActiveStudent();
 }
 
-export function startHideAndSeekRound(studentId: string, nowMs?: number): HideAndSeekStartResponse {
+export function startHideAndSeekRound(
+  studentId: string,
+  nowMs?: number,
+  mode: HideAndSeekMode = "classic"
+): HideAndSeekStartResponse {
   const board = generateAcceptedBoard();
   const roundId = randomUUID();
   const activationMs = nowMs ?? Date.now();
   const serverSentAt = new Date(activationMs).toISOString();
   const startedAt = new Date(activationMs + HIDE_AND_SEEK_ACTIVATION_GRACE_MS).toISOString();
-  const expiresAt = new Date(Date.parse(startedAt) + HIDE_AND_SEEK_ROUND_DURATION_MS).toISOString();
+  const timeLimitMs = mode === "time_trial" ? HIDE_AND_SEEK_TIME_TRIAL_LIMIT_MS : null;
+  const tokenDurationMs = timeLimitMs === null
+    ? HIDE_AND_SEEK_ROUND_DURATION_MS
+    : timeLimitMs + HIDE_AND_SEEK_TIME_TRIAL_SUBMISSION_GRACE_MS;
+  const expiresAt = new Date(Date.parse(startedAt) + tokenDurationMs).toISOString();
   const token = createHideAndSeekRoundToken({
     version: 1,
     stage: "active",
@@ -121,12 +140,13 @@ export function startHideAndSeekRound(studentId: string, nowMs?: number): HideAn
     roundId,
     generatorVersion: board.generatorVersion,
     seed: board.seed,
+    mode,
     startedAt,
     expiresAt
   });
 
   return {
-    round: { id: roundId, pieces: board.pieces, startedAt, expiresAt },
+    round: { id: roundId, pieces: board.pieces, mode, timeLimitMs, startedAt, expiresAt },
     token,
     serverSentAt
   };
@@ -160,14 +180,17 @@ function resultFor(
   selectedSquares: readonly HideAndSeekSquare[],
   elapsedMs: number,
   personalBest: number,
-  completedAt: string
+  completedAt: string,
+  mode: HideAndSeekMode
 ): HideAndSeekFinishResult {
   const score = calculateHideAndSeekScore({
     safeSquares: board.safeSquares,
     selectedSquares,
-    elapsedMs
+    elapsedMs,
+    mode
   });
   return {
+    mode,
     score: score.score,
     totalSafe: score.totalSafe,
     correctCount: score.correctCount,
@@ -184,7 +207,9 @@ function resultFor(
 }
 
 function validatedStoredSelections(row: HideAndSeekAttemptRow) {
-  const values = parseHideAndSeekSelections(row.selected_squares);
+  const values = parseHideAndSeekSelections(row.selected_squares, {
+    allowEmpty: row.mode === "time_trial"
+  });
   return values;
 }
 
@@ -224,7 +249,8 @@ export async function finishHideAndSeekRound(input: {
       selectedSquares,
       Math.max(0, Number(existing.elapsed_ms)),
       personalBest,
-      completedAt.toISOString()
+      completedAt.toISOString(),
+      existing.mode === "time_trial" ? "time_trial" : "classic"
     );
   }
 
@@ -233,20 +259,23 @@ export async function finishHideAndSeekRound(input: {
     throw new HideAndSeekInputError("This search has not started yet.");
   }
 
-  const selectedSquares = parseHideAndSeekSelections(input.selectedSquares);
+  const selectedSquares = parseHideAndSeekSelections(input.selectedSquares, {
+    allowEmpty: payload.mode === "time_trial"
+  });
   const occupied = new Set(board.pieces.map((placement) => placement.square));
   if (selectedSquares.some((square) => occupied.has(square))) {
     throw new HideAndSeekInputError("A square holding a black piece cannot be marked.");
   }
   const elapsedMs = Math.max(0, Math.min(
-    HIDE_AND_SEEK_ROUND_DURATION_MS,
+    payload.mode === "time_trial" ? HIDE_AND_SEEK_TIME_TRIAL_LIMIT_MS : HIDE_AND_SEEK_ROUND_DURATION_MS,
     Math.round(nowMs - Date.parse(payload.startedAt))
   ));
   const completedAt = new Date(nowMs).toISOString();
-  const result = resultFor(board, selectedSquares, elapsedMs, 0, completedAt);
+  const result = resultFor(board, selectedSquares, elapsedMs, 0, completedAt, payload.mode);
   const record = {
     student_id: input.studentId,
     round_id: payload.roundId,
+    mode: payload.mode,
     generator_version: payload.generatorVersion,
     seed: payload.seed,
     piece_placement: board.pieces,
@@ -277,7 +306,8 @@ export async function finishHideAndSeekRound(input: {
       racedSelections,
       Math.max(0, Number(racedAttempt.elapsed_ms)),
       personalBest,
-      racedCompletedAt.toISOString()
+      racedCompletedAt.toISOString(),
+      racedAttempt.mode === "time_trial" ? "time_trial" : "classic"
     );
   }
 

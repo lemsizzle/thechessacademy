@@ -53,8 +53,8 @@ export const PUZZLE_MODE_OPTIONS: ReadonlyArray<PuzzleModeOption> = [
     id: "hideAndSeek",
     name: "Hide and Seek",
     icon: "✦",
-    summary: "Board vision · timed search",
-    description: "Find every empty square the black pieces cannot see. Mark the safe hiding places, then stop the clock to check your accuracy.",
+    summary: "Classic or 60-second Time Trial",
+    description: "Find every empty square the black pieces cannot see. Choose an open-ended search or race a 60-second clock; speed can earn up to 40% of your score.",
     startLabel: "Start Hide and Seek"
   },
   {

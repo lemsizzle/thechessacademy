@@ -51,6 +51,8 @@ describe("Hide and Seek API routes", () => {
       round: {
         id: "round-1",
         pieces: [{ piece: "bK", square: "a1" }],
+        mode: "time_trial",
+        timeLimitMs: 60_000,
         startedAt: "2026-08-29T08:00:02.000Z",
         expiresAt: "2026-08-29T08:30:02.000Z"
       },
@@ -59,13 +61,16 @@ describe("Hide and Seek API routes", () => {
     };
     mocks.startHideAndSeekRound.mockReturnValue(started);
 
-    const response = await startRoute(request("/api/student/hide-and-seek/start", "{}"));
+    const response = await startRoute(request(
+      "/api/student/hide-and-seek/start",
+      JSON.stringify({ mode: "time_trial" })
+    ));
     const payload = await response.json();
 
     expect(response.status).toBe(200);
     expect(payload).toEqual({ ...started, serverReceivedAt: expect.any(String) });
     expect(Date.parse(payload.serverReceivedAt)).not.toBeNaN();
-    expect(mocks.startHideAndSeekRound).toHaveBeenCalledWith(studentId);
+    expect(mocks.startHideAndSeekRound).toHaveBeenCalledWith(studentId, undefined, "time_trial");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
@@ -73,6 +78,13 @@ describe("Hide and Seek API routes", () => {
     const malformed = await startRoute(request("/api/student/hide-and-seek/start", "not-json"));
     expect(malformed.status).toBe(400);
     expect(await malformed.json()).toEqual({ error: "The start request must contain valid JSON." });
+
+    const invalidMode = await startRoute(request(
+      "/api/student/hide-and-seek/start",
+      JSON.stringify({ mode: "blitz" })
+    ));
+    expect(invalidMode.status).toBe(400);
+    expect(await invalidMode.json()).toEqual({ error: "Choose Classic or Time Trial mode." });
 
     mocks.startHideAndSeekRound.mockImplementationOnce(() => {
       throw new Error("postgres connection string and internal details");
@@ -89,6 +101,7 @@ describe("Hide and Seek API routes", () => {
 
   it("returns the authoritative finish result and maps token/input errors", async () => {
     const result = {
+      mode: "classic",
       score: 900,
       totalSafe: 12,
       correctCount: 11,

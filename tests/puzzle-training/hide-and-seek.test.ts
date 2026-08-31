@@ -9,6 +9,7 @@ import {
   generateHideAndSeekBoard,
   generateHideAndSeekBoardForVersion,
   hideAndSeekBoardFen,
+  isHideAndSeekMode,
   isHideAndSeekSquare,
   type HideAndSeekPieceCode,
   type HideAndSeekPiecePlacement,
@@ -31,6 +32,12 @@ describe("Hide and Seek rules", () => {
     for (const value of ["a0", "a9", "i1", "A1", "a10", "", null, 42]) {
       expect(isHideAndSeekSquare(value), String(value)).toBe(false);
     }
+  });
+
+  it("accepts only supported search modes", () => {
+    expect(isHideAndSeekMode("classic")).toBe(true);
+    expect(isHideAndSeekMode("time_trial")).toBe(true);
+    expect(isHideAndSeekMode("timed")).toBe(false);
   });
 
   it("uses knight jumps", () => {
@@ -166,10 +173,17 @@ describe("Hide and Seek scoring", () => {
     });
   });
 
-  it("limits speed to a 200-point bonus", () => {
-    expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: safeSquares, elapsedMs: 60_000 }).score).toBe(900);
-    expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: safeSquares, elapsedMs: 120_000 }).score).toBe(800);
-    expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: safeSquares, elapsedMs: 600_000 }).score).toBe(800);
+  it("makes speed worth up to 40% while preserving an accuracy gate", () => {
+    expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: safeSquares, elapsedMs: 60_000 }).score).toBe(800);
+    expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: safeSquares, elapsedMs: 120_000 }).score).toBe(600);
+    expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: safeSquares, elapsedMs: 600_000 }).score).toBe(600);
+    expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: [], elapsedMs: 0 }).score).toBe(0);
+  });
+
+  it("uses the full 60-second clock as the Time Trial speed window", () => {
+    expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: safeSquares, elapsedMs: 0, mode: "time_trial" }).score).toBe(1_000);
+    expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: safeSquares, elapsedMs: 30_000, mode: "time_trial" }).score).toBe(800);
+    expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: safeSquares, elapsedMs: 60_000, mode: "time_trial" }).score).toBe(600);
   });
 
   it("penalizes missed safe squares and wrong guesses using the exact formula", () => {
@@ -193,7 +207,7 @@ describe("Hide and Seek scoring", () => {
       selectedSquares: ["a1", "a2", "h8"],
       elapsedMs: 30_000
     });
-    expect(mixed.score).toBe(475);
+    expect(mixed.score).toBe(450);
     expect(mixed.foundPercent).toBe(66.7);
   });
 

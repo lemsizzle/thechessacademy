@@ -157,7 +157,7 @@ function HideAndSeekDetails() {
       {[
         ["1", "Study the board", "The timer begins only when you reveal the scattered black pieces."],
         ["2", "Stamp safe squares", "Tap each empty square that no black piece can see. Pieces block sliding attacks."],
-        ["3", "Stop and score", "Accuracy matters most, with a smaller bonus for finding every hiding place quickly."]
+        ["3", "Choose your pace", "Play an open-ended Classic search or a 60-second Time Trial. Speed can earn up to 40% of your score."]
       ].map(([step, title, description]) => (
         <div key={step} className="rounded-lg border border-emerald-200/20 bg-emerald-300/5 p-4">
           <span className="grid size-8 place-items-center rounded-full border border-emerald-200/30 bg-emerald-300/10 text-sm font-black text-emerald-100">{step}</span>

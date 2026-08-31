@@ -5,7 +5,6 @@ import {
   canMarkHideAndSeekBoard,
   canScoreHideAndSeekBoard,
   HideAndSeekTraining,
-  hideAndSeekArrowLine,
   hideAndSeekRevealDelay,
   hideAndSeekSynchronizedStartOffset,
   isTerminalHideAndSeekFinishFailure,
@@ -20,17 +19,21 @@ describe("Hide and Seek training UI", () => {
     }));
 
     expect(html).toContain("Board hidden");
-    expect(html).toContain("Start Search");
+    expect(html).toContain("Start Classic Search");
+    expect(html).toContain("Time Trial");
+    expect(html).toContain("60 seconds");
+    expect(html).toContain("40% speed");
     expect(html).toContain("The clock starts when the pieces appear.");
     expect(html).toContain("321");
     expect(html).not.toContain("Stop &amp; Score");
     expect(html).not.toContain('aria-label="Hide and Seek chessboard"');
   });
 
-  it("requires an active token and at least one mark before scoring", () => {
+  it("requires an active token and allows an empty automatic Time Trial finish", () => {
     expect(canMarkHideAndSeekBoard("searching")).toBe(true);
     expect(canScoreHideAndSeekBoard({ phase: "searching", token: "", selectedCount: 3 })).toBe(false);
     expect(canScoreHideAndSeekBoard({ phase: "searching", token: "active-token", selectedCount: 0 })).toBe(false);
+    expect(canScoreHideAndSeekBoard({ phase: "searching", token: "active-token", selectedCount: 0, mode: "time_trial" })).toBe(true);
     expect(canScoreHideAndSeekBoard({ phase: "searching", token: "active-token", selectedCount: 3 })).toBe(true);
   });
 
@@ -53,18 +56,6 @@ describe("Hide and Seek training UI", () => {
       requestStartedAt: 1,
       responseReceivedAt: 2
     })).toBeNull();
-  });
-
-  it("positions planning arrows over the correct board squares", () => {
-    expect(hideAndSeekArrowLine({ startSquare: "a8", endSquare: "h8" })).toEqual({
-      x1: 6.25,
-      y1: 6.25,
-      x2: 89.75,
-      y2: 6.25
-    });
-    const diagonal = hideAndSeekArrowLine({ startSquare: "a8", endSquare: "h1" });
-    expect(diagonal.x2).toBeCloseTo(90.92, 2);
-    expect(diagonal.y2).toBeCloseTo(90.92, 2);
   });
 
   it("locks marking outside the active search and treats finish authorization failures as terminal", () => {

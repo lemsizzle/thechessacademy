@@ -5,26 +5,31 @@ import {
   requireHideAndSeekStudent,
   startHideAndSeekRound
 } from "@/lib/puzzle-training/hideAndSeekServer";
+import { isHideAndSeekMode } from "@/lib/puzzle-training/hideAndSeek";
 import { HideAndSeekTokenError } from "@/lib/puzzle-training/hideAndSeekToken";
 
 export const dynamic = "force-dynamic";
 
 async function readBody(request: NextRequest) {
   const text = await request.text();
-  if (!text.trim()) return {};
+  if (!text.trim()) return "classic";
   const value = JSON.parse(text) as unknown;
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new HideAndSeekInputError("The start request must be a JSON object.");
   }
-  return value;
+  const mode = (value as { mode?: unknown }).mode ?? "classic";
+  if (!isHideAndSeekMode(mode)) {
+    throw new HideAndSeekInputError("Choose Classic or Time Trial mode.");
+  }
+  return mode;
 }
 
 export async function POST(request: NextRequest) {
   const serverReceivedAt = new Date().toISOString();
   try {
-    await readBody(request);
+    const mode = await readBody(request);
     const student = await requireHideAndSeekStudent();
-    const response = startHideAndSeekRound(student.studentId);
+    const response = startHideAndSeekRound(student.studentId, undefined, mode);
     return NextResponse.json({ ...response, serverReceivedAt }, {
       headers: { "Cache-Control": "no-store" }
     });

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   HIDE_AND_SEEK_ACTIVATION_GRACE_MS,
   HIDE_AND_SEEK_ROUND_DURATION_MS,
+  HIDE_AND_SEEK_TIME_TRIAL_SUBMISSION_GRACE_MS,
   assertHideAndSeekTokenStudent,
   createHideAndSeekRoundToken,
   readHideAndSeekRoundToken,
@@ -18,6 +19,7 @@ const base = {
 };
 const activeRound: HideAndSeekRoundToken = {
   ...base,
+  mode: "classic",
   stage: "active",
   startedAt: new Date(nowMs + HIDE_AND_SEEK_ACTIVATION_GRACE_MS).toISOString(),
   expiresAt: new Date(nowMs + HIDE_AND_SEEK_ACTIVATION_GRACE_MS + HIDE_AND_SEEK_ROUND_DURATION_MS).toISOString()
@@ -53,6 +55,24 @@ describe("Hide and Seek encrypted round tokens", () => {
     expect(() => createHideAndSeekRoundToken({
       ...activeRound,
       expiresAt: new Date(Date.parse(activeRound.startedAt) + HIDE_AND_SEEK_ROUND_DURATION_MS + 1).toISOString()
+    })).toThrow(/invalid/i);
+  });
+
+  it("limits Time Trial tokens to the visible minute plus submission grace", () => {
+    const timeTrial: HideAndSeekRoundToken = {
+      ...activeRound,
+      mode: "time_trial",
+      expiresAt: new Date(
+        Date.parse(activeRound.startedAt) + 60_000 + HIDE_AND_SEEK_TIME_TRIAL_SUBMISSION_GRACE_MS
+      ).toISOString()
+    };
+    expect(readHideAndSeekRoundToken(
+      createHideAndSeekRoundToken(timeTrial),
+      Date.parse(timeTrial.startedAt) + 60_001
+    )).toEqual(timeTrial);
+    expect(() => createHideAndSeekRoundToken({
+      ...timeTrial,
+      expiresAt: new Date(Date.parse(timeTrial.expiresAt) + 1).toISOString()
     })).toThrow(/invalid/i);
   });
 
