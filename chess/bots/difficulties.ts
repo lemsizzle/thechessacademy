@@ -112,7 +112,7 @@ export const BOT_DIFFICULTIES: BotDifficulty[] = [
   {
     id: "queen",
     name: "Quinn Queen",
-    title: "Balanced Club Player",
+    title: "Strategic Challenger",
     portrait: "/bots/quinn-queen.png",
     estimatedRating: 1225,
     multiPv: 6,

@@ -52,7 +52,7 @@ export function GameSetup({ unlockedBotIds, onStart }: { unlockedBotIds: string[
                     {locked ? <span aria-hidden="true" className="absolute right-1.5 top-1.5 z-10 grid size-6 place-items-center rounded-full border border-white/10 bg-slate-950/90 text-[11px]">🔒</span> : null}
                     <BotPortrait src={difficulty.portrait} size="choice" selected={!locked && bot.id === difficulty.id} />
                     <span className="mt-1.5 block truncate text-xs font-black text-white sm:text-sm">{difficulty.name}</span>
-                    <span className="block text-[10px] font-bold text-slate-400 sm:text-xs">~{difficulty.estimatedRating}</span>
+                    <span className="block truncate text-[10px] font-bold text-slate-400 sm:text-xs">{difficulty.title}</span>
                     <span id={descriptionId} className="sr-only">{locked && requirement ? `Defeat ${requirement.botName} without takebacks to unlock.` : difficulty.description}</span>
                   </button>
                 );
@@ -60,12 +60,11 @@ export function GameSetup({ unlockedBotIds, onStart }: { unlockedBotIds: string[
             </div>
           </fieldset>
 
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[.035] px-3 py-2.5">
+          <div className="mt-3 rounded-lg border border-white/10 bg-white/[.035] px-3 py-2.5">
             <div className="min-w-0">
               <p className="font-black text-white">{bot.name} <span className="font-bold text-cyan-200">· {bot.title}</span></p>
               <p className="mt-0.5 text-xs text-slate-400">{bot.description}</p>
             </div>
-            <span className="shrink-0 rounded-full border border-white/10 bg-slate-950 px-2.5 py-1 text-xs font-black text-slate-300">~{bot.estimatedRating}</span>
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)_auto] lg:items-end">

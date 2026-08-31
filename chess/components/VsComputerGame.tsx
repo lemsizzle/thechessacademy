@@ -111,7 +111,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
         >
           <PlayerPanel
             name={config.bot.name}
-            subtitle={`${config.bot.title} · estimated ${config.bot.estimatedRating}`}
+            subtitle={config.bot.title}
             portrait={config.bot.portrait}
             clockMs={opponentClock}
             active={game.activeColor === opponentColor}

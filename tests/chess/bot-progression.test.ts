@@ -84,6 +84,9 @@ describe("computer opponent progression", () => {
     }));
 
     expect(botButton(markup, "Pawny")).not.toContain("disabled");
+    expect(botButton(markup, "Pawny")).toContain("Complete Beginner");
+    expect(markup).not.toContain("~375");
+    expect(markup).not.toContain("~1600");
     expect(botButton(markup, "Sir Lem")).not.toContain("disabled");
     expect(botButton(markup, "Zippy Knight")).toContain("disabled");
     expect(botButton(markup, "Zippy Knight")).toContain("Defeat Pawny without takebacks to unlock.");

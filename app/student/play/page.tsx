@@ -22,10 +22,7 @@ export default async function StudentPlayPage() {
       <div className="space-y-5">
         <PlayModeGrid />
         <section id="computer-game" className="scroll-mt-5" aria-labelledby="computer-game-title">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 id="computer-game-title" className="text-lg font-black text-white">Computer game</h2>
-            <span className="text-xs font-bold text-slate-500">No pressure · instant play</span>
-          </div>
+          <h2 id="computer-game-title" className="mb-3 text-lg font-black text-white">Computer</h2>
           <VsComputerGame studentName={student.name} studentAvatar={studentAvatar} avatarItems={equippedAvatarItems} initialUnlockedBotIds={botProgression.unlockedBotIds} />
         </section>
       </div>
