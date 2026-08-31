@@ -334,7 +334,7 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
   const arrowKey = arrows.map((arrow) => `${arrow.startSquare}${arrow.endSquare}${arrow.color}`).sort().join("-");
   const instructionsId = `${boardId}-keyboard-instructions`;
   return <div ref={boardRef} className="relative h-full w-full">
-    <div aria-hidden="true" inert className="h-full w-full"><Chessboard key={`${boardId}-${arrowKey}`} options={options} /></div>
+    <div aria-hidden="true" className="h-full w-full"><Chessboard key={`${boardId}-${arrowKey}`} options={options} /></div>
     <p id={instructionsId} className="sr-only">Use the arrow keys to move between squares. Press Enter or Space to select a piece or destination. Press Escape to clear the selected square.</p>
     <div role="grid" aria-label={`Chessboard, ${orientation} perspective`} aria-describedby={instructionsId} aria-readonly={!interactive} className="pointer-events-none absolute inset-0 z-20 grid grid-rows-8">
       {Array.from({ length: 8 }, (_, rowIndex) => (
