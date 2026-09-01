@@ -61,8 +61,8 @@ export const PUZZLE_MODE_OPTIONS: ReadonlyArray<PuzzleModeOption> = [
     id: "adaptiveReview",
     name: "Learn From Your Mistakes",
     icon: "↺",
-    summary: "Your games · spaced review",
-    description: "Turn mistakes from analyzed games into personal puzzles. Positions return when they are due until the stronger move becomes automatic.",
+    summary: "Games + Survival · spaced review",
+    description: "Turn mistakes from analyzed games and Survival training into personal puzzles. Positions return when they are due until the stronger move becomes automatic.",
     startLabel: "Start Mistake Review"
   }
 ];

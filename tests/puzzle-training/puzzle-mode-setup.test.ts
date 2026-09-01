@@ -46,7 +46,10 @@ describe("puzzle mode setup", () => {
     expect(html).toContain("Star Wars");
     expect(html).toContain("Hide and Seek");
     expect(html).toContain("Learn From Your Mistakes");
+    expect(html).toContain("Games + Survival · spaced review");
     expect(html).toContain("View My Stats");
+    expect(html).not.toContain("Begin with very easy puzzles and climb through five difficulty stages.");
+    expect(html).not.toContain("Turn mistakes from analyzed games and Survival training into personal puzzles.");
     expect(html).not.toContain("<select");
     expect(html).not.toContain("Start Survival");
     expect(html).not.toContain("Recorded performance");

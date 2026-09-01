@@ -214,7 +214,7 @@ function ModeDetails({
   if (mode === "adaptiveReview") {
     return (
       <div className="rounded-lg border border-violet-300/25 bg-violet-300/[0.07] p-4">
-        <p className="font-black text-violet-100">Personal puzzles from your analyzed games</p>
+        <p className="font-black text-violet-100">Personal puzzles from your games and Survival training</p>
         <p className="mt-1 text-sm leading-6 text-slate-300">Due positions open immediately. If you are caught up, you will see when your next review becomes available.</p>
       </div>
     );
@@ -453,7 +453,6 @@ export function PuzzleModeSetup({
                             </span>
                             <span className="mt-4 block text-lg font-black text-white">{mode.name}</span>
                             <span className="mt-1 block text-xs font-bold uppercase tracking-wide text-amber-100">{mode.summary}</span>
-                            <span className="mt-2 block text-sm leading-5 text-slate-400">{mode.description}</span>
                           </button>
                         ))}
                       </div>

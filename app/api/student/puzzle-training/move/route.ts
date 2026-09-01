@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
+import { saveSurvivalReviewMistake } from "@/chess/training/adaptiveReviewServer";
 import { validatePuzzleMove } from "@/lib/puzzle-training/engine";
 import { preparePublicTrainingPuzzle } from "@/lib/puzzle-training/publicPuzzle";
 import { assertPuzzleTokenStudent, createPuzzleSessionToken, readPuzzleSessionToken } from "@/lib/puzzle-training/sessionToken";
@@ -73,6 +74,32 @@ export async function POST(request: NextRequest) {
     const token = createPuzzleSessionToken(nextPayload);
 
     if (!validation.accepted) {
+      if (
+        payload.trainingMode === "survival"
+        && "attemptedMoveUci" in validation
+        && validation.attemptedMoveUci
+        && validation.attemptedMoveSan
+      ) {
+        after(async () => {
+          try {
+            await saveSurvivalReviewMistake({
+              studentId: student.studentId,
+              puzzle,
+              nextMoveIndex: validation.nextMoveIndex,
+              attemptedMoveUci: validation.attemptedMoveUci,
+              attemptedMoveSan: validation.attemptedMoveSan
+            });
+          } catch (error) {
+            console.error(JSON.stringify({
+              event: "survival_review_save_failed",
+              requestId,
+              studentId: student.studentId,
+              puzzleId: puzzle.id,
+              error: errorMessage(error)
+            }));
+          }
+        });
+      }
       const response = NextResponse.json({
         accepted: false,
         completed: false,

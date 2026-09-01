@@ -28,6 +28,13 @@ describe("puzzle training launcher", () => {
     });
   });
 
+  it("identifies Survival mistakes as part of adaptive review", () => {
+    const review = PUZZLE_MODE_OPTIONS.find((mode) => mode.id === "adaptiveReview");
+
+    expect(review?.summary).toContain("Survival");
+    expect(review?.description).toContain("Survival training");
+  });
+
   it("moves between choices, details, stats, and the compact landing card", () => {
     const details = puzzleLauncherReducer(initialPuzzleLauncherState, {
       type: "SELECT_MODE",

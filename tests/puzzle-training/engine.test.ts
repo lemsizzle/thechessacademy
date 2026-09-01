@@ -59,7 +59,14 @@ describe("official Lichess puzzle semantics", () => {
   it("rejects a legal but incorrect move and restores the same position", () => {
     const before = replayPuzzleToIndex(forkPuzzle, 1).fen();
     const result = validatePuzzleMove(forkPuzzle, 1, { from: "e5", to: "f7" });
-    expect(result).toMatchObject({ accepted: false, completed: false, positionFen: before, nextMoveIndex: 1 });
+    expect(result).toMatchObject({
+      accepted: false,
+      completed: false,
+      positionFen: before,
+      nextMoveIndex: 1,
+      attemptedMoveUci: "e5f7",
+      attemptedMoveSan: "Nf7"
+    });
   });
 
   it("applies the automatic opponent reply after a correct partial solution", () => {

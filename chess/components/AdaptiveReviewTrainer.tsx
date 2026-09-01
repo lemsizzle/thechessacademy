@@ -10,7 +10,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 
 type QueueResponse = { items?: AdaptiveReviewItem[]; summary?: AdaptiveReviewSummary; error?: string };
-type AttemptResult = { outcome: "correct" | "incorrect" | "revealed"; bestMoveUci: string; solutionExplanation: string; bestLineSan: string; error?: string };
+type AttemptResult = { outcome: "correct" | "incorrect" | "revealed"; bestMoveSan: string; bestMoveUci: string; solutionExplanation: string; bestLineSan: string; error?: string };
 
 function movePosition(fen: string, uci: string) {
   try {
@@ -25,7 +25,12 @@ function movePosition(fen: string, uci: string) {
 }
 
 const emptySummary: AdaptiveReviewSummary = { total: 0, due: 0, learning: 0, review: 0, mastered: 0, attempts: 0, correct: 0, accuracy: 0 };
-const REVIEW_PROMPT = "Find the stronger move. The red arrow shows what happened in your game.";
+
+function reviewPrompt(item: AdaptiveReviewItem) {
+  return item.playedMoveUci
+    ? `Find the stronger move. The red arrow shows what happened in ${item.sourceKind === "survival" ? "Survival" : "your game"}.`
+    : "Find the stronger move in this Survival position.";
+}
 
 export function AdaptiveReviewTrainer({
   autoStart = false,
@@ -55,7 +60,7 @@ export function AdaptiveReviewTrainer({
     setLastMove(null);
     setPracticeArrows([]);
     setResult(null);
-    setMessage(REVIEW_PROMPT);
+    setMessage(reviewPrompt(item));
     startedAt.current = Date.now();
   }, []);
 
@@ -91,9 +96,9 @@ export function AdaptiveReviewTrainer({
 
   async function submitAttempt(moveUci?: string, reveal = false) {
     if (!current || saving) return;
-    const played = reveal ? movePosition(current.fen, current.bestMoveUci) : moveUci ? movePosition(current.fen, moveUci) : null;
+    const played = moveUci ? movePosition(current.fen, moveUci) : null;
     if (!reveal && !played) return;
-    if (played) {
+    if (!reveal && played) {
       setDisplayFen(played.fen);
       setLastMove([played.uci.slice(0, 2), played.uci.slice(2, 4)]);
     }
@@ -119,6 +124,13 @@ export function AdaptiveReviewTrainer({
         setMessage("That move is legal, but it does not fix the problem. Try the position again.");
         startedAt.current = Date.now();
       } else {
+        if (body.outcome === "revealed") {
+          const solution = movePosition(current.fen, body.bestMoveUci);
+          if (solution) {
+            setDisplayFen(solution.fen);
+            setLastMove([solution.uci.slice(0, 2), solution.uci.slice(2, 4)]);
+          }
+        }
         setMessage(body.outcome === "correct" ? "Correct! This position is scheduled for a later review." : "Study the idea, then try it again when it returns to your queue.");
       }
     } catch (error) {
@@ -138,7 +150,7 @@ export function AdaptiveReviewTrainer({
     setPracticeArrows([]);
     if (next[0]) {
       setDisplayFen(next[0].fen);
-      setMessage(REVIEW_PROMPT);
+      setMessage(reviewPrompt(next[0]));
       startedAt.current = Date.now();
     } else {
       setPracticing(false);
@@ -177,7 +189,7 @@ export function AdaptiveReviewTrainer({
       <div className="border-b border-white/10 px-5 py-4">
         <p className="text-xs font-black uppercase tracking-widest text-violet-200">Adaptive training</p>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-2xl font-black text-white">Review your game mistakes</h2><p className="mt-1 text-sm text-slate-300">Positions return at the right time until the idea sticks.</p></div>
+          <div><h2 className="text-2xl font-black text-white">Review your mistakes</h2><p className="mt-1 text-sm text-slate-300">Game and Survival positions return at the right time until the idea sticks.</p></div>
           {summary.due > 0 && <span className="rounded-full bg-violet-300 px-3 py-1 text-sm font-black text-slate-950">{summary.due} due</span>}
         </div>
       </div>
@@ -185,18 +197,18 @@ export function AdaptiveReviewTrainer({
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {[["Due", summary.due], ["Learning", summary.learning], ["Reviewing", summary.review], ["Mastered", summary.mastered], ["Accuracy", `${summary.accuracy}%`]].map(([label, value]) => <div key={String(label)} className="rounded-md border border-white/10 bg-slate-950/50 p-3 text-center"><p className="text-xs font-bold uppercase text-slate-500">{label}</p><p className="mt-1 text-xl font-black text-white">{value}</p></div>)}
         </div>
-        {summary.due > 0 ? <Button type="button" onClick={begin} className="mt-4">Start mistake review</Button> : summary.total > 0 ? <p className="mt-4 rounded-md border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm font-bold text-emerald-100">You are caught up. New reviews will appear here when they are due.</p> : <p className="mt-4 rounded-md border border-cyan-200/20 bg-cyan-300/10 p-3 text-sm leading-6 text-cyan-50">Complete a game, open its analysis, and request a computer analysis. Your mistakes will be added here automatically.</p>}
+        {summary.due > 0 ? <Button type="button" onClick={begin} className="mt-4">Start mistake review</Button> : summary.total > 0 ? <p className="mt-4 rounded-md border border-emerald-300/20 bg-emerald-300/10 p-3 text-sm font-bold text-emerald-100">You are caught up. New reviews will appear here when they are due.</p> : <p className="mt-4 rounded-md border border-cyan-200/20 bg-cyan-300/10 p-3 text-sm leading-6 text-cyan-50">Mistakes from Survival are added automatically. You can also analyze a completed game to add its key mistakes.</p>}
         {message && <p className="mt-3 text-sm text-slate-300" aria-live="polite">{message}</p>}
         {onExit && <Button type="button" variant="ghost" onClick={onExit} className="mt-4">Back to Puzzle Modes</Button>}
       </div>
     </Card>;
   }
 
-  const oldMoveArrow: BoardArrow[] = [{
+  const oldMoveArrow: BoardArrow[] = /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(current.playedMoveUci) ? [{
     startSquare: current.playedMoveUci.slice(0, 2),
     endSquare: current.playedMoveUci.slice(2, 4),
     color: BOARD_ANNOTATION_COLORS.danger
-  }];
+  }] : [];
   const solved = result?.outcome === "correct" || result?.outcome === "revealed";
 
   return <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
@@ -226,13 +238,20 @@ export function AdaptiveReviewTrainer({
     <div className="space-y-4">
       <Card className="p-5">
         <div className="flex items-center justify-between gap-3"><span className={`rounded px-2 py-1 text-xs font-black uppercase ${current.severity === "blunder" ? "bg-rose-300/15 text-rose-100" : "bg-orange-300/15 text-orange-100"}`}>{current.severity}</span><span className="text-xs font-bold text-slate-400">{items.length} due</span></div>
-        <h2 className="mt-3 text-2xl font-black text-white">You played {current.playedMoveSan}</h2>
+        <h2 className="mt-3 text-2xl font-black text-white">
+          {current.sourceKind === "survival"
+            ? current.playedMoveSan ? `You tried ${current.playedMoveSan}` : "Survival puzzle to revisit"
+            : `You played ${current.playedMoveSan}`}
+        </h2>
         <div className="mt-3 rounded-md border border-rose-300/20 bg-rose-300/10 p-3"><p className="text-xs font-black uppercase text-rose-200">Remember the problem</p><p className="mt-1 text-sm leading-6 text-rose-50">{current.explanation}</p></div>
         <p className="mt-3 rounded-md border border-white/10 bg-white/5 p-3 text-sm font-bold text-slate-200" aria-live="polite">{message}</p>
         {result?.outcome === "incorrect" && <Button type="button" variant="ghost" disabled={saving} onClick={() => void submitAttempt(undefined, true)} className="mt-3">Show the answer</Button>}
         {!result && <Button type="button" variant="ghost" disabled={saving} onClick={() => void submitAttempt(undefined, true)} className="mt-3">I’m stuck — show me</Button>}
-        {solved && <div className="mt-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 p-3"><p className="font-black text-emerald-100">{result.outcome === "correct" ? "You found it!" : `Best move: ${current.bestMoveSan}`}</p><p className="mt-2 text-sm leading-6 text-emerald-50">{current.solutionExplanation}</p>{current.bestLineSan && <p className="mt-2 text-xs text-emerald-100/80">Example line: {current.bestLineSan}</p>}<Button type="button" onClick={nextPosition} className="mt-4">{items.length > 1 ? "Next position" : "Finish review"}</Button></div>}
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs"><Link href={`/student/play/game/${current.sourceGameId}/analysis`} className="font-bold text-cyan-200 underline underline-offset-4">Open the original game</Link><button type="button" onClick={onExit ?? (() => setPracticing(false))} className="font-bold text-slate-400 hover:text-white">Exit review</button></div>
+        {solved && <div className="mt-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 p-3"><p className="font-black text-emerald-100">{result.outcome === "correct" ? "You found it!" : `Best move: ${result.bestMoveSan}`}</p><p className="mt-2 text-sm leading-6 text-emerald-50">{result.solutionExplanation}</p>{result.bestLineSan && <p className="mt-2 text-xs text-emerald-100/80">Example line: {result.bestLineSan}</p>}<Button type="button" onClick={nextPosition} className="mt-4">{items.length > 1 ? "Next position" : "Finish review"}</Button></div>}
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
+          {current.sourceGameId ? <Link href={`/student/play/game/${current.sourceGameId}/analysis`} className="font-bold text-cyan-200 underline underline-offset-4">Open the original game</Link> : <span className="font-bold text-violet-200">From Survival training</span>}
+          <button type="button" onClick={onExit ?? (() => setPracticing(false))} className="font-bold text-slate-400 hover:text-white">Exit review</button>
+        </div>
       </Card>
     </div>
   </div>;

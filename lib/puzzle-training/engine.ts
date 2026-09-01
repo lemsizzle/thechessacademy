@@ -85,7 +85,14 @@ export function validatePuzzleMove(puzzle: PuzzleSessionPuzzle, nextMoveIndex: n
   const acceptedStudyMove = nextMoveIndex === firstIndex && puzzle.start_mode === "direct" && puzzle.accepted_moves.includes(candidateUci);
   const alternateMate = nextMoveIndex === firstIndex && puzzle.themes.includes("mateIn1") && chess.isCheckmate();
   if (candidateUci !== expectedUci && !acceptedStudyMove && !alternateMate) {
-    return { accepted: false, completed: false, positionFen: replayPuzzleToIndex(puzzle, nextMoveIndex).fen(), nextMoveIndex };
+    return {
+      accepted: false,
+      completed: false,
+      positionFen: replayPuzzleToIndex(puzzle, nextMoveIndex).fen(),
+      nextMoveIndex,
+      attemptedMoveUci: candidateUci,
+      attemptedMoveSan: candidateMove.san
+    };
   }
 
   const studentFen = chess.fen();

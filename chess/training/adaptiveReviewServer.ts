@@ -3,27 +3,30 @@ import "server-only";
 import { Chess } from "chess.js";
 import type { MistakePuzzle } from "@/chess/analysis/mistakes";
 import type { AdaptiveReviewOutcome, AdaptiveReviewStatus } from "@/chess/training/adaptiveReview";
+import { buildSurvivalReviewPosition } from "@/chess/training/survivalReview";
+import { firstStudentMoveIndex } from "@/lib/puzzle-training/engine";
+import type { PuzzleSessionPuzzle } from "@/lib/puzzle-training/types";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UCI_PATTERN = /^[a-h][1-8][a-h][1-8][qrbn]?$/;
 const MAX_REVIEW_ITEMS_PER_GAME = 100;
+const MAX_SURVIVAL_HISTORY = 500;
+
+export type AdaptiveReviewSourceKind = "game" | "survival";
 
 export type AdaptiveReviewItem = {
   id: string;
-  sourceGameId: string;
+  sourceKind: AdaptiveReviewSourceKind;
+  sourceGameId: string | null;
+  sourcePuzzleId: string | null;
   sourcePly: number;
   moveNumber: number;
   color: "white" | "black";
   fen: string;
   playedMoveSan: string;
   playedMoveUci: string;
-  bestMoveSan: string;
-  bestMoveUci: string;
-  acceptedMovesUci: string[];
-  bestLineSan: string;
   explanation: string;
-  solutionExplanation: string;
   centipawnLoss: number;
   severity: "mistake" | "blunder";
   status: AdaptiveReviewStatus;
@@ -47,19 +50,16 @@ export type AdaptiveReviewSummary = {
 
 type ReviewItemRow = {
   id: string;
-  source_game_id: string;
+  source_kind: AdaptiveReviewSourceKind;
+  source_game_id: string | null;
+  source_puzzle_id: string | null;
   source_ply: number;
   move_number: number;
   color: "white" | "black";
   fen: string;
   played_move_san: string;
   played_move_uci: string;
-  best_move_san: string;
-  best_move_uci: string;
-  accepted_moves_uci: string[];
-  best_line_san: string;
   explanation: string;
-  solution_explanation: string;
   centipawn_loss: number;
   severity: "mistake" | "blunder";
   status: AdaptiveReviewStatus;
@@ -70,7 +70,8 @@ type ReviewItemRow = {
   next_review_at: string;
 };
 
-const reviewItemSelect = "id,source_game_id,source_ply,move_number,color,fen,played_move_san,played_move_uci,best_move_san,best_move_uci,accepted_moves_uci,best_line_san,explanation,solution_explanation,centipawn_loss,severity,status,repetitions,interval_days,attempt_count,correct_count,next_review_at";
+const reviewItemSelect = "id,source_kind,source_game_id,source_puzzle_id,source_ply,move_number,color,fen,played_move_san,played_move_uci,explanation,centipawn_loss,severity,status,repetitions,interval_days,attempt_count,correct_count,next_review_at";
+const survivalPuzzleSelect = "id,initial_fen,moves,start_mode,accepted_moves,themes,rating,game_url";
 
 function serviceClient() {
   const client = getSupabaseServiceClient();
@@ -81,19 +82,16 @@ function serviceClient() {
 function mapReviewItem(row: ReviewItemRow): AdaptiveReviewItem {
   return {
     id: row.id,
+    sourceKind: row.source_kind,
     sourceGameId: row.source_game_id,
+    sourcePuzzleId: row.source_puzzle_id,
     sourcePly: row.source_ply,
     moveNumber: row.move_number,
     color: row.color,
     fen: row.fen,
     playedMoveSan: row.played_move_san,
     playedMoveUci: row.played_move_uci,
-    bestMoveSan: row.best_move_san,
-    bestMoveUci: row.best_move_uci,
-    acceptedMovesUci: row.accepted_moves_uci,
-    bestLineSan: row.best_line_san,
     explanation: row.explanation,
-    solutionExplanation: row.solution_explanation,
     centipawnLoss: row.centipawn_loss,
     severity: row.severity,
     status: row.status,
@@ -125,7 +123,9 @@ function reviewPayload(studentId: string, gameId: string, puzzle: MistakePuzzle)
   if (!legalUci(puzzle.fen, puzzle.playedMoveUci)) throw new Error("A review position has an invalid game move.");
   return {
     student_id: studentId,
+    source_kind: "game",
     source_game_id: gameId,
+    source_puzzle_id: null,
     source_ply: puzzle.ply,
     move_number: puzzle.moveNumber,
     color: puzzle.color,
@@ -142,6 +142,112 @@ function reviewPayload(studentId: string, gameId: string, puzzle: MistakePuzzle)
     severity: puzzle.severity === "blunder" ? "blunder" : "mistake",
     is_active: true
   };
+}
+
+function survivalReviewPayload(input: {
+  studentId: string;
+  puzzle: PuzzleSessionPuzzle;
+  nextMoveIndex: number;
+  attemptedMoveUci?: string;
+  attemptedMoveSan?: string;
+}) {
+  const review = buildSurvivalReviewPosition(input);
+  return {
+    student_id: input.studentId,
+    source_kind: "survival",
+    source_game_id: null,
+    source_puzzle_id: input.puzzle.id,
+    source_ply: review.sourcePly,
+    move_number: review.moveNumber,
+    color: review.color,
+    fen: review.fen,
+    played_move_san: review.playedMoveSan,
+    played_move_uci: review.playedMoveUci,
+    best_move_san: review.bestMoveSan,
+    best_move_uci: review.bestMoveUci,
+    accepted_moves_uci: review.acceptedMovesUci,
+    best_line_san: review.bestLineSan,
+    explanation: review.explanation,
+    solution_explanation: review.solutionExplanation,
+    centipawn_loss: 0,
+    severity: "mistake",
+    is_active: true
+  };
+}
+
+export async function saveSurvivalReviewMistake(input: {
+  studentId: string;
+  puzzle: PuzzleSessionPuzzle;
+  nextMoveIndex: number;
+  attemptedMoveUci: string;
+  attemptedMoveSan: string;
+}) {
+  const record = {
+    ...survivalReviewPayload(input),
+    status: "learning",
+    repetitions: 0,
+    interval_days: 0,
+    next_review_at: new Date().toISOString(),
+    mastered_at: null
+  };
+  const { error } = await serviceClient()
+    .from("adaptive_review_items")
+    .upsert(record, { onConflict: "student_id,source_puzzle_id,source_ply" });
+  if (error) throw new Error(error.message);
+}
+
+async function syncSurvivalMistakesToAdaptiveReview(studentId: string) {
+  const client = serviceClient();
+  const { data: attempts, error: attemptsError } = await client
+    .from("student_puzzle_attempts")
+    .select("puzzle_id")
+    .eq("student_id", studentId)
+    .eq("training_mode", "survival")
+    .gt("incorrect_move_count", 0)
+    .order("attempted_at", { ascending: false })
+    .limit(MAX_SURVIVAL_HISTORY);
+  if (attemptsError) throw new Error(attemptsError.message);
+
+  const puzzleIds = [...new Set(((attempts ?? []) as Array<{ puzzle_id: string }>).map((attempt) => attempt.puzzle_id))];
+  if (!puzzleIds.length) return;
+  const [{ data: existing, error: existingError }, { data: puzzles, error: puzzlesError }] = await Promise.all([
+    client
+      .from("adaptive_review_items")
+      .select("source_puzzle_id,source_ply")
+      .eq("student_id", studentId)
+      .eq("source_kind", "survival")
+      .in("source_puzzle_id", puzzleIds),
+    client
+      .from("chess_puzzles")
+      .select(survivalPuzzleSelect)
+      .in("id", puzzleIds)
+  ]);
+  if (existingError) throw new Error(existingError.message);
+  if (puzzlesError) throw new Error(puzzlesError.message);
+
+  const existingKeys = new Set(((existing ?? []) as Array<{ source_puzzle_id: string; source_ply: number }>).map(
+    (row) => `${row.source_puzzle_id}:${row.source_ply}`
+  ));
+  const records = ((puzzles ?? []) as PuzzleSessionPuzzle[]).flatMap((puzzle) => {
+    const nextMoveIndex = firstStudentMoveIndex(puzzle);
+    if (existingKeys.has(`${puzzle.id}:${nextMoveIndex + 1}`)) return [];
+    try {
+      return [survivalReviewPayload({ studentId, puzzle, nextMoveIndex })];
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "survival_review_backfill_position_failed",
+        studentId,
+        puzzleId: puzzle.id,
+        error: error instanceof Error ? error.message : String(error)
+      }));
+      return [];
+    }
+  });
+  if (!records.length) return;
+  const { error } = await client
+    .from("adaptive_review_items")
+    .upsert(records, { onConflict: "student_id,source_puzzle_id,source_ply" });
+  if (error) throw new Error(error.message);
 }
 
 export async function saveAdaptiveReviewItems(studentId: string, gameId: string, puzzles: MistakePuzzle[]) {
@@ -162,6 +268,7 @@ export async function saveAdaptiveReviewItems(studentId: string, gameId: string,
       .from("adaptive_review_items")
       .update({ is_active: false })
       .eq("student_id", studentId)
+      .eq("source_kind", "game")
       .eq("source_game_id", gameId);
     if (archiveError) throw new Error(archiveError.message);
     return { saved: 0 };
@@ -177,6 +284,7 @@ export async function saveAdaptiveReviewItems(studentId: string, gameId: string,
     .from("adaptive_review_items")
     .update({ is_active: false })
     .eq("student_id", studentId)
+    .eq("source_kind", "game")
     .eq("source_game_id", gameId)
     .not("source_ply", "in", activePlyList);
   if (archiveError) throw new Error(archiveError.message);
@@ -185,6 +293,15 @@ export async function saveAdaptiveReviewItems(studentId: string, gameId: string,
 
 export async function getStudentAdaptiveReview(studentId: string, limit = 20) {
   const client = serviceClient();
+  try {
+    await syncSurvivalMistakesToAdaptiveReview(studentId);
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "survival_review_backfill_failed",
+      studentId,
+      error: error instanceof Error ? error.message : String(error)
+    }));
+  }
   const now = new Date().toISOString();
   const { data, error } = await client
     .from("adaptive_review_items")
@@ -230,14 +347,14 @@ export async function recordAdaptiveReviewAttempt(input: {
   const client = serviceClient();
   const { data, error } = await client
     .from("adaptive_review_items")
-    .select("id,fen,best_move_uci,accepted_moves_uci,solution_explanation,best_line_san")
+    .select("id,fen,best_move_san,best_move_uci,accepted_moves_uci,solution_explanation,best_line_san")
     .eq("id", input.itemId)
     .eq("student_id", input.studentId)
     .eq("is_active", true)
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Review item not found.");
-  const row = data as { fen: string; best_move_uci: string; accepted_moves_uci: string[]; solution_explanation: string; best_line_san: string };
+  const row = data as { fen: string; best_move_san: string; best_move_uci: string; accepted_moves_uci: string[]; solution_explanation: string; best_line_san: string };
 
   let outcome: AdaptiveReviewOutcome;
   let moveUci: string | null = null;
@@ -260,6 +377,7 @@ export async function recordAdaptiveReviewAttempt(input: {
   if (scheduleError) throw new Error(scheduleError.message);
   return {
     outcome,
+    bestMoveSan: row.best_move_san,
     bestMoveUci: row.best_move_uci,
     solutionExplanation: row.solution_explanation,
     bestLineSan: row.best_line_san,

@@ -12,8 +12,15 @@ const serverMocks = vi.hoisted(() => ({
   saveTrainingAttempt: vi.fn(),
   selectTrainingPuzzle: vi.fn()
 }));
+const adaptiveReviewMocks = vi.hoisted(() => ({ saveSurvivalReviewMistake: vi.fn() }));
+const nextServerMocks = vi.hoisted(() => ({ after: vi.fn((callback: () => unknown) => callback()) }));
 
 vi.mock("@/lib/puzzle-training/server", () => serverMocks);
+vi.mock("@/chess/training/adaptiveReviewServer", () => adaptiveReviewMocks);
+vi.mock("next/server", async (importOriginal) => ({
+  ...await importOriginal<typeof import("next/server")>(),
+  after: nextServerMocks.after
+}));
 
 import { POST } from "@/app/api/student/puzzle-training/move/route";
 
@@ -53,6 +60,7 @@ describe("puzzle move route", () => {
     serverMocks.requirePuzzleSessionStudent.mockResolvedValue({ studentId });
     serverMocks.requirePuzzleStudent.mockResolvedValue({ studentId });
     serverMocks.saveTrainingAttempt.mockResolvedValue({ elapsedSeconds: 12, firstTryCorrect: true });
+    adaptiveReviewMocks.saveSurvivalReviewMistake.mockResolvedValue(undefined);
   });
 
   it("validates an opaque intermediate move without Supabase reads", async () => {
@@ -96,6 +104,42 @@ describe("puzzle move route", () => {
     expect(serverMocks.requirePuzzleStudent).toHaveBeenCalledOnce();
     expect(serverMocks.getTrainingPuzzle).toHaveBeenCalledWith(multiMovePuzzle.id);
     expect(serverMocks.requirePuzzleSessionStudent).not.toHaveBeenCalled();
+  });
+
+  it("adds a legal Survival miss to adaptive review without delaying the response", async () => {
+    const { woodpeckerRunId: _runId, woodpeckerCycleNumber: _cycleNumber, ...payload } = basePayload();
+    const token = createPuzzleSessionToken({
+      ...payload,
+      version: 2,
+      puzzleId: forkPuzzle.id,
+      trainingMode: "survival",
+      nextMoveIndex: 1,
+      expiresAt: new Date(Date.now() + (60 * 60 * 1000)).toISOString(),
+      puzzle: {
+        id: forkPuzzle.id,
+        initial_fen: forkPuzzle.initial_fen,
+        moves: forkPuzzle.moves,
+        start_mode: forkPuzzle.start_mode,
+        accepted_moves: forkPuzzle.accepted_moves,
+        themes: forkPuzzle.themes,
+        rating: forkPuzzle.rating,
+        game_url: forkPuzzle.game_url
+      }
+    });
+
+    const response = await POST(requestWithToken(token, { from: "e5", to: "f7" }));
+    const result = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(result).toMatchObject({ accepted: false, completed: false });
+    expect(nextServerMocks.after).toHaveBeenCalledOnce();
+    expect(adaptiveReviewMocks.saveSurvivalReviewMistake).toHaveBeenCalledWith(expect.objectContaining({
+      studentId,
+      puzzle: expect.objectContaining({ id: forkPuzzle.id }),
+      nextMoveIndex: 1,
+      attemptedMoveUci: "e5f7",
+      attemptedMoveSan: "Nf7"
+    }));
   });
 
   it("waits for durable attempt persistence and does not refresh the authorization lease", async () => {
