@@ -2,7 +2,7 @@ import type { ArenaTournamentResult, LichessQuestProgress, Quest, StudentLichess
 import { getQuestWindow, type QuestWindow } from "@/lib/quests/timeWindows";
 import { evaluateLichessGameQuest } from "@/lib/quests/evaluateLichessGameQuest";
 import { evaluateLichessPuzzleQuest } from "@/lib/quests/evaluateLichessPuzzleQuest";
-import { evaluateInternalGameQuest, evaluateInternalPuzzleQuest, type InternalQuestGameActivity, type InternalQuestPuzzleActivity, type InternalQuestWoodpeckerSetActivity } from "@/lib/quests/evaluateInternalQuest";
+import { evaluateInternalGameQuest, evaluateInternalPuzzleQuest, type InternalQuestGameActivity, type InternalQuestPuzzleActivity, type InternalQuestStarWarsActivity, type InternalQuestWoodpeckerSetActivity } from "@/lib/quests/evaluateInternalQuest";
 import { getLichessXpBreakdown } from "@/lib/lichessXp";
 import type { LichessQuestGame, LichessQuestPuzzleActivity } from "@/lib/types";
 
@@ -14,6 +14,7 @@ type EvaluationInput = {
   internalGamesByQuest?: Record<string, InternalQuestGameActivity[]>;
   internalPuzzlesByQuest?: Record<string, InternalQuestPuzzleActivity[]>;
   internalWoodpeckerSetsByQuest?: Record<string, InternalQuestWoodpeckerSetActivity[]>;
+  internalStarWarsRunsByQuest?: Record<string, InternalQuestStarWarsActivity[]>;
   arenaResults: ArenaTournamentResult[];
   account?: StudentLichessAccount;
   modeByQuest: Record<string, "connected" | "mock">;
@@ -45,7 +46,8 @@ export function evaluateQuestRules(input: EvaluationInput) {
         window,
         input.internalPuzzlesByQuest?.[quest.id] ?? [],
         input.fetchErrorsByQuest?.[quest.id],
-        input.internalWoodpeckerSetsByQuest?.[quest.id] ?? []
+        input.internalWoodpeckerSetsByQuest?.[quest.id] ?? [],
+        input.internalStarWarsRunsByQuest?.[quest.id] ?? []
       )];
     }
     if (quest.source === "lichess_tournaments") {

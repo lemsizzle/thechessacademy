@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateInternalGameQuest, evaluateInternalPuzzleQuest, type InternalQuestGameActivity, type InternalQuestPuzzleActivity, type InternalQuestWoodpeckerSetActivity } from "@/lib/quests/evaluateInternalQuest";
+import { evaluateInternalGameQuest, evaluateInternalPuzzleQuest, type InternalQuestGameActivity, type InternalQuestPuzzleActivity, type InternalQuestStarWarsActivity, type InternalQuestWoodpeckerSetActivity } from "@/lib/quests/evaluateInternalQuest";
 import { getConditionsForSource, isAutomatedQuestSource, requiresComputerOpponentSelection, supportsComputerOpponentFilter } from "@/lib/quests/questOptions";
 import { getSafeQuestLink } from "@/lib/quests/questLinks";
 import type { Quest } from "@/lib/types";
@@ -46,6 +46,11 @@ const woodpeckerSets: InternalQuestWoodpeckerSetActivity[] = [
   { id: "set-30", startedAt: "2026-08-05T00:00:00.000Z", completedAt: "2026-08-06T00:00:00.000Z", setSize: 30, cycleCount: 3 },
   { id: "partial-set", startedAt: "2026-08-06T00:00:00.000Z", completedAt: "2026-08-07T00:00:00.000Z", setSize: 20, cycleCount: 2 },
   { id: "cross-window", startedAt: "2026-07-31T23:00:00.000Z", completedAt: "2026-08-02T00:00:00.000Z", setSize: 20, cycleCount: 3 }
+];
+
+const starWarsRuns: InternalQuestStarWarsActivity[] = [
+  { id: "run-14", updatedAt: "2026-08-05T00:00:00.000Z", score: 14 },
+  { id: "run-15", updatedAt: "2026-08-06T00:00:00.000Z", score: 15 }
 ];
 
 describe("internal quest activity", () => {
@@ -116,12 +121,34 @@ describe("internal quest activity", () => {
     expect(progress.evidence).toContain("1 full 20-puzzle Woodpecker set");
   });
 
+  it("completes a Star Wars quest when a verified run reaches the required level", () => {
+    const progress = evaluateInternalPuzzleQuest(
+      "student",
+      quest({
+        source: "internal_puzzles",
+        conditionType: "internal_star_wars_level_reached",
+        requiredCount: 15
+      }),
+      window,
+      [],
+      undefined,
+      [],
+      starWarsRuns
+    );
+
+    expect(progress.currentValue).toBe(15);
+    expect(progress.requiredValue).toBe(15);
+    expect(progress.completed).toBe(true);
+    expect(progress.evidence).toContain("Reached Star Wars level 15");
+  });
+
   it("exposes both Academy sources as automated teacher options", () => {
     expect(isAutomatedQuestSource("internal_games")).toBe(true);
     expect(isAutomatedQuestSource("internal_puzzles")).toBe(true);
     expect(getConditionsForSource("internal_games").map((item) => item.value)).toContain("internal_live_games_won_count");
     expect(getConditionsForSource("internal_puzzles").map((item) => item.value)).toContain("internal_puzzle_accuracy_threshold");
     expect(getConditionsForSource("internal_puzzles").map((item) => item.value)).toContain("internal_woodpecker_set_completed_count");
+    expect(getConditionsForSource("internal_puzzles").map((item) => item.value)).toContain("internal_star_wars_level_reached");
     expect(supportsComputerOpponentFilter("internal_computer_games_won_count")).toBe(true);
     expect(supportsComputerOpponentFilter("internal_live_games_won_count")).toBe(false);
     expect(requiresComputerOpponentSelection("internal_computer_games_won_count")).toBe(true);

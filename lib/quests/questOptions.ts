@@ -3,7 +3,7 @@ import type { QuestConditionType, QuestSource, QuestTimeWindow, TacticTheme } fr
 export const questSources: Array<{ value: QuestSource; label: string; description: string }> = [
   { value: "manual", label: "Manual / Teacher", description: "Teacher completes this from the dashboard." },
   { value: "internal_games", label: "Academy Games", description: "Checks completed computer and student-vs-student games played inside this website." },
-  { value: "internal_puzzles", label: "Academy Puzzles", description: "Checks server-verified Puzzle Training attempts, Woodpecker sets, and adaptive game-mistake reviews." },
+  { value: "internal_puzzles", label: "Academy Puzzles", description: "Checks server-verified Puzzle Training attempts, Woodpecker sets, Star Wars levels, and adaptive game-mistake reviews." },
   { value: "lichess_games", label: "Lichess Games", description: "Checks rated games after the student first logs in." },
   { value: "lichess_puzzles", label: "Lichess Puzzles", description: "Checks puzzle activity from the connected Lichess account." },
   { value: "lichess_tournaments", label: "Lichess Arena", description: "Checks imported Arena tournament results." }
@@ -23,6 +23,7 @@ export const questConditions: Array<{ value: QuestConditionType; label: string; 
   { value: "internal_puzzle_accuracy_threshold", label: "Reach Academy puzzle accuracy", source: "internal_puzzles", countLabel: "Puzzle Attempts" },
   { value: "internal_puzzle_theme_solved_count", label: "Solve an Academy tactic theme", source: "internal_puzzles", countLabel: "Theme Puzzles" },
   { value: "internal_woodpecker_set_completed_count", label: "Complete a 20-puzzle Woodpecker set", source: "internal_puzzles", countLabel: "Completed Sets" },
+  { value: "internal_star_wars_level_reached", label: "Reach a Star Wars level", source: "internal_puzzles", countLabel: "Star Wars Level" },
   { value: "rated_win_count", label: "Win rated games", source: "lichess_games", countLabel: "Rated Wins" },
   { value: "rated_games_played_count", label: "Play rated games", source: "lichess_games", countLabel: "Rated Games" },
   { value: "rapid_win_count", label: "Win rated rapid games", source: "lichess_games", countLabel: "Rapid Wins" },

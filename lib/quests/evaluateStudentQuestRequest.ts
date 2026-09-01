@@ -7,8 +7,8 @@ import { approveQuestAward } from "@/lib/quests/approveQuestAward";
 import { createPendingQuestAwards } from "@/lib/quests/createPendingQuestAward";
 import { evaluateQuestRules } from "@/lib/quests/evaluateQuestRules";
 import { getActiveQuestAttempt, getAttemptQuestWindow } from "@/lib/quests/questAttempts";
-import { loadInternalQuestGames, loadInternalQuestPuzzles, loadInternalQuestWoodpeckerSets } from "@/lib/quests/internalQuestActivityServer";
-import type { InternalQuestGameActivity, InternalQuestPuzzleActivity, InternalQuestWoodpeckerSetActivity } from "@/lib/quests/evaluateInternalQuest";
+import { loadInternalQuestGames, loadInternalQuestPuzzles, loadInternalQuestStarWarsRuns, loadInternalQuestWoodpeckerSets } from "@/lib/quests/internalQuestActivityServer";
+import type { InternalQuestGameActivity, InternalQuestPuzzleActivity, InternalQuestStarWarsActivity, InternalQuestWoodpeckerSetActivity } from "@/lib/quests/evaluateInternalQuest";
 import { getQuestWindow, type QuestWindow } from "@/lib/quests/timeWindows";
 import type { ArenaTournamentResult, LichessActivitySnapshot, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt } from "@/lib/types";
 
@@ -71,6 +71,7 @@ export async function evaluateStudentQuestRequest(
   const internalGamesByQuest: Record<string, InternalQuestGameActivity[]> = {};
   const internalPuzzlesByQuest: Record<string, InternalQuestPuzzleActivity[]> = {};
   const internalWoodpeckerSetsByQuest: Record<string, InternalQuestWoodpeckerSetActivity[]> = {};
+  const internalStarWarsRunsByQuest: Record<string, InternalQuestStarWarsActivity[]> = {};
   const modeByQuest: Record<string, "connected" | "mock"> = {};
   const fetchErrorsByQuest: Record<string, string> = {};
   const snapshots: LichessActivitySnapshot[] = [];
@@ -144,22 +145,33 @@ export async function evaluateStudentQuestRequest(
   if (internalPuzzleQuests.length) {
     const mergedWindow = mergeWindows(internalPuzzleQuests.map((quest) => windowsByQuest[quest.id]));
     const needsWoodpeckerSets = internalPuzzleQuests.some((quest) => quest.conditionType === "internal_woodpecker_set_completed_count");
-    const [attemptResult, woodpeckerSetResult] = await Promise.allSettled([
-      loadInternalQuestPuzzles(input.studentId, mergedWindow),
-      needsWoodpeckerSets ? loadInternalQuestWoodpeckerSets(input.studentId, mergedWindow) : Promise.resolve([])
+    const needsStarWarsRuns = internalPuzzleQuests.some((quest) => quest.conditionType === "internal_star_wars_level_reached");
+    const needsPuzzleAttempts = internalPuzzleQuests.some((quest) => (
+      quest.conditionType !== "internal_woodpecker_set_completed_count"
+      && quest.conditionType !== "internal_star_wars_level_reached"
+    ));
+    const [attemptResult, woodpeckerSetResult, starWarsRunResult] = await Promise.allSettled([
+      needsPuzzleAttempts ? loadInternalQuestPuzzles(input.studentId, mergedWindow) : Promise.resolve([]),
+      needsWoodpeckerSets ? loadInternalQuestWoodpeckerSets(input.studentId, mergedWindow) : Promise.resolve([]),
+      needsStarWarsRuns ? loadInternalQuestStarWarsRuns(input.studentId, mergedWindow) : Promise.resolve([])
     ]);
     const attempts = attemptResult.status === "fulfilled" ? attemptResult.value : [];
     const woodpeckerSets = woodpeckerSetResult.status === "fulfilled" ? woodpeckerSetResult.value : [];
+    const starWarsRuns = starWarsRunResult.status === "fulfilled" ? starWarsRunResult.value : [];
 
     for (const quest of internalPuzzleQuests) {
       const window = windowsByQuest[quest.id];
       const isWoodpeckerSetQuest = quest.conditionType === "internal_woodpecker_set_completed_count";
+      const isStarWarsQuest = quest.conditionType === "internal_star_wars_level_reached";
       internalPuzzlesByQuest[quest.id] = attempts.filter((attempt) => isInsideWindow(attempt.attemptedAt, window));
       internalWoodpeckerSetsByQuest[quest.id] = woodpeckerSets.filter((set) => (
         isInsideWindow(set.startedAt, window) && isInsideWindow(set.completedAt, window)
       ));
+      internalStarWarsRunsByQuest[quest.id] = starWarsRuns.filter((run) => isInsideWindow(run.updatedAt, window));
 
-      const relevantFailure = isWoodpeckerSetQuest
+      const relevantFailure = isStarWarsQuest
+        ? starWarsRunResult.status === "rejected" ? starWarsRunResult.reason : undefined
+        : isWoodpeckerSetQuest
         ? woodpeckerSetResult.status === "rejected" ? woodpeckerSetResult.reason : undefined
         : attemptResult.status === "rejected" ? attemptResult.reason : undefined;
       if (relevantFailure) {
@@ -177,7 +189,8 @@ export async function evaluateStudentQuestRequest(
         periodEnd: window.end.toISOString(),
         data: {
           attempts: internalPuzzlesByQuest[quest.id],
-          woodpeckerSets: internalWoodpeckerSetsByQuest[quest.id]
+          woodpeckerSets: internalWoodpeckerSetsByQuest[quest.id],
+          starWarsRuns: internalStarWarsRunsByQuest[quest.id]
         },
         mode: "connected",
         createdAt: new Date().toISOString()
@@ -363,6 +376,7 @@ export async function evaluateStudentQuestRequest(
     internalGamesByQuest,
     internalPuzzlesByQuest,
     internalWoodpeckerSetsByQuest,
+    internalStarWarsRunsByQuest,
     arenaResults: input.arenaResults ?? [],
     account: syncedAccount,
     modeByQuest,

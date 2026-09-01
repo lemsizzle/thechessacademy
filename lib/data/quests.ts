@@ -77,6 +77,7 @@ function toQuestConditionType(value: string | null | undefined): QuestConditionT
     "internal_puzzle_accuracy_threshold",
     "internal_puzzle_theme_solved_count",
     "internal_woodpecker_set_completed_count",
+    "internal_star_wars_level_reached",
     "manual"
   ];
   return conditions.find((condition) => condition === value);

@@ -2,7 +2,7 @@ import "server-only";
 
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import type { QuestWindow } from "@/lib/quests/timeWindows";
-import type { InternalQuestGameActivity, InternalQuestPuzzleActivity, InternalQuestWoodpeckerSetActivity } from "@/lib/quests/evaluateInternalQuest";
+import type { InternalQuestGameActivity, InternalQuestPuzzleActivity, InternalQuestStarWarsActivity, InternalQuestWoodpeckerSetActivity } from "@/lib/quests/evaluateInternalQuest";
 
 const PAGE_SIZE = 1000;
 
@@ -134,5 +134,25 @@ export async function loadInternalQuestWoodpeckerSets(studentId: string, window:
     completedAt: row.completed_at,
     setSize: row.set_size,
     cycleCount: row.cycle_count
+  }));
+}
+
+export async function loadInternalQuestStarWarsRuns(studentId: string, window: QuestWindow) {
+  const { data, error } = await serviceClient()
+    .from("student_star_wars_runs")
+    .select("id,updated_at,score")
+    .eq("student_id", studentId)
+    .gt("score", 0)
+    .gte("updated_at", window.start.toISOString())
+    .lte("updated_at", window.end.toISOString())
+    .order("score", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as Array<{ id: string; updated_at: string; score: number }>;
+
+  return rows.map((row): InternalQuestStarWarsActivity => ({
+    id: String(row.id),
+    updatedAt: row.updated_at,
+    score: row.score
   }));
 }

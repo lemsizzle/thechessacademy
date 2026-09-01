@@ -29,7 +29,13 @@ export type InternalQuestWoodpeckerSetActivity = {
   cycleCount: number;
 };
 
-function academyReadError(kind: "game" | "puzzle", error: string) {
+export type InternalQuestStarWarsActivity = {
+  id: string;
+  updatedAt: string;
+  score: number;
+};
+
+function academyReadError(kind: "game" | "puzzle" | "Star Wars", error: string) {
   const clean = error.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   return `Academy ${kind} quest activity could not be read. ${clean}`.trim();
 }
@@ -83,8 +89,28 @@ export function evaluateInternalPuzzleQuest(
   window: QuestWindow,
   attempts: InternalQuestPuzzleActivity[],
   fetchError?: string,
-  woodpeckerSets: InternalQuestWoodpeckerSetActivity[] = []
+  woodpeckerSets: InternalQuestWoodpeckerSetActivity[] = [],
+  starWarsRuns: InternalQuestStarWarsActivity[] = []
 ): LichessQuestProgress {
+  if (quest.conditionType === "internal_star_wars_level_reached") {
+    const requiredValue = quest.requiredCount ?? quest.requiredScore ?? 1;
+    const currentValue = starWarsRuns.reduce((best, run) => Math.max(best, run.score), 0);
+    return {
+      studentId,
+      questId: quest.id,
+      sourcePeriodStart: window.start.toISOString(),
+      sourcePeriodEnd: window.end.toISOString(),
+      currentValue,
+      requiredValue,
+      completed: currentValue >= requiredValue,
+      evidence: fetchError
+        ? academyReadError("Star Wars", fetchError)
+        : `Reached Star Wars level ${currentValue} during ${window.label}.`,
+      mode: "connected",
+      updatedAt: new Date().toISOString()
+    };
+  }
+
   if (quest.conditionType === "internal_woodpecker_set_completed_count") {
     const completedSets = woodpeckerSets.filter((set) => set.setSize === 20
       && set.cycleCount === 3
