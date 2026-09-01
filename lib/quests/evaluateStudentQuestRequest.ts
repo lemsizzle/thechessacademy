@@ -167,7 +167,9 @@ export async function evaluateStudentQuestRequest(
       internalWoodpeckerSetsByQuest[quest.id] = woodpeckerSets.filter((set) => (
         isInsideWindow(set.startedAt, window) && isInsideWindow(set.completedAt, window)
       ));
-      internalStarWarsRunsByQuest[quest.id] = starWarsRuns.filter((run) => isInsideWindow(run.updatedAt, window));
+      internalStarWarsRunsByQuest[quest.id] = starWarsRuns.filter((run) => (
+        isInsideWindow(run.startedAt, window) && isInsideWindow(run.updatedAt, window)
+      ));
 
       const relevantFailure = isStarWarsQuest
         ? starWarsRunResult.status === "rejected" ? starWarsRunResult.reason : undefined

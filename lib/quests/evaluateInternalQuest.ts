@@ -31,6 +31,7 @@ export type InternalQuestWoodpeckerSetActivity = {
 
 export type InternalQuestStarWarsActivity = {
   id: string;
+  startedAt: string;
   updatedAt: string;
   score: number;
 };
@@ -94,7 +95,11 @@ export function evaluateInternalPuzzleQuest(
 ): LichessQuestProgress {
   if (quest.conditionType === "internal_star_wars_level_reached") {
     const requiredValue = quest.requiredCount ?? quest.requiredScore ?? 1;
-    const currentValue = starWarsRuns.reduce((best, run) => Math.max(best, run.score), 0);
+    const eligibleRuns = starWarsRuns.filter((run) => (
+      Date.parse(run.startedAt) >= window.start.getTime()
+      && Date.parse(run.updatedAt) <= window.end.getTime()
+    ));
+    const currentValue = eligibleRuns.reduce((best, run) => Math.max(best, run.score), 0);
     return {
       studentId,
       questId: quest.id,

@@ -140,18 +140,20 @@ export async function loadInternalQuestWoodpeckerSets(studentId: string, window:
 export async function loadInternalQuestStarWarsRuns(studentId: string, window: QuestWindow) {
   const { data, error } = await serviceClient()
     .from("student_star_wars_runs")
-    .select("id,updated_at,score")
+    .select("id,started_at,updated_at,score")
     .eq("student_id", studentId)
     .gt("score", 0)
+    .gte("started_at", window.start.toISOString())
     .gte("updated_at", window.start.toISOString())
     .lte("updated_at", window.end.toISOString())
     .order("score", { ascending: false })
     .limit(1);
   if (error) throw new Error(error.message);
-  const rows = (data ?? []) as Array<{ id: string; updated_at: string; score: number }>;
+  const rows = (data ?? []) as Array<{ id: string; started_at: string; updated_at: string; score: number }>;
 
   return rows.map((row): InternalQuestStarWarsActivity => ({
     id: String(row.id),
+    startedAt: row.started_at,
     updatedAt: row.updated_at,
     score: row.score
   }));

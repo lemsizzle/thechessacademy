@@ -49,8 +49,9 @@ const woodpeckerSets: InternalQuestWoodpeckerSetActivity[] = [
 ];
 
 const starWarsRuns: InternalQuestStarWarsActivity[] = [
-  { id: "run-14", updatedAt: "2026-08-05T00:00:00.000Z", score: 14 },
-  { id: "run-15", updatedAt: "2026-08-06T00:00:00.000Z", score: 15 }
+  { id: "run-14", startedAt: "2026-08-04T00:00:00.000Z", updatedAt: "2026-08-05T00:00:00.000Z", score: 14 },
+  { id: "run-15", startedAt: "2026-08-05T00:00:00.000Z", updatedAt: "2026-08-06T00:00:00.000Z", score: 15 },
+  { id: "old-run", startedAt: "2026-07-31T00:00:00.000Z", updatedAt: "2026-08-07T00:00:00.000Z", score: 99 }
 ];
 
 describe("internal quest activity", () => {
