@@ -17,27 +17,34 @@ const exploreLinks: NavLink[] = [
   { href: "/app/resources", label: "Resources FAQ", icon: "\u{1F517}" }
 ];
 
-const studentExploreLinks: NavLink[] = [
-  { href: "/student/adventure", label: "Chess Adventure", icon: "\u{1F5FA}\uFE0F" },
+const studentIdentityLinks: NavLink[] = [
+  { href: "/student", label: "Dashboard", icon: "\u{1F9ED}" },
+  { href: "/student?progress=overview", label: "Stats", icon: "\u{1F4C8}" }
+];
+
+const studentPlayLinks: NavLink[] = [
   { href: "/student/play", label: "Play", icon: "\u265E" },
   { href: "/student/play/correspondence", label: "Correspondence", icon: "\u2709\uFE0F" },
   { href: "/student/play/history", label: "Game History", icon: "\u{1F4CA}" },
+  { href: "/student/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" }
+];
+
+const studentAcademyLinks: NavLink[] = [
   { href: "/student/studies", label: "Studies", icon: "\u{1F4D3}" },
-  { href: "/student/training", label: "Puzzle Training", icon: "\u{1F9E9}" },
   { href: "/student/leaderboard", label: "Leaderboard", icon: "\u{1F3C6}" },
-  { href: "/student/quests", label: "Quests & Lichess", icon: "\u{1F4DC}" },
-  { href: "/student/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" },
   { href: "/student/resources", label: "Resources FAQ", icon: "\u{1F517}" }
 ];
 
 const studentQuestLinks: NavLink[] = [
+  { href: "/student/training", label: "Training", icon: "\u{1F9E9}" },
+  { href: "/student/quests", label: "Quests", icon: "\u{1F4DC}" },
   { href: "/student/avatar", label: "Avatar & Store", icon: "\u{1F9D9}" },
   { href: "/student/submit", label: "Submit Work", icon: "\u{1F4DD}" }
 ];
 
 const studentMobilePrimaryLinks: NavLink[] = [
   { href: "/student", label: "Dashboard", icon: "\u{1F9ED}" },
-  { href: "/student/training", label: "Train", icon: "\u{1F9E9}" },
+  { href: "/student/training", label: "Training", icon: "\u{1F9E9}" },
   { href: "/student/play", label: "Play", icon: "\u265E" },
   { href: "/student/quests", label: "Quests", icon: "\u{1F4DC}" }
 ];
@@ -79,9 +86,10 @@ export function getNavigationGroups(variant: NavVariant): NavGroup[] {
 
   if (variant === "student") {
     return [
-      { title: "Student", links: [{ href: "/student", label: "Dashboard", icon: "\u{1F9ED}" }] },
+      { title: "Student", links: studentIdentityLinks },
       { title: "My Quest Board", links: studentQuestLinks },
-      { title: "Academy", links: studentExploreLinks }
+      { title: "Play", links: studentPlayLinks },
+      { title: "Academy", links: studentAcademyLinks }
     ];
   }
 
@@ -100,7 +108,7 @@ export function getStudentMobilePrimaryLinks(): NavLink[] {
 
 export function getStudentMobileMoreLinks(): NavLink[] {
   const primaryHrefs = new Set(studentMobilePrimaryLinks.map((link) => link.href));
-  return [...studentQuestLinks, ...studentExploreLinks]
+  return [...studentIdentityLinks, ...studentQuestLinks, ...studentPlayLinks, ...studentAcademyLinks]
     .filter((link) => !primaryHrefs.has(link.href))
     .map((link) => ({ ...link }));
 }

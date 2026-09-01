@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -25,6 +25,12 @@ const progressTabs: ReadonlyArray<{ id: ProgressTab; label: string }> = [
   { id: "achievements", label: "Achievements" },
   { id: "activity", label: "Activity" }
 ];
+const progressTabIds = new Set<ProgressTab>(progressTabs.map((tab) => tab.id));
+
+function requestedProgressTab(requested: string | null): ProgressTab | null {
+  if (!requested) return null;
+  return progressTabIds.has(requested as ProgressTab) ? (requested as ProgressTab) : null;
+}
 
 const ProgressDialogContext = createContext<((tab: ProgressTab) => void) | null>(null);
 
@@ -199,9 +205,21 @@ export function StudentJourneyDashboardClient({
   hasUnavailableSections: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [progressTab, setProgressTab] = useState<ProgressTab | null>(null);
-  const closeProgress = useCallback(() => setProgressTab(null), []);
+  const closeProgress = useCallback(() => {
+    setProgressTab(null);
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("progress")) return;
+    url.searchParams.delete("progress");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
   const openProgress = useCallback((tab: ProgressTab) => setProgressTab(tab), []);
+
+  useEffect(() => {
+    const requested = requestedProgressTab(searchParams.get("progress"));
+    if (requested) setProgressTab(requested);
+  }, [searchParams]);
 
   useEffect(() => {
     const refresh = createCoalescedDashboardRefresh(() => router.refresh());
