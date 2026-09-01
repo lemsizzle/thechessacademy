@@ -26,15 +26,14 @@ const studentNavigationHubs: StudentNavHub[] = [
     href: "/student/training",
     label: "Train",
     icon: "\u{1F9E9}",
-    branches: [{ href: "/student/studies", label: "Studies", icon: "\u{1F4D3}" }]
+    branches: []
   },
   {
     href: "/student/play",
     label: "Play",
-    icon: "\u265E",
+    icon: "\u25B6\uFE0F",
     branches: [
       { href: "/student/play/correspondence", label: "Correspondence", icon: "\u2709\uFE0F" },
-      { href: "/student/play/history", label: "Game History", icon: "\u{1F4CA}" },
       { href: "/student/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" }
     ]
   },
@@ -42,7 +41,7 @@ const studentNavigationHubs: StudentNavHub[] = [
     href: "/student/quests",
     label: "Quests",
     icon: "\u{1F4DC}",
-    branches: [{ href: "/student/submit", label: "Submit Work", icon: "\u{1F4DD}" }]
+    branches: []
   },
   {
     href: "/student/avatar",
@@ -53,7 +52,8 @@ const studentNavigationHubs: StudentNavHub[] = [
 ];
 
 const studentMoreLinks: NavLink[] = [
-  { href: "/student", label: "Dashboard", icon: "\u{1F9ED}" },
+  { href: "/student/studies", label: "Studies", icon: "\u{1F4D3}" },
+  { href: "/student/submit", label: "Submit Work", icon: "\u{1F4DD}" },
   { href: "/student?progress=overview", label: "Stats", icon: "\u{1F4C8}" },
   { href: "/student/leaderboard", label: "Leaderboard", icon: "\u{1F3C6}" },
   { href: "/student/resources", label: "Resources FAQ", icon: "\u{1F517}" }

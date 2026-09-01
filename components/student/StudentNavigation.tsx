@@ -47,7 +47,7 @@ function NavigationIcon({ href }: { href: string }) {
     return <svg {...commonProps}><path d="M9 3v4H5v4H2v8h8v-3h4v3h8v-8h-3V7h-4V3z" /></svg>;
   }
   if (href === "/student/play") {
-    return <svg {...commonProps}><path d="m9 4 8 5-4 2 4 4-2 5H6l2-6-3-2 5-2z" /></svg>;
+    return <span aria-hidden="true" className="text-lg leading-none">▶️</span>;
   }
   if (href === "/student/quests") {
     return <svg {...commonProps}><path d="M6 3h12v18l-6-3-6 3zM9 8h6M9 12h4" /></svg>;
@@ -178,6 +178,14 @@ export function StudentNavigation({ studentName, onLogout }: { studentName: stri
                 <p className="px-3 pb-2 pt-1 text-xs font-bold uppercase tracking-wide text-slate-500">Signed in as</p>
                 <p className="truncate px-3 pb-3 text-sm font-black text-white">{studentName}</p>
                 <div className="border-t border-white/10 pt-2">
+                  <Link
+                    role="menuitem"
+                    href="/student"
+                    onClick={() => closeMenu({ restoreFocus: false })}
+                    className="block w-full rounded-md px-3 py-2.5 text-left text-sm font-bold text-slate-200 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80"
+                  >
+                    Dashboard
+                  </Link>
                   <button role="menuitem" type="button" onClick={onLogout} className="w-full rounded-md px-3 py-2.5 text-left text-sm font-bold text-rose-200 hover:bg-rose-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/80">
                     Logout
                   </button>

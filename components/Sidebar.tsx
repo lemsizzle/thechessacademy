@@ -92,14 +92,14 @@ export function Sidebar({ variant = "public" }: { variant?: NavVariant }) {
 
   return (
     <aside className={`scrollbar-soft sticky top-0 hidden h-screen shrink-0 overflow-y-auto border-r border-white/10 bg-slate-950/70 transition-[width,padding] duration-200 md:block ${collapsed ? "w-20 p-2" : "w-56 p-3 lg:w-64 lg:p-4"}`}>
-      <div className="flex items-start gap-1.5">
+      <div className={`flex items-start ${collapsed ? "justify-center gap-1" : "gap-1.5"}`}>
         <Link
           href={homeHref}
           aria-label="Chess Academy Quest Board"
           title={collapsed ? "Quest Board" : undefined}
-          className={`min-w-0 flex-1 rounded-lg border border-amber-300/20 bg-amber-300/10 ${collapsed ? "grid h-10 place-items-center p-1 text-sm font-black text-amber-100" : "block p-4"}`}
+          className={`rounded-lg border border-amber-300/20 bg-amber-300/10 ${collapsed ? "grid size-8 shrink-0 place-items-center text-amber-100" : "min-w-0 flex-1 p-4"}`}
         >
-          {collapsed ? "CA" : (
+          {collapsed ? <span aria-hidden="true">♔</span> : (
             <>
               <p className="text-xs font-bold uppercase text-amber-100">Chess Academy</p>
               <p className="mt-1 text-lg font-black text-white">Quest Board</p>
@@ -113,7 +113,7 @@ export function Sidebar({ variant = "public" }: { variant?: NavVariant }) {
           aria-label={collapsed ? "Expand side navigation" : "Collapse side navigation"}
           title={collapsed ? "Expand" : "Collapse"}
           onClick={toggleCollapsed}
-          className="grid size-9 shrink-0 place-items-center rounded-md border border-white/10 bg-white/5 text-lg font-black text-slate-300 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+          className={`grid shrink-0 place-items-center rounded-md border border-white/10 bg-white/5 text-lg font-black text-slate-300 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${collapsed ? "size-8" : "size-9"}`}
         >
           <span aria-hidden="true">{collapsed ? "›" : "‹"}</span>
         </button>

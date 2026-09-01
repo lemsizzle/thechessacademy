@@ -1,20 +1,65 @@
-import Link from "next/link";
+"use client";
 
-const PLAY_MODES = [
-  { href: "#computer-game", icon: "♟", title: "Computer", label: "Play against a computer", tone: "text-amber-200" },
-  { href: "/student/play/live", icon: "⚡", title: "Classmate", label: "Play a classmate", tone: "text-cyan-200" },
-  { href: "/student/play/correspondence", icon: "↻", title: "Continue Game", label: "Continue a correspondence game", tone: "text-violet-200" }
-] as const;
+import Link from "next/link";
+import { RouteLauncherDialog, useCloseRouteLauncher } from "@/components/student/RouteLauncherDialog";
+
+function PlayChoices() {
+  const closeLauncher = useCloseRouteLauncher();
+
+  function showComputerGame() {
+    closeLauncher();
+    window.requestAnimationFrame(() => {
+      document.getElementById("computer-game")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={showComputerGame}
+          className="group flex min-h-40 flex-col items-start justify-between rounded-xl border border-amber-300/25 bg-amber-300/[0.08] p-5 text-left transition hover:-translate-y-0.5 hover:border-amber-200/55 hover:bg-amber-300/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
+        >
+          <span aria-hidden="true" className="text-4xl">♟️</span>
+          <span>
+            <span className="block text-xl font-black text-white">Computer</span>
+            <span className="mt-1 block text-sm text-slate-300">Choose a bot and play right away.</span>
+          </span>
+        </button>
+        <Link
+          href="/student/play/live"
+          className="group flex min-h-40 flex-col items-start justify-between rounded-xl border border-cyan-300/25 bg-cyan-300/[0.08] p-5 transition hover:-translate-y-0.5 hover:border-cyan-200/55 hover:bg-cyan-300/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+        >
+          <span aria-hidden="true" className="text-4xl">⚡</span>
+          <span>
+            <span className="block text-xl font-black text-white">Classmate</span>
+            <span className="mt-1 block text-sm text-slate-300">Create or join a live student game.</span>
+          </span>
+        </Link>
+      </div>
+      <Link
+        href="/student/play/correspondence"
+        className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-slate-200 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200"
+      >
+        <span><span aria-hidden="true" className="mr-2">↻</span>Continue a game</span>
+        <span aria-hidden="true" className="text-slate-500">→</span>
+      </Link>
+    </div>
+  );
+}
 
 export function PlayModeGrid() {
   return (
-    <nav aria-label="Play modes" className="grid grid-cols-3 gap-2 sm:gap-3">
-      {PLAY_MODES.map((mode) => (
-        <Link key={mode.title} href={mode.href} aria-label={mode.label} className="group flex min-h-20 items-center justify-center gap-2 rounded-xl border border-white/10 bg-slate-950/90 px-2 py-3 text-center shadow-[0_12px_30px_rgba(2,6,23,.22)] transition hover:-translate-y-0.5 hover:border-cyan-200/30 hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70 sm:min-h-24 sm:gap-3 sm:px-4">
-          <span aria-hidden="true" className={`grid size-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5 text-lg sm:size-11 sm:text-xl ${mode.tone}`}>{mode.icon}</span>
-          <span className="text-xs font-black leading-tight text-white sm:text-base">{mode.title}</span>
-        </Link>
-      ))}
-    </nav>
+    <RouteLauncherDialog
+      id="student-play-launcher"
+      eyebrow="Play"
+      title="Choose an opponent"
+      description="Play a bot or challenge a classmate."
+      triggerLabel="Choose how to play"
+      triggerDescription="Computer, classmate, or continue a game."
+    >
+      <PlayChoices />
+    </RouteLauncherDialog>
   );
 }

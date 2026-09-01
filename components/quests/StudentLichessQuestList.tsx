@@ -292,8 +292,8 @@ export function StudentLichessQuestList() {
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <h2 className="font-black text-white">Live Quests</h2>
-            <p className="mt-1 text-sm text-slate-400">Start any live quest when you are ready.</p>
+            <h2 className="font-black text-white">Available Quests</h2>
+            <p className="mt-1 text-sm text-slate-400">Start any available quest when you are ready.</p>
           </div>
           <span className="rounded bg-amber-300/15 px-2 py-1 text-xs font-black text-amber-100">{availableQuests.length} ready</span>
         </div>

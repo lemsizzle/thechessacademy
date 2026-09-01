@@ -495,7 +495,10 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
             <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Latest updates</p>
             <h2 className="mt-1 text-xl font-black text-white">Recent activity</h2>
           </div>
-          <ProgressDialogTrigger tab="activity" variant="ghost">View all activity</ProgressDialogTrigger>
+          <div className="flex flex-wrap gap-2">
+            <Button href="/student/play/history" variant="secondary">Game History</Button>
+            <ProgressDialogTrigger tab="activity" variant="ghost">View all activity</ProgressDialogTrigger>
+          </div>
         </div>
         {data.unavailableSections.includes("activity") ? (
           <UnavailableNotice title="Recent activity is temporarily unavailable." detail="The rest of your Academy Journey is ready to use." />
