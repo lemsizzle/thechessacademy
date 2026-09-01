@@ -11,42 +11,52 @@ export type NavGroup = {
   links: NavLink[];
 };
 
+export type StudentNavHub = NavLink & {
+  branches: NavLink[];
+};
+
 const exploreLinks: NavLink[] = [
   { href: "/app", label: "Students", icon: "\u265F\uFE0F" },
   { href: "/app/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" },
   { href: "/app/resources", label: "Resources FAQ", icon: "\u{1F517}" }
 ];
 
-const studentIdentityLinks: NavLink[] = [
+const studentNavigationHubs: StudentNavHub[] = [
+  {
+    href: "/student/training",
+    label: "Train",
+    icon: "\u{1F9E9}",
+    branches: [{ href: "/student/studies", label: "Studies", icon: "\u{1F4D3}" }]
+  },
+  {
+    href: "/student/play",
+    label: "Play",
+    icon: "\u265E",
+    branches: [
+      { href: "/student/play/correspondence", label: "Correspondence", icon: "\u2709\uFE0F" },
+      { href: "/student/play/history", label: "Game History", icon: "\u{1F4CA}" },
+      { href: "/student/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" }
+    ]
+  },
+  {
+    href: "/student/quests",
+    label: "Quests",
+    icon: "\u{1F4DC}",
+    branches: [{ href: "/student/submit", label: "Submit Work", icon: "\u{1F4DD}" }]
+  },
+  {
+    href: "/student/avatar",
+    label: "Avatar Store",
+    icon: "\u{1F9D9}",
+    branches: []
+  }
+];
+
+const studentMoreLinks: NavLink[] = [
   { href: "/student", label: "Dashboard", icon: "\u{1F9ED}" },
-  { href: "/student?progress=overview", label: "Stats", icon: "\u{1F4C8}" }
-];
-
-const studentPlayLinks: NavLink[] = [
-  { href: "/student/play", label: "Play", icon: "\u265E" },
-  { href: "/student/play/correspondence", label: "Correspondence", icon: "\u2709\uFE0F" },
-  { href: "/student/play/history", label: "Game History", icon: "\u{1F4CA}" },
-  { href: "/student/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" }
-];
-
-const studentAcademyLinks: NavLink[] = [
-  { href: "/student/studies", label: "Studies", icon: "\u{1F4D3}" },
+  { href: "/student?progress=overview", label: "Stats", icon: "\u{1F4C8}" },
   { href: "/student/leaderboard", label: "Leaderboard", icon: "\u{1F3C6}" },
   { href: "/student/resources", label: "Resources FAQ", icon: "\u{1F517}" }
-];
-
-const studentQuestLinks: NavLink[] = [
-  { href: "/student/training", label: "Training", icon: "\u{1F9E9}" },
-  { href: "/student/quests", label: "Quests", icon: "\u{1F4DC}" },
-  { href: "/student/avatar", label: "Avatar & Store", icon: "\u{1F9D9}" },
-  { href: "/student/submit", label: "Submit Work", icon: "\u{1F4DD}" }
-];
-
-const studentMobilePrimaryLinks: NavLink[] = [
-  { href: "/student", label: "Dashboard", icon: "\u{1F9ED}" },
-  { href: "/student/training", label: "Training", icon: "\u{1F9E9}" },
-  { href: "/student/play", label: "Play", icon: "\u265E" },
-  { href: "/student/quests", label: "Quests", icon: "\u{1F4DC}" }
 ];
 
 const teacherCoreLinks: NavLink[] = [
@@ -86,10 +96,11 @@ export function getNavigationGroups(variant: NavVariant): NavGroup[] {
 
   if (variant === "student") {
     return [
-      { title: "Student", links: studentIdentityLinks },
-      { title: "My Quest Board", links: studentQuestLinks },
-      { title: "Play", links: studentPlayLinks },
-      { title: "Academy", links: studentAcademyLinks }
+      ...studentNavigationHubs.map((hub) => ({
+        title: hub.label,
+        links: [{ href: hub.href, label: hub.label, icon: hub.icon }, ...hub.branches]
+      })),
+      { title: "More", links: studentMoreLinks }
     ];
   }
 
@@ -103,12 +114,29 @@ export function getTopNavActions(variant: NavVariant): NavLink[] {
 }
 
 export function getStudentMobilePrimaryLinks(): NavLink[] {
-  return studentMobilePrimaryLinks.map((link) => ({ ...link }));
+  return studentNavigationHubs.map(({ href, label, icon }) => ({ href, label, icon }));
 }
 
 export function getStudentMobileMoreLinks(): NavLink[] {
-  const primaryHrefs = new Set(studentMobilePrimaryLinks.map((link) => link.href));
-  return [...studentIdentityLinks, ...studentQuestLinks, ...studentPlayLinks, ...studentAcademyLinks]
-    .filter((link) => !primaryHrefs.has(link.href))
-    .map((link) => ({ ...link }));
+  return getStudentMobileMoreGroups().flatMap((group) => group.links);
+}
+
+export function getStudentNavigationHubs(): StudentNavHub[] {
+  return studentNavigationHubs.map((hub) => ({
+    ...hub,
+    branches: hub.branches.map((branch) => ({ ...branch }))
+  }));
+}
+
+export function getStudentMoreLinks(): NavLink[] {
+  return studentMoreLinks.map((link) => ({ ...link }));
+}
+
+export function getStudentMobileMoreGroups(): NavGroup[] {
+  return [
+    ...studentNavigationHubs
+      .filter((hub) => hub.branches.length > 0)
+      .map((hub) => ({ title: hub.label, links: hub.branches.map((branch) => ({ ...branch })) })),
+    { title: "More", links: getStudentMoreLinks() }
+  ];
 }

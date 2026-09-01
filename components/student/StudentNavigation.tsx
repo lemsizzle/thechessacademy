@@ -3,16 +3,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { getStudentMobileMoreLinks, getStudentMobilePrimaryLinks, type NavLink } from "@/components/navigation";
+import {
+  getStudentMobileMoreGroups,
+  getStudentMobilePrimaryLinks,
+  getStudentMoreLinks,
+  getStudentNavigationHubs,
+  type NavLink,
+  type StudentNavHub
+} from "@/components/navigation";
 
 type OpenMenu = "account" | "more" | null;
 
 const primaryLinks = getStudentMobilePrimaryLinks();
-const moreLinks = getStudentMobileMoreLinks();
+const navigationHubs = getStudentNavigationHubs();
+const moreGroups = getStudentMobileMoreGroups();
+const standaloneMoreLinks = getStudentMoreLinks();
 
 function isRouteWithin(pathname: string, href: string) {
   if (href === "/student") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function isHubActive(pathname: string, hub: StudentNavHub) {
+  return isRouteWithin(pathname, hub.href) || hub.branches.some((branch) => isRouteWithin(pathname, branch.href));
 }
 
 function NavigationIcon({ href }: { href: string }) {
@@ -39,6 +52,9 @@ function NavigationIcon({ href }: { href: string }) {
   if (href === "/student/quests") {
     return <svg {...commonProps}><path d="M6 3h12v18l-6-3-6 3zM9 8h6M9 12h4" /></svg>;
   }
+  if (href === "/student/avatar") {
+    return <svg {...commonProps}><circle cx="12" cy="8" r="3" /><path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6M8 4l1.5-2L12 4l2.5-2L16 4" /></svg>;
+  }
   return <svg {...commonProps}><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none" /></svg>;
 }
 
@@ -53,10 +69,10 @@ function MobileLink({ link, active, onSelect }: { link: NavLink; active: boolean
       href={link.href}
       aria-current={active ? "page" : undefined}
       onClick={onSelect}
-      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-2 text-[0.68rem] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80 ${active ? "bg-cyan-200/12 text-cyan-100" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
+      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-md px-1 py-2 text-[0.68rem] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80 ${active ? "bg-cyan-200/12 text-cyan-100" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
     >
       <NavigationIcon href={link.href} />
-      <span className="truncate">{link.label}</span>
+      <span className="text-center leading-tight">{link.label}</span>
     </Link>
   );
 }
@@ -68,7 +84,7 @@ export function StudentNavigation({ studentName, onLogout }: { studentName: stri
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const moreDialogRef = useRef<HTMLElement>(null);
-  const moreRouteActive = moreLinks.some((link) => isRouteWithin(pathname, link.href));
+  const moreRouteActive = standaloneMoreLinks.some((link) => isRouteWithin(pathname, link.href));
   const initial = studentName.trim().charAt(0).toUpperCase() || "S";
 
   function closeMenu({ restoreFocus = true }: { restoreFocus?: boolean } = {}) {
@@ -162,10 +178,7 @@ export function StudentNavigation({ studentName, onLogout }: { studentName: stri
                 <p className="px-3 pb-2 pt-1 text-xs font-bold uppercase tracking-wide text-slate-500">Signed in as</p>
                 <p className="truncate px-3 pb-3 text-sm font-black text-white">{studentName}</p>
                 <div className="border-t border-white/10 pt-2">
-                  <Link role="menuitem" href="/student/avatar" onClick={() => closeMenu({ restoreFocus: false })} className="block rounded-md px-3 py-2.5 text-sm font-bold text-slate-200 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80">
-                    Avatar &amp; Store
-                  </Link>
-                  <button role="menuitem" type="button" onClick={onLogout} className="mt-1 w-full rounded-md px-3 py-2.5 text-left text-sm font-bold text-rose-200 hover:bg-rose-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/80">
+                  <button role="menuitem" type="button" onClick={onLogout} className="w-full rounded-md px-3 py-2.5 text-left text-sm font-bold text-rose-200 hover:bg-rose-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/80">
                     Logout
                   </button>
                 </div>
@@ -178,7 +191,11 @@ export function StudentNavigation({ studentName, onLogout }: { studentName: stri
       <nav aria-label="Primary student navigation" className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 px-2 pt-1.5 shadow-[0_-12px_32px_rgba(2,6,23,0.45)] backdrop-blur md:hidden" style={{ paddingBottom: "max(0.375rem, env(safe-area-inset-bottom))" }}>
         <div className="mx-auto flex max-w-lg gap-1">
           {primaryLinks.map((link) => (
-            <MobileLink key={link.href} link={link} active={!moreRouteActive && isRouteWithin(pathname, link.href)} />
+            <MobileLink
+              key={link.href}
+              link={link}
+              active={isHubActive(pathname, navigationHubs.find((hub) => hub.href === link.href) ?? { ...link, branches: [] })}
+            />
           ))}
           <button
             ref={moreButtonRef}
@@ -210,22 +227,29 @@ export function StudentNavigation({ studentName, onLogout }: { studentName: stri
               <h2 id="student-more-title" className="text-lg font-black text-white">More</h2>
               <button type="button" onClick={() => closeMenu()} aria-label="Close more navigation" className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/5 text-xl text-slate-300 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80">×</button>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {moreLinks.map((link) => {
-                const active = isRouteWithin(pathname, link.href);
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    aria-current={active ? "page" : undefined}
-                    onClick={() => closeMenu({ restoreFocus: false })}
-                    className={`flex min-h-14 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80 ${active ? "border-cyan-200/35 bg-cyan-200/12 text-cyan-100" : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"}`}
-                  >
-                    {link.icon ? <span aria-hidden="true">{link.icon}</span> : null}
-                    <span>{link.label}</span>
-                  </Link>
-                );
-              })}
+            <div className="space-y-4">
+              {moreGroups.map((group) => (
+                <div key={group.title}>
+                  <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">{group.title}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {group.links.map((link) => {
+                      const active = isRouteWithin(pathname, link.href);
+                      return (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          aria-current={active ? "page" : undefined}
+                          onClick={() => closeMenu({ restoreFocus: false })}
+                          className={`flex min-h-14 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80 ${active ? "border-cyan-200/35 bg-cyan-200/12 text-cyan-100" : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"}`}
+                        >
+                          {link.icon ? <span aria-hidden="true">{link.icon}</span> : null}
+                          <span>{link.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         </div>
