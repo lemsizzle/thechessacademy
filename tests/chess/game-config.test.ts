@@ -30,6 +30,11 @@ describe("game configuration modules", () => {
   });
 
   it("preserves the supported time controls", () => {
-    expect(TIME_CONTROLS.map((control) => control.id)).toEqual(["none", "10m", "10+5", "15+10"]);
+    expect(TIME_CONTROLS.map((control) => control.id)).toEqual(["none", "3+2", "5+3", "7+2", "10m", "10+5", "15+10"]);
+    expect(TIME_CONTROLS.filter((control) => ["3+2", "5+3", "7+2"].includes(control.id))).toEqual([
+      { id: "3+2", name: "3 + 2", initialMs: 180_000, incrementMs: 2_000 },
+      { id: "5+3", name: "5 + 3", initialMs: 300_000, incrementMs: 3_000 },
+      { id: "7+2", name: "7 + 2", initialMs: 420_000, incrementMs: 2_000 }
+    ]);
   });
 });

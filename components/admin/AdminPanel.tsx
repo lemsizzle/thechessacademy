@@ -225,6 +225,7 @@ export function AdminPanel({
   const [loaded, setLoaded] = useState(false);
   const [badgeSaving, setBadgeSaving] = useState(false);
   const [questSaving, setQuestSaving] = useState(false);
+  const [questActivationPending, setQuestActivationPending] = useState<string | null>(null);
   const [syncingAllLichess, setSyncingAllLichess] = useState(false);
 
   useEffect(() => {
@@ -1261,6 +1262,33 @@ export function AdminPanel({
     }
   }
 
+  async function toggleQuestActive(quest: Quest) {
+    const isActive = quest.isActive === false;
+    setQuestActivationPending(quest.id);
+
+    try {
+      const response = await fetch(`/api/admin/quests/${encodeURIComponent(quest.id)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
+        },
+        body: JSON.stringify({ isActive })
+      });
+      const data = await response.json() as { quest?: Quest; error?: string };
+      if (!response.ok || !data.quest) throw new Error(data.error || "Could not update quest.");
+
+      setQuests((items) => items.map((item) => item.id === quest.id ? data.quest! : item));
+      if (selectedQuest === quest.id) setQuestDraft(data.quest);
+      pushLog(`${isActive ? "Enabled" : "Disabled"} quest ${data.quest.title}.`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not update quest.");
+    } finally {
+      setQuestActivationPending(null);
+    }
+  }
+
   function completeQuest() {
     if (!currentQuest) return;
     setQuests((items) => items.map((quest) => quest.id === currentQuest.id ? { ...quest, status: "completed", isLive: false } : quest));
@@ -1857,20 +1885,25 @@ export function AdminPanel({
       </div>
       <div className="mt-4">
         <h3 className="text-xs font-black uppercase tracking-wide text-slate-400">All Quests</h3>
+        <p className="mt-1 text-xs text-slate-500">Disable a quest to hide it from students without removing its settings or completion history.</p>
         <div className="mt-3 grid max-h-[420px] gap-2 overflow-y-auto pr-1 lg:grid-cols-2">
           {quests.map((quest) => {
             const isSelected = quest.id === selectedQuest;
+            const isUnsaved = quest.id.startsWith("local-quest-");
             const rewardBadge = badges.find((badge) => badge.id === quest.badgeRewardId);
             return (
               <div
                 key={quest.id}
-                className={`rounded-lg border p-3 ${isSelected ? "border-cyan-200/60 bg-cyan-300/10" : "border-white/10 bg-white/5"}`}
+                className={`rounded-lg border p-3 ${isSelected ? "border-cyan-200/60 bg-cyan-300/10" : quest.isActive === false ? "border-rose-200/20 bg-rose-300/5" : "border-white/10 bg-white/5"}`}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <div className="flex flex-wrap gap-2 text-[11px] font-bold uppercase">
                       <span className="rounded bg-white/10 px-2 py-1 text-slate-200">{quest.type}</span>
                       <span className="rounded bg-white/10 px-2 py-1 text-slate-200">{quest.status}</span>
+                      <span className={`rounded px-2 py-1 ${quest.isActive !== false ? "bg-emerald-300/15 text-emerald-100" : "bg-rose-300/15 text-rose-100"}`}>
+                        {quest.isActive !== false ? "Enabled" : "Disabled"}
+                      </span>
                       <span className={`rounded px-2 py-1 ${quest.isLive ? "bg-cyan-300/15 text-cyan-100" : "bg-slate-700/50 text-slate-300"}`}>
                         {quest.isLive ? "Live" : "Hidden"}
                       </span>
@@ -1881,9 +1914,19 @@ export function AdminPanel({
                     <p className="mt-2 text-xs text-amber-100">{quest.xpReward} XP{rewardBadge ? ` - ${rewardBadge.name}` : ""}</p>
                     {isAutomatedQuestSource(quest.source) && <p className="mt-1 text-xs text-cyan-100">{getQuestConditionLabel(quest.conditionType)}{getQuestOpponentName(quest) ? ` against ${getQuestOpponentName(quest)}` : ""} - {quest.requiredCount ?? quest.requiredScore ?? 1} required</p>}
                   </div>
-                  <Button variant={isSelected ? "secondary" : "ghost"} onClick={() => setSelectedQuest(quest.id)}>
-                    {isSelected ? "Editing" : "Edit"}
-                  </Button>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <Button
+                      variant={quest.isActive === false ? "secondary" : "ghost"}
+                      onClick={() => void toggleQuestActive(quest)}
+                      disabled={isUnsaved || questActivationPending !== null}
+                      aria-label={`${quest.isActive === false ? "Enable" : "Disable"} ${quest.title}`}
+                    >
+                      {isUnsaved ? "Save First" : questActivationPending === quest.id ? "Saving..." : quest.isActive === false ? "Enable" : "Disable"}
+                    </Button>
+                    <Button variant={isSelected ? "secondary" : "ghost"} onClick={() => setSelectedQuest(quest.id)}>
+                      {isSelected ? "Editing" : "Edit"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             );
@@ -1897,9 +1940,9 @@ export function AdminPanel({
             <p className="mt-1 text-xs text-slate-400">Manual quests are completed by you. Automated quests verify saved Academy or Lichess activity inside each student's started quest window.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={saveQuest} disabled={questSaving || (requiresComputerOpponentSelection(questDraft.conditionType) && !questDraft.requiredOpponentId)}>{questSaving ? "Saving..." : "Save Quest"}</Button>
+            <Button variant="secondary" onClick={saveQuest} disabled={questSaving || questActivationPending === currentQuest.id || (requiresComputerOpponentSelection(questDraft.conditionType) && !questDraft.requiredOpponentId)}>{questSaving ? "Saving..." : "Save Quest"}</Button>
             <Button variant="secondary" onClick={completeQuest}>Mark Complete</Button>
-            <Button variant="ghost" onClick={deleteQuest} disabled={questSaving}>Delete Quest</Button>
+            <Button variant="ghost" onClick={deleteQuest} disabled={questSaving || questActivationPending === currentQuest.id}>Delete Quest</Button>
           </div>
         </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -2015,10 +2058,6 @@ export function AdminPanel({
         </label>
         {isAutomatedQuestSource(questDraft.source) && (
           <div className="grid gap-2 rounded-md border border-white/10 bg-white/5 p-3 text-xs font-bold text-slate-300">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={questDraft.isActive !== false} onChange={(event) => updateQuestDraft({ isActive: event.target.checked })} className="h-4 w-4 accent-cyan-300" />
-              Active for activity refresh
-            </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={questDraft.isRepeatable === true} onChange={(event) => updateQuestDraft({ isRepeatable: event.target.checked })} className="h-4 w-4 accent-cyan-300" />
               Repeatable

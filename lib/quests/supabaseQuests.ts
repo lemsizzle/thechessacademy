@@ -74,6 +74,19 @@ export async function saveAdminQuest(quest: Quest) {
   return mapSupabaseQuest(data as unknown as QuestRow);
 }
 
+export async function setAdminQuestActive(id: string, isActive: boolean) {
+  if (!id.trim()) throw new Error("Quest id is required.");
+
+  const { data, error } = await getSupabaseAdminClient()
+    .from("academy_quests")
+    .update({ is_active: isActive })
+    .eq("id", id)
+    .select(questSelect)
+    .single();
+  if (error) throw new Error(error.message);
+  return mapSupabaseQuest(data as unknown as QuestRow);
+}
+
 export async function deleteAdminQuest(id: string) {
   const { error } = await getSupabaseAdminClient()
     .from("academy_quests")
