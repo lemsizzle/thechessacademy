@@ -11,6 +11,7 @@ type Props = {
   activeIndex: number | null;
   activePuzzle: MistakePuzzle | null;
   result: { status: "incorrect" | "correct" | "revealed"; attemptedSan: string } | null;
+  explorationMoveCount: number;
   queueSave?: { status: "idle" | "saving" | "saved" | "error"; message: string };
   onScan: () => void;
   onCancel: () => void;
@@ -18,6 +19,8 @@ type Props = {
   onClose: () => void;
   onGoTo: (index: number) => void;
   onReveal: () => void;
+  onUndoExplorationMove: () => void;
+  onResetExploration: () => void;
 };
 
 const severityStyle = {
@@ -84,6 +87,15 @@ export function MistakeReviewPanel(props: Props) {
             ? `${props.result.attemptedSan} is also a strong move. It avoids the problem from the game and keeps your position active.`
             : props.activePuzzle.solutionExplanation}</p>
           {props.activePuzzle.bestLineSan && <p className="mt-2 text-xs leading-5 text-emerald-100/80">Best line: {props.activePuzzle.bestLineSan}</p>}
+        </div>}
+        {props.result?.status === "correct" && <div className="mt-3 rounded-md border border-cyan-300/25 bg-cyan-300/10 p-3">
+          <p className="text-sm font-black text-cyan-100">Board unlocked</p>
+          <p className="mt-1 text-xs leading-5 text-slate-300">Play any legal move for either side. Undo or reset the line to explore a different idea.</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" disabled={props.explorationMoveCount === 0} onClick={props.onUndoExplorationMove} className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35">Undo move</button>
+            <button type="button" disabled={props.explorationMoveCount === 0} onClick={props.onResetExploration} className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35">Reset line</button>
+          </div>
+          {props.explorationMoveCount > 0 && <p className="mt-2 text-center text-[11px] font-bold text-cyan-100/80">{props.explorationMoveCount} exploration move{props.explorationMoveCount === 1 ? "" : "s"} played</p>}
         </div>}
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button type="button" disabled={props.activeIndex === 0} onClick={() => props.onGoTo(props.activeIndex! - 1)} className="rounded-md border border-white/10 px-3 py-2 text-xs font-black text-slate-300 disabled:opacity-30">Previous</button>

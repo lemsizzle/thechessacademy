@@ -177,6 +177,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
   const guidedExercise = guidedStudentMode ? node.guidedExercise ?? null : null;
   const guidedLocked = Boolean(guidedExercise && guidedResult?.status !== "correct");
   const mistakeReviewActive = Boolean(mistakeReview.activePuzzle);
+  const mistakeSolved = mistakeReview.result?.status === "correct";
   const displayFen = mistakeReview.displayFen ?? guidedFen ?? node.fen;
 
   function selectPosition(nextId: string) {
@@ -363,7 +364,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
     .map((shape) => ({ startSquare: shape.from, endSquare: shape.to, color: BOARD_ANNOTATION_COLORS[shape.style] }));
   const circles = node.shapes.filter((shape): shape is Extract<AnalysisShape, { type: "circle" }> => shape.type === "circle")
     .map((shape) => ({ square: shape.square, color: BOARD_ANNOTATION_COLORS[shape.style] }));
-  const mistakeArrow = mistakeReview.activePuzzle
+  const mistakeArrow = mistakeReview.activePuzzle && !mistakeSolved
     ? [{
         startSquare: mistakeReview.activePuzzle.playedMoveUci.slice(0, 2),
         endSquare: mistakeReview.activePuzzle.playedMoveUci.slice(2, 4),
@@ -372,8 +373,8 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
     : [];
   const boardArrows = mistakeReviewActive ? [...mistakeArrow, ...arrows] : arrows;
   const lastMove = mistakeReviewActive
-    ? mistakeReview.result?.status === "correct" || mistakeReview.result?.status === "revealed"
-      ? [mistakeReview.activePuzzle!.bestMoveUci.slice(0, 2), mistakeReview.activePuzzle!.bestMoveUci.slice(2, 4)] as [string, string]
+    ? mistakeReview.lastMoveUci
+      ? [mistakeReview.lastMoveUci.slice(0, 2), mistakeReview.lastMoveUci.slice(2, 4)] as [string, string]
       : null
     : guidedResult?.status === "correct"
     ? [guidedResult.attemptedUci.slice(0, 2), guidedResult.attemptedUci.slice(2, 4)] as [string, string]
@@ -392,6 +393,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
     activeIndex={mistakeReview.activeIndex}
     activePuzzle={mistakeReview.activePuzzle}
     result={mistakeReview.result}
+    explorationMoveCount={mistakeReview.explorationMoveCount}
     queueSave={mistakeReview.queueSave}
     onScan={mistakeReview.scan}
     onCancel={mistakeReview.cancel}
@@ -399,6 +401,8 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
     onClose={mistakeReview.close}
     onGoTo={mistakeReview.goTo}
     onReveal={mistakeReview.reveal}
+    onUndoExplorationMove={mistakeReview.undoExplorationMove}
+    onResetExploration={mistakeReview.resetExploration}
   /> : null;
 
   return (
@@ -476,7 +480,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
                 fen={displayFen}
                 orientation={orientation}
                 humanColor={moveColor}
-                interactive={mistakeReviewActive ? mistakeReview.result?.status !== "correct" && mistakeReview.result?.status !== "revealed" : guidedExercise ? guidedResult?.status !== "correct" && !guidedBusy : editable}
+                interactive={mistakeReviewActive ? mistakeReview.result?.status !== "revealed" : guidedExercise ? guidedResult?.status !== "correct" && !guidedBusy : editable}
                 lastMove={lastMove}
                 onMove={makeMove}
                 arrows={boardArrows}

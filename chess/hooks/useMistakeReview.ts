@@ -3,11 +3,12 @@
 import { Chess } from "chess.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildMistakePuzzles, equivalentEngineMoves, mainlineNodeIds, type MistakePuzzle, type PositionEvaluation } from "@/chess/analysis/mistakes";
+import { continueExploration, playReviewMove, resetExploration as resetExplorationLine, undoExploration, type ExplorationPosition } from "@/chess/analysis/mistakeExploration";
 import type { AnalysisTree } from "@/chess/analysis/types";
 import { AnalysisStockfishService } from "@/chess/engine/AnalysisStockfishService";
 import type { StockfishCandidate } from "@/chess/types";
 
-type PuzzleResult = { status: "incorrect" | "correct" | "revealed"; attemptedSan: string } | null;
+type PuzzleResult = { status: "incorrect" | "correct" | "revealed"; attemptedSan: string; attemptedUci: string } | null;
 
 function lineToSan(fen: string, pv: string[]) {
   const chess = new Chess(fen);
@@ -37,18 +38,6 @@ function normalizeEvaluation(nodeId: string, fen: string, lines: StockfishCandid
   };
 }
 
-function playUci(fen: string, uci: string) {
-  const match = /^([a-h][1-8])([a-h][1-8])([qrbn])?$/.exec(uci);
-  if (!match) return null;
-  try {
-    const chess = new Chess(fen);
-    const move = chess.move({ from: match[1], to: match[2], promotion: match[3] });
-    return move ? { fen: chess.fen(), san: move.san } : null;
-  } catch {
-    return null;
-  }
-}
-
 export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "black", reviewGameId?: string) {
   const serviceRef = useRef<AnalysisStockfishService | null>(null);
   const scanRef = useRef(0);
@@ -59,6 +48,7 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [result, setResult] = useState<PuzzleResult>(null);
   const [displayFen, setDisplayFen] = useState<string | null>(null);
+  const [explorationLine, setExplorationLine] = useState<ExplorationPosition[]>([]);
   const [queueSave, setQueueSave] = useState<{ status: "idle" | "saving" | "saved" | "error"; message: string }>({ status: "idle", message: "" });
 
   const cancel = useCallback(() => {
@@ -81,6 +71,7 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
     setActiveIndex(null);
     setResult(null);
     setDisplayFen(null);
+    setExplorationLine([]);
     setQueueSave({ status: "idle", message: "" });
     setProgress({ current: 0, total: ids.length });
     const evaluations: PositionEvaluation[] = [];
@@ -135,12 +126,14 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
     setActiveIndex(index);
     setResult(null);
     setDisplayFen(puzzles[index].fen);
+    setExplorationLine([]);
   }, [puzzles]);
 
   const close = useCallback(() => {
     setActiveIndex(null);
     setResult(null);
     setDisplayFen(null);
+    setExplorationLine([]);
   }, []);
 
   const goTo = useCallback((index: number) => {
@@ -148,6 +141,7 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
     setActiveIndex(index);
     setResult(null);
     setDisplayFen(puzzles[index].fen);
+    setExplorationLine([]);
   }, [puzzles]);
 
   const submitMove = useCallback((from: string, to: string, promotion?: "q" | "r" | "b" | "n") => {
@@ -155,25 +149,50 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
     const puzzle = puzzles[activeIndex];
     if (!puzzle) return;
     const uci = `${from}${to}${promotion ?? ""}`;
-    const played = playUci(puzzle.fen, uci);
+    if (result?.status === "correct") {
+      const explored = continueExploration(explorationLine, uci);
+      if (!explored) return;
+      setDisplayFen(explored.move.fen);
+      setExplorationLine(explored.line);
+      return;
+    }
+    const played = playReviewMove(puzzle.fen, uci);
     if (!played) return;
     if (puzzle.acceptedMovesUci.includes(uci)) {
-      setResult({ status: "correct", attemptedSan: played.san });
+      setResult({ status: "correct", attemptedSan: played.san, attemptedUci: uci });
       setDisplayFen(played.fen);
+      setExplorationLine([{ fen: played.fen, lastMoveUci: uci }]);
     } else {
-      setResult({ status: "incorrect", attemptedSan: played.san });
+      setResult({ status: "incorrect", attemptedSan: played.san, attemptedUci: uci });
       setDisplayFen(puzzle.fen);
+      setExplorationLine([]);
     }
-  }, [activeIndex, puzzles]);
+  }, [activeIndex, explorationLine, puzzles, result?.status]);
 
   const reveal = useCallback(() => {
     if (activeIndex === null) return;
     const puzzle = puzzles[activeIndex];
     if (!puzzle) return;
-    const best = playUci(puzzle.fen, puzzle.bestMoveUci);
-    setResult({ status: "revealed", attemptedSan: puzzle.bestMoveSan });
+    const best = playReviewMove(puzzle.fen, puzzle.bestMoveUci);
+    setResult({ status: "revealed", attemptedSan: puzzle.bestMoveSan, attemptedUci: puzzle.bestMoveUci });
     setDisplayFen(best?.fen ?? puzzle.fen);
+    setExplorationLine([]);
   }, [activeIndex, puzzles]);
+
+  const undoExplorationMove = useCallback(() => {
+    const nextLine = undoExploration(explorationLine);
+    if (nextLine === explorationLine) return;
+    setExplorationLine(nextLine);
+    setDisplayFen(nextLine[nextLine.length - 1].fen);
+  }, [explorationLine]);
+
+  const resetExploration = useCallback(() => {
+    const nextLine = resetExplorationLine(explorationLine);
+    const solvedPosition = nextLine[0];
+    if (!solvedPosition || nextLine === explorationLine) return;
+    setExplorationLine(nextLine);
+    setDisplayFen(solvedPosition.fen);
+  }, [explorationLine]);
 
   useEffect(() => () => {
     scanRef.current += 1;
@@ -181,8 +200,12 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
   }, []);
 
   const activePuzzle = activeIndex === null ? null : puzzles[activeIndex] ?? null;
+  const explorationMoveCount = Math.max(0, explorationLine.length - 1);
+  const lastMoveUci = explorationLine[explorationLine.length - 1]?.lastMoveUci
+    ?? (result?.status === "revealed" ? activePuzzle?.bestMoveUci ?? null : null);
   return {
     status, progress, error, puzzles, activeIndex, activePuzzle, result,
-    displayFen, queueSave, scan, cancel, open, close, goTo, submitMove, reveal
+    displayFen, lastMoveUci, explorationMoveCount, queueSave,
+    scan, cancel, open, close, goTo, submitMove, reveal, undoExplorationMove, resetExploration
   };
 }

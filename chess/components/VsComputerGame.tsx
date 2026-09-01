@@ -56,8 +56,12 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
     ? `${game.outcome.title}: ${game.outcome.message}`
     : game.engineError
       ? game.engineError
+      : game.premoveMessage
+        ? game.premoveMessage
       : game.thinking
-        ? `${config.bot.name} is thinking...`
+        ? game.premove
+          ? `${config.bot.name} is thinking. Your premove is queued.`
+          : `${config.bot.name} is thinking. You can queue a premove.`
         : game.humanTurn
           ? "Your move. Drag a piece or tap its start and destination squares."
           : "Preparing the computer's move...";
@@ -123,9 +127,11 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
               fen={game.fen}
               orientation={game.boardOrientation}
               humanColor={config.humanColor}
-              interactive={game.humanTurn}
+              interactive={game.humanTurn || game.canQueuePremove}
               lastMove={game.lastMove}
               onMove={game.attemptHumanMove}
+              allowPremoves={game.canQueuePremove}
+              premove={game.premove ? [game.premove.from, game.premove.to] : null}
               arrows={boardArrows}
               circles={boardCircles}
               allowDrawingArrows
@@ -160,6 +166,12 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
             <div className={`mt-4 rounded-md border p-3 text-sm font-bold leading-5 ${game.engineError ? "border-rose-300/35 bg-rose-300/10 text-rose-100" : game.outcome ? "border-amber-300/35 bg-amber-300/10 text-amber-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">
               {status}
             </div>
+            {game.premove ? (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-fuchsia-300/30 bg-fuchsia-300/10 p-3 text-sm font-bold text-fuchsia-100">
+                <span>Premove: {game.premove.from} → {game.premove.to}</span>
+                <Button type="button" variant="ghost" className="px-3 py-1.5 text-xs" onClick={game.cancelPremove}>Cancel</Button>
+              </div>
+            ) : null}
             {game.engineError && !game.outcome && <Button type="button" variant="secondary" className="mt-3" onClick={game.retryComputerMove}>Retry Computer Move</Button>}
             {game.saveStatus !== "idle" && (
               <p className={`mt-3 text-xs ${game.saveStatus === "failed" ? "text-rose-200" : game.saveStatus === "saved" ? "text-emerald-200" : "text-slate-400"}`} aria-live="polite">

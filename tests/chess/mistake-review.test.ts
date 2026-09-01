@@ -1,6 +1,7 @@
 import { Chess } from "chess.js";
 import { describe, expect, it } from "vitest";
 import { buildMistakePuzzles, classifyCentipawnLoss, equivalentEngineMoves, evaluationAsCentipawns, explainBestMove, explainMistake, mainlineNodeIds, selectKeyMoments, type PositionEvaluation } from "@/chess/analysis/mistakes";
+import { continueExploration, playReviewMove, resetExploration, undoExploration } from "@/chess/analysis/mistakeExploration";
 import type { StockfishCandidate } from "@/chess/types";
 import { createAnalysisTree } from "@/chess/analysis/tree";
 import type { CompletedGameMove } from "@/chess/analysis/types";
@@ -27,6 +28,21 @@ function evaluation(nodeId: string, scoreWhiteCp: number, bestMoveUci: string): 
 }
 
 describe("learn from your mistakes", () => {
+  it("keeps the board playable after the solution and supports alternate lines", () => {
+    const solution = playReviewMove(new Chess().fen(), "e2e4");
+    expect(solution?.san).toBe("e4");
+    const solvedLine = [{ fen: solution!.fen, lastMoveUci: solution!.lastMoveUci }];
+
+    const reply = continueExploration(solvedLine, "e7e5");
+    const continuation = continueExploration(reply!.line, "g1f3");
+    expect(continuation?.move.san).toBe("Nf3");
+    expect(continuation?.line).toHaveLength(3);
+
+    expect(undoExploration(continuation!.line)).toEqual(reply!.line);
+    expect(resetExploration(continuation!.line)).toEqual(solvedLine);
+    expect(continueExploration(solvedLine, "e2e3")).toBeNull();
+  });
+
   it("keeps the three largest turning points and presents them in game order", () => {
     expect(selectKeyMoments([
       { id: "early", ply: 5, centipawnLoss: 120 },

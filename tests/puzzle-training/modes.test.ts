@@ -3,6 +3,7 @@ import {
   calculatePuzzleAccuracy,
   calculateWoodpeckerCycleStats,
   formatSurvivalLives,
+  keepsPremovePieceSelected,
   nextWoodpeckerPuzzleTarget,
   nextWoodpeckerStep,
   PUZZLE_DIFFICULTY_OPTIONS,
@@ -17,6 +18,13 @@ import {
 } from "@/lib/puzzle-training/modes";
 
 describe("puzzle training modes", () => {
+  it("keeps the moved piece selected for Survival and Woodpecker premoves", () => {
+    expect(keepsPremovePieceSelected("survival")).toBe(true);
+    expect(keepsPremovePieceSelected("woodpecker")).toBe(true);
+    expect(keepsPremovePieceSelected("daily")).toBe(false);
+    expect(keepsPremovePieceSelected("legacy")).toBe(false);
+  });
+
   it("starts accuracy at 100% and reduces it when mistakes are made", () => {
     expect(calculatePuzzleAccuracy(0, 0)).toBe(100);
     expect(calculatePuzzleAccuracy(0, 1)).toBe(0);

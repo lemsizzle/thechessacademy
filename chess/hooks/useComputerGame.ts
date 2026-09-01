@@ -9,6 +9,7 @@ import { useBoardCaptureEffect } from "@/chess/hooks/useBoardCaptureEffect";
 import { useGameClock } from "@/chess/hooks/useGameClock";
 import { useStockfish } from "@/chess/hooks/useStockfish";
 import { crossedOneMinuteWarning } from "@/chess/game/clockWarning";
+import { canPlayPremove, isPremovePromotion, type LivePremove } from "@/chess/live/premove";
 import type { ClockSnapshot, ComputerGameConfig, GameOutcome, PromotionPiece } from "@/chess/types";
 
 const STANDARD_FEN = new Chess().fen();
@@ -30,7 +31,9 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
   const [moves, setMoves] = useState(() => gameMoves(chessRef.current));
   const [outcome, setOutcome] = useState<GameOutcome | null>(null);
   const [resultOpen, setResultOpen] = useState(false);
-  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string; mode: "move" | "premove" } | null>(null);
+  const [premove, setPremoveState] = useState<LivePremove | null>(null);
+  const [premoveMessage, setPremoveMessage] = useState("");
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [saveMessage, setSaveMessage] = useState("");
@@ -40,6 +43,11 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
   const { requestMove: requestEngineMove, stop: stopEngine, thinking, engineError, clearEngineError } = useStockfish();
   const { muted, setMuted, play: playSound } = useChessSounds();
   const { captureEffect, clearCaptureEffect, triggerCaptureEffect } = useBoardCaptureEffect();
+
+  const setPremove = useCallback((next: LivePremove | null) => {
+    setPremoveState(next);
+    if (next) setPremoveMessage("");
+  }, []);
 
   const syncPosition = useCallback((move?: { from: string; to: string }) => {
     const chess = chessRef.current;
@@ -60,10 +68,11 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     chessRef.current.header("Result", resultHeader(nextOutcome));
     pauseClock();
     stopEngine();
+    setPremove(null);
     playSound("end");
     setOutcome(nextOutcome);
     setResultOpen(true);
-  }, [pauseClock, playSound, stopEngine]);
+  }, [pauseClock, playSound, setPremove, stopEngine]);
 
   const startGame = useCallback((nextConfig: ComputerGameConfig) => {
     stopEngine();
@@ -94,13 +103,15 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     setOutcome(null);
     setResultOpen(false);
     setPendingPromotion(null);
+    setPremove(null);
+    setPremoveMessage("");
     setBoardOrientation(nextConfig.humanColor);
     setSaveStatus("idle");
     setSaveMessage("");
     setSavedGameId(null);
     setEngineRetry(0);
     clearCaptureEffect();
-  }, [clearCaptureEffect, clearEngineError, resetClock, stopEngine]);
+  }, [clearCaptureEffect, clearEngineError, resetClock, setPremove, stopEngine]);
 
   const playMoveSound = useCallback((captured: boolean) => {
     const chess = chessRef.current;
@@ -129,24 +140,42 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
   }, [completeClockMove, config, finishGame, playMoveSound, syncPosition, thinking, triggerCaptureEffect]);
 
   const attemptHumanMove = useCallback((from: string, to: string) => {
-    if (!config || outcomeRef.current || thinking) return;
-    const options = promotionOptions(chessRef.current, from, to);
+    if (!config || outcomeRef.current) return;
+    const chess = chessRef.current;
+    const shouldQueuePremove = thinking || chess.turn() !== chessJsColor(config.humanColor);
+    if (shouldQueuePremove) {
+      if (isPremovePromotion(chess, config.humanColor, from, to)) {
+        setPendingPromotion({ from, to, mode: "premove" });
+      } else {
+        setPremove({ from, to });
+      }
+      return;
+    }
+
+    setPremoveMessage("");
+    const options = promotionOptions(chess, from, to);
     if (options.length) {
-      setPendingPromotion({ from, to });
+      setPendingPromotion({ from, to, mode: "move" });
       return;
     }
     commitHumanMove(from, to);
-  }, [commitHumanMove, config, thinking]);
+  }, [commitHumanMove, config, setPremove, thinking]);
 
   const choosePromotion = useCallback((promotion: PromotionPiece) => {
     if (!pendingPromotion) return;
-    const { from, to } = pendingPromotion;
+    const { from, to, mode } = pendingPromotion;
     setPendingPromotion(null);
+    if (mode === "premove") {
+      setPremove({ from, to, promotion });
+      return;
+    }
     commitHumanMove(from, to, promotion);
-  }, [commitHumanMove, pendingPromotion]);
+  }, [commitHumanMove, pendingPromotion, setPremove]);
+
+  const movePromotionPending = pendingPromotion?.mode === "move";
 
   useEffect(() => {
-    if (!config || outcome || pendingPromotion) return;
+    if (!config || outcome || movePromotionPending) return;
     const chess = chessRef.current;
     if (chess.turn() === chessJsColor(config.humanColor)) return;
     if (engineRequestFenRef.current === fen) return;
@@ -183,7 +212,20 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     return () => {
       ignore = true;
     };
-  }, [completeClockMove, config, engineRetry, fen, finishGame, outcome, pendingPromotion, playMoveSound, requestEngineMove, syncPosition, triggerCaptureEffect]);
+  }, [completeClockMove, config, engineRetry, fen, finishGame, movePromotionPending, outcome, playMoveSound, requestEngineMove, syncPosition, triggerCaptureEffect]);
+
+  useEffect(() => {
+    if (!config || outcome || pendingPromotion || thinking || !premove) return;
+    if (chessRef.current.turn() !== chessJsColor(config.humanColor)) return;
+
+    const queued = premove;
+    setPremove(null);
+    if (!queued || !canPlayPremove(fen, queued)) {
+      setPremoveMessage("That premove is no longer legal after the computer's move.");
+      return;
+    }
+    commitHumanMove(queued.from, queued.to, queued.promotion);
+  }, [commitHumanMove, config, fen, outcome, pendingPromotion, premove, setPremove, thinking]);
 
   useEffect(() => {
     if (!config || !expiredColor || outcomeRef.current) return;
@@ -265,9 +307,11 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     clockHistoryRef.current.splice(Math.max(1, clockHistoryRef.current.length - undone.length));
     restoreClock(clockHistoryRef.current.at(-1) ?? null);
     setPendingPromotion(null);
+    setPremove(null);
+    setPremoveMessage("");
     clearCaptureEffect();
     syncPosition();
-  }, [clearCaptureEffect, config, restoreClock, stopEngine, syncPosition]);
+  }, [clearCaptureEffect, config, restoreClock, setPremove, stopEngine, syncPosition]);
 
   const leaveGame = useCallback(() => {
     stopEngine();
@@ -277,11 +321,16 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     setOutcome(null);
     setResultOpen(false);
     setPendingPromotion(null);
+    setPremove(null);
+    setPremoveMessage("");
     clearCaptureEffect();
-  }, [clearCaptureEffect, pauseClock, stopEngine]);
+  }, [clearCaptureEffect, pauseClock, setPremove, stopEngine]);
+
+  const cancelPremove = useCallback(() => setPremove(null), [setPremove]);
 
   const activeColor = outcome ? null : clockDisplay?.activeColor ?? fromChessJsColor(chessRef.current.turn());
   const humanTurn = Boolean(config && !outcome && !thinking && chessRef.current.turn() === chessJsColor(config.humanColor));
+  const canQueuePremove = Boolean(config && !outcome && chessRef.current.turn() !== chessJsColor(config.humanColor));
   const canTakeBack = Boolean(config && !outcome && hasHumanMove(chessRef.current, config.humanColor));
   const clockTimes = useMemo(() => ({
     white: clockDisplay?.whiteMs ?? null,
@@ -298,6 +347,9 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     setResultOpen,
     pendingPromotion,
     setPendingPromotion,
+    premove,
+    premoveMessage,
+    canQueuePremove,
     boardOrientation,
     setBoardOrientation,
     captureEffect,
@@ -314,6 +366,7 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     setMuted,
     startGame,
     attemptHumanMove,
+    cancelPremove,
     choosePromotion,
     resign,
     retryComputerMove,

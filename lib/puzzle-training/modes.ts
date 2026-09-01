@@ -1,10 +1,14 @@
-import type { PuzzleLevelSlug } from "@/lib/puzzle-training/types";
+import type { PuzzleLevelSlug, PuzzleTrainingMode } from "@/lib/puzzle-training/types";
 
 export const SURVIVAL_PUZZLE_LIMIT = 50;
 export const WOODPECKER_SET_SIZE = 20;
 export const WOODPECKER_SET_SIZE_OPTIONS = [20, 30, 40, 50] as const;
 export const WOODPECKER_MAX_SET_SIZE = WOODPECKER_SET_SIZE_OPTIONS[WOODPECKER_SET_SIZE_OPTIONS.length - 1];
 export const WOODPECKER_CYCLE_COUNT = 3;
+
+export function keepsPremovePieceSelected(mode: PuzzleTrainingMode) {
+  return mode === "survival" || mode === "woodpecker";
+}
 
 export function formatSurvivalLives(lives: number, total = 3) {
   const safeTotal = Math.max(0, Math.floor(total));
