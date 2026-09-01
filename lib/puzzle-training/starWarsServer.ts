@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { StudentAuthenticationError, requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import {
   STAR_WARS_GENERATOR_VERSION,
+  STAR_WARS_MAX_ROUTE_MOVES,
   attemptStarWarsMove,
   initialStarWarsState,
   starWarsPuzzleForScore,
@@ -70,7 +71,7 @@ export function parseStarWarsRoutes(value: unknown): StarWarsMove[][] {
     throw new StarWarsInputError("Submit between 1 and 500 completed Star Wars missions.");
   }
   return value.map((route) => {
-    if (!Array.isArray(route) || route.length < 1 || route.length > 7) {
+    if (!Array.isArray(route) || route.length < 1 || route.length > STAR_WARS_MAX_ROUTE_MOVES) {
       throw new StarWarsInputError("A Star Wars mission route has an invalid length.");
     }
     return route.map(parseMove);

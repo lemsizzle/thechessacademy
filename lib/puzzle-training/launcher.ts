@@ -45,8 +45,8 @@ export const PUZZLE_MODE_OPTIONS: ReadonlyArray<PuzzleModeOption> = [
     id: "starWars",
     name: "Star Wars",
     icon: "★",
-    summary: "Route planning · score attack",
-    description: "Plan the complete route before moving. Every move must land a non-pawn piece on exactly one star; the first missed star ends the run.",
+    summary: "One-star moves · score attack",
+    description: "Every move must land a non-pawn piece on exactly one star while keeping another star reachable. A miss or dead end ends the run.",
     startLabel: "Launch Star Wars"
   },
   {

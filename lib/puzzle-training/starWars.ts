@@ -11,7 +11,7 @@ export type StarWarsPuzzle = {
   id: string;
   title: string;
   briefing: string;
-  tier: 1 | 2 | 3 | 4;
+  tier: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   fen: string;
   stars: readonly Square[];
   pieces: ReadonlyArray<{ type: StarWarsPieceSymbol; square: Square }>;
@@ -27,7 +27,7 @@ export type StarWarsState = {
 
 export type StarWarsMoveResult =
   | { status: "illegal"; state: StarWarsState }
-  | { status: "failed"; reason: "missed-star"; state: StarWarsState }
+  | { status: "failed"; reason: "missed-star" | "stranded"; state: StarWarsState }
   | { status: "advanced"; move: StarWarsMove; state: StarWarsState }
   | { status: "solved"; move: StarWarsMove; state: StarWarsState };
 
@@ -40,6 +40,8 @@ type TierProfile = {
   stars: number;
   pieces: number;
   piecePool: readonly StarWarsPieceSymbol[];
+  title?: string;
+  briefing: string;
 };
 
 type RouteCandidate = {
@@ -56,7 +58,8 @@ type GeneratedLayout = {
 
 type RandomSource = () => number;
 
-export const STAR_WARS_GENERATOR_VERSION = 5;
+export const STAR_WARS_GENERATOR_VERSION = 6;
+export const STAR_WARS_MAX_ROUTE_MOVES = 10;
 const MAX_GENERATION_ATTEMPTS = 128;
 const MAX_GENERATED_PUZZLE_CACHE_ENTRIES = 2_048;
 const MAX_ROUTE_CACHE_ENTRIES = 10_000;
@@ -66,10 +69,58 @@ const BOARD_SQUARES = Array.from({ length: 8 }, (_, rankIndex) => (
 )).flat();
 
 const TIER_PROFILES: Record<StarWarsPuzzle["tier"], TierProfile> = {
-  1: { stars: 4, pieces: 2, piecePool: ["n", "r", "b"] },
-  2: { stars: 5, pieces: 2, piecePool: ["n", "r", "b"] },
-  3: { stars: 6, pieces: 3, piecePool: ["n", "r", "b", "q"] },
-  4: { stars: 7, pieces: 3, piecePool: ["n", "r", "b", "q"] }
+  1: {
+    stars: 4,
+    pieces: 2,
+    piecePool: ["n", "r", "b"],
+    briefing: "Coordinate both pieces and collect one star on every move."
+  },
+  2: {
+    stars: 5,
+    pieces: 2,
+    piecePool: ["n", "r", "b"],
+    briefing: "Switch between your pieces to keep the perfect route going."
+  },
+  3: {
+    stars: 6,
+    pieces: 3,
+    piecePool: ["n", "r", "b", "q"],
+    briefing: "Several stars are in range. Command the whole squad before moving."
+  },
+  4: {
+    stars: 7,
+    pieces: 3,
+    piecePool: ["n", "r", "b", "q"],
+    briefing: "Command the whole squad. One wasted move ends this mission."
+  },
+  5: {
+    stars: 7,
+    pieces: 2,
+    piecePool: ["n", "r", "b"],
+    title: "Small-Squad Run",
+    briefing: "The fleet is smaller now. Keep every remaining star within reach."
+  },
+  6: {
+    stars: 8,
+    pieces: 2,
+    piecePool: ["n"],
+    title: "Knight Squadron",
+    briefing: "Only knights can fly this route. Read their jumps before committing."
+  },
+  7: {
+    stars: 9,
+    pieces: 1,
+    piecePool: ["n", "r", "b"],
+    title: "Solo Flight",
+    briefing: "One piece must collect every star without becoming stranded."
+  },
+  8: {
+    stars: STAR_WARS_MAX_ROUTE_MOVES,
+    pieces: 1,
+    piecePool: ["n"],
+    title: "Solo Knight Gauntlet",
+    briefing: "One knight. Ten stars. Every jump must preserve the next capture."
+  }
 };
 
 const pieceFenSymbol: Record<StarWarsPieceSymbol, string> = {
@@ -86,13 +137,6 @@ const pieceTitle: Record<StarWarsPieceSymbol, string> = {
   n: "Knight Flight",
   q: "Queen Comet",
   r: "Rook Relay"
-};
-
-const tierBriefings: Record<StarWarsPuzzle["tier"], string> = {
-  1: "Coordinate both pieces and collect one star on every move.",
-  2: "Switch between your pieces to keep the perfect route going.",
-  3: "Several stars are in range. Command the whole squad before moving.",
-  4: "Command the whole squad. One wasted move ends this mission."
 };
 
 function encodeFenBoard(board: ReadonlyMap<Square, string>) {
@@ -410,8 +454,8 @@ function generatedPuzzle(score: number, runVariant: number, attempt: number): St
   const positionFingerprint = hashString(`${layout.fen}|${[...starSquares].sort().join(",")}`).toString(36);
   const puzzle = buildPuzzle({
     id: `star-wars-v${STAR_WARS_GENERATOR_VERSION}-${runVariant.toString(36)}-${score.toString(36)}-${positionFingerprint}`,
-    title: generatedTitle(types),
-    briefing: tierBriefings[tier],
+    title: profile.title ?? generatedTitle(types),
+    briefing: profile.briefing,
     tier,
     pieces: layout.pieces,
     stars: starSquares,
@@ -425,34 +469,63 @@ function generatedPuzzle(score: number, runVariant: number, attempt: number): St
 function fallbackPuzzle(score: number, runVariant: number): StarWarsPuzzle {
   const tier = starWarsTierForScore(score);
   const profile = TIER_PROFILES[tier];
-  const fallbackPieces: Array<{ type: StarWarsPieceSymbol; square: Square }> = [
-    { type: "b", square: "c1" },
-    { type: "r", square: "a4" },
-    { type: "n", square: "b1" }
+  const soloKnightRoute: StarWarsMove[] = [
+    { from: "b1", to: "c3" },
+    { from: "c3", to: "e4" },
+    { from: "e4", to: "g5" },
+    { from: "g5", to: "e6" },
+    { from: "e6", to: "c5" },
+    { from: "c5", to: "a4" },
+    { from: "a4", to: "b6" },
+    { from: "b6", to: "d7" },
+    { from: "d7", to: "f8" },
+    { from: "f8", to: "h7" }
   ];
-  const fallbackStars: Square[] = ["f4", "d4", "h6", "d7", "f8", "c3", "e4"];
-  const pieces = fallbackPieces.slice(0, profile.pieces);
-  const stars = fallbackStars.slice(0, profile.stars);
+  const twoKnightRoute: StarWarsMove[] = [
+    { from: "b1", to: "c3" },
+    { from: "g1", to: "e2" },
+    { from: "c3", to: "e4" },
+    { from: "e2", to: "c1" },
+    { from: "e4", to: "g5" },
+    { from: "c1", to: "a2" },
+    { from: "g5", to: "e6" },
+    { from: "a2", to: "b4" },
+    { from: "e6", to: "c5" },
+    { from: "b4", to: "d5" }
+  ];
+  const fleetRoute: StarWarsMove[] = [
+    { from: "c1", to: "f4" },
+    { from: "a4", to: "d4" },
+    { from: "f4", to: "h6" },
+    { from: "d4", to: "d7" },
+    { from: "h6", to: "g7" },
+    { from: "d7", to: "a7" },
+    { from: "g7", to: "f8" }
+  ];
+  const usesSoloKnight = profile.pieces === 1;
+  const usesKnightSquadron = profile.piecePool.length === 1 && profile.piecePool[0] === "n";
+  const pieces: Array<{ type: StarWarsPieceSymbol; square: Square }> = usesSoloKnight
+    ? [{ type: "n", square: "b1" }]
+    : usesKnightSquadron
+      ? [{ type: "n", square: "b1" }, { type: "n", square: "g1" }]
+      : [
+          { type: "b", square: "c1" },
+          { type: "r", square: "a4" },
+          { type: "n", square: "b1" }
+        ].slice(0, profile.pieces) as Array<{ type: StarWarsPieceSymbol; square: Square }>;
+  const fallbackRoute = usesSoloKnight ? soloKnightRoute : usesKnightSquadron ? twoKnightRoute : fleetRoute;
+  const route = fallbackRoute.slice(0, profile.stars);
+  const stars = route.map((move) => move.to);
   const puzzle = buildPuzzle({
     id: `star-wars-v${STAR_WARS_GENERATOR_VERSION}-${runVariant.toString(36)}-${score.toString(36)}-fallback`,
-    title: generatedTitle(pieces.map((piece) => piece.type)),
-    briefing: tierBriefings[tier],
+    title: profile.title ?? generatedTitle(pieces.map((piece) => piece.type)),
+    briefing: profile.briefing,
     tier,
     pieces,
     stars,
     whiteKingSquare: "a1",
     blackKingSquare: "h8"
   });
-  const fallbackRoute: StarWarsMove[] = [
-    { from: "c1", to: "f4" },
-    { from: "a4", to: "d4" },
-    { from: "f4", to: "h6" },
-    { from: "d4", to: "d7" },
-    { from: "h6", to: "f8" },
-    { from: "b1", to: "c3" },
-    { from: "c3", to: "e4" }
-  ];
-  const route = fallbackRoute.slice(0, profile.stars);
   rememberCacheValue(knownSolutionRouteCache, stateKey(initialStarWarsState(puzzle)), route);
   return puzzle;
 }
@@ -580,11 +653,9 @@ export function attemptStarWarsMove(state: StarWarsState, move: StarWarsMove): S
     rememberCacheValue(knownSolutionRouteCache, stateKey(next), knownRoute.slice(1));
   }
 
-  // Any legal star landing is allowed, even when that choice later traps the
-  // route. This is an intentional planning consequence, not an immediate loss.
-  return next.remainingStars.length
-    ? { status: "advanced", move, state: next }
-    : { status: "solved", move, state: next };
+  if (!next.remainingStars.length) return { status: "solved", move, state: next };
+  if (!starLandingMoves(next).length) return { status: "failed", reason: "stranded", state: next };
+  return { status: "advanced", move, state: next };
 }
 
 export function starWarsTierForScore(score: number): StarWarsPuzzle["tier"] {
@@ -592,7 +663,11 @@ export function starWarsTierForScore(score: number): StarWarsPuzzle["tier"] {
   if (normalizedScore < 2) return 1;
   if (normalizedScore < 5) return 2;
   if (normalizedScore < 9) return 3;
-  return 4;
+  if (normalizedScore < 15) return 4;
+  if (normalizedScore < 20) return 5;
+  if (normalizedScore < 30) return 6;
+  if (normalizedScore < 40) return 7;
+  return 8;
 }
 
 /** Builds a deterministic mission without consulting the runtime cache. */

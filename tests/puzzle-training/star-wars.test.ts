@@ -200,6 +200,25 @@ describe("Star Wars training", () => {
     expect(result.state).toEqual(option.state);
   });
 
+  it("ends the run immediately after a capture leaves no star reachable next", () => {
+    const chess = new Chess();
+    chess.clear();
+    chess.put({ color: "w", type: "n" }, "a1");
+    const state: StarWarsState = {
+      fen: chess.fen(),
+      remainingStars: ["c2", "h8"],
+      movableSquares: ["a1"]
+    };
+
+    const result = attemptStarWarsMove(state, { from: "a1", to: "c2" });
+
+    expect(result.status).toBe("failed");
+    if (result.status !== "failed") return;
+    expect(result.reason).toBe("stranded");
+    expect(result.state.remainingStars).toEqual(["h8"]);
+    expect(result.state.movableSquares).toEqual(["c2"]);
+  });
+
   it("treats a remaining star as a blocker for every sliding piece", () => {
     for (const [piece, star, beyond, before] of [
       ["r", "c1", "f1", "b1"],
@@ -261,7 +280,7 @@ describe("Star Wars training", () => {
     }
   });
 
-  it("allows a star capture even when the chosen order cannot finish perfectly", () => {
+  it("allows a star capture when another star is reachable, even if the later route is trapped", () => {
     let option: { state: StarWarsState; move: { from: Square; to: Square } } | undefined;
     for (const puzzle of [...STAR_WARS_PUZZLES, ...Array.from({ length: 24 }, (_, score) => starWarsPuzzleForScore(score, 1_337))]) {
       const state = initialStarWarsState(puzzle);
@@ -283,17 +302,28 @@ describe("Star Wars training", () => {
     expect(starWarsTierForScore(2)).toBe(2);
     expect(starWarsTierForScore(5)).toBe(3);
     expect(starWarsTierForScore(9)).toBe(4);
+    expect(starWarsTierForScore(15)).toBe(5);
+    expect(starWarsTierForScore(20)).toBe(6);
+    expect(starWarsTierForScore(30)).toBe(7);
+    expect(starWarsTierForScore(40)).toBe(8);
 
     for (const [score, tier, stars, pieces] of [
       [0, 1, 4, 2],
       [2, 2, 5, 2],
       [5, 3, 6, 3],
-      [9, 4, 7, 3]
+      [9, 4, 7, 3],
+      [15, 5, 7, 2],
+      [20, 6, 8, 2],
+      [30, 7, 9, 1],
+      [40, 8, 10, 1]
     ] as const) {
       const puzzle = starWarsPuzzleForScore(score, 5150);
       expect(puzzle.tier).toBe(tier);
       expect(puzzle.stars).toHaveLength(stars);
       expect(puzzle.pieces).toHaveLength(pieces);
+      if (score === 20 || score === 40) {
+        expect(puzzle.pieces.every((piece) => piece.type === "n")).toBe(true);
+      }
     }
   });
 

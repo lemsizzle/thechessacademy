@@ -41,7 +41,7 @@ type StarWarsProgressResponse = {
 };
 
 const NEXT_MISSION_DELAY_MS = 450;
-const PLAN_ARROW_COLOR = "#c084fc";
+const ANNOTATION_ARROW_COLOR = "#c084fc";
 const WRONG_MOVE_COLOR = "#fb7185";
 const STAR_SVG = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 6 61.8 35.8 94 37.8 69.2 58.4 77.2 89.6 50 72.4 22.8 89.6 30.8 58.4 6 37.8 38.2 35.8Z' fill='%23fde047' stroke='%23fff7b3' stroke-width='7' stroke-linejoin='round'/%3E%3C/svg%3E\")";
 
@@ -74,10 +74,8 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   const [failedMove, setFailedMove] = useState<StarWarsMove | null>(null);
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalSquares, setLegalSquares] = useState<Square[]>([]);
-  const [planMode, setPlanMode] = useState(false);
-  const [planStart, setPlanStart] = useState<Square | null>(null);
-  const [planArrows, setPlanArrows] = useState<BoardArrow[]>([]);
-  const [planCircles, setPlanCircles] = useState<BoardCircle[]>([]);
+  const [annotationArrows, setAnnotationArrows] = useState<BoardArrow[]>([]);
+  const [annotationCircles, setAnnotationCircles] = useState<BoardCircle[]>([]);
   const [drawingGesture, setDrawingGesture] = useState<DrawingGesture | null>(null);
   const [feedback, setFeedback] = useState("Preparing a verified Star Wars run...");
   const [failureRoute, setFailureRoute] = useState<StarWarsMove[]>([]);
@@ -127,10 +125,9 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     ...Object.fromEntries(puzzle.hiddenPieceTypes.map((pieceType) => [pieceType, HiddenBoardPiece]))
   }), [puzzle.hiddenPieceTypes]);
 
-  function clearPlanning() {
-    setPlanArrows([]);
-    setPlanCircles([]);
-    setPlanStart(null);
+  function clearAnnotations() {
+    setAnnotationArrows([]);
+    setAnnotationCircles([]);
     setDrawingGesture(null);
     rightGestureRef.current = null;
   }
@@ -144,17 +141,15 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     setFailedMove(null);
     setSelectedSquare(null);
     setLegalSquares([]);
-    setPlanMode(false);
-    setPlanStart(null);
-    setPlanArrows([]);
-    setPlanCircles([]);
+    setAnnotationArrows([]);
+    setAnnotationCircles([]);
     setDrawingGesture(null);
     rightGestureRef.current = null;
     missionRouteRef.current = [];
     setFailureRoute([]);
     setFeedback(celebrateScore
-      ? `+1 point! Score ${nextScore}. Plan a ${nextPuzzle.stars.length}-move route and collect one star on every move.`
-      : `Plan a ${nextPuzzle.stars.length}-move route. Collect one star on every move.`);
+      ? `+1 point! Score ${nextScore}. Find a ${nextPuzzle.stars.length}-move route that keeps the next star reachable.`
+      : `Find a ${nextPuzzle.stars.length}-move route. Keep another star reachable after every capture.`);
   }
 
   function saveBest(nextScore: number) {
@@ -245,17 +240,23 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     prepareSound();
     const attemptedMove = { from: from as Square, to: to as Square };
     const result = attemptStarWarsMove(gameState, attemptedMove);
-    clearPlanning();
-    setPlanMode(false);
+    clearAnnotations();
     if (result.status === "illegal") return false;
 
     if (result.status === "failed") {
+      if (result.reason === "stranded") {
+        setGameState(result.state);
+        setLastMove([attemptedMove.from, attemptedMove.to]);
+        playSound("capture");
+      }
       setSelectedSquare(null);
       setLegalSquares([]);
       setFailedMove(attemptedMove);
       setFailureRoute(findStarWarsSolution(gameState) ?? []);
       setPhase("failed");
-      setFeedback("That move did not collect a star, so the run is over.");
+      setFeedback(result.reason === "stranded"
+        ? "That star was captured, but no remaining star can be reached next. The run is over."
+        : "That move did not collect a star, so the run is over.");
       return false;
     }
 
@@ -289,34 +290,13 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     missionRouteRef.current = [...missionRouteRef.current, completedMove];
     setSelectedSquare(result.move.to);
     setLegalSquares(starWarsLegalDestinations(result.state, result.move.to));
-    setFeedback(`${result.state.remainingStars.length} ${result.state.remainingStars.length === 1 ? "star" : "stars"} left. Keep following your plan.`);
+    setFeedback(`${result.state.remainingStars.length} ${result.state.remainingStars.length === 1 ? "star" : "stars"} left. Keep the next capture reachable.`);
     return true;
-  }
-
-  function handlePlanSquare(square: Square) {
-    if (!planStart) {
-      setPlanStart(square);
-      setFeedback("Plan started. Tap the destination square for your arrow.");
-      return;
-    }
-    if (planStart === square) {
-      setPlanStart(null);
-      setFeedback("Plan arrow canceled.");
-      return;
-    }
-    const arrow = { startSquare: planStart, endSquare: square, color: PLAN_ARROW_COLOR };
-    setPlanArrows((current) => toggleBoardArrow(current, arrow));
-    setPlanStart(null);
-    setFeedback("Arrow added. Map the rest of your route, or turn off Plan mode to move.");
   }
 
   function handleSquareClick(square: Square) {
     if (phase !== "playing") return;
-    if (planMode) {
-      handlePlanSquare(square);
-      return;
-    }
-    clearPlanning();
+    clearAnnotations();
     if (selectedSquare && legalSquares.includes(square)) {
       move(selectedSquare, square);
       return;
@@ -331,7 +311,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   }
 
   function handleBoardMouseDown(square: Square, event: ReactMouseEvent) {
-    if (event.button === 0 && !planMode) clearPlanning();
+    if (event.button === 0) clearAnnotations();
     if (event.button !== 2 || phase !== "playing") return;
     const gesture = { startSquare: square, color: annotationColorForModifiers(event) };
     rightGestureRef.current = gesture;
@@ -351,10 +331,10 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     setDrawingGesture(null);
     if (!gesture) return;
     if (gesture.startSquare === square) {
-      setPlanCircles((current) => toggleBoardCircle(current, { square, color: gesture.color }));
+      setAnnotationCircles((current) => toggleBoardCircle(current, { square, color: gesture.color }));
       return;
     }
-    setPlanArrows((current) => toggleBoardArrow(current, {
+    setAnnotationArrows((current) => toggleBoardArrow(current, {
       startSquare: gesture.startSquare,
       endSquare: square,
       color: gesture.color
@@ -378,7 +358,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     color: drawingGesture.color
   } : null;
   const arrows: BoardArrow[] = [
-    ...planArrows,
+    ...annotationArrows,
     ...(previewArrow ? [previewArrow] : []),
     ...(failedMove ? [{ startSquare: failedMove.from, endSquare: failedMove.to, color: WRONG_MOVE_COLOR }] : [])
   ];
@@ -404,13 +384,10 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     if (selectedSquare) {
       styles[selectedSquare] = { ...styles[selectedSquare], backgroundColor: "rgba(34,211,238,.28)", boxShadow: "inset 0 0 0 5px rgba(103,232,249,.95)" };
     }
-    if (planStart) {
-      styles[planStart] = { ...styles[planStart], backgroundColor: "rgba(192,132,252,.28)", boxShadow: "inset 0 0 0 5px rgba(216,180,254,.95)" };
-    }
     if (failedMove) {
       styles[failedMove.to] = { ...styles[failedMove.to], boxShadow: "inset 0 0 0 5px rgba(251,113,133,.95)" };
     }
-    for (const circle of planCircles) {
+    for (const circle of annotationCircles) {
       const existingBackground = styles[circle.square]?.backgroundImage;
       const existingPosition = styles[circle.square]?.backgroundPosition;
       const existingRepeat = styles[circle.square]?.backgroundRepeat;
@@ -425,7 +402,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       };
     }
     return styles;
-  }, [failedMove, gameState.remainingStars, lastMove, legalSquares, planCircles, planStart, selectedSquare]);
+  }, [annotationCircles, failedMove, gameState.remainingStars, lastMove, legalSquares, selectedSquare]);
 
   const boardOptions: ChessboardOptions = {
     id: `academy-star-wars-${puzzle.id}`,
@@ -435,11 +412,11 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     showNotation: true,
     ...BOARD_MOTION_OPTIONS,
     ...BOARD_INTERACTION_OPTIONS,
-    allowDragging: phase === "playing" && !planMode,
+    allowDragging: phase === "playing",
     allowDrawingArrows: false,
     arrows,
     arrowOptions: {
-      color: PLAN_ARROW_COLOR,
+      color: ANNOTATION_ARROW_COLOR,
       secondaryColor: WRONG_MOVE_COLOR,
       tertiaryColor: "#60a5fa",
       opacity: 0.72,
@@ -457,7 +434,6 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     darkSquareStyle: { backgroundColor: "#0e7490" },
     boardStyle: { borderRadius: 10, touchAction: "none", boxShadow: "0 0 46px rgba(139,92,246,.25)" },
     canDragPiece: ({ piece, square }) => phase === "playing"
-      && !planMode
       && piece.pieceType.startsWith("w")
       && square !== null
       && gameState.movableSquares.includes(square as Square),
@@ -466,7 +442,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     onMouseOverSquare: ({ square }) => handleBoardMouseOver(square as Square),
     onSquareMouseUp: ({ square }, event) => handleBoardMouseUp(square as Square, event),
     onPieceDrop: ({ sourceSquare, targetSquare }) => {
-      if (!targetSquare || phase !== "playing" || planMode) return false;
+      if (!targetSquare || phase !== "playing") return false;
       if (!gameState.movableSquares.includes(sourceSquare as Square)) return false;
       if (!starWarsLegalDestinations(gameState, sourceSquare as Square).includes(targetSquare as Square)) return false;
       return move(sourceSquare, targetSquare);
@@ -546,22 +522,8 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
               ) : scoreSyncState === "saved" ? (
                 <p className="mt-3 text-xs font-bold text-emerald-200" role="status">Leaderboard score saved.</p>
               ) : null}
-              <p className="mt-3 text-xs font-bold text-slate-500">Move {Math.min(movesUsed + 1, puzzle.stars.length)} of {puzzle.stars.length} · The run ends only when a legal move does not collect a star.</p>
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <p className="text-xs font-black uppercase tracking-wider text-violet-200">Plan before you move</p>
-            <p className="mt-2 text-sm leading-6 text-slate-300">Right-drag to draw arrows, right-click to circle a square, or use Plan mode on touchscreens. A normal board click clears your marks.</p>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button type="button" variant={planMode ? "primary" : "secondary"} onClick={() => {
-                setPlanMode((enabled) => !enabled);
-                setPlanStart(null);
-                setSelectedSquare(null);
-                setLegalSquares([]);
-                setFeedback(planMode ? "Plan mode off. Make your first move when the route is ready." : "Plan mode on. Tap an arrow's start square, then its destination.");
-              }} disabled={phase !== "playing"}>{planMode ? "Finish Planning" : "Plan Route"}</Button>
-              <Button type="button" variant="ghost" onClick={clearPlanning} disabled={!planArrows.length && !planCircles.length && !planStart && !drawingGesture}>Clear Plan</Button>
+              <p className="mt-3 text-xs font-bold text-slate-500">Move {Math.min(movesUsed + 1, puzzle.stars.length)} of {puzzle.stars.length} · Missing a star or leaving no reachable star ends the run.</p>
+              <p className="mt-2 text-xs text-slate-500">Right-drag to draw arrows or right-click to circle a square. A normal board click clears your marks.</p>
             </div>
           </Card>
 

@@ -139,7 +139,7 @@ function StarWarsDetails() {
       {[
         ["1", "Plan first", "Map the complete route before you touch a piece."],
         ["2", "One move, one star", "Every successful move lands on exactly one remaining star."],
-        ["3", "Protect the run", "The first legal move that misses a star ends the run."]
+        ["3", "Protect the run", "Missing a star—or leaving no star reachable next—ends the run."]
       ].map(([step, title, description]) => (
         <div key={step} className="rounded-lg border border-violet-200/20 bg-violet-300/5 p-4">
           <span className="grid size-8 place-items-center rounded-full border border-violet-200/30 bg-violet-300/10 text-sm font-black text-violet-100">{step}</span>
