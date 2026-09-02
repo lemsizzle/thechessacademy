@@ -2,6 +2,7 @@
 
 import { Chess } from "chess.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createBotThinkingDelay } from "@/chess/bots/thinkingDelay";
 import { chessJsColor, fromChessJsColor, oppositeColor } from "@/chess/game/colors";
 import { canColorPossiblyCheckmate, createOutcome, detectBoardOutcome, gameMoves, hasHumanMove, promotionOptions, resultHeader, tryMove, undoComputerTurn } from "@/chess/game/rules";
 import { useChessSounds } from "@/chess/hooks/useChessSounds";
@@ -25,6 +26,8 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
   const saveStartedRef = useRef(false);
   const takebackCountRef = useRef(0);
   const previousHumanClockRef = useRef<number | null>(null);
+  const clockDisplayRef = useRef<ClockSnapshot | null>(null);
+  const botMoveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [config, setConfig] = useState<ComputerGameConfig | null>(null);
   const [fen, setFen] = useState(STANDARD_FEN);
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
@@ -39,10 +42,22 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
   const [saveMessage, setSaveMessage] = useState("");
   const [savedGameId, setSavedGameId] = useState<string | null>(null);
   const [engineRetry, setEngineRetry] = useState(0);
+  const [delayingBotMove, setDelayingBotMove] = useState(false);
   const { display: clockDisplay, expiredColor, reset: resetClock, completeMove: completeClockMove, restore: restoreClock, pause: pauseClock } = useGameClock();
-  const { requestMove: requestEngineMove, stop: stopEngine, thinking, engineError, clearEngineError } = useStockfish();
+  const { requestMove: requestEngineMove, stop: stopEngine, thinking: engineThinking, engineError, clearEngineError } = useStockfish();
   const { muted, setMuted, play: playSound } = useChessSounds();
   const { captureEffect, clearCaptureEffect, triggerCaptureEffect } = useBoardCaptureEffect();
+  clockDisplayRef.current = clockDisplay;
+
+  const clearBotMoveDelay = useCallback(() => {
+    if (botMoveTimerRef.current !== null) {
+      clearTimeout(botMoveTimerRef.current);
+      botMoveTimerRef.current = null;
+    }
+    setDelayingBotMove(false);
+  }, []);
+
+  const thinking = engineThinking || delayingBotMove;
 
   const setPremove = useCallback((next: LivePremove | null) => {
     setPremoveState(next);
@@ -67,14 +82,16 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     completedAtRef.current = new Date().toISOString();
     chessRef.current.header("Result", resultHeader(nextOutcome));
     pauseClock();
+    clearBotMoveDelay();
     stopEngine();
     setPremove(null);
     playSound("end");
     setOutcome(nextOutcome);
     setResultOpen(true);
-  }, [pauseClock, playSound, setPremove, stopEngine]);
+  }, [clearBotMoveDelay, pauseClock, playSound, setPremove, stopEngine]);
 
   const startGame = useCallback((nextConfig: ComputerGameConfig) => {
+    clearBotMoveDelay();
     stopEngine();
     clearEngineError();
     const chess = new Chess();
@@ -111,7 +128,7 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     setSavedGameId(null);
     setEngineRetry(0);
     clearCaptureEffect();
-  }, [clearCaptureEffect, clearEngineError, resetClock, setPremove, stopEngine]);
+  }, [clearBotMoveDelay, clearCaptureEffect, clearEngineError, resetClock, setPremove, stopEngine]);
 
   const playMoveSound = useCallback((captured: boolean) => {
     const chess = chessRef.current;
@@ -183,36 +200,77 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     let ignore = false;
 
     const moveHistory = chess.history({ verbose: true }).map((move) => `${move.from}${move.to}${move.promotion ?? ""}`);
+    const engineColor = oppositeColor(config.humanColor);
+    const clock = clockDisplayRef.current;
+    const remainingMs = clock
+      ? engineColor === "white" ? clock.whiteMs : clock.blackMs
+      : null;
+    const targetDelayMs = createBotThinkingDelay({
+      fen,
+      remainingMs,
+      incrementMs: config.timeControl.incrementMs
+    });
+    const turnStartedAt = Date.now();
+    setDelayingBotMove(true);
+
     void requestEngineMove(fen, config.bot, { moveHistory }).then((uci) => {
-      if (ignore || !uci || outcomeRef.current || chessRef.current.fen() !== fen) return;
+      if (ignore) return;
+      if (!uci || outcomeRef.current || chessRef.current.fen() !== fen) {
+        setDelayingBotMove(false);
+        return;
+      }
+
       const match = UCI_MOVE.exec(uci);
       if (!match) throw new Error("Stockfish returned an invalid move.");
-      const move = tryMove(chessRef.current, {
+      const candidate = {
         from: match[1],
         to: match[2],
         promotion: match[3] as PromotionPiece | undefined
-      });
-      if (!move) throw new Error("Stockfish returned an illegal move.");
-      const engineColor = oppositeColor(config.humanColor);
-      const snapshot = completeClockMove(engineColor);
-      if (config.timeControl.initialMs !== null && !snapshot) {
-        chessRef.current.undo();
-        return;
+      };
+      if (!tryMove(new Chess(fen), candidate)) throw new Error("Stockfish returned an illegal move.");
+
+      const playComputerMove = () => {
+        botMoveTimerRef.current = null;
+        if (ignore || outcomeRef.current || chessRef.current.fen() !== fen) {
+          setDelayingBotMove(false);
+          return;
+        }
+
+        try {
+          const move = tryMove(chessRef.current, candidate);
+          if (!move) return;
+          const snapshot = completeClockMove(engineColor);
+          if (config.timeControl.initialMs !== null && !snapshot) {
+            chessRef.current.undo();
+            return;
+          }
+          clockHistoryRef.current.push(snapshot);
+          syncPosition(move);
+          playMoveSound(Boolean(move.captured));
+          if (move.captured) triggerCaptureEffect(move.to);
+          const boardOutcome = detectBoardOutcome(chessRef.current, config.humanColor);
+          if (boardOutcome) finishGame(boardOutcome);
+        } finally {
+          setDelayingBotMove(false);
+        }
+      };
+
+      const remainingDelayMs = Math.max(0, targetDelayMs - (Date.now() - turnStartedAt));
+      if (remainingDelayMs > 0) {
+        botMoveTimerRef.current = setTimeout(playComputerMove, remainingDelayMs);
+      } else {
+        playComputerMove();
       }
-      clockHistoryRef.current.push(snapshot);
-      syncPosition(move);
-      playMoveSound(Boolean(move.captured));
-      if (move.captured) triggerCaptureEffect(move.to);
-      const boardOutcome = detectBoardOutcome(chessRef.current, config.humanColor);
-      if (boardOutcome) finishGame(boardOutcome);
     }).catch(() => {
+      if (!ignore) setDelayingBotMove(false);
       // The engine hook presents the actionable error without crashing the board.
     });
 
     return () => {
       ignore = true;
+      clearBotMoveDelay();
     };
-  }, [completeClockMove, config, engineRetry, fen, finishGame, movePromotionPending, outcome, playMoveSound, requestEngineMove, syncPosition, triggerCaptureEffect]);
+  }, [clearBotMoveDelay, completeClockMove, config, engineRetry, fen, finishGame, movePromotionPending, outcome, playMoveSound, requestEngineMove, syncPosition, triggerCaptureEffect]);
 
   useEffect(() => {
     if (!config || outcome || pendingPromotion || thinking || !premove) return;
@@ -291,14 +349,16 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
 
   const retryComputerMove = useCallback(() => {
     if (!config || outcomeRef.current || chessRef.current.turn() === chessJsColor(config.humanColor)) return;
+    clearBotMoveDelay();
     stopEngine();
     clearEngineError();
     engineRequestFenRef.current = null;
     setEngineRetry((value) => value + 1);
-  }, [clearEngineError, config, stopEngine]);
+  }, [clearBotMoveDelay, clearEngineError, config, stopEngine]);
 
   const takeBack = useCallback(() => {
     if (!config || outcomeRef.current || !hasHumanMove(chessRef.current, config.humanColor)) return;
+    clearBotMoveDelay();
     stopEngine();
     engineRequestFenRef.current = null;
     const undone = undoComputerTurn(chessRef.current, config.humanColor);
@@ -311,9 +371,10 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     setPremoveMessage("");
     clearCaptureEffect();
     syncPosition();
-  }, [clearCaptureEffect, config, restoreClock, setPremove, stopEngine, syncPosition]);
+  }, [clearBotMoveDelay, clearCaptureEffect, config, restoreClock, setPremove, stopEngine, syncPosition]);
 
   const leaveGame = useCallback(() => {
+    clearBotMoveDelay();
     stopEngine();
     pauseClock();
     outcomeRef.current = null;
@@ -324,7 +385,7 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     setPremove(null);
     setPremoveMessage("");
     clearCaptureEffect();
-  }, [clearCaptureEffect, pauseClock, setPremove, stopEngine]);
+  }, [clearBotMoveDelay, clearCaptureEffect, pauseClock, setPremove, stopEngine]);
 
   const cancelPremove = useCallback(() => setPremove(null), [setPremove]);
 
