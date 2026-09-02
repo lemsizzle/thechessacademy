@@ -7,6 +7,11 @@ const migration = readFileSync(
   "utf8"
 ).toLowerCase().replace(/\s+/g, " ");
 
+const challengeModesMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260902123938_add_training_challenge_modes.sql"),
+  "utf8"
+).toLowerCase().replace(/\s+/g, " ");
+
 describe("Star Wars leaderboard database migration", () => {
   it("keeps runs server-only behind RLS and least-privilege grants", () => {
     expect(migration).toContain("alter table public.student_star_wars_runs enable row level security");
@@ -25,5 +30,11 @@ describe("Star Wars leaderboard database migration", () => {
 
   it("does not rank zero-score runs", () => {
     expect(migration).toContain("where run.score > 0");
+  });
+
+  it("stores only the supported Star Wars run modes and countdowns", () => {
+    expect(challengeModesMigration).toContain("check (mode in ('classic', 'time_trial'))");
+    expect(challengeModesMigration).toContain("time_limit_ms in (60000, 180000, 300000)");
+    expect(challengeModesMigration).toContain("add column if not exists started_at timestamptz not null default now()");
   });
 });

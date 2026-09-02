@@ -37,6 +37,7 @@ describe("Hide and Seek rules", () => {
   it("accepts only supported search modes", () => {
     expect(isHideAndSeekMode("classic")).toBe(true);
     expect(isHideAndSeekMode("time_trial")).toBe(true);
+    expect(isHideAndSeekMode("hard")).toBe(true);
     expect(isHideAndSeekMode("timed")).toBe(false);
   });
 
@@ -184,6 +185,21 @@ describe("Hide and Seek scoring", () => {
     expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: safeSquares, elapsedMs: 0, mode: "time_trial" }).score).toBe(1_000);
     expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: safeSquares, elapsedMs: 30_000, mode: "time_trial" }).score).toBe(800);
     expect(calculateHideAndSeekScore({ safeSquares, selectedSquares: safeSquares, elapsedMs: 60_000, mode: "time_trial" }).score).toBe(600);
+  });
+
+  it("makes any dangerous-square click a zero-point Hard Mode loss", () => {
+    expect(calculateHideAndSeekScore({
+      safeSquares,
+      selectedSquares: [...safeSquares, "h8"],
+      elapsedMs: 1_000,
+      mode: "hard"
+    })).toMatchObject({ score: 0, correctCount: 4, wrongCount: 1 });
+    expect(calculateHideAndSeekScore({
+      safeSquares,
+      selectedSquares: safeSquares,
+      elapsedMs: 1_000,
+      mode: "hard"
+    }).score).toBeGreaterThan(0);
   });
 
   it("penalizes missed safe squares and wrong guesses using the exact formula", () => {

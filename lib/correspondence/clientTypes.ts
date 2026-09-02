@@ -40,6 +40,13 @@ export type CorrespondenceInbox = {
   realtimeTopic: string | null;
 };
 
+export type CorrespondenceAlert = {
+  key: string;
+  title: string;
+  message: string;
+  href: string;
+};
+
 export const EMPTY_CORRESPONDENCE_INBOX: CorrespondenceInbox = {
   incoming: [],
   outgoing: [],
@@ -78,4 +85,50 @@ export function formatCorrespondenceTimeLeft(deadline: string | null, nowMs = Da
   if (days > 0) return `${days}d ${hours}h left`;
   if (hours > 0) return `${hours}h ${minutes}m left`;
   return `${minutes}m left`;
+}
+
+export function correspondenceAlerts(inbox: CorrespondenceInbox, currentPathname: string): CorrespondenceAlert[] {
+  const challengeAlerts = inbox.incoming
+    .filter((challenge) => challenge.status === "pending" && !challenge.seenAt)
+    .map((challenge) => ({
+      key: challenge.id,
+      title: "Incoming chess challenge",
+      message: `${challenge.challenger.name} challenged you to a correspondence game.`,
+      href: "/student/play/correspondence"
+    }));
+  const moveAlerts = inbox.activeGames
+    .filter((game) => game.status === "active" && game.activeColor === game.viewerColor)
+    .map((game) => ({
+      key: `turn:${game.id}:${game.updatedAt}`,
+      title: "Your move",
+      message: `Your correspondence game${game.opponent?.name ? ` against ${game.opponent.name}` : ""} is ready.`,
+      href: `/student/play/correspondence/${encodeURIComponent(game.id)}`
+    }))
+    .filter((alert) => alert.href !== currentPathname);
+  return [...challengeAlerts, ...moveAlerts];
+}
+
+function sortableTimestamp(value: string | null, fallback: number) {
+  if (!value) return fallback;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : fallback;
+}
+
+/** Pick the most urgent different correspondence game that currently needs the student's move. */
+export function nextCorrespondenceGameToMove(
+  games: CorrespondenceGameSummary[],
+  currentGameId: string
+) {
+  return games
+    .filter((game) => (
+      game.id !== currentGameId
+      && game.status === "active"
+      && game.activeColor === game.viewerColor
+    ))
+    .sort((left, right) => {
+      const deadlineDifference = sortableTimestamp(left.turnDeadlineAt, Number.POSITIVE_INFINITY)
+        - sortableTimestamp(right.turnDeadlineAt, Number.POSITIVE_INFINITY);
+      if (deadlineDifference !== 0) return deadlineDifference;
+      return sortableTimestamp(left.updatedAt, 0) - sortableTimestamp(right.updatedAt, 0);
+    })[0] ?? null;
 }

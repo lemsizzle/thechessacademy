@@ -18,21 +18,38 @@ import {
   attemptStarWarsMove,
   findStarWarsSolution,
   initialStarWarsState,
+  STAR_WARS_TIME_LIMIT_OPTIONS_MS,
   starWarsPuzzleForScore,
   starWarsLegalDestinations,
+  type StarWarsMode,
   type StarWarsMove,
-  type StarWarsState
+  type StarWarsState,
+  type StarWarsTimeLimitMs
 } from "@/lib/puzzle-training/starWars";
 import {
   parseStoredStarWarsBestScore,
   STAR_WARS_BEST_SCORE_STORAGE_KEY
 } from "@/lib/puzzle-training/starWarsProgress";
+import {
+  monotonicEpochNow,
+  synchronizedStartOffset
+} from "@/lib/puzzle-training/synchronizedTimer";
 
-type RunPhase = "loading" | "playing" | "solved" | "failed" | "unavailable";
+type RunPhase = "setup" | "loading" | "playing" | "solved" | "failed" | "finished" | "unavailable";
 type ScoreSyncState = "idle" | "saving" | "saved" | "error";
 type DrawingGesture = { startSquare: Square; endSquare: Square | null; color: string };
 type StarWarsStartResponse = {
-  run?: { runId: string; runVariant: number; score: number; personalBest: number };
+  run?: {
+    runId: string;
+    runVariant: number;
+    score: number;
+    personalBest: number;
+    mode: StarWarsMode;
+    timeLimitMs: StarWarsTimeLimitMs | null;
+    startedAt: string;
+    serverSentAt: string;
+  };
+  serverReceivedAt?: string;
   error?: string;
 };
 type StarWarsProgressResponse = {
@@ -61,14 +78,26 @@ function routeLabel(route: readonly StarWarsMove[]) {
   return route.map((move) => `${move.from}→${move.to}`).join(" · ");
 }
 
+function formatCountdown(remainingMs: number) {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1_000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   const [runId, setRunId] = useState<string | null>(null);
   const [runVariant, setRunVariant] = useState(0);
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(0);
+  const [selectedMode, setSelectedMode] = useState<StarWarsMode>("classic");
+  const [selectedTimeLimitMs, setSelectedTimeLimitMs] = useState<StarWarsTimeLimitMs>(60_000);
+  const [activeMode, setActiveMode] = useState<StarWarsMode>("classic");
+  const [timeLimitMs, setTimeLimitMs] = useState<StarWarsTimeLimitMs | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const [puzzle, setPuzzle] = useState(() => starWarsPuzzleForScore(0, 0));
   const [gameState, setGameState] = useState<StarWarsState>(() => initialStarWarsState(puzzle));
-  const [phase, setPhase] = useState<RunPhase>("loading");
+  const [phase, setPhase] = useState<RunPhase>("setup");
   const [scoreSyncState, setScoreSyncState] = useState<ScoreSyncState>("idle");
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
   const [failedMove, setFailedMove] = useState<StarWarsMove | null>(null);
@@ -77,17 +106,19 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   const [annotationArrows, setAnnotationArrows] = useState<BoardArrow[]>([]);
   const [annotationCircles, setAnnotationCircles] = useState<BoardCircle[]>([]);
   const [drawingGesture, setDrawingGesture] = useState<DrawingGesture | null>(null);
-  const [feedback, setFeedback] = useState("Preparing a verified Star Wars run...");
+  const [feedback, setFeedback] = useState("Choose Classic or a timed score attack.");
   const [failureRoute, setFailureRoute] = useState<StarWarsMove[]>([]);
   const nextMissionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startRevealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startedAtPerformanceRef = useRef(0);
   const rightGestureRef = useRef<Omit<DrawingGesture, "endSquare"> | null>(null);
   const missionRouteRef = useRef<StarWarsMove[]>([]);
   const completedRoutesRef = useRef<StarWarsMove[][]>([]);
   const activeRunIdRef = useRef<string | null>(null);
+  const startOperationRef = useRef(0);
   const latestSubmittedScoreRef = useRef(0);
   const latestSavedScoreRef = useRef(0);
   const mountedRef = useRef(true);
-  const startRequestedRef = useRef(false);
   const { play: playSound, prepare: prepareSound } = useChessSounds();
 
   useEffect(() => {
@@ -100,15 +131,39 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
 
   useEffect(() => {
     mountedRef.current = true;
-    if (!startRequestedRef.current) {
-      startRequestedRef.current = true;
-      void beginServerRun();
-    }
     return () => {
       mountedRef.current = false;
       if (nextMissionTimer.current) clearTimeout(nextMissionTimer.current);
+      if (startRevealTimer.current) clearTimeout(startRevealTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (activeMode !== "time_trial"
+      || timeLimitMs === null
+      || (phase !== "playing" && phase !== "solved")) return;
+    const updateElapsed = () => setElapsedMs(Math.max(0, performance.now() - startedAtPerformanceRef.current));
+    updateElapsed();
+    const interval = window.setInterval(updateElapsed, 200);
+    return () => window.clearInterval(interval);
+  }, [activeMode, phase, timeLimitMs]);
+
+  useEffect(() => {
+    if (activeMode !== "time_trial"
+      || timeLimitMs === null
+      || elapsedMs < timeLimitMs
+      || (phase !== "playing" && phase !== "solved")) return;
+    if (nextMissionTimer.current) {
+      clearTimeout(nextMissionTimer.current);
+      nextMissionTimer.current = null;
+    }
+    setElapsedMs(timeLimitMs);
+    setSelectedSquare(null);
+    setLegalSquares([]);
+    setPhase("finished");
+    setFeedback(`Time’s up! You completed ${score} ${score === 1 ? "mission" : "missions"}.`);
+    playSound("end");
+  }, [activeMode, elapsedMs, phase, playSound, score, timeLimitMs]);
 
   useEffect(() => {
     function cancelReleasedGesture(event: MouseEvent) {
@@ -164,36 +219,69 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     });
   }
 
-  async function beginServerRun() {
+  async function beginServerRun(
+    mode: StarWarsMode = selectedMode,
+    requestedTimeLimitMs: StarWarsTimeLimitMs | null = mode === "time_trial" ? selectedTimeLimitMs : null
+  ) {
+    const operation = ++startOperationRef.current;
     if (nextMissionTimer.current) {
       clearTimeout(nextMissionTimer.current);
       nextMissionTimer.current = null;
     }
+    if (startRevealTimer.current) {
+      clearTimeout(startRevealTimer.current);
+      startRevealTimer.current = null;
+    }
     setPhase("loading");
+    setActiveMode(mode);
+    setTimeLimitMs(requestedTimeLimitMs);
+    setElapsedMs(0);
     activeRunIdRef.current = null;
     setScoreSyncState("idle");
     setFeedback("Preparing a verified Star Wars run...");
     try {
+      const requestStartedAt = monotonicEpochNow();
       const response = await fetch("/api/student/star-wars/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, timeLimitMs: requestedTimeLimitMs }),
         cache: "no-store"
       });
       const body = await response.json() as StarWarsStartResponse;
+      const responseReceivedAt = monotonicEpochNow();
       if (!response.ok || !body.run) throw new Error(body.error ?? "Star Wars could not start.");
-      if (!mountedRef.current) return;
+      if (!body.serverReceivedAt) throw new Error("Star Wars returned an invalid start time.");
+      if (!mountedRef.current || operation !== startOperationRef.current) return;
+      const startOffset = synchronizedStartOffset({
+        startedAt: body.run.startedAt,
+        serverReceivedAt: body.serverReceivedAt,
+        serverSentAt: body.run.serverSentAt,
+        requestStartedAt,
+        responseReceivedAt
+      });
+      if (startOffset === null) throw new Error("Star Wars returned an invalid start time.");
       setRunId(body.run.runId);
       activeRunIdRef.current = body.run.runId;
       setRunVariant(body.run.runVariant);
       setScore(body.run.score);
+      setActiveMode(body.run.mode);
+      setTimeLimitMs(body.run.timeLimitMs);
       completedRoutesRef.current = [];
       missionRouteRef.current = [];
       latestSubmittedScoreRef.current = body.run.score;
       latestSavedScoreRef.current = body.run.score;
       saveBest(body.run.personalBest);
-      loadMission(body.run.score, body.run.runVariant);
+      startedAtPerformanceRef.current = performance.now() + startOffset;
+      const activate = () => {
+        startRevealTimer.current = null;
+        if (!mountedRef.current || activeRunIdRef.current !== body.run?.runId) return;
+        setElapsedMs(Math.max(0, performance.now() - startedAtPerformanceRef.current));
+        loadMission(body.run.score, body.run.runVariant);
+      };
+      if (startOffset > 0) startRevealTimer.current = setTimeout(activate, startOffset);
+      else activate();
     } catch (error) {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || operation !== startOperationRef.current) return;
       setRunId(null);
       activeRunIdRef.current = null;
       setPhase("unavailable");
@@ -342,7 +430,20 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   }
 
   function startNewRun() {
-    void beginServerRun();
+    void beginServerRun(activeMode, timeLimitMs);
+  }
+
+  function changeMode() {
+    startOperationRef.current += 1;
+    if (nextMissionTimer.current) clearTimeout(nextMissionTimer.current);
+    if (startRevealTimer.current) clearTimeout(startRevealTimer.current);
+    activeRunIdRef.current = null;
+    setRunId(null);
+    setPhase("setup");
+    setScore(0);
+    setElapsedMs(0);
+    setScoreSyncState("idle");
+    setFeedback("Choose Classic or a timed score attack.");
   }
 
   const movesUsed = puzzle.stars.length - gameState.remainingStars.length;
@@ -449,6 +550,80 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     }
   };
 
+  if (phase === "setup") {
+    return (
+      <div className="space-y-5">
+        <Card className="overflow-hidden border-violet-300/25">
+          <div className="border-b border-white/10 bg-gradient-to-r from-violet-400/10 via-cyan-300/5 to-transparent p-5 sm:p-6">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-200">Star Wars</p>
+            <h2 className="mt-2 text-3xl font-black text-white">Choose your mission</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Collect exactly one star per move. One miss or dead end ends the run.</p>
+          </div>
+          <div className="p-5 sm:p-6">
+            <fieldset>
+              <legend className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">Run mode</legend>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {([
+                  ["classic", "Classic", "No clock", "Build the longest streak you can."],
+                  ["time_trial", "Time Trial", "Score attack", "Complete as many missions as possible before time runs out."]
+                ] as const).map(([mode, title, label, description]) => (
+                  <label key={mode} className={`cursor-pointer rounded-xl border p-4 transition focus-within:ring-2 focus-within:ring-cyan-200 ${selectedMode === mode ? "border-violet-200/60 bg-violet-300/12" : "border-white/10 bg-white/[0.035] hover:border-white/25"}`}>
+                    <span className="flex items-center gap-2">
+                      <input type="radio" name="star-wars-mode" value={mode} checked={selectedMode === mode} onChange={() => setSelectedMode(mode)} className="accent-violet-300" />
+                      <span className="font-black text-white">{title}</span>
+                    </span>
+                    <span className="mt-2 block text-xs font-black uppercase tracking-wide text-amber-100">{label}</span>
+                    <span className="mt-1 block text-sm leading-5 text-slate-400">{description}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            {selectedMode === "time_trial" ? (
+              <fieldset className="mt-5">
+                <legend className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">Time limit</legend>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {STAR_WARS_TIME_LIMIT_OPTIONS_MS.map((duration) => {
+                    const minutes = duration / 60_000;
+                    return (
+                      <label key={duration} className={`cursor-pointer rounded-lg border p-3 text-center transition focus-within:ring-2 focus-within:ring-cyan-200 ${selectedTimeLimitMs === duration ? "border-amber-200/60 bg-amber-300/12 text-white" : "border-white/10 bg-white/[0.035] text-slate-300 hover:border-white/25"}`}>
+                        <input type="radio" name="star-wars-time-limit" value={duration} checked={selectedTimeLimitMs === duration} onChange={() => setSelectedTimeLimitMs(duration)} className="sr-only" />
+                        <span className="text-lg font-black">{minutes}</span>
+                        <span className="ml-1 text-xs font-black uppercase">{minutes === 1 ? "minute" : "minutes"}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            ) : null}
+
+            <Button type="button" className="mt-6 min-h-14 w-full text-base" onClick={() => void beginServerRun()}>
+              {selectedMode === "time_trial" ? `Start ${selectedTimeLimitMs / 60_000}-Minute Trial` : "Start Classic Run"}
+            </Button>
+          </div>
+        </Card>
+        <Button type="button" variant="ghost" className="w-full" onClick={onExit}>Back to Training Modes</Button>
+      </div>
+    );
+  }
+
+  if (phase === "loading") {
+    return (
+      <div className="space-y-5">
+        <Card className="border-violet-300/25 p-8 text-center">
+          <div role="status" aria-live="polite">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-200">Star Wars</p>
+            <h2 className="mt-3 text-3xl font-black text-white">Preparing your mission…</h2>
+            <p className="mt-2 text-sm text-slate-300">The board and official clock will start together.</p>
+          </div>
+        </Card>
+        <Button type="button" variant="ghost" className="w-full" onClick={changeMode}>Change Mode</Button>
+      </div>
+    );
+  }
+
+  const remainingTimeMs = timeLimitMs === null ? null : Math.max(0, timeLimitMs - elapsedMs);
+
   return (
     <div className="space-y-5">
       <Card className="overflow-hidden border-violet-300/25">
@@ -456,7 +631,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
           {[
             ["Score", score],
             ["Best", bestScore],
-            ["Mission", score + 1],
+            [activeMode === "time_trial" ? "Time left" : "Mission", activeMode === "time_trial" && remainingTimeMs !== null ? formatCountdown(remainingTimeMs) : score + 1],
             ["Stars", `${puzzle.stars.length - gameState.remainingStars.length}/${puzzle.stars.length}`]
           ].map(([label, value]) => (
             <div key={String(label)} className="p-3 text-center sm:p-4">
@@ -474,7 +649,10 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
               <p className="font-black text-rose-100">Star Wars could not start</p>
               <p className="mt-1 text-sm text-rose-100/80">{feedback}</p>
             </div>
-            <Button type="button" variant="secondary" onClick={() => void beginServerRun()}>Try Again</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" onClick={() => void beginServerRun(activeMode, timeLimitMs)}>Try Again</Button>
+              <Button type="button" variant="ghost" onClick={changeMode}>Change Mode</Button>
+            </div>
           </div>
         </Card>
       ) : null}
@@ -488,7 +666,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
           <Card className="overflow-hidden border-violet-300/25">
             <div className="border-b border-white/10 bg-gradient-to-r from-violet-400/10 via-cyan-300/5 to-transparent p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-200">Star Wars · Level {puzzle.tier}</p>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-200">Star Wars · Level {puzzle.tier}{activeMode === "time_trial" && timeLimitMs ? ` · ${timeLimitMs / 60_000}-minute trial` : ""}</p>
                 <span className="rounded-full border border-rose-200/25 bg-rose-300/10 px-3 py-1 text-xs font-black text-rose-100">1 mistake ends the run</span>
               </div>
               <h2 className="mt-2 text-3xl font-black text-white">{puzzle.title}</h2>
@@ -544,8 +722,24 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
               </div>
             )}
             <p className="mt-4 text-sm leading-6 text-slate-300">Look at the full route, remember the plan, and launch a fresh run.</p>
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <Button type="button" onClick={startNewRun}>Start New Run</Button>
+              <Button type="button" variant="secondary" onClick={changeMode}>Change Mode</Button>
+              <Button type="button" variant="ghost" onClick={onExit}>Training Modes</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {phase === "finished" && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="star-wars-finished-title">
+          <div className="w-full max-w-lg rounded-3xl border border-amber-200/35 bg-gradient-to-br from-slate-900 via-violet-950/75 to-slate-950 p-6 text-center shadow-[0_0_80px_rgba(250,204,21,.16)] sm:p-8">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-200">Time Trial Complete</p>
+            <h3 id="star-wars-finished-title" className="mt-3 text-3xl font-black text-white">Final score: {score}</h3>
+            <p className="mt-3 text-sm font-bold leading-6 text-slate-200">{feedback}</p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <Button type="button" onClick={startNewRun}>Try Again</Button>
+              <Button type="button" variant="secondary" onClick={changeMode}>Change Mode</Button>
               <Button type="button" variant="ghost" onClick={onExit}>Training Modes</Button>
             </div>
           </div>

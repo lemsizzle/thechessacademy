@@ -2,7 +2,7 @@ import type { Square } from "chess.js";
 
 export type HideAndSeekSquare = Square;
 
-export type HideAndSeekMode = "classic" | "time_trial";
+export type HideAndSeekMode = "classic" | "time_trial" | "hard";
 
 export type HideAndSeekPieceCode = "bK" | "bQ" | "bR" | "bB" | "bN";
 
@@ -106,7 +106,7 @@ export function isHideAndSeekSquare(value: unknown): value is HideAndSeekSquare 
 }
 
 export function isHideAndSeekMode(value: unknown): value is HideAndSeekMode {
-  return value === "classic" || value === "time_trial";
+  return value === "classic" || value === "time_trial" || value === "hard";
 }
 
 function assertValidPlacements(pieces: readonly HideAndSeekPiecePlacement[]) {
@@ -394,7 +394,8 @@ export function calculateHideAndSeekScore(input: HideAndSeekScoreInput): HideAnd
     ? HIDE_AND_SEEK_TIME_TRIAL_LIMIT_MS
     : HIDE_AND_SEEK_CLASSIC_SPEED_WINDOW_MS;
   const speedFactor = Math.max(0, 1 - elapsedMs / speedWindowMs);
-  const score = Math.min(1_000, Math.max(0, Math.round(
+  const hardModeFailed = input.mode === "hard" && wrongCount > 0;
+  const score = hardModeFailed ? 0 : Math.min(1_000, Math.max(0, Math.round(
     accuracyFactor * (
       HIDE_AND_SEEK_ACCURACY_POINTS
       + HIDE_AND_SEEK_SPEED_POINTS * speedFactor

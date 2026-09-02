@@ -17,6 +17,11 @@ const timeTrialMigration = readFileSync(
   "utf8"
 ).toLowerCase().replace(/\s+/g, " ");
 
+const challengeModesMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260902123938_add_training_challenge_modes.sql"),
+  "utf8"
+).toLowerCase().replace(/\s+/g, " ");
+
 describe("Hide and Seek database migration", () => {
   it("keeps attempt data server-only behind RLS and least-privilege grants", () => {
     expect(migration).toContain("alter table public.student_hide_and_seek_attempts enable row level security");
@@ -56,5 +61,10 @@ describe("Hide and Seek database migration", () => {
     expect(timeTrialMigration).toContain("add column if not exists mode text not null default 'classic'");
     expect(timeTrialMigration).toContain("check (mode in ('classic', 'time_trial'))");
     expect(timeTrialMigration).toContain("check (cardinality(selected_squares) between 0 and 56)");
+  });
+
+  it("expands the persisted ruleset to one-strike Hard Mode", () => {
+    expect(challengeModesMigration).toContain("drop constraint if exists student_hide_and_seek_mode_valid");
+    expect(challengeModesMigration).toContain("check (mode in ('classic', 'time_trial', 'hard'))");
   });
 });

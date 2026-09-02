@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
   isStarWarsAuthenticationError: vi.fn(),
+  parseStarWarsStartOptions: vi.fn(),
   requireStarWarsStudent: vi.fn(),
   saveStarWarsProgress: vi.fn(),
   startStarWarsRun: vi.fn()
@@ -13,6 +14,7 @@ vi.mock("@/lib/puzzle-training/starWarsServer", () => {
   return {
     StarWarsInputError,
     isStarWarsAuthenticationError: mocks.isStarWarsAuthenticationError,
+    parseStarWarsStartOptions: mocks.parseStarWarsStartOptions,
     requireStarWarsStudent: mocks.requireStarWarsStudent,
     saveStarWarsProgress: mocks.saveStarWarsProgress,
     startStarWarsRun: mocks.startStarWarsRun
@@ -37,17 +39,24 @@ describe("Star Wars API routes", () => {
     vi.clearAllMocks();
     mocks.requireStarWarsStudent.mockResolvedValue({ studentId });
     mocks.isStarWarsAuthenticationError.mockReturnValue(false);
+    mocks.parseStarWarsStartOptions.mockImplementation((value) => value ?? { mode: "classic", timeLimitMs: null });
   });
 
   it("starts a server-owned run without accepting a browser seed", async () => {
     const run = { runId: "run-1", runVariant: 42, score: 0, personalBest: 12 };
     mocks.startStarWarsRun.mockResolvedValue(run);
 
-    const response = await startRoute();
+    const startRequest = new NextRequest("http://localhost/api/student/star-wars/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "time_trial", timeLimitMs: 180_000 })
+    });
+    const response = await startRoute(startRequest);
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ run });
-    expect(mocks.startStarWarsRun).toHaveBeenCalledWith(studentId);
+    expect(await response.json()).toEqual({ run, serverReceivedAt: expect.any(String) });
+    expect(mocks.parseStarWarsStartOptions).toHaveBeenCalledWith({ mode: "time_trial", timeLimitMs: 180_000 });
+    expect(mocks.startStarWarsRun).toHaveBeenCalledWith(studentId, { mode: "time_trial", timeLimitMs: 180_000 });
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
@@ -63,7 +72,8 @@ describe("Star Wars API routes", () => {
       studentId,
       runId: "run-1",
       startScore: 3,
-      routes
+      routes,
+      nowMs: expect.any(Number)
     });
   });
 

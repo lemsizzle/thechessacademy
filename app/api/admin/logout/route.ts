@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const response = NextResponse.redirect(new URL("/admin-login", request.url));
+  const response = NextResponse.redirect(new URL("/admin-login", request.url), 303);
   response.cookies.set(ADMIN_SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
@@ -13,8 +13,4 @@ export async function POST(request: Request) {
     maxAge: 0
   });
   return response;
-}
-
-export async function GET(request: Request) {
-  return POST(request);
 }

@@ -13,11 +13,36 @@ vi.mock("@/lib/auth/requireActiveStudent", () => {
 });
 
 import {
+  isStarWarsTimeTrialSubmissionOpen,
+  parseStarWarsStartOptions,
   parseStarWarsRoutes,
   verifyStarWarsRoute
 } from "@/lib/puzzle-training/starWarsServer";
 
 describe("Star Wars server verification", () => {
+  it("accepts Classic and the three supported Time Trial durations", () => {
+    expect(parseStarWarsStartOptions(undefined)).toEqual({ mode: "classic", timeLimitMs: null });
+    for (const timeLimitMs of [60_000, 180_000, 300_000]) {
+      expect(parseStarWarsStartOptions({ mode: "time_trial", timeLimitMs })).toEqual({ mode: "time_trial", timeLimitMs });
+    }
+    expect(() => parseStarWarsStartOptions({ mode: "time_trial", timeLimitMs: 120_000 })).toThrow(/1, 3, or 5 minute/i);
+    expect(() => parseStarWarsStartOptions({ mode: "classic", timeLimitMs: 60_000 })).toThrow(/does not use a time limit/i);
+  });
+
+  it("accepts in-flight Time Trial saves only through the short submission grace", () => {
+    const startedAtMs = Date.parse("2026-09-02T12:00:00.000Z");
+    expect(isStarWarsTimeTrialSubmissionOpen({
+      startedAtMs,
+      timeLimitMs: 60_000,
+      receivedAtMs: startedAtMs + 75_000
+    })).toBe(true);
+    expect(isStarWarsTimeTrialSubmissionOpen({
+      startedAtMs,
+      timeLimitMs: 60_000,
+      receivedAtMs: startedAtMs + 75_001
+    })).toBe(false);
+  });
+
   it("accepts the deterministic perfect route for the matching mission seed", () => {
     const runVariant = 42;
     const score = 6;

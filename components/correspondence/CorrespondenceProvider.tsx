@@ -3,6 +3,7 @@
 import { Button } from "@/components/Button";
 import {
   EMPTY_CORRESPONDENCE_INBOX,
+  correspondenceAlerts,
   formatCorrespondenceTimeLeft,
   readCorrespondenceInbox,
   type CorrespondenceChallenge,
@@ -11,7 +12,7 @@ import {
 } from "@/lib/correspondence/clientTypes";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -25,6 +26,7 @@ import {
 import { createPortal } from "react-dom";
 
 type ChallengeAction = "accept" | "reject" | "cancel";
+type BrowserNotificationStatus = "checking" | "prompt" | "enabled" | "blocked" | "unsupported";
 type Relationship =
   | { kind: "incoming"; challenge: CorrespondenceChallenge }
   | { kind: "outgoing"; challenge: CorrespondenceChallenge }
@@ -36,7 +38,7 @@ type CorrespondenceContextValue = {
   loading: boolean;
   error: string;
   pendingKey: string | null;
-  refresh: () => Promise<void>;
+  refresh: (options?: { notify?: boolean }) => Promise<CorrespondenceInbox | null>;
   sendChallenge: (recipientStudentId: string, recipientName?: string) => Promise<boolean>;
   actOnChallenge: (challengeId: string, action: ChallengeAction) => Promise<string | null>;
   relationshipFor: (studentId: string) => Relationship;
@@ -45,6 +47,10 @@ type CorrespondenceContextValue = {
 
 const CorrespondenceContext = createContext<CorrespondenceContextValue | null>(null);
 const POLL_INTERVAL_MS = 30_000;
+
+function browserNotificationKey(studentId: string) {
+  return `correspondence-browser-notifications:v1:${studentId}`;
+}
 
 function responseError(value: unknown, fallback: string) {
   if (value && typeof value === "object" && "error" in value && typeof value.error === "string") return value.error;
@@ -133,17 +139,21 @@ function InboxDialog({
   loading,
   pendingKey,
   error,
+  notificationStatus,
   onClose,
   onRefresh,
-  onAction
+  onAction,
+  onEnableNotifications
 }: {
   inbox: CorrespondenceInbox;
   loading: boolean;
   pendingKey: string | null;
   error: string;
+  notificationStatus: BrowserNotificationStatus;
   onClose: () => void;
   onRefresh: () => void;
   onAction: (challengeId: string, action: ChallengeAction) => void;
+  onEnableNotifications: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
@@ -199,6 +209,26 @@ function InboxDialog({
           {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
           {loading ? <p className="text-sm text-slate-400">Loading your challenges...</p> : null}
 
+          <section className="flex items-center justify-between gap-3 rounded-lg border border-cyan-200/20 bg-cyan-200/[0.07] p-3" aria-label="Correspondence notifications">
+            <div className="min-w-0">
+              <p className="font-black text-white">Move alerts</p>
+              <p className="mt-1 text-xs text-slate-400">
+                {notificationStatus === "enabled"
+                  ? "On for incoming challenges and games that need your move."
+                  : notificationStatus === "blocked"
+                    ? "Browser alerts are blocked. In-app alerts remain on."
+                    : notificationStatus === "unsupported"
+                      ? "In-app alerts are on. This browser does not support system alerts."
+                      : "Get an alert for new challenges and games that need your move."}
+              </p>
+            </div>
+            {notificationStatus === "prompt" ? (
+              <Button type="button" variant="secondary" className="shrink-0" onClick={onEnableNotifications}>Enable</Button>
+            ) : notificationStatus === "enabled" ? (
+              <span className="shrink-0 rounded-full border border-emerald-200/30 bg-emerald-200/10 px-3 py-1 text-xs font-black text-emerald-100">On</span>
+            ) : null}
+          </section>
+
           <section aria-labelledby="incoming-challenges-title">
             <div className="flex items-center justify-between gap-2">
               <h3 id="incoming-challenges-title" className="font-black text-white">Incoming challenges</h3>
@@ -248,25 +278,49 @@ function InboxDialog({
 
 export function CorrespondenceProvider({ studentId, children }: { studentId: string; children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [inbox, setInbox] = useState<CorrespondenceInbox>(EMPTY_CORRESPONDENCE_INBOX);
   const [loading, setLoading] = useState(true);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const [notificationStatus, setNotificationStatus] = useState<BrowserNotificationStatus>("checking");
   const mounted = useRef(true);
   const requestPending = useRef(false);
   const refreshSequence = useRef(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const pathnameRef = useRef(pathname);
+  const browserNotificationsEnabled = useRef(false);
 
-  const refresh = useCallback(async () => {
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!("Notification" in window)) {
+      setNotificationStatus("unsupported");
+      return;
+    }
+    let preferenceEnabled = false;
+    try {
+      preferenceEnabled = window.localStorage.getItem(browserNotificationKey(studentId)) === "enabled";
+    } catch {
+      // Browser storage can be unavailable in private or restricted sessions.
+    }
+    const enabled = preferenceEnabled && Notification.permission === "granted";
+    browserNotificationsEnabled.current = enabled;
+    setNotificationStatus(Notification.permission === "denied" ? "blocked" : enabled ? "enabled" : "prompt");
+  }, [studentId]);
+
+  const refresh = useCallback(async (options?: { notify?: boolean }) => {
     const sequence = ++refreshSequence.current;
     try {
       const response = await fetch("/api/student/correspondence", { cache: "no-store" });
       const body = await response.json().catch(() => ({})) as unknown;
       if (!response.ok) throw new Error(responseError(body, "Correspondence challenges could not be loaded."));
       const next = readCorrespondenceInbox(body);
-      if (!mounted.current || sequence !== refreshSequence.current) return;
+      if (!mounted.current || sequence !== refreshSequence.current) return next;
       setInbox(next);
       setError("");
 
@@ -276,17 +330,46 @@ export function CorrespondenceProvider({ studentId, children }: { studentId: str
         const stored = JSON.parse(window.sessionStorage.getItem(notificationKey) ?? "[]") as unknown;
         if (Array.isArray(stored)) notifiedIds = stored.filter((item): item is string => typeof item === "string");
       } catch {
-        window.sessionStorage.removeItem(notificationKey);
+        try {
+          window.sessionStorage.removeItem(notificationKey);
+        } catch {
+          // Continue without persisted notification history.
+        }
       }
       const notified = new Set<string>(notifiedIds);
-      const newChallenge = next.incoming.find((challenge) => challenge.status === "pending" && !challenge.seenAt && !notified.has(challenge.id));
-      if (newChallenge) {
-        notified.add(newChallenge.id);
-        window.sessionStorage.setItem(notificationKey, JSON.stringify(Array.from(notified).slice(-30)));
-        setToast(`${newChallenge.challenger.name} challenged you to a correspondence game.`);
+      const newAlerts = options?.notify === false
+        ? []
+        : correspondenceAlerts(next, pathnameRef.current).filter((alert) => !notified.has(alert.key));
+      const primaryAlert = newAlerts[0];
+      if (primaryAlert) {
+        newAlerts.forEach((alert) => notified.add(alert.key));
+        try {
+          window.sessionStorage.setItem(notificationKey, JSON.stringify(Array.from(notified).slice(-60)));
+        } catch {
+          // Alerts still work for this refresh when browser storage is unavailable.
+        }
+        const additionalCount = newAlerts.length - 1;
+        setToast(`${primaryAlert.message}${additionalCount ? ` ${additionalCount} more correspondence update${additionalCount === 1 ? "" : "s"}.` : ""}`);
+        if (browserNotificationsEnabled.current && Notification.permission === "granted" && document.visibilityState !== "visible") {
+          try {
+            const notification = new Notification(primaryAlert.title, {
+              body: `${primaryAlert.message}${additionalCount ? ` ${additionalCount} more update${additionalCount === 1 ? "" : "s"}.` : ""}`,
+              tag: "chess-academy-correspondence"
+            });
+            notification.onclick = () => {
+              window.focus();
+              window.location.assign(primaryAlert.href);
+              notification.close();
+            };
+          } catch {
+            // The in-app alert remains available when the operating system rejects a notification.
+          }
+        }
       }
+      return next;
     } catch (caught) {
       if (mounted.current && sequence === refreshSequence.current) setError(caught instanceof Error ? caught.message : "Correspondence challenges could not be loaded.");
+      return null;
     } finally {
       if (mounted.current && sequence === refreshSequence.current) setLoading(false);
     }
@@ -335,6 +418,39 @@ export function CorrespondenceProvider({ studentId, children }: { studentId: str
     const timeout = window.setTimeout(() => setToast(""), 7_000);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+
+  const enableBrowserNotifications = useCallback(async () => {
+    if (!("Notification" in window)) {
+      setNotificationStatus("unsupported");
+      return;
+    }
+    try {
+      const permission = Notification.permission === "default"
+        ? await Notification.requestPermission()
+        : Notification.permission;
+      const enabled = permission === "granted";
+      browserNotificationsEnabled.current = enabled;
+      if (enabled) {
+        try {
+          window.localStorage.setItem(browserNotificationKey(studentId), "enabled");
+        } catch {
+          // Notification permission still applies for this page session.
+        }
+        setNotificationStatus("enabled");
+        setToast("Correspondence alerts are on for challenges and games that need your move.");
+      } else {
+        try {
+          window.localStorage.removeItem(browserNotificationKey(studentId));
+        } catch {
+          // Ignore unavailable browser storage.
+        }
+        setNotificationStatus(permission === "denied" ? "blocked" : "prompt");
+      }
+    } catch {
+      browserNotificationsEnabled.current = false;
+      setNotificationStatus("unsupported");
+    }
+  }, [studentId]);
 
   const markSeen = useCallback(async () => {
     setInbox((current) => ({ ...current, unreadCount: 0 }));
@@ -440,6 +556,9 @@ export function CorrespondenceProvider({ studentId, children }: { studentId: str
     });
   }
 
+  const gamesAwaitingMove = inbox.activeGames.filter((game) => game.status === "active" && game.activeColor === game.viewerColor).length;
+  const notificationCount = inbox.unreadCount + gamesAwaitingMove;
+
   return (
     <CorrespondenceContext.Provider value={value}>
       {children}
@@ -447,16 +566,26 @@ export function CorrespondenceProvider({ studentId, children }: { studentId: str
         ref={triggerRef}
         type="button"
         onClick={openInbox}
-        aria-label={`Correspondence challenges${inbox.unreadCount ? `, ${inbox.unreadCount} unread` : ""}`}
+        aria-label={`Correspondence moves and challenges${notificationCount ? `, ${notificationCount} need attention` : ""}`}
         aria-haspopup="dialog"
         className="fixed bottom-4 right-4 z-40 inline-flex items-center gap-2 rounded-full border border-cyan-200/40 bg-slate-950/95 px-4 py-3 text-sm font-black text-white shadow-[0_10px_45px_rgba(34,211,238,.28)] transition hover:-translate-y-0.5 hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
       >
         <span aria-hidden="true">♟</span>
-        <span className="hidden sm:inline">Challenges</span>
-        {inbox.unreadCount > 0 ? <span className="flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-400 px-1 text-[11px] text-slate-950">{Math.min(99, inbox.unreadCount)}</span> : null}
+        <span className="hidden sm:inline">Moves &amp; challenges</span>
+        {notificationCount > 0 ? <span className="flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-400 px-1 text-[11px] text-slate-950">{Math.min(99, notificationCount)}</span> : null}
       </button>
       {panelOpen && typeof document !== "undefined" ? (
-        <InboxDialog inbox={inbox} loading={loading} pendingKey={pendingKey} error={error} onClose={closeInbox} onRefresh={() => void refresh()} onAction={handleInboxAction} />
+        <InboxDialog
+          inbox={inbox}
+          loading={loading}
+          pendingKey={pendingKey}
+          error={error}
+          notificationStatus={notificationStatus}
+          onClose={closeInbox}
+          onRefresh={() => void refresh()}
+          onAction={handleInboxAction}
+          onEnableNotifications={() => void enableBrowserNotifications()}
+        />
       ) : null}
       {toast && typeof document !== "undefined" ? createPortal(
         <div className="fixed right-4 top-20 z-[90] flex max-w-sm items-start gap-3 rounded-lg border border-cyan-200/30 bg-slate-950/95 p-4 text-sm font-bold text-cyan-50 shadow-[0_18px_55px_rgba(0,0,0,.55)]" role="status" aria-live="polite">

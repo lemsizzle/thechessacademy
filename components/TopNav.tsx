@@ -2,6 +2,18 @@ import Link from "next/link";
 import { getNavigationGroups, getTopNavActions, type NavVariant } from "@/components/navigation";
 import { StudentNavigation } from "@/components/student/StudentNavigation";
 
+function TopNavAction({ href, label, className }: { href: string; label: string; className: string }) {
+  if (href === "/api/admin/logout") {
+    return (
+      <form action={href} method="post">
+        <button type="submit" className={className}>{label}</button>
+      </form>
+    );
+  }
+
+  return <Link className={className} href={href}>{label}</Link>;
+}
+
 export function TopNav({
   variant = "public",
   studentName,
@@ -25,9 +37,11 @@ export function TopNav({
         <Link href={homeHref} className="font-black text-white">The Chess Academy Quest Board</Link>
         <div className="hidden items-center gap-2 text-xs font-bold md:flex">
           {actions.map((link) => (
-            <Link key={link.href} className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-slate-200 hover:bg-white/10" href={link.href}>
-              {link.label}
-            </Link>
+            <TopNavAction
+              key={link.href}
+              {...link}
+              className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-slate-200 hover:bg-white/10"
+            />
           ))}
         </div>
         <details className="relative md:hidden">
@@ -48,9 +62,11 @@ export function TopNav({
               ))}
               <div className="grid gap-1 border-t border-white/10 pt-3">
                 {actions.map((link) => (
-                  <Link key={link.href} className="rounded-md px-3 py-2 text-sm font-bold text-cyan-100 hover:bg-white/10" href={link.href}>
-                    {link.label}
-                  </Link>
+                  <TopNavAction
+                    key={link.href}
+                    {...link}
+                    className="w-full rounded-md px-3 py-2 text-left text-sm font-bold text-cyan-100 hover:bg-white/10"
+                  />
                 ))}
               </div>
             </div>

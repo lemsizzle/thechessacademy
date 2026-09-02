@@ -45,16 +45,16 @@ export const PUZZLE_MODE_OPTIONS: ReadonlyArray<PuzzleModeOption> = [
     id: "starWars",
     name: "Star Wars",
     icon: "★",
-    summary: "One-star moves · score attack",
-    description: "Every move must land a non-pawn piece on exactly one star while keeping another star reachable. A miss or dead end ends the run.",
+    summary: "Classic or 1–5 minute Time Trial",
+    description: "Collect one star per move while keeping another reachable. Build a classic streak or race a 1, 3, or 5 minute clock.",
     startLabel: "Launch Star Wars"
   },
   {
     id: "hideAndSeek",
     name: "Hide and Seek",
     icon: "✦",
-    summary: "Classic or 60-second Time Trial",
-    description: "Find every empty square the black pieces cannot see. Choose an open-ended search or race a 60-second clock; speed can earn up to 40% of your score.",
+    summary: "Classic, Time Trial, or Hard Mode",
+    description: "Find every empty square the black pieces cannot see. Race the clock, or try one-strike Hard Mode where a dangerous square ends the round.",
     startLabel: "Start Hide and Seek"
   },
   {

@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   HIDE_AND_SEEK_MAX_SAFE_SQUARES,
   HIDE_AND_SEEK_MIN_SAFE_SQUARES,
-  generateHideAndSeekBoard
+  generateHideAndSeekBoard,
+  type HideAndSeekMode,
+  type HideAndSeekSquare
 } from "@/lib/puzzle-training/hideAndSeek";
 import {
   HIDE_AND_SEEK_ACTIVATION_GRACE_MS,
@@ -42,7 +44,7 @@ function acceptedSeed() {
   throw new Error("Test could not find a balanced board seed.");
 }
 
-function roundToken(roundId: string, seed: string, mode: "classic" | "time_trial" = "classic") {
+function roundToken(roundId: string, seed: string, mode: HideAndSeekMode = "classic") {
   const durationMs = mode === "time_trial"
     ? 60_000 + HIDE_AND_SEEK_TIME_TRIAL_SUBMISSION_GRACE_MS
     : 30 * 60_000;
@@ -152,6 +154,30 @@ describe("Hide and Seek server persistence", () => {
 
     expect(result).toMatchObject({ mode: "time_trial", elapsedMs: 60_000, score: 0 });
     expect([...client.rows.values()][0]).toMatchObject({ mode: "time_trial", selected_squares: [] });
+  });
+
+  it("persists a dangerous-square Hard Mode result as an immediate loss", async () => {
+    const client = createAttemptClient();
+    mocks.getSupabaseServiceClient.mockReturnValue(client);
+    const seed = acceptedSeed();
+    const board = generateHideAndSeekBoard(seed);
+    const occupied = new Set(board.pieces.map((piece) => piece.square));
+    const dangerousSquare = Array.from({ length: 64 }, (_, index) => (
+      `${String.fromCharCode(97 + index % 8)}${Math.floor(index / 8) + 1}` as HideAndSeekSquare
+    )).find((square) => !occupied.has(square) && !board.safeSquares.includes(square));
+    expect(dangerousSquare).toBeDefined();
+    if (!dangerousSquare) throw new Error("Test board did not contain a dangerous empty square.");
+    const token = roundToken("30000000-0000-4000-8000-000000000008", seed, "hard");
+
+    const result = await finishHideAndSeekRound({
+      studentId,
+      token,
+      selectedSquares: [board.safeSquares[0], dangerousSquare],
+      nowMs: startedAtMs + 2_000
+    });
+
+    expect(result).toMatchObject({ mode: "hard", score: 0, correctCount: 1, wrongCount: 1 });
+    expect([...client.rows.values()][0]).toMatchObject({ mode: "hard", score: 0 });
   });
 
   it("recomputes, saves, and returns the authoritative result", async () => {

@@ -84,7 +84,7 @@ describe("Hide and Seek API routes", () => {
       JSON.stringify({ mode: "blitz" })
     ));
     expect(invalidMode.status).toBe(400);
-    expect(await invalidMode.json()).toEqual({ error: "Choose Classic or Time Trial mode." });
+    expect(await invalidMode.json()).toEqual({ error: "Choose Classic, Time Trial, or Hard mode." });
 
     mocks.startHideAndSeekRound.mockImplementationOnce(() => {
       throw new Error("postgres connection string and internal details");

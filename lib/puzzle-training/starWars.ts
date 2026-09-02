@@ -2,6 +2,18 @@ import { Chess, type PieceSymbol, type Square } from "chess.js";
 
 export type StarWarsPieceSymbol = Exclude<PieceSymbol, "p">;
 
+export type StarWarsMode = "classic" | "time_trial";
+export const STAR_WARS_TIME_LIMIT_OPTIONS_MS = [60_000, 180_000, 300_000] as const;
+export type StarWarsTimeLimitMs = typeof STAR_WARS_TIME_LIMIT_OPTIONS_MS[number];
+
+export function isStarWarsMode(value: unknown): value is StarWarsMode {
+  return value === "classic" || value === "time_trial";
+}
+
+export function isStarWarsTimeLimitMs(value: unknown): value is StarWarsTimeLimitMs {
+  return STAR_WARS_TIME_LIMIT_OPTIONS_MS.some((duration) => duration === value);
+}
+
 export type StarWarsMove = {
   from: Square;
   to: Square;

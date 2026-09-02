@@ -19,7 +19,7 @@ async function readBody(request: NextRequest) {
   }
   const mode = (value as { mode?: unknown }).mode ?? "classic";
   if (!isHideAndSeekMode(mode)) {
-    throw new HideAndSeekInputError("Choose Classic or Time Trial mode.");
+    throw new HideAndSeekInputError("Choose Classic, Time Trial, or Hard mode.");
   }
   return mode;
 }

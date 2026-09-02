@@ -21,6 +21,8 @@ describe("Hide and Seek training UI", () => {
     expect(html).toContain("Board hidden");
     expect(html).toContain("Start Classic Search");
     expect(html).toContain("Time Trial");
+    expect(html).toContain("Hard Mode");
+    expect(html).toContain("One strike");
     expect(html).toContain("60 seconds");
     expect(html).toContain("40% speed");
     expect(html).toContain("The clock starts when the pieces appear.");

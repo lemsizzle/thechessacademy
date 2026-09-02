@@ -26,6 +26,8 @@ type AttemptRow = { id: string; student_id: string; quest_id: string; started_at
 type CompletionRow = { id: string; student_id: string; quest_id: string; completed_at: string; xp_awarded: number; badge_awarded_id: string | null; evidence: string };
 type StudentBadgeRow = { id: string; student_id: string; badge_id: string; awarded_at: string; note: string | null };
 type ActivityRow = { id: string; student_id: string | null; event_type: string; title: string; description: string | null; created_at: string };
+type ActivityRewardRow = { xp_event_id: string | null; source_id: string; source_type: string };
+type InternalGameRow = { id: string; opponent_name: string };
 type GameSubmissionRow = { id: string; student_id: string; game_type: string | null; status: string; submitted_at: string; reviewed_at: string | null };
 type ScoreSubmissionRow = { id: string; student_id: string; challenge_name: string; tactic_theme: string; score: number; total_questions: number | null; status: string; submitted_at: string; reviewed_at: string | null; xp_awarded: number | null };
 
@@ -80,6 +82,8 @@ export async function getAdminRosterActivity(limit = 300): Promise<AdminRosterAc
     completionsResult,
     studentBadgesResult,
     activityResult,
+    activityRewardsResult,
+    internalGamesResult,
     gameSubmissionsResult,
     scoreSubmissionsResult
   ] = await Promise.all([
@@ -92,6 +96,8 @@ export async function getAdminRosterActivity(limit = 300): Promise<AdminRosterAc
     supabase.from("quest_completion_events").select("id,student_id,quest_id,completed_at,xp_awarded,badge_awarded_id,evidence").order("completed_at", { ascending: false }).limit(perSourceLimit),
     supabase.from("student_badges").select("id,student_id,badge_id,awarded_at,note").order("awarded_at", { ascending: false }).limit(perSourceLimit),
     supabase.from("activity_events").select("id,student_id,event_type,title,description,created_at").order("created_at", { ascending: false }).limit(perSourceLimit),
+    supabase.from("academy_activity_rewards").select("xp_event_id,source_id,source_type").eq("source_type", "web_game").order("awarded_at", { ascending: false }).limit(perSourceLimit),
+    supabase.from("internal_chess_games").select("id,opponent_name").order("completed_at", { ascending: false }).limit(perSourceLimit),
     supabase.from("student_game_submissions").select("id,student_id,game_type,status,submitted_at,reviewed_at").order("submitted_at", { ascending: false }).limit(perSourceLimit),
     supabase.from("student_score_submissions").select("id,student_id,challenge_name,tactic_theme,score,total_questions,status,submitted_at,reviewed_at,xp_awarded").order("submitted_at", { ascending: false }).limit(perSourceLimit)
   ]);
@@ -99,17 +105,31 @@ export async function getAdminRosterActivity(limit = 300): Promise<AdminRosterAc
   const studentMap = new Map(rows<StudentRow>(studentsResult, "students").map((student) => [student.id, student]));
   const questMap = new Map(rows<QuestRow>(questsResult, "academy_quests").map((quest) => [quest.id, quest.title]));
   const badgeMap = new Map(rows<BadgeRow>(badgesResult, "badges").map((badge) => [badge.id, badge.name]));
+  const gameIdByXpEvent = new Map(
+    rows<ActivityRewardRow>(activityRewardsResult, "academy_activity_rewards")
+      .filter((reward) => reward.source_type === "web_game" && reward.xp_event_id)
+      .map((reward) => [reward.xp_event_id as string, reward.source_id])
+  );
+  const opponentByGameId = new Map(
+    rows<InternalGameRow>(internalGamesResult, "internal_chess_games")
+      .map((game) => [game.id, game.opponent_name.trim()])
+  );
   const items: AdminRosterActivityItem[] = [];
 
   for (const event of rows<XpRow>(xpResult, "xp_events")) {
     const kind = classifyXp(event.reason);
     const questCompletion = kind === "quest" && event.reason.toLowerCase().startsWith("quest completed:");
+    const gameId = kind === "game" ? gameIdByXpEvent.get(event.id) : undefined;
+    const opponent = gameId ? opponentByGameId.get(gameId) : undefined;
+    const reason = opponent
+      ? `${event.reason.replace(/\.$/, "")} against ${opponent}.`
+      : event.reason;
     items.push({
       id: `xp-${event.id}`,
       ...studentContext(studentMap, event.student_id),
       kind,
       title: questCompletion ? "Quest completed" : event.amount >= 0 ? "XP earned" : "XP adjusted",
-      detail: `${signed(event.amount)} XP${event.amount > 0 ? ` and ${event.amount.toLocaleString()} coins` : ""} - ${event.reason}`,
+      detail: `${signed(event.amount)} XP${event.amount > 0 ? ` and ${event.amount.toLocaleString()} coins` : ""} - ${reason}`,
       createdAt: event.created_at,
       amount: event.amount
     });

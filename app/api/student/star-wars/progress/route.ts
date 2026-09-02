@@ -9,6 +9,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  const receivedAt = Date.now();
   try {
     const value = await request.json() as unknown;
     if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -20,7 +21,8 @@ export async function POST(request: NextRequest) {
       studentId: student.studentId,
       runId: body.runId,
       startScore: body.startScore,
-      routes: body.routes
+      routes: body.routes,
+      nowMs: receivedAt
     });
     return NextResponse.json({ result }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

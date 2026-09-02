@@ -9,6 +9,7 @@ import {
   calculateHideAndSeekScore,
   generateHideAndSeekBoard,
   generateHideAndSeekBoardForVersion,
+  isHideAndSeekMode,
   isHideAndSeekSquare,
   type HideAndSeekBoard,
   type HideAndSeekMode,
@@ -250,7 +251,7 @@ export async function finishHideAndSeekRound(input: {
       Math.max(0, Number(existing.elapsed_ms)),
       personalBest,
       completedAt.toISOString(),
-      existing.mode === "time_trial" ? "time_trial" : "classic"
+      isHideAndSeekMode(existing.mode) ? existing.mode : "classic"
     );
   }
 
@@ -307,7 +308,7 @@ export async function finishHideAndSeekRound(input: {
       Math.max(0, Number(racedAttempt.elapsed_ms)),
       personalBest,
       racedCompletedAt.toISOString(),
-      racedAttempt.mode === "time_trial" ? "time_trial" : "classic"
+      isHideAndSeekMode(racedAttempt.mode) ? racedAttempt.mode : "classic"
     );
   }
 

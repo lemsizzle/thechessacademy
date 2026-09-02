@@ -10,12 +10,17 @@ import {
 } from "react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import type {
-  HideAndSeekMode,
-  HideAndSeekPieceCode,
-  HideAndSeekPiecePlacement,
-  HideAndSeekSquare
+import {
+  calculateHideAndSeekSafeSquares,
+  type HideAndSeekMode,
+  type HideAndSeekPieceCode,
+  type HideAndSeekPiecePlacement,
+  type HideAndSeekSquare
 } from "@/lib/puzzle-training/hideAndSeek";
+import {
+  monotonicEpochNow,
+  synchronizedStartOffset
+} from "@/lib/puzzle-training/synchronizedTimer";
 
 export type HideAndSeekSearchPhase = "ready" | "preparing" | "searching" | "finishing" | "restart-required" | "result";
 
@@ -97,10 +102,6 @@ function errorMessage(value: unknown, fallback: string) {
   return fallback;
 }
 
-function monotonicEpochNow() {
-  return performance.timeOrigin + performance.now();
-}
-
 export function canMarkHideAndSeekBoard(phase: HideAndSeekSearchPhase) {
   return phase === "searching";
 }
@@ -132,25 +133,7 @@ export function hideAndSeekSynchronizedStartOffset(input: {
   requestStartedAt: number;
   responseReceivedAt: number;
 }) {
-  const startedAt = Date.parse(input.startedAt);
-  const serverReceivedAt = Date.parse(input.serverReceivedAt);
-  const serverSentAt = Date.parse(input.serverSentAt);
-  if (!Number.isFinite(startedAt)
-    || !Number.isFinite(serverReceivedAt)
-    || !Number.isFinite(serverSentAt)
-    || !Number.isFinite(input.requestStartedAt)
-    || !Number.isFinite(input.responseReceivedAt)
-    || serverSentAt < serverReceivedAt
-    || input.responseReceivedAt < input.requestStartedAt) return null;
-
-  // NTP's four-timestamp offset removes both device-clock skew and the time
-  // spent authenticating/generating the board on the server.
-  const clockOffset = (
-    (serverReceivedAt - input.requestStartedAt)
-    + (serverSentAt - input.responseReceivedAt)
-  ) / 2;
-  const estimatedServerAtResponse = input.responseReceivedAt + clockOffset;
-  return startedAt - estimatedServerAtResponse;
+  return synchronizedStartOffset(input);
 }
 
 function BoardPiece({ piece, square }: { piece: HideAndSeekPieceCode; square: HideAndSeekSquare }) {
@@ -242,7 +225,10 @@ function SearchBoard({
     () => new Map(round.pieces.map((placement) => [placement.square, placement.piece])),
     [round.pieces]
   );
-  const correctSquares = useMemo(() => new Set(result?.correctSquares ?? []), [result?.correctSquares]);
+  const correctSquares = useMemo(
+    () => new Set(result?.mode === "hard" && result.wrongCount > 0 ? [] : result?.correctSquares ?? []),
+    [result?.correctSquares, result?.mode, result?.wrongCount]
+  );
   const wrongSquares = useMemo(() => new Set(result?.wrongSquares ?? []), [result?.wrongSquares]);
   const missedSquares = useMemo(() => new Set(result?.missedSquares ?? []), [result?.missedSquares]);
 
@@ -370,6 +356,10 @@ export function HideAndSeekTraining({
   const activeMode = round?.mode ?? result?.mode ?? searchMode;
   const timeLimitMs = round?.timeLimitMs ?? (activeMode === "time_trial" ? 60_000 : null);
   const timeTrialExpired = timeLimitMs !== null && elapsedMs >= timeLimitMs;
+  const safeSquareSet = useMemo(
+    () => new Set(round ? calculateHideAndSeekSafeSquares(round.pieces) : []),
+    [round]
+  );
 
   useEffect(() => () => {
     requestRef.current?.abort();
@@ -462,11 +452,12 @@ export function HideAndSeekTraining({
     }
   }
 
-  async function finishSearch() {
+  async function finishSearch(selectionOverride?: ReadonlySet<HideAndSeekSquare>) {
+    const selections = selectionOverride ?? selectedSquares;
     if (!round || !canScoreHideAndSeekBoard({
       phase,
       token,
-      selectedCount: selectedSquares.size,
+      selectedCount: selections.size,
       mode: round.mode
     })) return;
     requestRef.current?.abort();
@@ -478,7 +469,7 @@ export function HideAndSeekTraining({
     setError("");
 
     try {
-      const orderedSelections = BOARD_SQUARES.filter((square) => selectedSquares.has(square));
+      const orderedSelections = BOARD_SQUARES.filter((square) => selections.has(square));
       const response = await fetch("/api/student/hide-and-seek/finish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -517,12 +508,22 @@ export function HideAndSeekTraining({
       || timeTrialExpired
       || !round
       || round.pieces.some((placement) => placement.square === square)) return;
-    setSelectedSquares((current) => {
-      const next = new Set(current);
-      if (next.has(square)) next.delete(square);
-      else next.add(square);
-      return next;
-    });
+    const next = new Set(selectedSquares);
+    if (round.mode === "hard") {
+      if (next.has(square)) return;
+      next.add(square);
+      if (!safeSquareSet.has(square)) {
+        setSelectedSquares(new Set());
+        void finishSearch(next);
+        return;
+      }
+      setSelectedSquares(next);
+      if (next.size === safeSquareSet.size) void finishSearch(next);
+      return;
+    }
+    if (next.has(square)) next.delete(square);
+    else next.add(square);
+    setSelectedSquares(next);
   }
 
   function changeMode() {
@@ -603,10 +604,11 @@ export function HideAndSeekTraining({
                 <>
                   <fieldset disabled={phase === "preparing"}>
                     <legend className="text-xs font-black uppercase tracking-[0.16em] text-emerald-200">Choose a mode</legend>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
                       {([
                         ["classic", "Classic", "Open-ended", "Search carefully, then stop the clock when you are ready."],
-                        ["time_trial", "Time Trial", "60 seconds", "Race the countdown. Your board scores automatically at zero."]
+                        ["time_trial", "Time Trial", "60 seconds", "Race the countdown. Your board scores automatically at zero."],
+                        ["hard", "Hard Mode", "One strike", "Every click is final. A dangerous square explodes your stars and ends the round."]
                       ] as const).map(([mode, name, label, description]) => {
                         const selected = searchMode === mode;
                         return (
@@ -642,7 +644,9 @@ export function HideAndSeekTraining({
                         ? "Try Start Again"
                         : searchMode === "time_trial"
                           ? "Start 60-Second Trial"
-                          : "Start Classic Search"}
+                          : searchMode === "hard"
+                            ? "Start Hard Search"
+                            : "Start Classic Search"}
                   </Button>
                 </>
               ) : null}
@@ -666,13 +670,19 @@ export function HideAndSeekTraining({
                   ) : null}
                   {activeMode === "time_trial" && timeTrialExpired ? (
                     <p className="mt-4 rounded-lg border border-amber-200/25 bg-amber-300/10 p-3 text-sm font-bold text-amber-100" role="status">Time’s up — saving your score.</p>
+                  ) : activeMode === "hard" ? (
+                    <p className="mt-4 rounded-lg border border-rose-200/25 bg-rose-300/10 p-3 text-sm font-bold leading-6 text-rose-100">Every click is final. Hit a dangerous square and every star explodes. Find every safe square to stop the timer automatically.</p>
                   ) : (
                     <p className="mt-4 text-sm leading-6 text-slate-300">Click or tap to stamp a square. With a keyboard, use the arrow keys to move and Enter or Space to stamp.</p>
                   )}
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <Button type="button" variant="ghost" onClick={() => setSelectedSquares(new Set())} disabled={phase === "finishing" || timeTrialExpired || selectedSquares.size === 0}>Clear Marks</Button>
-                    <Button type="button" onClick={() => void finishSearch()} disabled={!canScoreHideAndSeekBoard({ phase, token, selectedCount: selectedSquares.size, mode: round?.mode })}>{phase === "finishing" ? "Scoring..." : error && timeTrialExpired ? "Retry Score" : token ? activeMode === "time_trial" ? "Finish Now" : "Stop & Score" : "Activating..."}</Button>
-                  </div>
+                  {activeMode === "hard" ? (
+                    <p className="mt-4 text-center text-xs font-black uppercase tracking-widest text-emerald-200" role="status">{phase === "finishing" ? "Round complete — scoring..." : `${selectedSquares.size} safe ${selectedSquares.size === 1 ? "square" : "squares"} found`}</p>
+                  ) : (
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <Button type="button" variant="ghost" onClick={() => setSelectedSquares(new Set())} disabled={phase === "finishing" || timeTrialExpired || selectedSquares.size === 0}>Clear Marks</Button>
+                      <Button type="button" onClick={() => void finishSearch()} disabled={!canScoreHideAndSeekBoard({ phase, token, selectedCount: selectedSquares.size, mode: round?.mode })}>{phase === "finishing" ? "Scoring..." : error && timeTrialExpired ? "Retry Score" : token ? activeMode === "time_trial" ? "Finish Now" : "Stop & Score" : "Activating..."}</Button>
+                    </div>
+                  )}
                 </>
               ) : null}
 
@@ -690,7 +700,8 @@ export function HideAndSeekTraining({
               {phase === "result" && result ? (
                 <>
                   <div className="rounded-xl border border-emerald-300/30 bg-emerald-300/10 p-4 text-center">
-                    <p className="text-xs font-black uppercase tracking-widest text-cyan-100">{result.mode === "time_trial" ? "60-second Time Trial" : "Classic search"}</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-cyan-100">{result.mode === "time_trial" ? "60-second Time Trial" : result.mode === "hard" ? "One-strike Hard Mode" : "Classic search"}</p>
+                    {result.mode === "hard" && result.wrongCount > 0 ? <p className="mt-2 font-black text-rose-200">Dangerous square — all stars exploded.</p> : null}
                     <p className="text-xs font-black uppercase tracking-widest text-emerald-200">Final score</p>
                     <p className="mt-1 text-5xl font-black text-white">{result.score}</p>
                     <p className="mt-1 text-sm font-bold text-emerald-100">out of 1,000 points</p>
