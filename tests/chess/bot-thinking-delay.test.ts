@@ -32,18 +32,36 @@ describe("bot thinking delay", () => {
     expect(delay).toBeLessThanOrEqual(2_400);
   });
 
-  it("keeps quiet opening replies within a quick, natural range", () => {
+  it("keeps quiet opening replies in a clearly visible range", () => {
     expect(createBotThinkingDelay({
       fen: QUIET_POSITION,
       remainingMs: null,
       incrementMs: 0,
       random: () => 0
-    })).toBe(850);
+    })).toBe(2_000);
     expect(createBotThinkingDelay({
       fen: QUIET_POSITION,
       remainingMs: null,
       incrementMs: 0,
       random: () => 1
-    })).toBe(2_600);
+    })).toBe(6_500);
+  });
+
+  it("keeps consecutive quiet replies noticeably different", () => {
+    const firstDelay = createBotThinkingDelay({
+      fen: QUIET_POSITION,
+      remainingMs: null,
+      incrementMs: 0,
+      random: () => 0.5
+    });
+    const nextDelay = createBotThinkingDelay({
+      fen: QUIET_POSITION,
+      remainingMs: null,
+      incrementMs: 0,
+      previousDelayMs: firstDelay,
+      random: () => 0.5
+    });
+
+    expect(Math.abs(nextDelay - firstDelay)).toBeGreaterThanOrEqual(900);
   });
 });

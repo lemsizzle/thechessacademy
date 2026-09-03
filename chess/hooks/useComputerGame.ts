@@ -28,6 +28,7 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
   const previousHumanClockRef = useRef<number | null>(null);
   const clockDisplayRef = useRef<ClockSnapshot | null>(null);
   const botMoveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousBotDelayRef = useRef<number | null>(null);
   const [config, setConfig] = useState<ComputerGameConfig | null>(null);
   const [fen, setFen] = useState(STANDARD_FEN);
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
@@ -108,6 +109,7 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     completedAtRef.current = "";
     saveStartedRef.current = false;
     takebackCountRef.current = 0;
+    previousBotDelayRef.current = null;
     const initialClock = resetClock(nextConfig.timeControl);
     previousHumanClockRef.current = initialClock
       ? nextConfig.humanColor === "white" ? initialClock.whiteMs : initialClock.blackMs
@@ -208,8 +210,10 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     const targetDelayMs = createBotThinkingDelay({
       fen,
       remainingMs,
-      incrementMs: config.timeControl.incrementMs
+      incrementMs: config.timeControl.incrementMs,
+      previousDelayMs: previousBotDelayRef.current
     });
+    previousBotDelayRef.current = targetDelayMs;
     const turnStartedAt = Date.now();
     setDelayingBotMove(true);
 
