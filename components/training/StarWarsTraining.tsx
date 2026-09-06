@@ -11,6 +11,7 @@ import {
   type BoardCircle
 } from "@/chess/components/boardAnnotations";
 import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
+import { boardClickAction } from "@/chess/game/boardInteraction";
 import { useChessSounds } from "@/chess/hooks/useChessSounds";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -385,13 +386,19 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   function handleSquareClick(square: Square) {
     if (phase !== "playing") return;
     clearAnnotations();
-    if (selectedSquare && legalSquares.includes(square)) {
-      move(selectedSquare, square);
+    const action = boardClickAction({
+      selectedSquare,
+      clickedSquare: square,
+      legalDestination: legalSquares.includes(square),
+      selectable: gameState.movableSquares.includes(square)
+    });
+    if (action.type === "move") {
+      move(action.from, action.to);
       return;
     }
-    if (gameState.movableSquares.includes(square)) {
-      setSelectedSquare(square);
-      setLegalSquares(starWarsLegalDestinations(gameState, square));
+    if (action.type === "select") {
+      setSelectedSquare(action.square);
+      setLegalSquares(starWarsLegalDestinations(gameState, action.square));
       return;
     }
     setSelectedSquare(null);

@@ -6,5 +6,5 @@ export const BOARD_MOTION_OPTIONS = {
 export const BOARD_INTERACTION_OPTIONS = {
   allowDragOffBoard: false,
   allowAutoScroll: false,
-  dragActivationDistance: 8
+  dragActivationDistance: 4
 } as const;

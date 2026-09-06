@@ -154,6 +154,15 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
     [game, viewedPly]
   );
   const materialBalance = useMemo(() => viewedFen ? whiteMaterialAdvantage(viewedFen) : 0, [viewedFen]);
+  const lastMove = useMemo<[string, string] | null>(() => {
+    if (!game || viewedPly <= 0) return null;
+    const move = game.moves[viewedPly - 1];
+    return move ? [move.from, move.to] : null;
+  }, [game, viewedPly]);
+  const ignoreMove = useCallback(() => undefined, []);
+  const clearBoardAnnotations = useCallback(() => {
+    setBoardArrows((current) => current.length ? [] : current);
+  }, []);
 
   useEffect(() => {
     setBoardArrows([]);
@@ -178,9 +187,6 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
 
   const topColor = oppositeColor(orientation);
   const bottomColor = orientation;
-  const viewedMove = viewedPly > 0 ? game.moves[viewedPly - 1] : null;
-  const lastMove = viewedMove ? [viewedMove.from, viewedMove.to] as [string, string] : null;
-
   return (
     <div className="space-y-4">
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
@@ -188,9 +194,9 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
         <div className="mx-auto min-w-0 space-y-2" style={boardColumnStyle}>
           <PlayerPanel name={game.players[topColor].name} subtitle={`Playing ${topColor}`} clockMs={displayedClocks[topColor]} active={game.status === "active" && game.activeColor === topColor} avatar={game.players[topColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, topColor)} />
           <div className="relative">
-            <div className="absolute right-2 top-2 z-30"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
+            <div className="mb-2 flex justify-end sm:absolute sm:left-[calc(100%+0.5rem)] sm:top-0 sm:z-30 sm:mb-0"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
             <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
-              <AcademyChessboard fen={viewedFen} orientation={orientation} humanColor={orientation} interactive={false} lastMove={lastMove} onMove={() => undefined} arrows={boardArrows} allowDrawingArrows onArrowsChange={setBoardArrows} onClearAnnotations={() => setBoardArrows([])} boardId={`teacher-watch-${game.id}`} />
+              <AcademyChessboard fen={viewedFen} orientation={orientation} humanColor={orientation} interactive={false} lastMove={lastMove} onMove={ignoreMove} arrows={boardArrows} allowDrawingArrows onArrowsChange={setBoardArrows} onClearAnnotations={clearBoardAnnotations} boardId={`teacher-watch-${game.id}`} />
               <BoardCaptureParticles effect={selectedPly === null ? captureEffect : null} orientation={orientation} />
             </div>
           </div>

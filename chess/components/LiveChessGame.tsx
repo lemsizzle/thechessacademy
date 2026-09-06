@@ -242,6 +242,15 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
     () => game ? whiteMaterialAdvantage(optimisticFen ?? game.fen) : 0,
     [game, optimisticFen]
   );
+  const lastMove = useMemo<[string, string] | null>(() => {
+    if (!game?.moves.length) return null;
+    const move = game.moves[game.moves.length - 1];
+    return [move.from, move.to];
+  }, [game?.moves]);
+  const displayedPremove = useMemo<[string, string] | null>(
+    () => premove ? [premove.from, premove.to] : null,
+    [premove]
+  );
 
   useEffect(() => {
     if (!game) return;
@@ -335,7 +344,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
     void sendMove(queued.from, queued.to, queued.promotion);
   }, [game, pending, premove, sendMove]);
 
-  function attemptMove(from: string, to: string) {
+  const attemptMove = useCallback((from: string, to: string) => {
     if (!game) return;
     if (!isCorrespondence && game.status === "active" && game.activeColor !== game.viewer.color) {
       if (isPremovePromotion(new Chess(game.fen), game.viewer.color, from, to)) {
@@ -351,15 +360,15 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
       return;
     }
     void sendMove(from, to);
-  }
+  }, [game, isCorrespondence, sendMove]);
 
-  function toggleCircle(square: string, color = BOARD_ANNOTATION_COLORS.primary) {
+  const toggleCircle = useCallback((square: string, color = BOARD_ANNOTATION_COLORS.primary) => {
     setBoardCircles((current) => current.some((circle) => circle.square === square && circle.color === color)
       ? current.filter((circle) => !(circle.square === square && circle.color === color))
       : [...current.filter((circle) => circle.square !== square), { square, color }]);
-  }
+  }, []);
 
-  function handleAnnotationSquare(square: string) {
+  const handleAnnotationSquare = useCallback((square: string) => {
     if (annotationMode === "circle") return toggleCircle(square);
     if (annotationMode !== "arrow") return;
     if (!annotationStart) return setAnnotationStart(square);
@@ -369,13 +378,13 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
         : [...current, { startSquare: annotationStart, endSquare: square, color: BOARD_ANNOTATION_COLORS.primary }]);
     }
     setAnnotationStart(null);
-  }
+  }, [annotationMode, annotationStart, toggleCircle]);
 
-  function clearBoardAnnotations() {
+  const clearBoardAnnotations = useCallback(() => {
     setBoardArrows((current) => current.length ? [] : current);
     setBoardCircles((current) => current.length ? [] : current);
     setAnnotationStart(null);
-  }
+  }, []);
 
   async function copyChallenge() {
     if (!game) return;
@@ -448,7 +457,6 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   const opponentColor = oppositeColor(viewerColor);
   const opponent = game.players[opponentColor];
   const viewer = game.players[viewerColor];
-  const lastMove = game.moves.length ? [game.moves[game.moves.length - 1].from, game.moves[game.moves.length - 1].to] as [string, string] : null;
   const canQueuePremove = !isCorrespondence && game.status === "active" && game.activeColor !== viewerColor && !pending;
   const interactive = game.status === "active" && !pending && (game.activeColor === viewerColor || canQueuePremove);
   const opponentOfferedDraw = Boolean(game.drawOfferedBy && game.drawOfferedBy !== game.viewer.id);
@@ -493,7 +501,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           <div className="relative">
             <div className="mb-2 flex justify-end sm:absolute sm:left-[calc(100%+0.5rem)] sm:top-0 sm:z-30 sm:mb-0"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
             <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
-              <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} allowPremoves={canQueuePremove} premove={premove ? [premove.from, premove.to] : null} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
+              <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} allowPremoves={canQueuePremove} premove={displayedPremove} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
               <BoardCaptureParticles effect={captureEffect} orientation={orientation} />
             </div>
           </div>

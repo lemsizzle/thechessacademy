@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Chess } from "chess.js";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
 import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles";
@@ -44,6 +44,44 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
     setAnnotationStart(null);
   }, [game.fen]);
 
+  const displayedPremove = useMemo<[string, string] | null>(
+    () => game.premove ? [game.premove.from, game.premove.to] : null,
+    [game.premove]
+  );
+
+  const toggleLiveCircle = useCallback((square: string, color = BOARD_ANNOTATION_COLORS.primary) => {
+    setBoardCircles((current) => {
+      const existing = current.find((circle) => circle.square === square);
+      return existing?.color === color
+        ? current.filter((circle) => circle.square !== square)
+        : [...current.filter((circle) => circle.square !== square), { square, color }];
+    });
+  }, []);
+
+  const handleAnnotationSquare = useCallback((square: string) => {
+    if (annotationMode === "circle") {
+      toggleLiveCircle(square);
+      return;
+    }
+    if (annotationMode !== "arrow") return;
+    if (!annotationStart) {
+      setAnnotationStart(square);
+      return;
+    }
+    if (annotationStart !== square) {
+      setBoardArrows((current) => current.some((arrow) => arrow.startSquare === annotationStart && arrow.endSquare === square)
+        ? current.filter((arrow) => !(arrow.startSquare === annotationStart && arrow.endSquare === square))
+        : [...current, { startSquare: annotationStart, endSquare: square, color: BOARD_ANNOTATION_COLORS.primary }]);
+    }
+    setAnnotationStart(null);
+  }, [annotationMode, annotationStart, toggleLiveCircle]);
+
+  const clearBoardAnnotations = useCallback(() => {
+    setBoardArrows((current) => current.length ? [] : current);
+    setBoardCircles((current) => current.length ? [] : current);
+    setAnnotationStart(null);
+  }, []);
+
   if (!game.config) return <GameSetup unlockedBotIds={unlockedBotIds} onStart={(config) => {
     clearBoardAnnotations();
     setAnnotationMode(null);
@@ -74,39 +112,6 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
     setConfirmation(null);
   }
 
-  function toggleLiveCircle(square: string, color = BOARD_ANNOTATION_COLORS.primary) {
-    setBoardCircles((current) => {
-      const existing = current.find((circle) => circle.square === square);
-      return existing?.color === color
-        ? current.filter((circle) => circle.square !== square)
-        : [...current.filter((circle) => circle.square !== square), { square, color }];
-    });
-  }
-
-  function handleAnnotationSquare(square: string) {
-    if (annotationMode === "circle") {
-      toggleLiveCircle(square);
-      return;
-    }
-    if (annotationMode !== "arrow") return;
-    if (!annotationStart) {
-      setAnnotationStart(square);
-      return;
-    }
-    if (annotationStart !== square) {
-      setBoardArrows((current) => current.some((arrow) => arrow.startSquare === annotationStart && arrow.endSquare === square)
-        ? current.filter((arrow) => !(arrow.startSquare === annotationStart && arrow.endSquare === square))
-        : [...current, { startSquare: annotationStart, endSquare: square, color: BOARD_ANNOTATION_COLORS.primary }]);
-    }
-    setAnnotationStart(null);
-  }
-
-  function clearBoardAnnotations() {
-    setBoardArrows((current) => current.length ? [] : current);
-    setBoardCircles((current) => current.length ? [] : current);
-    setAnnotationStart(null);
-  }
-
   return (
     <div className="space-y-4">
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
@@ -134,7 +139,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
               lastMove={game.lastMove}
               onMove={game.attemptHumanMove}
               allowPremoves={game.canQueuePremove}
-              premove={game.premove ? [game.premove.from, game.premove.to] : null}
+              premove={displayedPremove}
               arrows={boardArrows}
               circles={boardCircles}
               allowDrawingArrows

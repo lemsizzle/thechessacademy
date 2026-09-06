@@ -2,15 +2,23 @@
 
 import { Chess, type Square } from "chess.js";
 import { Chessboard, defaultPieces, type ChessboardOptions } from "react-chessboard";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { annotationColorForModifiers, BOARD_ANNOTATION_COLORS } from "@/chess/components/boardAnnotations";
 import { boardSquaresForOrientation, describeBoardSquare, nextBoardSquare, type BoardNavigationKey } from "@/chess/components/boardAccessibility";
 import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
+import { boardClickAction } from "@/chess/game/boardInteraction";
 import { chessJsColor } from "@/chess/game/colors";
 import { boardDropAction, checkedKingSquare, legalMovesFrom, pseudoLegalMovesFrom } from "@/chess/game/rules";
 import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
 import { premoveMovesFrom } from "@/chess/live/premove";
 import type { ChessColor } from "@/chess/types";
+
+type BoardArrow = { startSquare: string; endSquare: string; color: string };
+type BoardCircle = { square: string; color: string };
+
+const EMPTY_BOARD_ARROWS: BoardArrow[] = [];
+const EMPTY_BOARD_CIRCLES: BoardCircle[] = [];
+const EMPTY_BOARD_SQUARES: string[] = [];
 
 type Props = {
   fen: string;
@@ -21,8 +29,8 @@ type Props = {
   onMove: (from: string, to: string) => void;
   /** Optional lesson feedback hook for a clicked or dragged illegal destination. */
   onIllegalMove?: (from: string, to: string) => void;
-  arrows?: Array<{ startSquare: string; endSquare: string; color: string }>;
-  circles?: Array<{ square: string; color: string }>;
+  arrows?: BoardArrow[];
+  circles?: BoardCircle[];
   shinySquares?: string[];
   activeShinySquares?: string[];
   movableSquares?: string[];
@@ -41,13 +49,13 @@ type Props = {
   allowDrawingArrows?: boolean;
   annotationMode?: "arrow" | "circle" | null;
   onAnnotationSquare?: (square: string) => void;
-  onArrowsChange?: (arrows: Array<{ startSquare: string; endSquare: string; color: string }>) => void;
+  onArrowsChange?: (arrows: BoardArrow[]) => void;
   onCircleToggle?: (square: string, color: string) => void;
   onClearAnnotations?: () => void;
   boardId?: string;
 };
 
-export function AcademyChessboard({ fen, orientation, humanColor, interactive, lastMove, onMove, onIllegalMove, arrows = [], circles = [], shinySquares = [], activeShinySquares = [], movableSquares, allowedDestinationSquares, allowCheckIgnoringMoves = false, keepMovedPieceSelected = false, allowPremoves = false, premove = null, hiddenPieces = [], onBoardInteraction, animationDurationInMs, allowDrawingArrows = false, annotationMode = null, onAnnotationSquare, onArrowsChange, onCircleToggle, onClearAnnotations, boardId = "academy-play-board" }: Props) {
+function AcademyChessboardComponent({ fen, orientation, humanColor, interactive, lastMove, onMove, onIllegalMove, arrows = EMPTY_BOARD_ARROWS, circles = EMPTY_BOARD_CIRCLES, shinySquares = EMPTY_BOARD_SQUARES, activeShinySquares = EMPTY_BOARD_SQUARES, movableSquares, allowedDestinationSquares, allowCheckIgnoringMoves = false, keepMovedPieceSelected = false, allowPremoves = false, premove = null, hiddenPieces = EMPTY_BOARD_SQUARES, onBoardInteraction, animationDurationInMs, allowDrawingArrows = false, annotationMode = null, onAnnotationSquare, onArrowsChange, onCircleToggle, onClearAnnotations, boardId = "academy-play-board" }: Props) {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [keyboardSquare, setKeyboardSquare] = useState<Square>(() => boardSquaresForOrientation(orientation)[0]);
   const movedSelectionRef = useRef<string | null>(null);
@@ -103,6 +111,16 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
     setKeyboardSquare(visualSquares[0]);
   }, [visualSquares]);
 
+  function updateSelectionAfterMove(destination: string) {
+    if (keepMovedPieceSelected) {
+      movedSelectionRef.current = destination;
+      setSelectedSquare(destination);
+      return;
+    }
+    movedSelectionRef.current = null;
+    setSelectedSquare(null);
+  }
+
   function selectOrMove(square: string) {
     if (annotationMode && onAnnotationSquare) {
       onAnnotationSquare(square);
@@ -110,32 +128,27 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
     }
     if (!interactive) return;
     onBoardInteraction?.();
-    if (selectedSquare === square) {
-      movedSelectionRef.current = null;
-      setSelectedSquare(null);
-      return;
-    }
-    const target = legalMoves.find((move) => move.to === square);
-    if (selectedSquare && target) {
-      if (keepMovedPieceSelected) {
-        movedSelectionRef.current = square;
-        setSelectedSquare(square);
-      }
-      onMove(selectedSquare, square);
-      return;
-    }
-    if (selectedSquare && onIllegalMove) {
-      onIllegalMove(selectedSquare, square);
-      return;
-    }
-    if (movableSquares && !movableSquares.includes(square)) {
-      setSelectedSquare(null);
-      return;
-    }
     const piece = chess.get(square as Square);
-    if (piece?.color === chessJsColor(humanColor) && (piece.color === chess.turn() || allowPremoves)) {
-      setSelectedSquare(square);
+    const canSelectPiece = piece?.color === chessJsColor(humanColor)
+      && (piece.color === chess.turn() || allowPremoves)
+      && (!movableSquares || movableSquares.includes(square));
+    const action = boardClickAction({
+      selectedSquare,
+      clickedSquare: square,
+      legalDestination: legalMoves.some((move) => move.to === square),
+      selectable: canSelectPiece,
+      reportIllegal: Boolean(onIllegalMove)
+    });
+
+    if (action.type === "move") {
+      updateSelectionAfterMove(action.to);
+      onMove(action.from, action.to);
+    } else if (action.type === "select") {
+      setSelectedSquare(action.square);
+    } else if (action.type === "illegal") {
+      onIllegalMove?.(action.from, action.to);
     } else {
+      movedSelectionRef.current = null;
       setSelectedSquare(null);
     }
   }
@@ -312,6 +325,7 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
         && sourcePiece.color !== chess.turn();
       if (isPremoveAttempt) {
         if (!premoveMovesFrom(chess, sourceSquare).some((move) => move.to === targetSquare)) return false;
+        updateSelectionAfterMove(targetSquare);
         onMove(sourceSquare, targetSquare);
         return true;
       }
@@ -323,18 +337,23 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
           onIllegalMove?.(sourceSquare, targetSquare);
           return false;
         }
+        updateSelectionAfterMove(targetSquare);
         onMove(sourceSquare, targetSquare);
         return true;
+      }
+      if (action === "move") updateSelectionAfterMove(targetSquare);
+      else {
+        movedSelectionRef.current = null;
+        setSelectedSquare(null);
       }
       onMove(sourceSquare, targetSquare);
       return action === "move";
     }
   };
 
-  const arrowKey = arrows.map((arrow) => `${arrow.startSquare}${arrow.endSquare}${arrow.color}`).sort().join("-");
   const instructionsId = `${boardId}-keyboard-instructions`;
   return <div ref={boardRef} className="relative h-full w-full">
-    <div aria-hidden="true" className="h-full w-full"><Chessboard key={`${boardId}-${arrowKey}`} options={options} /></div>
+    <div aria-hidden="true" className="h-full w-full"><Chessboard key={boardId} options={options} /></div>
     <p id={instructionsId} className="sr-only">Use the arrow keys to move between squares. Press Enter or Space to select a piece or destination. Press Escape to clear the selected square.</p>
     <div role="grid" aria-label={`Chessboard, ${orientation} perspective`} aria-describedby={instructionsId} aria-readonly={!interactive} className="pointer-events-none absolute inset-0 z-20 grid grid-rows-8">
       {Array.from({ length: 8 }, (_, rowIndex) => (
@@ -380,3 +399,5 @@ export function AcademyChessboard({ fen, orientation, humanColor, interactive, l
     </div>
   </div>;
 }
+
+export const AcademyChessboard = memo(AcademyChessboardComponent);

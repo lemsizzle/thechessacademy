@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
+import { boardClickAction } from "@/chess/game/boardInteraction";
 import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -1060,21 +1061,27 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
     const chess = new Chess(positionFen);
     const piece = chess.get(square as Square);
     const studentColor = puzzle.orientation === "white" ? "w" : "b";
+    const action = boardClickAction({
+      selectedSquare,
+      clickedSquare: square,
+      legalDestination: legalSquares.includes(square),
+      selectable: piece?.color === studentColor
+    });
 
-    if (selectedSquare && legalSquares.includes(square)) {
+    if (action.type === "move") {
       if (isPremoveWindow) {
-        queuePremove(selectedSquare, square, studentColor);
+        queuePremove(action.from, action.to, studentColor);
       } else {
-        void submitMove(selectedSquare, square);
+        void submitMove(action.from, action.to);
       }
       return;
     }
 
-    if (piece?.color === studentColor) {
-      setSelectedSquare(square);
+    if (action.type === "select") {
+      setSelectedSquare(action.square);
       setLegalSquares(isPremoveWindow
-        ? availablePremoveDestinations(square, studentColor)
-        : legalDestinations(positionFen, square));
+        ? availablePremoveDestinations(action.square, studentColor)
+        : legalDestinations(positionFen, action.square));
       return;
     }
 
