@@ -6,7 +6,7 @@ vi.mock("@/lib/auth/requireActiveStudent", () => ({ requireActiveStudent: vi.fn(
 vi.mock("@/lib/supabase/server", () => ({ getSupabaseServiceClient: () => ({ from: () => ({ upsert: mocks.upsert }), rpc: mocks.rpc }) }));
 import { saveTrainingAttempt } from "@/lib/puzzle-training/server";
 
-const attempt = { studentId: "student-a", puzzleId: "puzzle-a", sessionId: "session-a", selectedTheme: "mixed" as const,
+const attempt = { studentId: "student-a", puzzleId: "puzzle-a", sessionId: "session-a", selectedTheme: "pin" as const,
   trainingMode: "survival" as const, solved: true, incorrectMoveCount: 0, hintsUsed: 0, startedAt: new Date().toISOString() };
 
 describe("automatic Survival awards", () => {
@@ -18,7 +18,14 @@ describe("automatic Survival awards", () => {
       return { data: awards, error: null };
     });
     expect((await saveTrainingAttempt(attempt)).badgeAwards).toEqual(awards);
-    expect(mocks.rpc).toHaveBeenCalledWith("award_survival_tactical_badges", { p_student_id: "student-a" });
+    expect(mocks.rpc).toHaveBeenCalledWith("award_survival_tactical_badges", {
+      p_student_id: "student-a",
+      p_session_id: "session-a"
+    });
+  });
+  it("does not check badge rewards for mixed-theme Survival rounds", async () => {
+    await saveTrainingAttempt({ ...attempt, selectedTheme: "mixed" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
   it.each(["daily", "woodpecker", "legacy"] as const)("does not award Survival badges for %s", async (trainingMode) => {
     await saveTrainingAttempt({ ...attempt, trainingMode });

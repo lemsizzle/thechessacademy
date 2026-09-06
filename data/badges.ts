@@ -173,7 +173,7 @@ export function createTacticBadgeSet(tacticTheme: TacticTheme, displayName = tac
     tacticTheme,
     tier,
     xpValue: config.xpValue,
-    unlockRequirement: `Solve ${config.requiredPuzzleCount} ${displayName.toLowerCase()} puzzles.`,
+    unlockRequirement: `Score ${config.requiredPuzzleCount} in one ${displayName.toLowerCase()}-only Survival round.`,
     requiredPuzzleCount: config.requiredPuzzleCount,
     visualTheme: `${config.visualTheme}, ${tacticSymbolism[tacticTheme]}`,
     artImageUrl: null,
