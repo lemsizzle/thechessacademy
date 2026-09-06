@@ -4,7 +4,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useEffect, useId, useRef, useState } from "react";
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
-import type { ChessTheme } from "@/chess/appearance/themes";
+import { purchasedChessThemes, PURCHASABLE_CHESS_THEMES, type ChessTheme } from "@/chess/appearance/themes";
 
 /** Shared gear menu. Sound controls are optional on silent exercise boards. */
 export function BoardSettings({ muted, onToggleMuted }: { muted?: boolean; onToggleMuted?: () => void } = {}) {
@@ -12,7 +12,7 @@ export function BoardSettings({ muted, onToggleMuted }: { muted?: boolean; onTog
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const settingsId = useId();
-  const { appearance, ownsPaper, loading, setAppearance } = useBoardAppearance();
+  const { appearance, ownedThemes, loading, setAppearance } = useBoardAppearance();
   const open = position !== null;
 
   useEffect(() => {
@@ -67,11 +67,11 @@ export function BoardSettings({ muted, onToggleMuted }: { muted?: boolean; onTog
               {field === "boardTheme" ? "Board theme" : "Piece theme"}
               <select aria-label={field === "boardTheme" ? "Board theme" : "Piece theme"} className="w-full rounded-md border border-white/20 bg-slate-900 px-3 py-2 text-sm text-white focus-visible:outline-cyan-200" value={appearance[field]} onChange={(event) => setAppearance({ ...appearance, [field]: event.target.value as ChessTheme })}>
                 <option value="academy">Academy · free</option>
-                <option value="paper" disabled={!ownsPaper}>Paper{ownsPaper ? "" : " · locked"}</option>
+                {purchasedChessThemes.map((theme) => <option key={theme} value={theme} disabled={!ownedThemes.includes(theme)}>{PURCHASABLE_CHESS_THEMES[theme].label}{ownedThemes.includes(theme) ? "" : " · locked"}</option>)}
               </select>
             </label>
           ))}
-          {!ownsPaper ? <p className="mb-3 text-xs leading-5 text-amber-100">{loading ? "Checking your chess sets…" : <>Unlock the Paper board and pieces in the <Link href="/student/avatar?category=board_theme" className="font-bold underline underline-offset-2">Avatar Store</Link>.</>}</p> : null}
+          {ownedThemes.length < purchasedChessThemes.length ? <p className="mb-3 text-xs leading-5 text-amber-100">{loading ? "Checking your chess sets…" : <>Unlock more boards and pieces in the <Link href="/student/avatar?category=board_theme" className="font-bold underline underline-offset-2">Avatar Store</Link>.</>}</p> : null}
           <p className="text-xs leading-5 text-slate-400">Your choices apply to games and training on this browser.</p>
           {onToggleMuted ? <button type="button" className="mt-3 flex w-full items-center justify-between rounded-md border border-white/10 bg-white/5 px-3 py-2 font-bold hover:bg-white/10" aria-pressed={!muted} onClick={onToggleMuted}><span>{muted ? "Sounds muted" : "Sounds on"}</span><span aria-hidden="true">{muted ? "🔇" : "🔊"}</span></button> : null}
         </div>, document.body

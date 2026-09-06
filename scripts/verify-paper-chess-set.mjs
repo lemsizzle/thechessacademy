@@ -34,5 +34,23 @@ for (const role of ["anon", "authenticated"]) {
 }
 assert.equal((await db.query("select relrowsecurity from pg_class where oid='student_inventory'::regclass")).rows[0].relrowsecurity,true);
 await assert.rejects(db.query("update avatar_items set category='not-a-theme' where id=$1",[paper.id]),/avatar_items_category_check/);
+const blossomMigration = await readFile("supabase/migrations/20260906140733_blossom_chess_set.sql", "utf8");
+await db.exec(blossomMigration);
+await db.exec(blossomMigration);
+const [blossom] = (await db.query("select * from avatar_items where slug='blossom-chess-set'")).rows;
+assert.equal(blossom.price, 400); assert.equal(blossom.category, "board_theme");
+assert.equal((await db.query("select price from avatar_items where id=$1", [paper.id])).rows[0].price, 800);
+const blossomStudent = (await db.query("insert into students default values returning id")).rows[0].id;
+await db.query("insert into student_wallets(student_id,academy_coins,total_coins_earned,total_coins_spent) values ($1,399,399,0)", [blossomStudent]);
+await assert.rejects(db.query("select purchase_avatar_item($1,$2)", [blossomStudent,blossom.id]), /Not enough Academy Coins/);
+await db.query("update student_wallets set academy_coins=400,total_coins_earned=400 where student_id=$1", [blossomStudent]);
+await db.query("select purchase_avatar_item($1,$2)", [blossomStudent,blossom.id]);
+assert.equal((await db.query("select academy_coins from student_wallets where student_id=$1", [blossomStudent])).rows[0].academy_coins, 0);
+assert.equal((await db.query("select total_coins_spent from student_wallets where student_id=$1", [blossomStudent])).rows[0].total_coins_spent, 400);
+assert.equal((await db.query("select item_id from student_inventory where student_id=$1", [blossomStudent])).rows[0].item_id, blossom.id);
+assert.equal((await db.query("select count(*)::int as n from student_inventory where student_id=$1 and item_id=$2", [blossomStudent,paper.id])).rows[0].n, 0);
+await assert.rejects(db.query("select purchase_avatar_item($1,$2)", [blossomStudent,blossom.id]), /already owned/);
+assert.equal((await db.query("select count(*)::int as n from store_purchases where student_id=$1", [blossomStudent])).rows[0].n, 1);
+assert.equal((await db.query("select total_xp from students where id=$1", [blossomStudent])).rows[0].total_xp, 0);
 await db.close();
-console.log("PASS: migration/replay, 800-coin purchase, insufficient funds, duplicate purchase rejection, ownership lookup, avatar isolation, RLS and service-only purchase permissions.");
+console.log("PASS: migrations/replay, Paper 800 coins, Blossom 400 coins, insufficient funds, duplicate rejection, separate ownership, avatar/XP isolation, RLS and service-only purchases.");
