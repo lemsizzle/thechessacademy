@@ -2,12 +2,14 @@
 
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
 import { BoardSettings } from "@/chess/components/BoardSettings";
+import explosionStyles from "./HideAndSeekExplosion.module.css";
 import {
   useEffect,
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent
+  type KeyboardEvent,
+  type CSSProperties
 } from "react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -102,6 +104,44 @@ function boardPoint(square: HideAndSeekSquare) {
     x: square.charCodeAt(0) - 97 + 0.5,
     y: 8 - Number(square[1]) + 0.5
   };
+}
+
+export const HIDE_AND_SEEK_EXPLOSION_MS = 3300;
+
+/** Decorative only: CSS animates independently of scoring, timers and networking. */
+export function HideAndSeekStarExplosion({ squares }: { squares: readonly HideAndSeekSquare[] }) {
+  if (!squares.length) return null;
+  return (
+    <svg className={explosionStyles.overlay} viewBox="0 0 800 800" aria-hidden="true" focusable="false">
+      {Array.from(new Set(squares)).map((square) => {
+        const origin = boardPoint(square);
+        return (
+          <g key={square} transform={`translate(${origin.x * 100} ${origin.y * 100})`} data-star-burst={square}>
+            <circle className={explosionStyles.glow} r="23" fill="#fde68a" />
+            {Array.from({ length: 8 }, (_, index) => {
+              const angle = (index / 8) * Math.PI * 2 + origin.x * 0.31;
+              const distance = 70 + (index % 3) * 24;
+              const style = {
+                "--drift-x": `${Math.cos(angle) * distance}px`,
+                "--drift-y": `${Math.sin(angle) * distance + 55}px`,
+                "--spin": `${index % 2 ? 150 : -150}deg`,
+                animationDelay: `${(index % 4) * 45}ms`
+              } as CSSProperties;
+              return (
+                <g key={index} className={explosionStyles.particle} style={style}>
+                  <path
+                    d="M0 -9 2.5 -3 9 -3 4 1 6 8 0 4 -6 8 -4 1 -9 -3 -2.5 -3Z"
+                    fill={index % 3 === 0 ? "#fb7185" : index % 3 === 1 ? "#fbbf24" : "#fef3c7"}
+                    transform={`scale(${index % 2 ? 0.65 : 1})`}
+                  />
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+    </svg>
+  );
 }
 
 function errorMessage(value: unknown, fallback: string) {
@@ -222,6 +262,7 @@ function SearchBoard({
   phase,
   interactive,
   selectedSquares,
+  explodingSquares,
   result,
   onToggle
 }: {
@@ -229,6 +270,7 @@ function SearchBoard({
   phase: HideAndSeekSearchPhase;
   interactive: boolean;
   selectedSquares: ReadonlySet<HideAndSeekSquare>;
+  explodingSquares: readonly HideAndSeekSquare[];
   result: SearchResult | null;
   onToggle: (square: HideAndSeekSquare) => void;
 }) {
@@ -347,6 +389,7 @@ function SearchBoard({
             })}
           </div>
         ))}
+        <HideAndSeekStarExplosion squares={explodingSquares} />
         {mistakeFeedback.length ? (
           <svg
             className="pointer-events-none absolute inset-0 z-20 h-full w-full"
@@ -417,11 +460,17 @@ export function HideAndSeekTraining({
   const [round, setRound] = useState<ActiveSearchRound | null>(null);
   const [token, setToken] = useState("");
   const [selectedSquares, setSelectedSquares] = useState<Set<HideAndSeekSquare>>(() => new Set());
+  const [explodingSquares, setExplodingSquares] = useState<HideAndSeekSquare[]>([]);
   const [result, setResult] = useState<SearchResult | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [personalBest, setPersonalBest] = useState(Math.max(0, initialBestScore));
   const [error, setError] = useState("");
   const [terminalError, setTerminalError] = useState("");
+  useEffect(() => {
+    if (!explodingSquares.length) return;
+    const timeout = window.setTimeout(() => setExplodingSquares([]), HIDE_AND_SEEK_EXPLOSION_MS);
+    return () => window.clearTimeout(timeout);
+  }, [explodingSquares]);
   const startedAtPerformanceRef = useRef(0);
   const requestRef = useRef<AbortController | null>(null);
   const operationRef = useRef(0);
@@ -475,6 +524,7 @@ export function HideAndSeekTraining({
     requestRef.current = controller;
     const operation = ++operationRef.current;
     setPhase("preparing");
+    setExplodingSquares([]);
     setRound(null);
     setToken("");
     setSelectedSquares(new Set());
@@ -588,6 +638,7 @@ export function HideAndSeekTraining({
       if (next.has(square)) return;
       next.add(square);
       if (!safeSquareSet.has(square)) {
+        setExplodingSquares([...next]);
         setSelectedSquares(new Set());
         void finishSearch(next);
         return;
@@ -605,6 +656,7 @@ export function HideAndSeekTraining({
     requestRef.current?.abort();
     operationRef.current += 1;
     setPhase("ready");
+    setExplodingSquares([]);
     setRound(null);
     setToken("");
     setSelectedSquares(new Set());
@@ -646,6 +698,7 @@ export function HideAndSeekTraining({
               phase={phase}
               interactive={canMarkHideAndSeekBoard(phase) && !timeTrialExpired}
               selectedSquares={selectedSquares}
+              explodingSquares={explodingSquares}
               result={result}
               onToggle={toggleSquare}
             />

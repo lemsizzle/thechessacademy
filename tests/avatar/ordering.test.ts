@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { isAvatarItemNew } from "../../lib/avatar/catalog";
 import { sortAvatarItemsNewestFirst } from "../../lib/avatar/supabaseAvatar";
 import type { AvatarItem } from "../../lib/types";
 
@@ -23,6 +25,27 @@ function item(name: string, createdAt?: string): AvatarItem {
 }
 
 describe("avatar store ordering", () => {
+  it("keeps the New filter without a separate featured New section", () => {
+    const source = readFileSync("components/student/AvatarStudio.tsx", "utf8");
+    expect(source).toContain('<option value="new">New</option>');
+    expect(source).toContain('collection === "new" && !isAvatarItemNew(item)');
+    expect(source).not.toContain("New in the Armory");
+    expect(source).not.toContain("featuredNewItems");
+  });
+
+  it("preserves newest-first order when filtering new items regardless of featured status", () => {
+    const now = Date.parse("2026-09-06T12:00:00.000Z");
+    const items = [
+      { ...item("Featured older", "2026-08-25T00:00:00.000Z"), isFeatured: true },
+      item("Old", "2026-07-01T00:00:00.000Z"),
+      item("Newest", "2026-09-06T00:00:00.000Z")
+    ];
+    expect(sortAvatarItemsNewestFirst(items).filter((candidate) => isAvatarItemNew(candidate, now)).map((candidate) => candidate.name)).toEqual([
+      "Newest",
+      "Featured older"
+    ]);
+  });
+
   it("sorts dated items newest first and keeps undated items last", () => {
     const items = [
       item("Older", "2026-07-01T00:00:00.000Z"),

@@ -1,10 +1,13 @@
 import { createElement } from "react";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   canMarkHideAndSeekBoard,
   canScoreHideAndSeekBoard,
   HideAndSeekTraining,
+  HideAndSeekStarExplosion,
+  HIDE_AND_SEEK_EXPLOSION_MS,
   hideAndSeekRevealDelay,
   hideAndSeekSynchronizedStartOffset,
   isTerminalHideAndSeekFinishFailure,
@@ -12,6 +15,30 @@ import {
 } from "@/components/training/HideAndSeekTraining";
 
 describe("Hide and Seek training UI", () => {
+  it("renders a bounded, deterministic burst at each lost star without interactive elements", () => {
+    const props = { squares: ["a8", "h1", "a8"] as const };
+    const html = renderToStaticMarkup(createElement(HideAndSeekStarExplosion, props));
+    expect(html).toBe(renderToStaticMarkup(createElement(HideAndSeekStarExplosion, props)));
+    expect(html.match(/data-star-burst=/g)).toHaveLength(2);
+    expect(html.match(/<path /g)).toHaveLength(16);
+    expect(html).toContain('translate(50 50)');
+    expect(html).toContain('translate(750 750)');
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain('focusable="false"');
+    expect(html).not.toContain('<button');
+    expect(renderToStaticMarkup(createElement(HideAndSeekStarExplosion, { squares: [] }))).toBe("");
+  });
+
+  it("uses a slow finite fade, reduced-motion fallback, and cleanup after the last particle", () => {
+    const css = readFileSync("components/training/HideAndSeekExplosion.module.css", "utf8");
+    expect(css).toContain("2800ms");
+    expect(css).toContain("pointer-events: none");
+    expect(css).toContain("prefers-reduced-motion: reduce");
+    expect(css).toContain("star-fade 180ms");
+    expect(css).not.toContain("infinite");
+    expect(HIDE_AND_SEEK_EXPLOSION_MS).toBeGreaterThan(2800 + 135);
+  });
+
   it("keeps the board covered and the timer stopped until the student starts", () => {
     const html = renderToStaticMarkup(createElement(HideAndSeekTraining, {
       onExit: vi.fn(),
