@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { BadgeCard } from "@/components/BadgeCard";
+import { groupEarnedBadges } from "@/lib/badges/tacticalMilestones";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { StudentActivityTimeline } from "@/components/StudentActivityTimeline";
@@ -386,10 +387,11 @@ function TrophyCase({
       ) : data.badges.length > 0 ? (
         <div className="relative mt-5">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-            {data.badges.map((badge) => (
+            {groupEarnedBadges(data.badges).map(({ badge, tiers }) => (
               <BadgeCard
                 key={badge.id}
                 badge={badge}
+                earnedTiers={tiers}
                 earned
                 statusText={formatBadgeAwardDate(badge.createdAt)}
               />

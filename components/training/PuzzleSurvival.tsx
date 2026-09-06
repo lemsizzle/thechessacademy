@@ -10,6 +10,7 @@ import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/compone
 import { boardClickAction } from "@/chess/game/boardInteraction";
 import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
 import { Button } from "@/components/Button";
+import type { TacticalBadgeAward } from "@/lib/badges/tacticalMilestones";
 import { Card } from "@/components/Card";
 import { AutoAdvanceSwitch, PuzzleModeSetup, type PuzzleModeChoice } from "@/components/training/PuzzleModeSetup";
 import { WoodpeckerCycleSummary } from "@/components/training/WoodpeckerCycleSummary";
@@ -79,6 +80,18 @@ function optimisticMoveFen(fen: string, from: string, to: string) {
   }
 }
 
+function SurvivalBadgeAwards({ awards }: { awards: TacticalBadgeAward[] }) {
+  if (!awards.length) return null;
+  return (
+    <div role="status" className="mt-3 rounded-xl border border-amber-300/40 bg-amber-300/10 p-3 text-sm text-amber-100">
+      <p className="font-black">Tactical badges earned</p>
+      <ul className="mt-2 space-y-1">
+        {awards.map((award) => <li key={award.badgeId}>{award.name} · {award.tier} · +{award.coins} coins</li>)}
+      </ul>
+    </div>
+  );
+}
+
 export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverview: PuzzleTrainingOverview; statsContent?: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -112,6 +125,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   const [currentStreak, setCurrentStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [completion, setCompletion] = useState<PuzzleCompletionDetails | null>(null);
+  const [badgeAwards, setBadgeAwards] = useState<TacticalBadgeAward[]>([]);
   const recentPuzzleIds = useRef<string[]>([]);
   const woodpeckerPuzzleIds = useRef<string[]>([]);
   const activeWoodpeckerSetSize = useRef(WOODPECKER_SET_SIZE);
@@ -380,6 +394,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   }
 
   function resetTrainingStats() {
+    setBadgeAwards([]);
     setLives(STARTING_LIVES);
     setCompleted(0);
     setSolved(0);
@@ -870,6 +885,10 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
       setMessage(result.message);
 
       if (result.completed && result.completion) {
+        if (result.completion.badgeAwards?.length) {
+          const awards = result.completion.badgeAwards;
+          setBadgeAwards((current) => [...current, ...awards.filter((award) => !current.some((item) => item.badgeId === award.badgeId))]);
+        }
         resetPremoveHandoff();
         setSelectedSquare(null);
         setLegalSquares([]);
@@ -1253,6 +1272,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
       <Card className="p-6">
         <p className="text-xs font-black uppercase text-amber-200">{summaryEyebrow}</p>
         <h2 className="mt-2 text-3xl font-black text-white">{summaryTitle}</h2>
+        <SurvivalBadgeAwards awards={badgeAwards} />
         {completion?.dailyReward && <div className={`mt-5 rounded-lg border p-4 ${completion.dailyReward.awarded ? "border-emerald-300/40 bg-emerald-300/10 text-emerald-100" : "border-cyan-200/30 bg-cyan-300/10 text-cyan-100"}`}><p className="font-black">{completion.dailyReward.awarded ? `Reward claimed: +${completion.dailyReward.xpAwarded} XP and +${completion.dailyReward.coinsAwarded} Academy Coins` : "Today’s reward was already claimed. Nice practice replay!"}</p></div>}
         {trainingMode === "woodpecker"
           && woodpeckerCycleResults.some((result) => result.cycle >= WOODPECKER_CYCLE_COUNT)
@@ -1320,6 +1340,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
             {trainingMode !== "daily" && <div className="mt-4"><AutoAdvanceSwitch checked={autoAdvance} onChange={updateAutoAdvance} compact /></div>}
             <h2 className="mt-4 text-2xl font-black text-white">{phase === "reply" || (phase === "turn" && moveLocked.current) ? "Queue your next move" : phase === "solved" ? "Puzzle complete" : puzzle?.prompt || "Find the best move"}</h2>
             <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${phase === "solved" ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : error ? "border-fuchsia-300/50 bg-fuchsia-300/10 text-fuchsia-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">{error || message}</div>
+            <SurvivalBadgeAwards awards={badgeAwards} />
             {queuedPremove && (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-fuchsia-300/40 bg-fuchsia-300/10 p-3">
                 <p className="text-sm font-black text-fuchsia-100">Premove: {queuedPremove.from} → {queuedPremove.to}</p>
