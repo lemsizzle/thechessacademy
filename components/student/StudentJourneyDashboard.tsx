@@ -371,7 +371,7 @@ function TrophyCase({
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Academy honors</p>
             <Heading id={headingId} className="mt-1 text-2xl font-black text-white">Trophy Case</Heading>
-            <p className="mt-1 text-sm text-slate-300">Every badge you have earned on your Academy journey.</p>
+            <p className="mt-1 text-sm text-slate-300">Select a badge for a closer look.</p>
           </div>
         </div>
         <span className="w-fit rounded-full border border-amber-200/25 bg-amber-300/10 px-3 py-1.5 text-sm font-black text-amber-100">
@@ -385,14 +385,12 @@ function TrophyCase({
         </div>
       ) : data.badges.length > 0 ? (
         <div className="relative mt-5">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-x-2 bottom-0 top-0 rounded-xl bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_9.75rem,rgba(251,191,36,0.12)_9.75rem,rgba(251,191,36,0.12)_10rem)]" />
-          <div className="relative grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {data.badges.map((badge) => (
               <BadgeCard
                 key={badge.id}
                 badge={badge}
                 earned
-                compact
                 statusText={formatBadgeAwardDate(badge.createdAt)}
               />
             ))}
