@@ -63,6 +63,18 @@ describe("puzzle move route", () => {
     adaptiveReviewMocks.saveSurvivalReviewMistake.mockResolvedValue(undefined);
   });
 
+  it("returns trusted Survival badge awards with the completed puzzle", async () => {
+    const awards = [{ badgeId: "pin-bronze", name: "Pin Apprentice", tier: "Bronze", coins: 20 }];
+    serverMocks.saveTrainingAttempt.mockResolvedValue({ elapsedSeconds: 12, firstTryCorrect: true, badgeAwards: awards });
+    const token = createPuzzleSessionToken({
+      ...basePayload(), trainingMode: "survival", woodpeckerRunId: undefined, woodpeckerCycleNumber: undefined,
+      version: 2, nextMoveIndex: 3, expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), puzzle: multiMovePuzzle
+    });
+    const response = await POST(requestWithToken(token, { from: "f7", to: "f8" }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ accepted: true, completed: true, completion: { badgeAwards: awards } });
+  });
+
   it("validates an opaque intermediate move without Supabase reads", async () => {
     const payload = basePayload();
     const token = createPuzzleSessionToken({

@@ -1,3 +1,5 @@
+import type { TacticalBadgeAward } from "@/lib/badges/tacticalMilestones";
+
 export const lichessPuzzleThemes = [
   "fork",
   "pin",
@@ -113,6 +115,7 @@ export type PuzzleMoveInput = {
 };
 
 export type PuzzleCompletionDetails = {
+  badgeAwards?: TacticalBadgeAward[];
   themes: string[];
   rating: number | null;
   gameUrl: string | null;

@@ -1,5 +1,6 @@
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { Badge, BadgeCategory, BadgeTier, GenerationStatus, TacticTheme } from "@/lib/types";
+import { inferBadgeTactic } from "@/lib/badges/tacticalMilestones";
+import type { Badge, BadgeCategory, BadgeTier, GenerationStatus } from "@/lib/types";
 
 export type SupabaseBadgeRow = {
   id: string;
@@ -55,31 +56,15 @@ function toSupabaseTier(tier: BadgeTier | undefined, category?: BadgeCategory) {
   return "C";
 }
 
-function inferTacticTheme(name: string, category: string): TacticTheme | undefined {
-  if (category !== "Tactics" && category !== "Checkmates") return undefined;
-  const lower = name.toLowerCase();
-  if (lower.includes("fork")) return "Fork";
-  if (lower.includes("pin")) return "Pin";
-  if (lower.includes("skewer")) return "Skewer";
-  if (lower.includes("discovered")) return "Discovered Attack";
-  if (lower.includes("double attack")) return "Double Attack";
-  if (lower.includes("deflection")) return "Deflection";
-  if (lower.includes("decoy")) return "Decoy";
-  if (lower.includes("removing")) return "Removing the Defender";
-  if (lower.includes("back rank")) return "Back Rank Mate";
-  if (lower.includes("mate")) return "Mate in One";
-  return undefined;
-}
-
 export function mapSupabaseBadge(row: SupabaseBadgeRow): Badge {
   const category = toBadgeCategory(row.category);
 
-  return {
+  const badge: Badge = {
     id: row.id,
     name: row.name,
     description: row.description ?? "",
     category,
-    tacticTheme: inferTacticTheme(row.name, category),
+    tacticTheme: inferBadgeTactic(row.name, category),
     tier: category === "Concepts" ? undefined : toBadgeTier(row.tier),
     xpValue: row.xp_value ?? 0,
     unlockRequirement: row.unlock_requirement ?? "Teacher-awarded achievement.",
@@ -92,6 +77,7 @@ export function mapSupabaseBadge(row: SupabaseBadgeRow): Badge {
     isLegacy: false,
     createdAt: row.created_at ?? undefined
   };
+  return badge;
 }
 
 export function badgeToSupabasePayload(input: BadgeWriteInput) {

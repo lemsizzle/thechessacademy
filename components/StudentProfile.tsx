@@ -1,6 +1,7 @@
 "use client";
 
 import { BadgeCard } from "@/components/BadgeCard";
+import { groupEarnedBadges } from "@/lib/badges/tacticalMilestones";
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -237,7 +238,7 @@ export function StudentProfile({
         <QuestLogSection title="Earned Badges" summary={`${earned.length} earned`}>
           {earned.length ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-              {earned.map((badge) => <BadgeCard key={badge.id} badge={badge} earned statusText={badge.isLegacy ? "Legacy earned" : "Earned"} />)}
+              {groupEarnedBadges(earned).map(({ badge, tiers }) => <BadgeCard key={badge.id} badge={badge} earnedTiers={tiers} earned statusText={badge.isLegacy ? "Legacy earned" : "Earned"} />)}
             </div>
           ) : (
             <p className="text-sm text-slate-300">No earned badges yet. Solve tactic puzzles to unlock the first Bronze badge.</p>

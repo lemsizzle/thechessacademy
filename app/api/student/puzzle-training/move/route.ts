@@ -205,7 +205,8 @@ export async function POST(request: NextRequest) {
           gameUrl: puzzle.game_url,
           mistakes: payload.incorrectMoveCount,
           hintsUsed: payload.hintsUsed,
-          elapsedSeconds: saved.elapsedSeconds
+          elapsedSeconds: saved.elapsedSeconds,
+          badgeAwards: saved.badgeAwards
         },
         nextPuzzle
       });

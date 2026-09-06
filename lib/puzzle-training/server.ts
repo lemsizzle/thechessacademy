@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { TacticalBadgeAward } from "@/lib/badges/tacticalMilestones";
 import { requireActiveStudent, requireSignedInStudent } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { academyPuzzleDate, dailyPuzzlePivot } from "@/lib/puzzle-training/daily";
@@ -217,7 +218,18 @@ export async function saveTrainingAttempt(input: {
     .from("student_puzzle_attempts")
     .upsert(record, { onConflict: "student_id,puzzle_id,session_id" });
   if (error) throw new Error(error.message);
-  return { elapsedSeconds, firstTryCorrect: record.first_try_correct };
+  let badgeAwards: TacticalBadgeAward[] = [];
+  if (input.trainingMode === "survival" && input.solved) {
+    try {
+      const { data, error: badgeError } = await serviceClient().rpc("award_survival_tactical_badges", { p_student_id: input.studentId });
+      if (badgeError) throw new Error(badgeError.message);
+      badgeAwards = (data ?? []) as TacticalBadgeAward[];
+    } catch (badgeError) {
+      // The solve is already durable. The next solve retries all eligible milestones.
+      console.error("Survival badge awards pending", { studentId: input.studentId, error: badgeError instanceof Error ? badgeError.message : String(badgeError) });
+    }
+  }
+  return { elapsedSeconds, firstTryCorrect: record.first_try_correct, badgeAwards };
 }
 
 export async function saveCompletedWoodpeckerCycle(
