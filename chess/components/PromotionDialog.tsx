@@ -1,6 +1,8 @@
 "use client";
 
 import type { ChessColor, PromotionPiece } from "@/chess/types";
+import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
+import { PaperPiece } from "@/chess/appearance/PaperPieces";
 
 const labels: Array<{ piece: PromotionPiece; label: string; white: string; black: string }> = [
   { piece: "q", label: "Queen", white: "♕", black: "♛" },
@@ -10,6 +12,7 @@ const labels: Array<{ piece: PromotionPiece; label: string; white: string; black
 ];
 
 export function PromotionDialog({ color, onChoose, onCancel }: { color: ChessColor; onChoose: (piece: PromotionPiece) => void; onCancel: () => void }) {
+  const { appearance } = useBoardAppearance();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
       <section className="w-full max-w-sm rounded-xl border border-amber-300/35 bg-slate-950 p-5 shadow-gold" role="dialog" aria-modal="true" aria-labelledby="promotion-title">
@@ -18,7 +21,7 @@ export function PromotionDialog({ color, onChoose, onCancel }: { color: ChessCol
         <div className="mt-5 grid grid-cols-2 gap-3">
           {labels.map((item) => (
             <button key={item.piece} type="button" onClick={() => onChoose(item.piece)} className="rounded-lg border border-white/10 bg-white/5 p-4 text-center transition hover:border-amber-300/50 hover:bg-amber-300/10 active:scale-[.98]" aria-label={`Promote to ${item.label}`}>
-              <span className="block text-5xl" aria-hidden="true">{color === "white" ? item.white : item.black}</span>
+              <span className="mx-auto block h-14 w-14 text-5xl" aria-hidden="true">{appearance.pieceTheme === "paper" ? <PaperPiece kind={item.piece.toUpperCase() as "Q" | "R" | "B" | "N"} black={color === "black"} /> : color === "white" ? item.white : item.black}</span>
               <span className="mt-2 block text-sm font-black text-white">{item.label}</span>
             </button>
           ))}

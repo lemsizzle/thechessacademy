@@ -89,7 +89,8 @@ export type AvatarCategory =
   | "glasses"
   | "chess_accessory"
   | "background"
-  | "aura_effect";
+  | "aura_effect"
+  | "board_theme";
 
 export type AvatarRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
 export type AvatarUnlockType = "purchase" | "achievement" | "admin_grant" | "default";

@@ -4,6 +4,7 @@ import { Chess } from "chess.js";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
+import { BoardSettings } from "@/chess/components/BoardSettings";
 import { BOARD_ANNOTATION_COLORS, type BoardArrow } from "@/chess/components/boardAnnotations";
 import type { AdaptiveReviewItem, AdaptiveReviewSummary } from "@/chess/training/adaptiveReviewServer";
 import { Button } from "@/components/Button";
@@ -212,7 +213,9 @@ export function AdaptiveReviewTrainer({
   const solved = result?.outcome === "correct" || result?.outcome === "revealed";
 
   return <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
-    <div className="mx-auto w-full max-w-[640px] overflow-hidden rounded-lg border border-violet-300/25 bg-slate-950/70">
+    <div className="mx-auto w-full max-w-[640px] space-y-2">
+      <BoardSettings />
+      <div className="overflow-hidden rounded-lg border border-violet-300/25 bg-slate-950/70">
       <AcademyChessboard
         boardId={`adaptive-review-${current.id}`}
         fen={displayFen || current.fen}
@@ -234,6 +237,7 @@ export function AdaptiveReviewTrainer({
           void submitAttempt(`${from}${to}${promotion}`);
         }}
       />
+      </div>
     </div>
     <div className="space-y-4">
       <Card className="p-5">

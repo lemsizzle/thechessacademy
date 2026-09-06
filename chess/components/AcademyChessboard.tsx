@@ -1,7 +1,8 @@
 "use client";
 
 import { Chess, type Square } from "chess.js";
-import { Chessboard, defaultPieces, type ChessboardOptions } from "react-chessboard";
+import { Chessboard, type ChessboardOptions } from "react-chessboard";
+import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { annotationColorForModifiers, BOARD_ANNOTATION_COLORS, LICHESS_ANNOTATION_CLEAR_OPTIONS } from "@/chess/components/boardAnnotations";
 import { boardSquaresForOrientation, describeBoardSquare, nextBoardSquare, type BoardNavigationKey } from "@/chess/components/boardAccessibility";
@@ -58,6 +59,7 @@ type Props = {
 
 function AcademyChessboardComponent({ fen, orientation, humanColor, interactive, lastMove, onMove, onIllegalMove, arrows = EMPTY_BOARD_ARROWS, circles = EMPTY_BOARD_CIRCLES, shinySquares = EMPTY_BOARD_SQUARES, activeShinySquares = EMPTY_BOARD_SQUARES, movableSquares, allowedDestinationSquares, allowCheckIgnoringMoves = false, keepMovedPieceSelected = false, allowPremoves = false, premove = null, hiddenPieces = EMPTY_BOARD_SQUARES, onBoardInteraction, animationDurationInMs, allowDrawingArrows = false, annotationMode = null, onAnnotationSquare, onArrowsChange, onCircleToggle, onClearAnnotations, boardId = "academy-play-board" }: Props) {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
+  const { pieces, squareStyles: themeSquareStyles } = useBoardAppearance();
   const [keyboardSquare, setKeyboardSquare] = useState<Square>(() => boardSquaresForOrientation(orientation)[0]);
   const movedSelectionRef = useRef<string | null>(null);
   const rightGestureRef = useRef<{ startSquare: string; color: string } | null>(null);
@@ -92,9 +94,9 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
   }, [allowCheckIgnoringMoves, allowPremoves, allowedDestinationSquares, chess, humanColor, selectedSquare]);
   const hiddenPiecesKey = hiddenPieces.join("-");
   const customPieces = useMemo(() => {
-    if (!hiddenPieces.length) return undefined;
-    return { ...defaultPieces, ...Object.fromEntries(hiddenPieces.map((piece) => [piece, () => <span aria-hidden="true" className="block h-full w-full opacity-0" />])) };
-  }, [hiddenPieces, hiddenPiecesKey]);
+    if (!hiddenPieces.length) return pieces;
+    return { ...pieces, ...Object.fromEntries(hiddenPieces.map((piece) => [piece, () => <span aria-hidden="true" className="block h-full w-full opacity-0" />])) };
+  }, [hiddenPieces, hiddenPiecesKey, pieces]);
 
   useEffect(() => {
     const movedSquare = movedSelectionRef.current;
@@ -293,8 +295,7 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
       rightGestureRef.current = null;
       onArrowsChange?.(merged);
     },
-    lightSquareStyle: { backgroundColor: "#cffafe" },
-    darkSquareStyle: { backgroundColor: "#0e7490" },
+    ...themeSquareStyles,
     boardStyle: {
       borderRadius: 10,
       touchAction: "none",

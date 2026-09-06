@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
 import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles";
-import { BoardSoundSettings } from "@/chess/components/BoardSoundSettings";
+import { BoardSettings as BoardSoundSettings } from "@/chess/components/BoardSettings";
 import { BOARD_ANNOTATION_COLORS } from "@/chess/components/boardAnnotations";
 import { GameDialog } from "@/chess/components/GameDialog";
 import { MoveHistory } from "@/chess/components/MoveHistory";

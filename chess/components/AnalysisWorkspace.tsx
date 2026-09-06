@@ -3,6 +3,7 @@
 import { Chess } from "chess.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
+import { BoardSettings } from "@/chess/components/BoardSettings";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
 import { NAG_VALUES, type AnalysisNag, type AnalysisShape, type AnalysisTree, type GuidedExercise } from "@/chess/analysis/types";
 import { addAnalysisMove, deleteVariation, firstNodeId, lastMainlineNodeId, mainlineMoveRows, nextNodeId, previousNodeId, promoteVariation, toggleNag, updateNodeAnnotations, updateNodeGuidedExercise } from "@/chess/analysis/tree";
@@ -423,6 +424,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
 
       <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,720px)_minmax(360px,520px)] xl:justify-center">
         <div className="mx-auto w-full max-w-[720px] min-w-0 space-y-3">
+          <div className="flex items-center justify-between gap-2">
           <Button type="button" variant="ghost" aria-expanded={showBoardTools} aria-controls="analysis-board-tools" onClick={() => {
             if (showBoardTools) {
               setAnnotationMode(null);
@@ -430,6 +432,8 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
             }
             setShowBoardTools(!showBoardTools);
           }}>{showBoardTools ? "Hide board tools" : "Board tools"}</Button>
+          <BoardSettings />
+          </div>
           {showBoardTools ? <div id="analysis-board-tools" className="space-y-2 rounded-lg border border-white/10 bg-slate-950/50 p-3">
             <div className="flex flex-wrap gap-2" aria-label="Board tools">
               <Button type="button" aria-pressed={annotationMode === null} variant={annotationMode === null ? "secondary" : "ghost"} onClick={() => { setAnnotationMode(null); setAnnotationStart(null); }}>Move pieces</Button>

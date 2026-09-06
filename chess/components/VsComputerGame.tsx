@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Chess } from "chess.js";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
+import { BoardSettings } from "@/chess/components/BoardSettings";
 import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles";
 import { GameControls } from "@/chess/components/GameControls";
 import { GameDialog } from "@/chess/components/GameDialog";
@@ -23,7 +24,7 @@ import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
 type Confirmation = "resign" | "new-game" | null;
 
 const boardColumnStyle = {
-  width: "min(100%, 700px, max(220px, calc(100svh - 25rem)))"
+  width: "min(100%, 700px, max(220px, calc(100svh - 27.5rem)))"
 };
 
 export function VsComputerGame({ studentName, studentAvatar, avatarItems, initialUnlockedBotIds }: { studentName: string; studentAvatar: StudentAvatarConfig; avatarItems: AvatarItem[]; initialUnlockedBotIds: string[] }) {
@@ -130,6 +131,8 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
             materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)}
           />
 
+          <div className="relative">
+          <div className="mb-2 flex justify-end"><BoardSettings muted={game.muted} onToggleMuted={() => game.setMuted((value) => !value)} /></div>
           <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
             <AcademyChessboard
               fen={game.fen}
@@ -150,6 +153,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
               onClearAnnotations={clearBoardAnnotations}
             />
             <BoardCaptureParticles effect={game.captureEffect} orientation={game.boardOrientation} />
+          </div>
           </div>
 
           <PlayerPanel

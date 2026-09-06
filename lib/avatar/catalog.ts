@@ -1,4 +1,5 @@
 import { getConfiguredAvatarPrice } from "@/lib/avatar/economy";
+import { paperChessSet } from "@/lib/avatar/paperChessSet";
 import { AVATAR_CANVAS_HEIGHT, AVATAR_CANVAS_WIDTH, AVATAR_LOGICAL_HEIGHT, AVATAR_LOGICAL_WIDTH } from "@/lib/avatar/geometry";
 import type { AvatarCategory, AvatarItem, AvatarRarity, AvatarUnlockType } from "@/lib/types";
 
@@ -15,7 +16,8 @@ export const avatarCategories: Array<{ id: AvatarCategory; label: string; layerO
   { id: "clothing", label: "Clothing", layerOrder: 40 },
   { id: "headwear", label: "Headwear", layerOrder: 50 },
   { id: "glasses", label: "Glasses", layerOrder: 55 },
-  { id: "chess_accessory", label: "Chess Accessory", layerOrder: 60 }
+  { id: "chess_accessory", label: "Chess Accessory", layerOrder: 60 },
+  { id: "board_theme", label: "Boards & Pieces", layerOrder: 0 }
 ];
 
 export const avatarRarities: AvatarRarity[] = ["Common", "Uncommon", "Rare", "Epic", "Legendary"];
@@ -33,6 +35,7 @@ export const avatarRarityStyles: Record<AvatarRarity, string> = {
 
 function layerShape(category: AvatarCategory, slug: string, accent: string) {
   const defaults: Record<AvatarCategory, string> = {
+    board_theme: "",
     background: "<rect width='160' height='160' rx='28' fill='#172554'/><circle cx='25' cy='28' r='2' fill='#fde68a'/><circle cx='132' cy='39' r='3' fill='#bae6fd'/><circle cx='114' cy='19' r='2' fill='#fff'/><path d='M0 119h160v41H0z' fill='#0f172a'/><path d='M0 119h20v20H0zm40 0h20v20H40zm40 0h20v20H80zm40 0h20v20h-20zM20 139h20v21H20zm40 0h20v21H60zm40 0h20v21h-20zm40 0h20v21h-20z' fill='#334155'/>",
     aura_effect: `<circle cx='80' cy='76' r='60' fill='none' stroke='${accent}' stroke-width='7' opacity='.72'/><path d='M80 4l5 12 13 1-10 8 3 13-11-7-11 7 3-13-10-8 13-1zM22 63l4 8 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1zM138 63l4 8 9 1-7 6 2 9-8-5-8 5 2-9-7-6 9-1z' fill='${accent}' opacity='.9'/>`,
     base_face: "<circle cx='80' cy='72' r='44' fill='#020617' opacity='.16'/>",
@@ -102,6 +105,7 @@ export const defaultAvatarItemSlugs = [
 ];
 
 export const seedAvatarItems: AvatarItem[] = [
+  paperChessSet,
   item({ slug: "starlit-board", name: "Starlit Board", description: "A simple chessboard classroom backdrop.", category: "background", rarity: "Common", price: 0, layerOrder: 0, unlockType: "default", unlockRequirement: "Starter avatar item.", color: "%2367e8f9" }),
   item({ slug: "academy-face", name: "Academy Face", description: "A friendly cartoon student face.", category: "base_face", rarity: "Common", price: 0, layerOrder: 10, unlockType: "default", unlockRequirement: "Starter avatar item.", color: "%23fde68a" }),
   item({ slug: "light-skin-tone", name: "Light Skin Tone", description: "A light skin tone, always free to use.", category: "skin_tone", rarity: "Common", price: 0, layerOrder: 12, unlockType: "default", unlockRequirement: "Free core avatar choice.", color: "%23f3c9ad" }),
