@@ -17,6 +17,7 @@ import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/
 import { crossedOneMinuteWarning } from "@/chess/game/clockWarning";
 import { useLiveGameSounds } from "@/chess/hooks/useLiveGameSounds";
 import { canPlayPremove, isPremovePromotion, type LivePremove } from "@/chess/live/premove";
+import { isCurrentLiveSnapshot, liveBoardInput } from "@/chess/live/boardInput";
 import { hasCoachPresence, type RealtimePresenceState } from "@/chess/live/presence";
 import type { LiveGameAction, LiveGameSnapshot } from "@/chess/live/types";
 import type { ChessColor, PromotionPiece } from "@/chess/types";
@@ -65,6 +66,8 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [optimisticFen, setOptimisticFen] = useState<string | null>(null);
+  const currentGameRef = useRef<LiveGameSnapshot | null>(null);
+  const moveRequestRef = useRef<{ gameId: string; version: number } | null>(null);
   const [error, setError] = useState("");
   const [connection, setConnection] = useState<"connecting" | "live" | "polling">("connecting");
   const [coachSpectating, setCoachSpectating] = useState(false);
@@ -91,18 +94,22 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   const isCorrespondence = mode === "correspondence" || game?.gameMode === "correspondence";
 
   const receiveGame = useCallback((next: LiveGameSnapshot) => {
+    if (next.id !== gameId || !isCurrentLiveSnapshot(currentGameRef.current, next)) return;
     if (next.gameMode !== mode) {
       setGame(null);
       setError(`Open this game from ${next.gameMode === "correspondence" ? "Correspondence" : "Live Games"}.`);
       setLoading(false);
       return;
     }
+    currentGameRef.current = next;
+    const submitted = moveRequestRef.current;
+    if (submitted?.gameId === next.id && next.version > submitted.version) setOptimisticFen(null);
     receiveGameSnapshot({ id: next.id, status: next.status, moves: next.moves });
     setGame(next);
     setServerOffsetMs(Date.now() - new Date(next.serverNow).getTime());
     setError("");
     setLoading(false);
-  }, [mode, receiveGameSnapshot]);
+  }, [gameId, mode, receiveGameSnapshot]);
 
   const refresh = useCallback(async () => {
     try {
@@ -202,7 +209,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
     setBoardArrows([]);
     setBoardCircles([]);
     setAnnotationStart(null);
-    setPendingPromotion(null);
+    setPendingPromotion((current) => current?.mode === "premove" ? current : null);
     claimedVersion.current = null;
     claimRetryAt.current = 0;
   }, [gameId, game?.fen, game?.version]);
@@ -210,7 +217,13 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   useEffect(() => {
     if (game?.status === "active") return;
     setPremove(null);
+    setPendingPromotion(null);
   }, [game?.status]);
+
+  useEffect(() => {
+    setPremove(null);
+    setPendingPromotion(null);
+  }, [gameId]);
 
   useEffect(() => {
     if (!game || isCorrespondence) return;
@@ -264,7 +277,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   }, [displayedClocks, game, playClockWarning]);
 
   const sendAction = useCallback(async (action: LiveGameAction) => {
-    if (!game || pending) return;
+    if (!game || pending || moveRequestRef.current) return;
     setPending(true);
     setError("");
     try {
@@ -298,9 +311,10 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   }, [displayedClocks, game, sendAction]);
 
   const sendMove = useCallback(async (from: string, to: string, promotion?: PromotionPiece) => {
-    if (!game || pending) return;
+    if (!game || pending || moveRequestRef.current) return;
     const chess = new Chess(game.fen);
     if (!tryMove(chess, { from, to, promotion })) return;
+    moveRequestRef.current = { gameId: game.id, version: game.version };
     setOptimisticFen(chess.fen());
     setPendingMoveAtMs(Date.now());
     setPending(true);
@@ -324,12 +338,15 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
       }
     } catch (caught) {
       setOptimisticFen(null);
+      setPremove(null);
+      setPendingPromotion(null);
       setError(caught instanceof Error ? caught.message : "Move could not be played.");
       await refresh();
     } finally {
+      moveRequestRef.current = null;
       setPending(false);
       setPendingMoveAtMs(null);
-      setPendingPromotion(null);
+      setPendingPromotion((current) => current?.mode === "premove" ? current : null);
     }
   }, [game, isCorrespondence, pending, receiveGame, refresh, refreshCorrespondence, router]);
 
@@ -346,8 +363,8 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
 
   const attemptMove = useCallback((from: string, to: string) => {
     if (!game) return;
-    if (!isCorrespondence && game.status === "active" && game.activeColor !== game.viewer.color) {
-      if (isPremovePromotion(new Chess(game.fen), game.viewer.color, from, to)) {
+    if (!isCorrespondence && game.status === "active" && (moveRequestRef.current || game.activeColor !== game.viewer.color)) {
+      if (isPremovePromotion(new Chess(optimisticFen ?? game.fen), game.viewer.color, from, to)) {
         setPendingPromotion({ from, to, mode: "premove" });
       } else {
         setPremove({ from, to });
@@ -360,7 +377,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
       return;
     }
     void sendMove(from, to);
-  }, [game, isCorrespondence, sendMove]);
+  }, [game, isCorrespondence, optimisticFen, sendMove]);
 
   const toggleCircle = useCallback((square: string, color = BOARD_ANNOTATION_COLORS.primary) => {
     setBoardCircles((current) => current.some((circle) => circle.square === square && circle.color === color)
@@ -457,8 +474,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   const opponentColor = oppositeColor(viewerColor);
   const opponent = game.players[opponentColor];
   const viewer = game.players[viewerColor];
-  const canQueuePremove = !isCorrespondence && game.status === "active" && game.activeColor !== viewerColor && !pending;
-  const interactive = game.status === "active" && !pending && (game.activeColor === viewerColor || canQueuePremove);
+  const { canQueuePremove, interactive } = liveBoardInput(game, pending, pendingMoveAtMs !== null, isCorrespondence);
   const opponentOfferedDraw = Boolean(game.drawOfferedBy && game.drawOfferedBy !== game.viewer.id);
   const viewerOfferedDraw = game.drawOfferedBy === game.viewer.id;
   const viewerRequestedRematch = game.rematchRequestedBy === game.viewer.id;

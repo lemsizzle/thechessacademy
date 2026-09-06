@@ -3,11 +3,12 @@
 import { Chess, type Square } from "chess.js";
 import { Chessboard, type ChessboardOptions } from "react-chessboard";
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
-import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { annotationColorForModifiers, BOARD_ANNOTATION_COLORS, LICHESS_ANNOTATION_CLEAR_OPTIONS } from "@/chess/components/boardAnnotations";
 import { boardSquaresForOrientation, describeBoardSquare, nextBoardSquare, type BoardNavigationKey } from "@/chess/components/boardAccessibility";
 import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
-import { boardClickAction } from "@/chess/game/boardInteraction";
+import { boardClickAction, retainedBoardSelection } from "@/chess/game/boardInteraction";
+import { useLatestCallback } from "@/chess/hooks/useLatestCallback";
 import { chessJsColor } from "@/chess/game/colors";
 import { boardDropAction, checkedKingSquare, legalMovesFrom, pseudoLegalMovesFrom } from "@/chess/game/rules";
 import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
@@ -70,6 +71,7 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
     onClearAnnotations();
   } : undefined);
   const chess = useMemo(() => new Chess(fen), [fen]);
+  const previousPositionRef = useRef({ chess, humanColor, boardId });
   const visualSquares = useMemo(() => boardSquaresForOrientation(orientation), [orientation]);
   const checkSquare = useMemo(() => checkedKingSquare(chess), [chess]);
   const legalMoves = useMemo(() => {
@@ -98,7 +100,9 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
     return { ...pieces, ...Object.fromEntries(hiddenPieces.map((piece) => [piece, () => <span aria-hidden="true" className="block h-full w-full opacity-0" />])) };
   }, [hiddenPieces, hiddenPiecesKey, pieces]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const previous = previousPositionRef.current;
+    previousPositionRef.current = { chess, humanColor, boardId };
     const movedSquare = movedSelectionRef.current;
     movedSelectionRef.current = null;
     if (keepMovedPieceSelected && movedSquare) {
@@ -108,8 +112,10 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
         return;
       }
     }
-    setSelectedSquare(null);
-  }, [fen, humanColor, keepMovedPieceSelected]);
+    setSelectedSquare((selected) => previous.humanColor === humanColor && previous.boardId === boardId
+      ? retainedBoardSelection(previous.chess, chess, selected, chessJsColor(humanColor))
+      : null);
+  }, [chess, humanColor, keepMovedPieceSelected, boardId]);
 
   useEffect(() => {
     setKeyboardSquare(visualSquares[0]);
@@ -245,6 +251,42 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
     return styles;
   }, [activeShinySquares, checkSquare, circles, lastMove, legalMoves, premove, selectedSquare, shinySquares]);
 
+  const handlePieceDrop = useLatestCallback<Parameters<NonNullable<ChessboardOptions["onPieceDrop"]>>, boolean>(({ sourceSquare, targetSquare }) => {
+    if (!interactive || annotationMode || !targetSquare || sourceSquare === targetSquare) return false;
+    onBoardInteraction?.();
+    if (movableSquares && !movableSquares.includes(sourceSquare)) return false;
+    if (allowedDestinationSquares && !allowedDestinationSquares.includes(targetSquare)) return false;
+    const sourcePiece = chess.get(sourceSquare as Square);
+    if (sourcePiece?.color !== chessJsColor(humanColor)) return false;
+    const isPremoveAttempt = allowPremoves && sourcePiece.color !== chess.turn();
+    if (isPremoveAttempt) {
+      if (!premoveMovesFrom(chess, sourceSquare).some((move) => move.to === targetSquare)) return false;
+      updateSelectionAfterMove(targetSquare);
+      onMove(sourceSquare, targetSquare);
+      // A queued move must not relocate the piece before the opponent replies.
+      return false;
+    }
+    const action = boardDropAction(chess, sourceSquare, targetSquare);
+    if (action === "illegal") {
+      const isCheckIgnoringAttempt = allowCheckIgnoringMoves
+        && pseudoLegalMovesFrom(chess, sourceSquare).some((candidate) => candidate.to === targetSquare);
+      if (!isCheckIgnoringAttempt) {
+        onIllegalMove?.(sourceSquare, targetSquare);
+        return false;
+      }
+      updateSelectionAfterMove(targetSquare);
+      onMove(sourceSquare, targetSquare);
+      return true;
+    }
+    if (action === "move") updateSelectionAfterMove(targetSquare);
+    else {
+      movedSelectionRef.current = null;
+      setSelectedSquare(null);
+    }
+    onMove(sourceSquare, targetSquare);
+    return action === "move";
+  });
+
   const options: ChessboardOptions = {
     id: boardId,
     position: fen,
@@ -329,41 +371,7 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
       rightGestureRef.current = null;
       onCircleToggle?.(square, color);
     },
-    onPieceDrop: ({ sourceSquare, targetSquare }) => {
-      if (!interactive || !targetSquare) return false;
-      onBoardInteraction?.();
-      if (movableSquares && !movableSquares.includes(sourceSquare)) return false;
-      if (allowedDestinationSquares && !allowedDestinationSquares.includes(targetSquare)) return false;
-      const sourcePiece = chess.get(sourceSquare as Square);
-      const isPremoveAttempt = allowPremoves
-        && sourcePiece?.color === chessJsColor(humanColor)
-        && sourcePiece.color !== chess.turn();
-      if (isPremoveAttempt) {
-        if (!premoveMovesFrom(chess, sourceSquare).some((move) => move.to === targetSquare)) return false;
-        updateSelectionAfterMove(targetSquare);
-        onMove(sourceSquare, targetSquare);
-        return true;
-      }
-      const action = boardDropAction(chess, sourceSquare, targetSquare);
-      if (action === "illegal") {
-        const isCheckIgnoringAttempt = allowCheckIgnoringMoves
-          && pseudoLegalMovesFrom(chess, sourceSquare).some((candidate) => candidate.to === targetSquare);
-        if (!isCheckIgnoringAttempt) {
-          onIllegalMove?.(sourceSquare, targetSquare);
-          return false;
-        }
-        updateSelectionAfterMove(targetSquare);
-        onMove(sourceSquare, targetSquare);
-        return true;
-      }
-      if (action === "move") updateSelectionAfterMove(targetSquare);
-      else {
-        movedSelectionRef.current = null;
-        setSelectedSquare(null);
-      }
-      onMove(sourceSquare, targetSquare);
-      return action === "move";
-    }
+    onPieceDrop: handlePieceDrop
   };
 
   const instructionsId = `${boardId}-keyboard-instructions`;
