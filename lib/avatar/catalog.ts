@@ -1,5 +1,6 @@
 import { getConfiguredAvatarPrice } from "@/lib/avatar/economy";
 import { paperChessSet } from "@/lib/avatar/paperChessSet";
+import { blossomChessSet } from "@/lib/avatar/blossomChessSet";
 import { AVATAR_CANVAS_HEIGHT, AVATAR_CANVAS_WIDTH, AVATAR_LOGICAL_HEIGHT, AVATAR_LOGICAL_WIDTH } from "@/lib/avatar/geometry";
 import type { AvatarCategory, AvatarItem, AvatarRarity, AvatarUnlockType } from "@/lib/types";
 
@@ -105,6 +106,7 @@ export const defaultAvatarItemSlugs = [
 ];
 
 export const seedAvatarItems: AvatarItem[] = [
+  blossomChessSet,
   paperChessSet,
   item({ slug: "starlit-board", name: "Starlit Board", description: "A simple chessboard classroom backdrop.", category: "background", rarity: "Common", price: 0, layerOrder: 0, unlockType: "default", unlockRequirement: "Starter avatar item.", color: "%2367e8f9" }),
   item({ slug: "academy-face", name: "Academy Face", description: "A friendly cartoon student face.", category: "base_face", rarity: "Common", price: 0, layerOrder: 10, unlockType: "default", unlockRequirement: "Starter avatar item.", color: "%23fde68a" }),

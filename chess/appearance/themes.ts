@@ -1,9 +1,33 @@
 import type { CSSProperties } from "react";
 
 export const PAPER_CHESS_SET_SLUG = "paper-chess-set";
-export type ChessTheme = "academy" | "paper";
+export const BLOSSOM_CHESS_SET_SLUG = "blossom-chess-set";
+export const PURCHASABLE_CHESS_THEMES = {
+  paper: { label: "Paper", slug: PAPER_CHESS_SET_SLUG },
+  blossom: { label: "Blossom", slug: BLOSSOM_CHESS_SET_SLUG }
+} as const;
+export type PurchasedChessTheme = keyof typeof PURCHASABLE_CHESS_THEMES;
+export const purchasedChessThemes = Object.keys(PURCHASABLE_CHESS_THEMES) as PurchasedChessTheme[];
+export type ChessTheme = "academy" | PurchasedChessTheme;
 export type BoardAppearance = { boardTheme: ChessTheme; pieceTheme: ChessTheme };
 export const DEFAULT_BOARD_APPEARANCE: BoardAppearance = { boardTheme: "academy", pieceTheme: "academy" };
+
+export function chessThemeForSlug(slug: string): PurchasedChessTheme | null {
+  return purchasedChessThemes.find((theme) => PURCHASABLE_CHESS_THEMES[theme].slug === slug) ?? null;
+}
+
+export function isChessSetInUse(slug: string, appearance: BoardAppearance) {
+  const theme = chessThemeForSlug(slug);
+  return theme !== null && (appearance.boardTheme === theme || appearance.pieceTheme === theme);
+}
+
+export function parseOwnedChessThemes(value: unknown): PurchasedChessTheme[] {
+  return purchasedChessThemes.filter((theme) => Array.isArray(value) && value.includes(theme));
+}
+
+function parseTheme(value: unknown): ChessTheme {
+  return purchasedChessThemes.includes(value as PurchasedChessTheme) ? value as PurchasedChessTheme : "academy";
+}
 
 export function appearanceStorageKey(studentId: string) {
   return `academy-board-appearance:v1:${studentId}`;
@@ -15,14 +39,15 @@ export function parseBoardAppearance(raw: string | null): BoardAppearance {
     if (!value || typeof value !== "object") return DEFAULT_BOARD_APPEARANCE;
     const preferences = value as Record<string, unknown>;
     return {
-      boardTheme: preferences.boardTheme === "paper" ? "paper" : "academy",
-      pieceTheme: preferences.pieceTheme === "paper" ? "paper" : "academy"
+      boardTheme: parseTheme(preferences.boardTheme),
+      pieceTheme: parseTheme(preferences.pieceTheme)
     };
   } catch { return DEFAULT_BOARD_APPEARANCE; }
 }
 
-export function unlockedAppearance(preferences: BoardAppearance, ownsPaper: boolean): BoardAppearance {
-  return ownsPaper ? preferences : DEFAULT_BOARD_APPEARANCE;
+export function unlockedAppearance(preferences: BoardAppearance, ownedThemes: readonly PurchasedChessTheme[]): BoardAppearance {
+  const unlock = (theme: ChessTheme): ChessTheme => theme === "academy" || ownedThemes.includes(theme) ? theme : "academy";
+  return { boardTheme: unlock(preferences.boardTheme), pieceTheme: unlock(preferences.pieceTheme) };
 }
 
 // CSS-only fibres: no large textures, image requests, filters, or animation work per move.
@@ -39,5 +64,11 @@ export const BOARD_THEME_STYLES: Record<ChessTheme, { lightSquareStyle: CSSPrope
     darkSquareStyle: { backgroundColor: "#b49b7a", backgroundImage: paperTexture },
     lightSquareNotationStyle: { color: "#705536" },
     darkSquareNotationStyle: { color: "#3d3024" }
+  },
+  blossom: {
+    lightSquareStyle: { backgroundColor: "#fff0f6", backgroundImage: "radial-gradient(circle at 20% 20%, #ffffff70 0 1px, transparent 1.5px)", backgroundSize: "14px 14px" },
+    darkSquareStyle: { backgroundColor: "#ba84ab", backgroundImage: "linear-gradient(135deg, #ffffff10, transparent)" },
+    lightSquareNotationStyle: { color: "#79365f" },
+    darkSquareNotationStyle: { color: "#421c47" }
   }
 };
