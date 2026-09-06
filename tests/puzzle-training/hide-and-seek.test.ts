@@ -6,6 +6,7 @@ import {
   calculateHideAndSeekAttackedSquares,
   calculateHideAndSeekSafeSquares,
   calculateHideAndSeekScore,
+  findHideAndSeekAttacker,
   generateHideAndSeekBoard,
   generateHideAndSeekBoardForVersion,
   hideAndSeekBoardFen,
@@ -96,6 +97,26 @@ describe("Hide and Seek rules", () => {
     ]);
     expect(queenSafe).toContain("a4");
     expect(queenSafe).not.toContain("a2");
+  });
+
+  it("identifies the nearest piece that sees a mistaken square", () => {
+    const pieces = [
+      placement("bR", "d8"),
+      placement("bN", "b3")
+    ];
+
+    expect(findHideAndSeekAttacker(pieces, "d2")).toEqual(placement("bN", "b3"));
+    expect(findHideAndSeekAttacker(pieces, "h1")).toBeNull();
+  });
+
+  it("does not identify a sliding attacker through another piece", () => {
+    const pieces = [
+      placement("bR", "a1"),
+      placement("bN", "a3")
+    ];
+
+    expect(findHideAndSeekAttacker(pieces, "a2")).toEqual(placement("bR", "a1"));
+    expect(findHideAndSeekAttacker(pieces, "a4")).toBeNull();
   });
 
   it("never classifies an occupied square as safe", () => {

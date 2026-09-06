@@ -175,6 +175,31 @@ function addSlidingAttacks(
   }
 }
 
+function addPieceAttacks(
+  attacked: Set<HideAndSeekSquare>,
+  placement: HideAndSeekPiecePlacement,
+  occupied: ReadonlySet<HideAndSeekSquare>
+) {
+  const from = coordinates(placement.square);
+  switch (placement.piece) {
+    case "bN":
+      addJumpAttacks(attacked, from, knightDirections);
+      break;
+    case "bK":
+      addJumpAttacks(attacked, from, kingDirections);
+      break;
+    case "bR":
+      addSlidingAttacks(attacked, from, rookDirections, occupied);
+      break;
+    case "bB":
+      addSlidingAttacks(attacked, from, bishopDirections, occupied);
+      break;
+    case "bQ":
+      addSlidingAttacks(attacked, from, [...rookDirections, ...bishopDirections], occupied);
+      break;
+  }
+}
+
 /**
  * Returns every square seen by at least one black piece. Sliding pieces see
  * the first occupied square on a ray, but cannot see through it.
@@ -186,27 +211,37 @@ export function calculateHideAndSeekAttackedSquares(
   const attacked = new Set<HideAndSeekSquare>();
 
   for (const placement of pieces) {
-    const from = coordinates(placement.square);
-    switch (placement.piece) {
-      case "bN":
-        addJumpAttacks(attacked, from, knightDirections);
-        break;
-      case "bK":
-        addJumpAttacks(attacked, from, kingDirections);
-        break;
-      case "bR":
-        addSlidingAttacks(attacked, from, rookDirections, occupied);
-        break;
-      case "bB":
-        addSlidingAttacks(attacked, from, bishopDirections, occupied);
-        break;
-      case "bQ":
-        addSlidingAttacks(attacked, from, [...rookDirections, ...bishopDirections], occupied);
-        break;
-    }
+    addPieceAttacks(attacked, placement, occupied);
   }
 
   return sortedSquares(attacked);
+}
+
+/** Returns the nearest piece that sees a square, or null when the square is safe. */
+export function findHideAndSeekAttacker(
+  pieces: readonly HideAndSeekPiecePlacement[],
+  target: HideAndSeekSquare
+): HideAndSeekPiecePlacement | null {
+  const occupied = assertValidPlacements(pieces);
+  const targetCoordinates = coordinates(target);
+  let nearest: HideAndSeekPiecePlacement | null = null;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+
+  for (const placement of pieces) {
+    const attacked = new Set<HideAndSeekSquare>();
+    addPieceAttacks(attacked, placement, occupied);
+    if (!attacked.has(target)) continue;
+
+    const from = coordinates(placement.square);
+    const distance = (from.file - targetCoordinates.file) ** 2
+      + (from.rank - targetCoordinates.rank) ** 2;
+    if (distance < nearestDistance) {
+      nearest = placement;
+      nearestDistance = distance;
+    }
+  }
+
+  return nearest;
 }
 
 /** Empty board squares that no black piece can see. */

@@ -12,6 +12,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import {
   calculateHideAndSeekSafeSquares,
+  findHideAndSeekAttacker,
   type HideAndSeekMode,
   type HideAndSeekPieceCode,
   type HideAndSeekPiecePlacement,
@@ -93,6 +94,13 @@ function isLightSquare(index: number) {
   const row = Math.floor(index / 8);
   const column = index % 8;
   return (row + column) % 2 === 0;
+}
+
+function boardPoint(square: HideAndSeekSquare) {
+  return {
+    x: square.charCodeAt(0) - 97 + 0.5,
+    y: 8 - Number(square[1]) + 0.5
+  };
 }
 
 function errorMessage(value: unknown, fallback: string) {
@@ -184,7 +192,8 @@ function squareLabel({
   phase,
   correct,
   wrong,
-  missed
+  missed,
+  attacker
 }: {
   square: HideAndSeekSquare;
   piece?: HideAndSeekPieceCode;
@@ -193,10 +202,12 @@ function squareLabel({
   correct: boolean;
   wrong: boolean;
   missed: boolean;
+  attacker?: HideAndSeekPiecePlacement;
 }) {
   if (piece) return `${square}: ${PIECE_NAMES[piece]}, cannot be marked`;
   if (phase === "result") {
     if (correct) return `${square}: safe square found`;
+    if (wrong && attacker) return `${square}: wrong guess, seen by the ${PIECE_NAMES[attacker.piece]} on ${attacker.square}`;
     if (wrong) return `${square}: wrong guess, this square is seen`;
     if (missed) return `${square}: safe square missed`;
     return `${square}: seen square`;
@@ -231,6 +242,14 @@ function SearchBoard({
   );
   const wrongSquares = useMemo(() => new Set(result?.wrongSquares ?? []), [result?.wrongSquares]);
   const missedSquares = useMemo(() => new Set(result?.missedSquares ?? []), [result?.missedSquares]);
+  const mistakeFeedback = useMemo(() => (result?.wrongSquares ?? []).flatMap((target) => {
+    const attacker = findHideAndSeekAttacker(round.pieces, target);
+    return attacker ? [{ attacker, target }] : [];
+  }), [result?.wrongSquares, round.pieces]);
+  const attackerBySquare = useMemo(
+    () => new Map(mistakeFeedback.map(({ attacker, target }) => [target, attacker])),
+    [mistakeFeedback]
+  );
 
   useEffect(() => {
     if (!interactive) return;
@@ -281,6 +300,7 @@ function SearchBoard({
               const correct = correctSquares.has(square);
               const wrong = wrongSquares.has(square);
               const missed = missedSquares.has(square);
+              const attacker = attackerBySquare.get(square);
               const canToggle = interactive && !piece;
               const light = isLightSquare(index);
               const resultClass = correct
@@ -297,7 +317,7 @@ function SearchBoard({
                   ref={(node) => { squareRefs.current[index] = node; }}
                   type="button"
                   role="gridcell"
-                  aria-label={squareLabel({ square, piece, marked, phase, correct, wrong, missed })}
+                  aria-label={squareLabel({ square, piece, marked, phase, correct, wrong, missed, attacker })}
                   aria-selected={phase === "result" ? correct : marked}
                   aria-disabled={!canToggle}
                   tabIndex={index === activeIndex ? 0 : -1}
@@ -323,6 +343,57 @@ function SearchBoard({
             })}
           </div>
         ))}
+        {mistakeFeedback.length ? (
+          <svg
+            className="pointer-events-none absolute inset-0 z-20 h-full w-full"
+            viewBox="0 0 8 8"
+            aria-hidden="true"
+          >
+            <defs>
+              <marker
+                id="hide-and-seek-danger-arrowhead"
+                markerWidth="0.75"
+                markerHeight="0.75"
+                refX="0.62"
+                refY="0.375"
+                orient="auto"
+                markerUnits="userSpaceOnUse"
+              >
+                <path d="M 0 0 L 0.75 0.375 L 0 0.75 z" fill="#fb7185" />
+              </marker>
+              <filter id="hide-and-seek-danger-glow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="0.07" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            {mistakeFeedback.map(({ attacker, target }) => {
+              const from = boardPoint(attacker.square);
+              const to = boardPoint(target);
+              const deltaX = to.x - from.x;
+              const deltaY = to.y - from.y;
+              const length = Math.hypot(deltaX, deltaY) || 1;
+              const startPadding = 0.34;
+              const endPadding = 0.32;
+              return (
+                <line
+                  key={`${attacker.square}-${target}`}
+                  x1={from.x + deltaX / length * startPadding}
+                  y1={from.y + deltaY / length * startPadding}
+                  x2={to.x - deltaX / length * endPadding}
+                  y2={to.y - deltaY / length * endPadding}
+                  stroke="#fb7185"
+                  strokeWidth="0.13"
+                  strokeLinecap="round"
+                  markerEnd="url(#hide-and-seek-danger-arrowhead)"
+                  filter="url(#hide-and-seek-danger-glow)"
+                />
+              );
+            })}
+          </svg>
+        ) : null}
       </div>
     </div>
   );

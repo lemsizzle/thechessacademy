@@ -17,6 +17,7 @@ import { Button } from "@/components/Button";
 import { AddToStudyDialog } from "@/chess/components/AddToStudyDialog";
 import { createAnalysisTree } from "@/chess/analysis/tree";
 import { BOARD_ANNOTATION_COLORS } from "@/chess/components/boardAnnotations";
+import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/material";
 import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
 
 type Confirmation = "resign" | "new-game" | null;
@@ -35,6 +36,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
   const [boardArrows, setBoardArrows] = useState<Array<{ startSquare: string; endSquare: string; color: string }>>([]);
   const [boardCircles, setBoardCircles] = useState<Array<{ square: string; color: string }>>([]);
   const completedTree = useMemo(() => game.savedGameId ? createAnalysisTree(new Chess().fen(), game.moves) : null, [game.moves, game.savedGameId]);
+  const materialBalance = useMemo(() => whiteMaterialAdvantage(game.fen), [game.fen]);
 
   useEffect(() => {
     setBoardArrows([]);
@@ -120,6 +122,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
             clockMs={opponentClock}
             active={game.activeColor === opponentColor}
             thinking={game.thinking}
+            materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)}
           />
 
           <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
@@ -151,6 +154,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
             active={game.activeColor === config.humanColor}
             avatar={studentAvatar}
             avatarItems={avatarItems}
+            materialAdvantage={materialAdvantageForColor(materialBalance, config.humanColor)}
           />
         </div>
 
