@@ -5,12 +5,14 @@ The active badge system has two families: tactic badges and concept badges.
 ## Tactic Badges
 
 Tactic badges use four tiers:
-- Bronze: solve 10 puzzles, reward 10 XP
-- Silver: solve 20 puzzles, reward 30 XP
-- Gold: solve 30 puzzles, reward 40 XP
-- Platinum: solve 40 puzzles, reward 100 XP
+- Bronze: score 10 in one tactic-only Survival round, reward 20 coins
+- Silver: score 20 in one tactic-only Survival round, reward 40 coins
+- Gold: score 30 in one tactic-only Survival round, reward 100 coins
+- Platinum: score 40 in one tactic-only Survival round, reward 200 coins
 
-Approved student-submitted tactic reviews and approved Game Analyzer findings can also count toward these thresholds. They do not give per-game XP. XP is still only awarded when a badge threshold is reached and the teacher approves the pending badge award.
+Scores from mixed training or separate rounds never combine toward a tactic badge.
+
+Tactic badges are awarded automatically when a student reaches a threshold in a single focused Survival round. Other puzzle modes, mixed-theme rounds, submitted reviews, and Game Analyzer findings do not count toward these thresholds.
 
 There are 10 tactic themes, creating 40 active tactic badges total.
 
