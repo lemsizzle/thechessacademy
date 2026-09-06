@@ -1,13 +1,23 @@
 import { createElement, type CSSProperties, type ComponentType } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { eightBitPieces } from "@/chess/appearance/EightBitPieces";
+import { EightBitPiece, eightBitPieces } from "@/chess/appearance/EightBitPieces";
 import { ChessSetPreview } from "@/chess/appearance/ChessSetPreview";
 import { chessThemeForSlug, isChessSetInUse, parseBoardAppearance, parseOwnedChessThemes, unlockedAppearance } from "@/chess/appearance/themes";
 import { eightBitChessSet } from "@/lib/avatar/eightBitChessSet";
 import { seedAvatarItems, defaultAvatarItemSlugs } from "@/lib/avatar/catalog";
 
 describe("8-Bit Chess Set", () => {
+  it("gives both bishops a tall mitre and a prominent cut, distinct from pawns", () => {
+    for (const black of [false, true]) {
+      const bishop = renderToStaticMarkup(createElement(EightBitPiece, { kind: "B", black }));
+      const pawn = renderToStaticMarkup(createElement(EightBitPiece, { kind: "P", black }));
+      expect(bishop).toContain('data-bishop-mitre="true"');
+      expect(bishop).toContain('d="M7 1H9');
+      expect(pawn).not.toContain('data-bishop-mitre');
+      expect(pawn).toContain('d="M6 3H10');
+    }
+  });
   it("is an Epic 800-coin bundle, not a free avatar layer", () => {
     expect(eightBitChessSet).toMatchObject({ category: "board_theme", price: 800, rarity: "Epic", unlockType: "purchase" });
     expect(seedAvatarItems).toContain(eightBitChessSet);
