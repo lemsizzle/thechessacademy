@@ -5,12 +5,12 @@ The active badge system has two families: tactic badges and concept badges.
 ## Tactic Badges
 
 Tactic badges use four tiers:
-- Bronze: score 10 in one tactic-only Survival round, reward 20 coins
-- Silver: score 20 in one tactic-only Survival round, reward 40 coins
-- Gold: score 30 in one tactic-only Survival round, reward 100 coins
-- Platinum: score 40 in one tactic-only Survival round, reward 200 coins
+- Bronze: score 10 hint-free puzzles in one tactic-only Survival round, reward 20 coins
+- Silver: score 20 hint-free puzzles in one tactic-only Survival round, reward 40 coins
+- Gold: score 30 hint-free puzzles in one tactic-only Survival round, reward 100 coins
+- Platinum: score 40 hint-free puzzles in one tactic-only Survival round, reward 200 coins
 
-Scores from mixed training or separate rounds never combine toward a tactic badge.
+Scores from mixed training or separate rounds never combine toward a tactic badge. A round may still use hints, but any puzzle where a hint was used is excluded from its badge score.
 
 Tactic badges are awarded automatically when a student reaches a threshold in a single focused Survival round. Other puzzle modes, mixed-theme rounds, submitted reviews, and Game Analyzer findings do not count toward these thresholds.
 

@@ -18,7 +18,7 @@ await db.exec(`
   create table chess_puzzles (id uuid primary key default gen_random_uuid(), themes text[]);
   create table student_puzzle_attempts (id uuid primary key default gen_random_uuid(), student_id uuid references students,
     puzzle_id uuid references chess_puzzles, session_id uuid default gen_random_uuid(), selected_theme text,
-    training_mode text, solved boolean, attempted_at timestamptz default now(), completed_at timestamptz default now());
+    training_mode text, solved boolean, hints_used integer default 0, attempted_at timestamptz default now(), completed_at timestamptz default now());
   create table student_wallets (student_id uuid primary key references students, academy_coins integer, total_coins_earned integer, total_coins_spent integer);
   create table coin_transactions (id uuid primary key default gen_random_uuid(), student_id uuid references students, amount integer,
     transaction_type text, source_type text, source_id text, description text, idempotency_key text unique);
@@ -47,6 +47,7 @@ await db.exec(`
 const original = (await db.query("select id from badges")).rows[0].id;
 await db.exec(await readFile(new URL("../supabase/migrations/20260906073935_survival_tactical_badges.sql", import.meta.url), "utf8"));
 await db.exec(await readFile(new URL("../supabase/migrations/20260906150437_survival_badges_single_theme_round.sql", import.meta.url), "utf8"));
+await db.exec(await readFile(new URL("../supabase/migrations/20260906164159_exclude_hinted_survival_solves_from_badges.sql", import.meta.url), "utf8"));
 assert.equal((await db.query("select count(*)::int as n from survival_tactical_badge_rules")).rows[0].n, 40);
 assert.equal((await db.query("select count(distinct selected_theme)::int as n from survival_tactical_badge_rules")).rows[0].n, 10);
 assert.deepEqual((await db.query("select id,final_image_url,xp_value from badges where name='Pin Grandmaster'")).rows[0], { id: original, final_image_url: "/existing-art.png", xp_value: 50 });
@@ -61,12 +62,13 @@ const sessions = {
   focused: "10000000-0000-4000-8000-000000000005",
   doubleAttack: "10000000-0000-4000-8000-000000000006",
   malformed: "10000000-0000-4000-8000-000000000007",
-  inactive: "10000000-0000-4000-8000-000000000008"
+  inactive: "10000000-0000-4000-8000-000000000008",
+  hinted: "10000000-0000-4000-8000-000000000009"
 };
-async function attempt(puzzle, { studentId = student, session = sessions.focused, theme = "pin", mode = "survival", solved = true } = {}) {
+async function attempt(puzzle, { studentId = student, session = sessions.focused, theme = "pin", mode = "survival", solved = true, hints = 0 } = {}) {
   await db.query(
-    "insert into student_puzzle_attempts(student_id,puzzle_id,session_id,selected_theme,training_mode,solved) values($1,$2,$3,$4,$5,$6)",
-    [studentId,puzzle,session,theme,mode,solved]
+    "insert into student_puzzle_attempts(student_id,puzzle_id,session_id,selected_theme,training_mode,solved,hints_used) values($1,$2,$3,$4,$5,$6,$7)",
+    [studentId,puzzle,session,theme,mode,solved,hints]
   );
 }
 async function award(studentId = student, session = sessions.focused) {
@@ -106,6 +108,17 @@ for (let n=10;n<=40;n++) {
 }
 assert.equal((await db.query("select academy_coins from student_wallets where student_id=$1",[student])).rows[0].academy_coins,360);
 
+// Hinted solves do not count, while hint-free solves in the same round do.
+const hintStudent = (await db.query("insert into students default values returning id")).rows[0].id;
+for (let i=0;i<9;i++) await attempt(pinPuzzles[i], { studentId: hintStudent, session: sessions.hinted });
+for (let i=9;i<20;i++) await attempt(pinPuzzles[i], { studentId: hintStudent, session: sessions.hinted, hints: 1 });
+assert.deepEqual(await award(hintStudent, sessions.hinted), [], "Hinted solves must not reach the badge threshold");
+await attempt(pinPuzzles[20], { studentId: hintStudent, session: sessions.hinted });
+const hintFreeThreshold = await award(hintStudent, sessions.hinted);
+assert.equal(hintFreeThreshold.length, 1);
+assert.equal(hintFreeThreshold[0].tier, "Bronze");
+assert.match((await db.query("select note from student_badges where student_id=$1", [hintStudent])).rows[0].note, /10 hint-free pin puzzles/);
+
 // A focused double-check round earns Double Attack, while a fork round cannot.
 const doubleChecks=(await db.query("insert into chess_puzzles(themes) select array['doubleCheck'] from generate_series(1,10) returning id")).rows;
 for(const puzzle of doubleChecks) await attempt(puzzle.id, { session: sessions.doubleAttack, theme: "doubleCheck" });
@@ -132,4 +145,4 @@ for (const role of ['anon','authenticated']) {
   assert.equal((await db.query("select has_function_privilege($1,'award_survival_tactical_badges(uuid,uuid)','execute') as allowed",[role])).rows[0].allowed,false);
 }
 await db.close();
-console.log("PASS: focused single-round thresholds, exact coins, distinct solves, theme isolation, mixed/other modes, retries, inactive students, rollback, and role permissions.");
+console.log("PASS: focused single-round thresholds, hint exclusion, exact coins, distinct solves, theme isolation, mixed/other modes, retries, inactive students, rollback, and role permissions.");
