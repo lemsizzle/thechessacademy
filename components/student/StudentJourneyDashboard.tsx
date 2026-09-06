@@ -35,6 +35,13 @@ const destinationStyles: Record<DestinationKind, { frame: string; icon: string }
   }
 };
 
+const badgeAwardDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC"
+});
+
 function formatDate(value: string | null) {
   if (!value) return "Not synced yet";
   const date = new Date(value);
@@ -335,6 +342,73 @@ function TrainingPanel({ data }: { data: StudentDashboardData }) {
   );
 }
 
+function formatBadgeAwardDate(value: string | undefined) {
+  if (!value) return "Earned";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Earned";
+  return `Earned ${badgeAwardDateFormatter.format(date)}`;
+}
+
+function TrophyCase({
+  data,
+  headingId,
+  headingLevel = "h2"
+}: {
+  data: StudentDashboardData;
+  headingId: string;
+  headingLevel?: "h2" | "h3";
+}) {
+  const badgesUnavailable = data.unavailableSections.includes("badges");
+  const Heading = headingLevel;
+
+  return (
+    <section aria-labelledby={headingId}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-amber-200/35 bg-amber-300/10 text-2xl shadow-[0_0_28px_rgba(251,191,36,0.18)]">
+            🏆
+          </span>
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Academy honors</p>
+            <Heading id={headingId} className="mt-1 text-2xl font-black text-white">Trophy Case</Heading>
+            <p className="mt-1 text-sm text-slate-300">Every badge you have earned on your Academy journey.</p>
+          </div>
+        </div>
+        <span className="w-fit rounded-full border border-amber-200/25 bg-amber-300/10 px-3 py-1.5 text-sm font-black text-amber-100">
+          {badgesUnavailable ? "Unavailable" : `${data.badges.length.toLocaleString()} ${data.badges.length === 1 ? "badge" : "badges"}`}
+        </span>
+      </div>
+
+      {badgesUnavailable ? (
+        <div className="mt-5">
+          <UnavailableNotice title="Badges are temporarily unavailable." detail="Your earned badges are safe and will return when the achievement service reconnects." />
+        </div>
+      ) : data.badges.length > 0 ? (
+        <div className="relative mt-5">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-2 bottom-0 top-0 rounded-xl bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_9.75rem,rgba(251,191,36,0.12)_9.75rem,rgba(251,191,36,0.12)_10rem)]" />
+          <div className="relative grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {data.badges.map((badge) => (
+              <BadgeCard
+                key={badge.id}
+                badge={badge}
+                earned
+                compact
+                statusText={formatBadgeAwardDate(badge.createdAt)}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-5 rounded-xl border border-dashed border-amber-200/25 bg-black/20 p-5 text-center">
+          <p className="font-black text-white">Your first trophy spot is ready.</p>
+          <p className="mt-1 text-sm text-slate-300">Complete Academy challenges and quests to earn badges for your case.</p>
+          <Button href="/student/quests" variant="secondary" className="mt-4">Explore Quests</Button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AchievementsPanel({ data }: { data: StudentDashboardData }) {
   const questsUnavailable = data.unavailableSections.includes("quests");
   const badgesUnavailable = data.unavailableSections.includes("badges");
@@ -347,23 +421,7 @@ function AchievementsPanel({ data }: { data: StudentDashboardData }) {
         <StatTile label="Completed quests" value={questsUnavailable ? "Unavailable" : data.quests.completedCount.toLocaleString()} />
       </div>
 
-      <section aria-labelledby="earned-badges-heading">
-        <div>
-          <h3 id="earned-badges-heading" className="text-lg font-black text-white">Earned badges</h3>
-          <p className="mt-1 text-sm text-slate-400">Your Academy accomplishments so far.</p>
-        </div>
-        {badgesUnavailable ? (
-          <div className="mt-4">
-            <UnavailableNotice title="Badges are temporarily unavailable." detail="Your earned badges are safe and will return when the achievement service reconnects." />
-          </div>
-        ) : data.badges.length > 0 ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {data.badges.map((badge) => <BadgeCard key={badge.id} badge={badge} earned compact statusText="Earned" />)}
-          </div>
-        ) : (
-          <p className="mt-4 rounded-lg border border-white/10 bg-black/20 p-4 text-sm text-slate-300">Your first earned badge will appear here.</p>
-        )}
-      </section>
+      <TrophyCase data={data} headingId="achievements-trophy-case-heading" headingLevel="h3" />
     </div>
   );
 }
@@ -488,6 +546,13 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
           </div>
         </div>
       </section>
+
+      <Card className="relative overflow-hidden border-amber-200/20 bg-gradient-to-br from-amber-950/70 via-slate-950 to-slate-950 p-4 sm:p-5">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="relative">
+          <TrophyCase data={data} headingId="dashboard-trophy-case-heading" />
+        </div>
+      </Card>
 
       <Card className="p-4 sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

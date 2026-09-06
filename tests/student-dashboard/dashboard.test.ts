@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { emptyPuzzleTrainingOverview } from "@/lib/puzzle-training/overview";
-import type { Student } from "@/lib/types";
+import type { Badge, Student } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
   findSupabaseStudentById: vi.fn(),
@@ -99,6 +99,60 @@ describe("getStudentDashboardData", () => {
     expect(dashboard.activity).toHaveLength(1);
     expect(dashboard.wallet.academyCoins).toBe(40);
     expect(() => JSON.parse(JSON.stringify(dashboard))).not.toThrow();
+  });
+
+  it("returns every earned badge in award order for the trophy case", async () => {
+    const badges: Badge[] = [
+      {
+        id: "badge-first",
+        name: "First Victory",
+        description: "Won an Academy game.",
+        category: "Boss Achievements",
+        tier: "Bronze",
+        xpValue: 10,
+        unlockRequirement: "Win a game.",
+        visualTheme: "golden rook",
+        artImageUrl: null,
+        finalImageUrl: null,
+        generationStatus: "selected"
+      },
+      {
+        id: "badge-fork",
+        name: "Fork Finder",
+        description: "Found a tactical fork.",
+        category: "Tactics",
+        tacticTheme: "Fork",
+        tier: "Silver",
+        xpValue: 20,
+        unlockRequirement: "Solve fork puzzles.",
+        visualTheme: "silver knight",
+        artImageUrl: null,
+        finalImageUrl: null,
+        generationStatus: "selected"
+      }
+    ];
+    const xpQuery = serviceQuery({ data: [], error: null });
+    const badgeQuery = serviceQuery({
+      data: [
+        { badge_id: "badge-fork", awarded_at: "2026-09-05T12:00:00.000Z" },
+        { badge_id: "badge-first", awarded_at: "2026-09-01T12:00:00.000Z" }
+      ],
+      error: null
+    });
+    mocks.listAdminBadges.mockResolvedValue(badges);
+    mocks.getSupabaseServiceClient.mockReturnValue({
+      from: vi.fn((table: string) => table === "student_badges" ? badgeQuery : xpQuery)
+    });
+
+    const { getStudentDashboardData } = await import("@/lib/student/dashboard");
+    const dashboard = await getStudentDashboardData(student.id);
+
+    expect(badgeQuery.order).toHaveBeenCalledWith("awarded_at", { ascending: false });
+    expect(dashboard.badges.map((badge) => badge.id)).toEqual(["badge-fork", "badge-first"]);
+    expect(dashboard.badges.map((badge) => badge.createdAt)).toEqual([
+      "2026-09-05T12:00:00.000Z",
+      "2026-09-01T12:00:00.000Z"
+    ]);
   });
 
   it("keeps the required student projection available when optional sources fail", async () => {
