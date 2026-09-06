@@ -29,10 +29,8 @@ export type BotPersonality = {
   unforcedKing: number;
 };
 
-export type BotOpeningRule = {
-  after: string[];
-  moves: Array<{ uci: string; bonus: number }>;
-};
+/** Canonical FEN (without move counters) -> moves actually played by the source. */
+export type BotRepertoire = Record<string, Array<{ uci: string; count: number; weight: number }>>;
 
 export type BotDifficulty = {
   id: string;
@@ -49,7 +47,7 @@ export type BotDifficulty = {
   maxPlausibleCpLoss: number;
   errorBands: BotErrorBand[];
   personality: BotPersonality;
-  openingBook?: BotOpeningRule[];
+  repertoireId?: "so-pawny";
   description: string;
 };
 

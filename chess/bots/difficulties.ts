@@ -1,4 +1,4 @@
-import { SIR_LEM_OPENING_BOOK, SIR_LEM_SOURCE } from "@/chess/bots/sirLemOpeningBook";
+import { SIR_LEM_SOURCE } from "@/chess/bots/sirLemProfile";
 import type { BotDifficulty } from "@/chess/types";
 
 export const BOT_DIFFICULTIES: BotDifficulty[] = [
@@ -159,7 +159,7 @@ export const BOT_DIFFICULTIES: BotDifficulty[] = [
       castling: 30, safety: 20, defense: 25, simplification: -30, knights: 22,
       pawnMoves: 18, edgePawns: 25, earlyQueen: -65, repeatedPiece: 18, unforcedKing: -105
     },
-    openingBook: SIR_LEM_OPENING_BOOK,
-    description: `Modeled from ${SIR_LEM_SOURCE.games} public rated games with ${SIR_LEM_SOURCE.openingPositions} remembered opening positions: 1.e4, Pirc and Caro-Kann setups, Scotch ideas, pawn storms, and tactical attacks.`
+    repertoireId: "so-pawny",
+    description: `Remembers ${SIR_LEM_SOURCE.positions.toLocaleString("en-US")} positions from ${SIR_LEM_SOURCE.games.toLocaleString("en-US")} of So_Pawny’s public rated games. Plays his recorded choices, favoring recent games; uses a style-inspired engine for unfamiliar positions.`
   }
 ];

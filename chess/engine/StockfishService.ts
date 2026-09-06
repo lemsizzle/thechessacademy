@@ -1,4 +1,5 @@
 import { selectHumanLikeMove } from "@/chess/bots/humanMoveSelector";
+import { selectRepertoireMove } from "@/chess/bots/repertoire";
 import type { BotDifficulty, BotMoveContext, StockfishCandidate } from "@/chess/types";
 
 const STOCKFISH_WORKER_URL = "/vendor/stockfish/stockfish-18-lite-single.js";
@@ -56,6 +57,7 @@ export class StockfishService {
   private sawUciOk = false;
   private pendingAnalysis: PendingAnalysis | null = null;
   private permanentlyTerminated = false;
+  private requestVersion = 0;
 
   async initialize() {
     if (this.permanentlyTerminated) throw new Error("Stockfish service has been terminated.");
@@ -156,8 +158,22 @@ export class StockfishService {
   }
 
   async requestMove(fen: string, difficulty: BotDifficulty, context: BotMoveContext = { moveHistory: [] }) {
+    if (this.permanentlyTerminated) throw new Error("Stockfish service has been terminated.");
     if (this.pendingAnalysis) this.stop();
+    const version = ++this.requestVersion;
+    const checkCancelled = () => {
+      if (version !== this.requestVersion || this.permanentlyTerminated) throw new StockfishCancelledError();
+    };
+    if (difficulty.repertoireId === "so-pawny") {
+      // Only downloaded for Sir Lem. A failed load must not silently substitute
+      // unrelated engine play for the student's chosen opponent.
+      const { SIR_LEM_REPERTOIRE } = await import("@/chess/bots/sirLemRepertoire");
+      checkCancelled();
+      const rememberedMove = selectRepertoireMove(fen, SIR_LEM_REPERTOIRE);
+      if (rememberedMove) return rememberedMove;
+    }
     await this.configureAnalysis(difficulty);
+    checkCancelled();
     const worker = this.worker;
     if (!worker) throw new Error("Stockfish is not available.");
 
@@ -187,6 +203,8 @@ export class StockfishService {
    * late analysis or bestmove output cannot leak into a takeback or new game.
    */
   stop() {
+    this.requestVersion++;
+    this.initializeReject?.(new StockfishCancelledError());
     if (this.pendingAnalysis) {
       clearTimeout(this.pendingAnalysis.timeout);
       this.pendingAnalysis.reject(new StockfishCancelledError());
