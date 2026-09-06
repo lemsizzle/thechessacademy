@@ -2,6 +2,7 @@
 
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
 import { BoardSettings } from "@/chess/components/BoardSettings";
+import { useChessSounds } from "@/chess/hooks/useChessSounds";
 import explosionStyles from "./HideAndSeekExplosion.module.css";
 import {
   useEffect,
@@ -168,6 +169,11 @@ export function canScoreHideAndSeekBoard(input: {
 
 export function isTerminalHideAndSeekFinishFailure(status: number) {
   return status === 401;
+}
+
+export function hideAndSeekResultSound(result: Pick<SearchResult, "mode" | "wrongCount">) {
+  if (result.mode !== "hard") return null;
+  return result.wrongCount > 0 ? "explosion" as const : "victory" as const;
 }
 
 export function hideAndSeekRevealDelay(startedAt: string, nowMs: number) {
@@ -408,7 +414,14 @@ function SearchBoard({
               >
                 <path d="M 0 0 L 0.75 0.375 L 0 0.75 z" fill="#fb7185" />
               </marker>
-              <filter id="hide-and-seek-danger-glow" x="-30%" y="-30%" width="160%" height="160%">
+              <filter
+                id="hide-and-seek-danger-glow"
+                filterUnits="userSpaceOnUse"
+                x="-1"
+                y="-1"
+                width="10"
+                height="10"
+              >
                 <feGaussianBlur stdDeviation="0.07" result="blur" />
                 <feMerge>
                   <feMergeNode in="blur" />
@@ -466,6 +479,7 @@ export function HideAndSeekTraining({
   const [personalBest, setPersonalBest] = useState(Math.max(0, initialBestScore));
   const [error, setError] = useState("");
   const [terminalError, setTerminalError] = useState("");
+  const { muted, setMuted, play: playSound, prepare: prepareSound } = useChessSounds();
   useEffect(() => {
     if (!explodingSquares.length) return;
     const timeout = window.setTimeout(() => setExplodingSquares([]), HIDE_AND_SEEK_EXPLOSION_MS);
@@ -515,6 +529,7 @@ export function HideAndSeekTraining({
   }, [phase]);
 
   async function startSearch() {
+    prepareSound();
     requestRef.current?.abort();
     if (revealTimerRef.current) {
       window.clearTimeout(revealTimerRef.current);
@@ -615,6 +630,8 @@ export function HideAndSeekTraining({
       if (operation !== operationRef.current) return;
       setResult(payload.result);
       setElapsedMs(payload.result.elapsedMs);
+      const resultSound = hideAndSeekResultSound(payload.result);
+      if (resultSound) playSound(resultSound);
       const nextPersonalBest = Math.max(personalBest, payload.result.personalBest);
       setPersonalBest(nextPersonalBest);
       onComplete?.(payload.result);
@@ -633,6 +650,7 @@ export function HideAndSeekTraining({
       || timeTrialExpired
       || !round
       || round.pieces.some((placement) => placement.square === square)) return;
+    prepareSound();
     const next = new Set(selectedSquares);
     if (round.mode === "hard") {
       if (next.has(square)) return;
@@ -691,7 +709,7 @@ export function HideAndSeekTraining({
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(300px,1fr)]">
         <div className="mx-auto w-full max-w-[640px] space-y-2">
-          <BoardSettings />
+          <BoardSettings muted={muted} onToggleMuted={() => setMuted((value) => !value)} />
           {round ? (
             <SearchBoard
               round={round}

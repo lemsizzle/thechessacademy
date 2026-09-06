@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 
-export type ChessSound = "move" | "capture" | "check" | "warning" | "end";
+export type ChessSound = "move" | "capture" | "check" | "warning" | "end" | "explosion" | "victory";
 
 const woodNoiseBuffers = new WeakMap<AudioContext, AudioBuffer>();
 
@@ -113,6 +113,64 @@ function playClockWarning(context: AudioContext) {
   }
 }
 
+function playExplosionSound(context: AudioContext) {
+  const startsAt = context.currentTime;
+  const durationSeconds = 0.7;
+  const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * durationSeconds), context.sampleRate);
+  const samples = buffer.getChannelData(0);
+
+  for (let index = 0; index < samples.length; index += 1) {
+    const progress = index / samples.length;
+    const envelope = Math.exp(-progress * 7.5);
+    samples[index] = (Math.random() * 2 - 1) * envelope;
+  }
+
+  const burst = context.createBufferSource();
+  const burstFilter = context.createBiquadFilter();
+  const burstGain = context.createGain();
+  burst.buffer = buffer;
+  burstFilter.type = "lowpass";
+  burstFilter.frequency.setValueAtTime(1_100, startsAt);
+  burstFilter.frequency.exponentialRampToValueAtTime(120, startsAt + 0.58);
+  burstGain.gain.setValueAtTime(0.18, startsAt);
+  burstGain.gain.exponentialRampToValueAtTime(0.001, startsAt + 0.65);
+  burst.connect(burstFilter);
+  burstFilter.connect(burstGain);
+  burstGain.connect(context.destination);
+  burst.start(startsAt);
+  burst.stop(startsAt + durationSeconds);
+
+  const thump = context.createOscillator();
+  const thumpGain = context.createGain();
+  thump.type = "sine";
+  thump.frequency.setValueAtTime(105, startsAt);
+  thump.frequency.exponentialRampToValueAtTime(38, startsAt + 0.42);
+  thumpGain.gain.setValueAtTime(0.16, startsAt);
+  thumpGain.gain.exponentialRampToValueAtTime(0.001, startsAt + 0.46);
+  thump.connect(thumpGain);
+  thumpGain.connect(context.destination);
+  thump.start(startsAt);
+  thump.stop(startsAt + 0.48);
+}
+
+function playVictoryFanfare(context: AudioContext) {
+  const notes = [392, 523.25, 659.25, 783.99];
+  for (const [index, frequency] of notes.entries()) {
+    const startsAt = context.currentTime + index * 0.13;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = index === notes.length - 1 ? "triangle" : "sawtooth";
+    oscillator.frequency.setValueAtTime(frequency, startsAt);
+    gain.gain.setValueAtTime(0.001, startsAt);
+    gain.gain.exponentialRampToValueAtTime(index === notes.length - 1 ? 0.07 : 0.045, startsAt + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.001, startsAt + (index === notes.length - 1 ? 0.48 : 0.23));
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(startsAt);
+    oscillator.stop(startsAt + (index === notes.length - 1 ? 0.5 : 0.25));
+  }
+}
+
 export function useChessSounds(initialMuted = false) {
   const [muted, setMuted] = useState(initialMuted);
   const contextRef = useRef<AudioContext | null>(null);
@@ -139,6 +197,14 @@ export function useChessSounds(initialMuted = false) {
       }
       if (sound === "warning") {
         playClockWarning(context);
+        return;
+      }
+      if (sound === "explosion") {
+        playExplosionSound(context);
+        return;
+      }
+      if (sound === "victory") {
+        playVictoryFanfare(context);
         return;
       }
       playWoodenPieceSound(context, sound);

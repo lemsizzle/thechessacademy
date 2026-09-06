@@ -9,6 +9,7 @@ import {
   HideAndSeekStarExplosion,
   HIDE_AND_SEEK_EXPLOSION_MS,
   hideAndSeekRevealDelay,
+  hideAndSeekResultSound,
   hideAndSeekSynchronizedStartOffset,
   isTerminalHideAndSeekFinishFailure,
   type HideAndSeekSearchPhase
@@ -37,6 +38,22 @@ describe("Hide and Seek training UI", () => {
     expect(css).toContain("star-fade 180ms");
     expect(css).not.toContain("infinite");
     expect(HIDE_AND_SEEK_EXPLOSION_MS).toBeGreaterThan(2800 + 135);
+  });
+
+  it("keeps danger arrows visible for straight rook and queen attacks", () => {
+    const source = readFileSync("components/training/HideAndSeekTraining.tsx", "utf8");
+    expect(source).toContain('filterUnits="userSpaceOnUse"');
+    expect(source).toContain('x="-1"');
+    expect(source).toContain('y="-1"');
+    expect(source).toContain('width="10"');
+    expect(source).toContain('height="10"');
+  });
+
+  it("uses distinct Hard Mode failure and completion sounds only once the result is known", () => {
+    expect(hideAndSeekResultSound({ mode: "hard", wrongCount: 1 })).toBe("explosion");
+    expect(hideAndSeekResultSound({ mode: "hard", wrongCount: 0 })).toBe("victory");
+    expect(hideAndSeekResultSound({ mode: "classic", wrongCount: 1 })).toBeNull();
+    expect(hideAndSeekResultSound({ mode: "time_trial", wrongCount: 0 })).toBeNull();
   });
 
   it("keeps the board covered and the timer stopped until the student starts", () => {
