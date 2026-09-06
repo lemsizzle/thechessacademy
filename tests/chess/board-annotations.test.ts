@@ -4,6 +4,7 @@ import {
   annotationStyleForColor,
   annotationStyleForModifiers,
   BOARD_ANNOTATION_COLORS,
+  LICHESS_ANNOTATION_CLEAR_OPTIONS,
   shouldClearBoardAnnotations,
   toggleBoardArrow,
   toggleBoardCircle
@@ -31,6 +32,13 @@ describe("Lichess-style board annotations", () => {
     expect(shouldClearBoardAnnotations(0, true)).toBe(false);
     expect(shouldClearBoardAnnotations(1, false)).toBe(false);
     expect(shouldClearBoardAnnotations(2, false)).toBe(false);
+  });
+
+  it("clears temporary arrows on a normal click and after a move", () => {
+    expect(LICHESS_ANNOTATION_CLEAR_OPTIONS).toEqual({
+      clearArrowsOnClick: true,
+      clearArrowsOnPositionChange: true
+    });
   });
 
   it("adds, removes, and recolors arrows by their exact route", () => {

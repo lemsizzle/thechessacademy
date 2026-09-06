@@ -127,7 +127,7 @@ export function premoveDestinations(fen: string, source: string, studentColor: "
       if (!onBoard(file, rank)) return false;
       const square = squareAt(file, rank);
       const occupant = chess.get(square as Square);
-      if (occupant?.color === studentColor) return false;
+      if (occupant?.type === "k") return false;
       destinations.push(square);
       return !occupant;
     };
@@ -156,7 +156,7 @@ export function premoveDestinations(fen: string, source: string, studentColor: "
         const file = sourceFile + fileStep;
         if (!onBoard(file, oneRank)) continue;
         const square = squareAt(file, oneRank);
-        if (chess.get(square as Square)?.color !== studentColor) destinations.push(square);
+        if (chess.get(square as Square)?.type !== "k") destinations.push(square);
       }
       return destinations;
     }

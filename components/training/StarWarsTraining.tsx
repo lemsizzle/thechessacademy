@@ -5,6 +5,7 @@ import { Chessboard, defaultPieces, type ChessboardOptions } from "react-chessbo
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import {
   annotationColorForModifiers,
+  LICHESS_ANNOTATION_CLEAR_OPTIONS,
   toggleBoardArrow,
   toggleBoardCircle,
   type BoardArrow,
@@ -535,8 +536,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       sameTargetArrowLengthReducerDenominator: 4,
       arrowStartOffset: 0
     },
-    clearArrowsOnClick: true,
-    clearArrowsOnPositionChange: true,
+    ...LICHESS_ANNOTATION_CLEAR_OPTIONS,
     squareStyles,
     lightSquareStyle: { backgroundColor: "#cffafe" },
     darkSquareStyle: { backgroundColor: "#0e7490" },

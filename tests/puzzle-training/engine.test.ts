@@ -107,6 +107,11 @@ describe("official Lichess puzzle semantics", () => {
     expect(premoveDestinations(chess.fen(), "g8", "w")).toEqual([]);
   });
 
+  it("offers recapture premoves onto a friendly piece that may be taken", () => {
+    const fen = "6k1/6b1/8/8/3Q4/2P5/8/6K1 b - - 0 1";
+    expect(premoveDestinations(fen, "c3", "w")).toContain("d4");
+  });
+
   it("uses Lichess-style geometry instead of current check restrictions", () => {
     const fen = "7k/8/8/8/8/8/1r6/K7 b - - 0 1";
     expect(legalDestinations(fen.replace(" b ", " w "), "a1")).not.toContain("b1");

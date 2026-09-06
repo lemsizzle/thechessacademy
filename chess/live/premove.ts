@@ -14,6 +14,7 @@ type PremoveCandidate = {
   to: Square;
   piece: PieceSymbol;
   captured?: PieceSymbol;
+  potentialCapture?: boolean;
 };
 
 function squareAt(file: number, rank: number) {
@@ -37,8 +38,14 @@ export function premoveMovesFrom(chess: Chess, square: string): PremoveCandidate
     const to = squareAt(targetFile, targetRank);
     if (!to) return;
     const target = chess.get(to);
-    if (target?.color === piece.color || target?.type === "k") return;
-    moves.push({ from, to, piece: piece.type, captured: target?.type });
+    if (target?.type === "k") return;
+    moves.push({
+      from,
+      to,
+      piece: piece.type,
+      captured: target?.color !== piece.color ? target?.type : undefined,
+      potentialCapture: Boolean(target)
+    });
   };
   const addRay = (fileStep: number, rankStep: number) => {
     let targetFile = file + fileStep;
@@ -48,8 +55,14 @@ export function premoveMovesFrom(chess: Chess, square: string): PremoveCandidate
       if (!to) return;
       const target = chess.get(to);
       if (target) {
-        if (target.color !== piece.color && target.type !== "k") {
-          moves.push({ from, to, piece: piece.type, captured: target.type });
+        if (target.type !== "k") {
+          moves.push({
+            from,
+            to,
+            piece: piece.type,
+            captured: target.color !== piece.color ? target.type : undefined,
+            potentialCapture: true
+          });
         }
         return;
       }
@@ -75,8 +88,14 @@ export function premoveMovesFrom(chess: Chess, square: string): PremoveCandidate
       const to = squareAt(file + fileStep, rank + direction);
       if (!to) continue;
       const target = chess.get(to);
-      if (!target || target.color !== piece.color) {
-        moves.push({ from, to, piece: "p", captured: target?.type });
+      if (target?.type !== "k") {
+        moves.push({
+          from,
+          to,
+          piece: "p",
+          captured: target?.color !== piece.color ? target?.type : undefined,
+          potentialCapture: true
+        });
       }
     }
   } else if (piece.type === "n") {

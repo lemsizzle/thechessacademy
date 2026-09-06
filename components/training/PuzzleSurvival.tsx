@@ -5,6 +5,7 @@ import { Chessboard, type ChessboardOptions } from "react-chessboard";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { LICHESS_ANNOTATION_CLEAR_OPTIONS } from "@/chess/components/boardAnnotations";
 import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
 import { boardClickAction } from "@/chess/game/boardInteraction";
 import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
@@ -1147,8 +1148,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
     squareStyles,
     arrows: queuedPremove ? [{ startSquare: queuedPremove.from, endSquare: queuedPremove.to, color: "#c084fc" }] : [],
     onArrowsChange: ({ arrows }) => setHasBoardAnnotations(arrows.length > 0),
-    clearArrowsOnClick: false,
-    clearArrowsOnPositionChange: false,
+    ...LICHESS_ANNOTATION_CLEAR_OPTIONS,
     lightSquareStyle: { backgroundColor: "#cffafe" },
     darkSquareStyle: { backgroundColor: "#0e7490" },
     boardStyle: { borderRadius: 8, touchAction: "none", boxShadow: "0 0 36px rgba(34,211,238,.22)" },

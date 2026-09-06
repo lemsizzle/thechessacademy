@@ -15,6 +15,15 @@ describe("live-game premoves", () => {
     expect(premoveMovesFrom(chess, "d2").map((move) => move.to)).toContain("e3");
   });
 
+  it("allows a recapture to be queued before the opponent takes the friendly piece", () => {
+    const chess = new Chess("6k1/6b1/8/8/3Q4/2P5/8/6K1 b - - 0 1");
+    const recapture = premoveMovesFrom(chess, "c3").find((move) => move.to === "d4");
+    expect(recapture).toMatchObject({ from: "c3", to: "d4", piece: "p", potentialCapture: true });
+
+    chess.move({ from: "g7", to: "d4" });
+    expect(canPlayPremove(chess.fen(), { from: "c3", to: "d4" })).toBe(true);
+  });
+
   it("revalidates a queued move against the confirmed reply", () => {
     const chess = new Chess();
     chess.move("e4");

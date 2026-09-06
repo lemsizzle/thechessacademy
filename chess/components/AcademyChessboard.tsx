@@ -3,7 +3,7 @@
 import { Chess, type Square } from "chess.js";
 import { Chessboard, defaultPieces, type ChessboardOptions } from "react-chessboard";
 import { memo, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { annotationColorForModifiers, BOARD_ANNOTATION_COLORS } from "@/chess/components/boardAnnotations";
+import { annotationColorForModifiers, BOARD_ANNOTATION_COLORS, LICHESS_ANNOTATION_CLEAR_OPTIONS } from "@/chess/components/boardAnnotations";
 import { boardSquaresForOrientation, describeBoardSquare, nextBoardSquare, type BoardNavigationKey } from "@/chess/components/boardAccessibility";
 import { BOARD_INTERACTION_OPTIONS, BOARD_MOTION_OPTIONS } from "@/chess/components/boardMotion";
 import { boardClickAction } from "@/chess/game/boardInteraction";
@@ -15,6 +15,7 @@ import type { ChessColor } from "@/chess/types";
 
 type BoardArrow = { startSquare: string; endSquare: string; color: string };
 type BoardCircle = { square: string; color: string };
+type BoardMoveTarget = { to: string; captured?: string; potentialCapture?: boolean };
 
 const EMPTY_BOARD_ARROWS: BoardArrow[] = [];
 const EMPTY_BOARD_CIRCLES: BoardCircle[] = [];
@@ -60,6 +61,7 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
   const [keyboardSquare, setKeyboardSquare] = useState<Square>(() => boardSquaresForOrientation(orientation)[0]);
   const movedSelectionRef = useRef<string | null>(null);
   const rightGestureRef = useRef<{ startSquare: string; color: string } | null>(null);
+  const internalArrowsWerePresentRef = useRef(false);
   const keyboardSquareRefs = useRef(new Map<Square, HTMLButtonElement>());
   const boardRef = useOutsideBoardAnnotationClear(onClearAnnotations ? () => {
     rightGestureRef.current = null;
@@ -73,7 +75,7 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
     const isPremoveSelection = allowPremoves
       && selectedPiece?.color === chessJsColor(humanColor)
       && selectedPiece.color !== chess.turn();
-    const moves = selectedSquare
+    const moves: BoardMoveTarget[] = selectedSquare
       ? isPremoveSelection ? premoveMovesFrom(chess, selectedSquare) : legalMovesFrom(chess, selectedSquare)
       : [];
     if (allowCheckIgnoringMoves && selectedSquare) {
@@ -81,7 +83,7 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
       if (selectedPiece?.color === chessJsColor(humanColor)) {
         for (const candidate of pseudoLegalMovesFrom(chess, selectedSquare)) {
           if (!moves.some((move) => move.to === candidate.to)) {
-            moves.push(candidate as (typeof moves)[number]);
+            moves.push(candidate);
           }
         }
       }
@@ -195,7 +197,7 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
       };
     }
     for (const move of legalMoves) {
-      styles[move.to] = move.captured
+      styles[move.to] = move.captured || move.potentialCapture
         ? {
             ...styles[move.to],
             backgroundImage: "radial-gradient(circle, transparent 0 54%, rgba(244,114,182,.78) 57% 70%, transparent 73%)"
@@ -266,10 +268,18 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
       activeOpacity: 0.5,
       arrowStartOffset: 0
     },
-    clearArrowsOnClick: false,
-    clearArrowsOnPositionChange: false,
+    ...LICHESS_ANNOTATION_CLEAR_OPTIONS,
     onArrowsChange: ({ arrows: nextArrows }) => {
-      if (!nextArrows.length) return;
+      if (!nextArrows.length) {
+        rightGestureRef.current = null;
+        // react-chessboard reports an empty internal list on mount. Ignore that
+        // initial synchronization so position-owned lesson/study arrows survive.
+        if (!internalArrowsWerePresentRef.current) return;
+        internalArrowsWerePresentRef.current = false;
+        onArrowsChange?.([]);
+        return;
+      }
+      internalArrowsWerePresentRef.current = true;
       const gesture = rightGestureRef.current;
       const normalized = nextArrows.map((arrow) => gesture && arrow.startSquare === gesture.startSquare
         ? { ...arrow, color: gesture.color }
@@ -297,6 +307,10 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
       && (!movableSquares || (square !== null && movableSquares.includes(square))),
     onSquareClick: ({ square }) => selectOrMove(square),
     onSquareMouseDown: ({ square }, event) => {
+      if (event.button === 0 && !annotationMode) {
+        rightGestureRef.current = null;
+        onClearAnnotations?.();
+      }
       if (event.button === 2) {
         rightGestureRef.current = { startSquare: square, color: annotationColorForModifiers(event) };
       }

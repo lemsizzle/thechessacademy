@@ -25,6 +25,12 @@ export const BOARD_ANNOTATION_COLORS: Record<BoardAnnotationStyle, string> = {
   danger: "#f43f5e"
 };
 
+/** Lichess clears temporary board drawings on a normal click or a new position. */
+export const LICHESS_ANNOTATION_CLEAR_OPTIONS = {
+  clearArrowsOnClick: true,
+  clearArrowsOnPositionChange: true
+} as const;
+
 // Matches Lichess/Chessground's four drawing brushes:
 // plain = green, Shift/Ctrl = red, Alt/Meta = blue, both groups = yellow.
 export function annotationStyleForModifiers(modifiers: DrawingModifiers): BoardAnnotationStyle {
