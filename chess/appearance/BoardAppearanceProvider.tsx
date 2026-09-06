@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { defaultPieces } from "react-chessboard";
 import { paperPieces } from "./PaperPieces";
 import { blossomPieces } from "./BlossomPieces";
+import { eightBitPieces } from "./EightBitPieces";
 import { appearanceStorageKey, BOARD_THEME_STYLES, DEFAULT_BOARD_APPEARANCE, parseBoardAppearance, parseOwnedChessThemes, unlockedAppearance, type BoardAppearance, type PurchasedChessTheme } from "./themes";
 
 type AppearanceContext = {
@@ -14,7 +15,7 @@ type AppearanceContext = {
   refreshOwnership: (force?: boolean) => Promise<readonly PurchasedChessTheme[]>;
 };
 const NO_OWNED_THEMES: readonly PurchasedChessTheme[] = [];
-const themePieces = { academy: defaultPieces, paper: paperPieces, blossom: blossomPieces };
+const themePieces = { academy: defaultPieces, paper: paperPieces, blossom: blossomPieces, eightBit: eightBitPieces };
 const BoardAppearanceContext = createContext<AppearanceContext>({ appearance: DEFAULT_BOARD_APPEARANCE, ownedThemes: NO_OWNED_THEMES, loading: false, setAppearance: () => false, refreshOwnership: async () => NO_OWNED_THEMES });
 
 export function BoardAppearanceProvider({ studentId, children }: { studentId: string; children: ReactNode }) {
