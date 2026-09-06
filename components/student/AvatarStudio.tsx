@@ -1,6 +1,9 @@
 "use client";
 
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
+import { PaperThemePreview } from "@/chess/appearance/PaperPieces";
+import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
+import { PAPER_CHESS_SET_SLUG } from "@/chess/appearance/themes";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { avatarCategories, avatarCategoryLabels, avatarRarities, avatarRarityStyles, isAvatarItemEquipped, isAvatarItemNew } from "@/lib/avatar/catalog";
@@ -20,6 +23,8 @@ type AvatarPayload = {
 type CollectionFilter = "all" | "new" | "equipped" | "owned" | "locked" | "affordable";
 
 export function AvatarStudio() {
+  const { appearance, ownsPaper, setAppearance, refreshOwnership } = useBoardAppearance();
+  const paperEquipped = ownsPaper && appearance.boardTheme === "paper" && appearance.pieceTheme === "paper";
   const [state, setState] = useState<AvatarPayload | null>(null);
   const [category, setCategory] = useState<"all" | AvatarCategory>("all");
   const [rarity, setRarity] = useState<"all" | AvatarRarity>("all");
@@ -30,6 +35,7 @@ export function AvatarStudio() {
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("category") === "board_theme") setCategory("board_theme");
     const controller = new AbortController();
     fetch("/api/student/avatar", { cache: "no-store", credentials: "include", signal: controller.signal })
       .then(async (response) => {
@@ -52,7 +58,7 @@ export function AvatarStudio() {
     [previewItemId, state?.items]
   );
   const filteredItems = useMemo(() => (state?.items ?? []).filter((item) => {
-    if (collection === "equipped") return isAvatarItemEquipped(item, equipped);
+    if (collection === "equipped") return item.category === "board_theme" ? item.slug === PAPER_CHESS_SET_SLUG && paperEquipped : isAvatarItemEquipped(item, equipped);
     if (category !== "all" && item.category !== category) return false;
     if (rarity !== "all" && item.rarity !== rarity) return false;
     const itemOwned = owned.has(item.id);
@@ -61,7 +67,7 @@ export function AvatarStudio() {
     if (collection === "locked" && itemOwned) return false;
     if (collection === "affordable" && (itemOwned || item.unlockType !== "purchase" || item.price > (state?.wallet.academyCoins ?? 0))) return false;
     return true;
-  }), [category, collection, equipped, owned, rarity, state?.items, state?.wallet.academyCoins]);
+  }), [category, collection, equipped, owned, rarity, state?.items, state?.wallet.academyCoins, paperEquipped]);
   const featuredNewItems = useMemo(
     () => (state?.items ?? []).filter((item) => item.isFeatured && isAvatarItemNew(item)),
     [state?.items]
@@ -106,7 +112,10 @@ export function AvatarStudio() {
       setState(data);
       setEquipped(data.avatar.equippedItems);
       setPreviewItemId(item.id);
-      setMessage(`${item.name} purchased. It is ready to equip.`);
+      if (item.category === "board_theme") {
+        await refreshOwnership(true);
+        setMessage(`${item.name} purchased! Choose Use theme below, or use the gear beside any board.`);
+      } else setMessage(`${item.name} purchased. It is ready to equip.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Purchase failed.");
     } finally {
@@ -116,12 +125,22 @@ export function AvatarStudio() {
 
   function equip(item: AvatarItem) {
     if (!owned.has(item.id)) return;
+    if (item.category === "board_theme") {
+      if (item.slug === PAPER_CHESS_SET_SLUG && setAppearance({ boardTheme: "paper", pieceTheme: "paper" })) setMessage("Paper board and pieces selected. Ready for your next game or puzzle!");
+      else { void refreshOwnership(); setMessage("Checking your chess set. Please try Use theme again in a moment."); }
+      return;
+    }
     const next = { ...equipped, [item.category]: item.id };
     setEquipped(next);
     void saveAvatar(next, item.id);
   }
 
   function unequip(item: AvatarItem) {
+    if (item.category === "board_theme") {
+      setAppearance({ boardTheme: "academy", pieceTheme: "academy" });
+      setMessage("Academy board and pieces selected. You still own Paper.");
+      return;
+    }
     if (item.category === "base_face" || item.category === "skin_tone") return;
     const next = { ...equipped };
     delete next[item.category];
@@ -140,7 +159,7 @@ export function AvatarStudio() {
     <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
       <Card className="p-5 xl:sticky xl:top-20 xl:self-start">
         <div className="flex flex-col items-center gap-4">
-          {state && <AvatarRenderer items={state.items} avatar={renderAvatar} previewItem={previewItem} size="studio" label="Live avatar preview" />}
+          {state && (previewItem?.category === "board_theme" ? <PaperThemePreview large /> : <AvatarRenderer items={state.items} avatar={renderAvatar} previewItem={previewItem} size="studio" label="Live avatar preview" />)}
           <div className="grid w-full grid-cols-2 gap-2">
             <div className="rounded-lg border border-cyan-200/20 bg-cyan-300/10 p-3 text-center">
               <p className="text-xs font-black uppercase text-cyan-100">Owned</p>
@@ -188,7 +207,7 @@ export function AvatarStudio() {
                     onClick={() => setPreviewItemId(item.id)}
                     className={`flex items-center gap-3 rounded-xl border p-3 text-left transition hover:border-cyan-200/70 hover:bg-cyan-300/10 ${itemPreviewed ? "border-cyan-200 bg-cyan-300/10" : "border-white/10 bg-slate-950/50"}`}
                   >
-                    <AvatarRenderer items={[item]} avatar={{ studentId: "featured-preview", equippedItems: { [item.category]: item.id } }} size="lg" label={`${item.name} featured preview`} />
+                    {item.category === "board_theme" ? <PaperThemePreview /> : <AvatarRenderer items={[item]} avatar={{ studentId: "featured-preview", equippedItems: { [item.category]: item.id } }} size="lg" label={`${item.name} featured preview`} />}
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-black text-white">{item.name}</span>
                       <span className="block text-xs text-slate-400">{itemOwned ? "Owned — tap to preview" : item.unlockType === "purchase" ? `${item.price} coins — tap to preview` : "Tap to preview"}</span>
@@ -232,14 +251,14 @@ export function AvatarStudio() {
           <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
             {filteredItems.map((item) => {
               const itemOwned = owned.has(item.id);
-              const itemEquipped = isAvatarItemEquipped(item, equipped);
+              const itemEquipped = item.category === "board_theme" ? item.slug === PAPER_CHESS_SET_SLUG && paperEquipped : isAvatarItemEquipped(item, equipped);
               const itemPreviewed = previewItemId === item.id;
               const affordable = (state?.wallet.academyCoins ?? 0) >= item.price;
               const busy = busyItemId === item.id;
               return (
                 <Card key={item.id} className={`p-4 ${itemEquipped ? "border-amber-200/60 bg-amber-300/10" : itemPreviewed ? "border-cyan-200/60 bg-cyan-300/10" : item.isFeatured ? "border-purple-300/40" : ""}`}>
                   <div className="flex items-start gap-3">
-                    <AvatarRenderer items={[item]} avatar={{ studentId: "preview", equippedItems: { [item.category]: item.id } }} size="lg" label={`${item.name} preview`} />
+                    {item.category === "board_theme" ? <PaperThemePreview /> : <AvatarRenderer items={[item]} avatar={{ studentId: "preview", equippedItems: { [item.category]: item.id } }} size="lg" label={`${item.name} preview`} />}
                     <div className="min-w-0 flex-1">
                       <p className="font-black text-white">{item.name}</p>
                       <p className="text-xs text-slate-400">{avatarCategoryLabels[item.category]}</p>
@@ -256,7 +275,7 @@ export function AvatarStudio() {
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <Button variant="secondary" className="px-3 py-2" onClick={() => setPreviewItemId(item.id)}>{itemPreviewed ? "Previewing" : "Preview"}</Button>
                     {itemOwned ? (
-                      <Button className="px-3 py-2" disabled={itemEquipped || busy} onClick={() => equip(item)}>{itemEquipped ? "Equipped" : busy ? "Saving..." : "Equip"}</Button>
+                      <Button className="px-3 py-2" disabled={itemEquipped || busy} onClick={() => equip(item)}>{itemEquipped ? "Equipped" : busy ? "Saving..." : item.category === "board_theme" ? "Use theme" : "Equip"}</Button>
                     ) : item.unlockType === "purchase" ? (
                       <Button className="px-3 py-2" disabled={!affordable || busy} onClick={() => purchase(item)}>{busy ? "Buying..." : affordable ? `Buy - ${item.price}` : "Need More Coins"}</Button>
                     ) : (

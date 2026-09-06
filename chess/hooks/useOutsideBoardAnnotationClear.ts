@@ -14,6 +14,7 @@ export function useOutsideBoardAnnotationClear(onClear?: () => void) {
   useEffect(() => {
     function handleMouseDown(event: MouseEvent) {
       const target = event.target;
+      if (target instanceof Element && target.closest("[data-board-settings]")) return;
       const clickedInsideBoard = target instanceof Node && Boolean(boardRef.current?.contains(target));
       if (onClearRef.current && shouldClearBoardAnnotations(event.button, clickedInsideBoard)) {
         onClearRef.current();

@@ -1,7 +1,9 @@
 "use client";
 
 import { type Square } from "chess.js";
-import { Chessboard, defaultPieces, type ChessboardOptions } from "react-chessboard";
+import { Chessboard, type ChessboardOptions } from "react-chessboard";
+import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
+import { BoardSettings } from "@/chess/components/BoardSettings";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import {
   annotationColorForModifiers,
@@ -88,6 +90,7 @@ function formatCountdown(remainingMs: number) {
 }
 
 export function StarWarsTraining({ onExit }: { onExit: () => void }) {
+  const { pieces, squareStyles: themeSquareStyles } = useBoardAppearance();
   const [runId, setRunId] = useState<string | null>(null);
   const [runVariant, setRunVariant] = useState(0);
   const [score, setScore] = useState(0);
@@ -178,9 +181,9 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   }, []);
 
   const customPieces = useMemo(() => ({
-    ...defaultPieces,
+    ...pieces,
     ...Object.fromEntries(puzzle.hiddenPieceTypes.map((pieceType) => [pieceType, HiddenBoardPiece]))
-  }), [puzzle.hiddenPieceTypes]);
+  }), [puzzle.hiddenPieceTypes, pieces]);
 
   function clearAnnotations() {
     setAnnotationArrows([]);
@@ -538,8 +541,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     },
     ...LICHESS_ANNOTATION_CLEAR_OPTIONS,
     squareStyles,
-    lightSquareStyle: { backgroundColor: "#cffafe" },
-    darkSquareStyle: { backgroundColor: "#0e7490" },
+    ...themeSquareStyles,
     boardStyle: { borderRadius: 10, touchAction: "none", boxShadow: "0 0 46px rgba(139,92,246,.25)" },
     canDragPiece: ({ piece, square }) => phase === "playing"
       && piece.pieceType.startsWith("w")
@@ -665,8 +667,11 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       ) : null}
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
-        <div className="mx-auto aspect-square w-full max-w-[640px] overflow-hidden rounded-xl border border-violet-200/25 bg-slate-950/80 p-1 sm:p-2">
+        <div className="mx-auto w-full max-w-[640px] space-y-2">
+          <BoardSettings />
+        <div className="aspect-square overflow-hidden rounded-xl border border-violet-200/25 bg-slate-950/80 p-1 sm:p-2">
           <Chessboard key={`star-wars-board-${puzzle.id}-${runVariant}`} options={boardOptions} />
+        </div>
         </div>
 
         <aside className="space-y-4">

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
 import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles";
-import { BoardSoundSettings } from "@/chess/components/BoardSoundSettings";
+import { BoardSettings as BoardSoundSettings } from "@/chess/components/BoardSettings";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
 import { oppositeColor } from "@/chess/game/colors";

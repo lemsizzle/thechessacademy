@@ -2,6 +2,8 @@
 
 import { Chess, type Square } from "chess.js";
 import { Chessboard, type ChessboardOptions } from "react-chessboard";
+import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
+import { BoardSettings } from "@/chess/components/BoardSettings";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
@@ -93,6 +95,7 @@ function SurvivalBadgeAwards({ awards }: { awards: TacticalBadgeAward[] }) {
 }
 
 export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverview: PuzzleTrainingOverview; statsContent?: ReactNode }) {
+  const { pieces, squareStyles: themeSquareStyles } = useBoardAppearance();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedTheme, setSelectedTheme] = useState<PuzzleThemeSlug>(() => parsePuzzleTheme(searchParams.get("theme")));
@@ -1168,8 +1171,8 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
     arrows: queuedPremove ? [{ startSquare: queuedPremove.from, endSquare: queuedPremove.to, color: "#c084fc" }] : [],
     onArrowsChange: ({ arrows }) => setHasBoardAnnotations(arrows.length > 0),
     ...LICHESS_ANNOTATION_CLEAR_OPTIONS,
-    lightSquareStyle: { backgroundColor: "#cffafe" },
-    darkSquareStyle: { backgroundColor: "#0e7490" },
+    ...themeSquareStyles,
+    pieces,
     boardStyle: { borderRadius: 8, touchAction: "none", boxShadow: "0 0 36px rgba(34,211,238,.22)" },
     canDragPiece: ({ piece }) => (phase === "turn" || phase === "reply") && piece.pieceType.startsWith(puzzle?.orientation === "black" ? "b" : "w"),
     onSquareClick: ({ square }) => handleSquareClick(square),
@@ -1329,8 +1332,11 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
       </Card>
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
-        <div ref={puzzleBoardRef} className="mx-auto w-full max-w-[640px] overflow-hidden rounded-lg border border-cyan-200/20 bg-slate-950/70">
+        <div className="mx-auto w-full max-w-[640px] space-y-2">
+          <BoardSettings />
+        <div ref={puzzleBoardRef} className="overflow-hidden rounded-lg border border-cyan-200/20 bg-slate-950/70">
           {positionFen ? <Chessboard key={`academy-puzzle-board-${puzzle?.id ?? "loading"}-${annotationResetKey}`} options={boardOptions} /> : <div className="flex aspect-square items-center justify-center text-sm text-slate-400">Preparing board...</div>}
+        </div>
         </div>
 
         <div className="space-y-4">

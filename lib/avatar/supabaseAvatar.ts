@@ -132,6 +132,7 @@ function toWallet(row: WalletRow): StudentWallet {
 function normalizeEquippedItems(value: Record<string, string | null> | null | undefined) {
   const next: Partial<Record<AvatarCategory, string>> = {};
   for (const [key, itemId] of Object.entries(value ?? {})) {
+    if (key === "board_theme") continue;
     if (!itemId) continue;
     next[normalizeAvatarCategory(key)] = itemId;
   }
@@ -372,6 +373,7 @@ export async function saveStudentAvatar(studentId: string, equippedItems: Partia
   const next: Partial<Record<AvatarCategory, string>> = {};
 
   for (const [categoryKey, itemId] of Object.entries(equippedItems)) {
+    if (categoryKey === "board_theme") throw new Error("Choose board themes using the gear beside your chessboard.");
     const category = normalizeAvatarCategory(categoryKey);
     const validation = canEquipAvatarItem(itemId ?? null, owned);
     if (!validation.ok) throw new Error(validation.reason);

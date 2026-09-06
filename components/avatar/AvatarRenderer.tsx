@@ -32,6 +32,7 @@ const structuralDefaults = new Map<AvatarCategory, AvatarItem>([
 export function AvatarRenderer({ items, avatar, previewItem, size = "md", label = "Student avatar" }: AvatarRendererProps) {
   const itemById = new Map([...seedAvatarItems, ...items].map((item) => [item.id, item]));
   const layers = avatarCategories
+    .filter((category) => category.id !== "board_theme")
     .map((category) => {
       const previewMatchesCategory = previewItem?.category === category.id;
       const equippedItem = itemById.get(avatar.equippedItems[category.id] ?? "");

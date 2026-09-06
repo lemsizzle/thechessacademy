@@ -1,6 +1,7 @@
 "use client";
 
-import { defaultPieces } from "react-chessboard";
+import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
+import { BoardSettings } from "@/chess/components/BoardSettings";
 import {
   useEffect,
   useMemo,
@@ -145,7 +146,8 @@ export function hideAndSeekSynchronizedStartOffset(input: {
 }
 
 function BoardPiece({ piece, square }: { piece: HideAndSeekPieceCode; square: HideAndSeekSquare }) {
-  const Piece = defaultPieces[piece];
+  const { pieces } = useBoardAppearance();
+  const Piece = pieces[piece];
   if (!Piece) return <span className="text-xs font-black text-slate-950">{piece.slice(1)}</span>;
   return (
     <span className="pointer-events-none grid h-[88%] w-[88%] place-items-center drop-shadow-[0_3px_2px_rgba(255,255,255,0.18)]" aria-hidden="true">
@@ -231,6 +233,7 @@ function SearchBoard({
   onToggle: (square: HideAndSeekSquare) => void;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const { squareStyles: themeSquareStyles } = useBoardAppearance();
   const squareRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const pieceBySquare = useMemo(
     () => new Map(round.pieces.map((placement) => [placement.square, placement.piece])),
@@ -324,6 +327,7 @@ function SearchBoard({
                   onFocus={() => setActiveIndex(index)}
                   onClick={() => onToggle(square)}
                   onKeyDown={(event) => handleSquareKeyDown(event, square, index)}
+                  style={correct || wrong || missed ? undefined : light ? themeSquareStyles.lightSquareStyle : themeSquareStyles.darkSquareStyle}
                   className={`relative grid min-h-0 min-w-0 place-items-center overflow-hidden ring-0 transition focus-visible:z-10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-violet-300 ${light ? "bg-cyan-100" : "bg-cyan-700"} ${resultClass} ${canToggle ? "cursor-pointer hover:brightness-110 active:brightness-95" : "cursor-default"}`}
                 >
                   {piece ? <BoardPiece piece={piece} square={square} /> : null}
@@ -634,7 +638,8 @@ export function HideAndSeekTraining({
       </Card>
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(300px,1fr)]">
-        <div className="mx-auto w-full max-w-[640px]">
+        <div className="mx-auto w-full max-w-[640px] space-y-2">
+          <BoardSettings />
           {round ? (
             <SearchBoard
               round={round}
