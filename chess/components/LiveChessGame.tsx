@@ -157,7 +157,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
     if (!game || game.status === "cancelled") return;
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
-    }, isCorrespondence ? 30_000 : connection === "live" ? 15_000 : 3_000);
+    }, isCorrespondence ? 30_000 : (game.players.white?.botDifficultyId || game.players.black?.botDifficultyId) ? 2_000 : connection === "live" ? 15_000 : 3_000);
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
     return () => {
@@ -513,7 +513,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
 
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)] xl:gap-x-16">
         <div className="mx-auto min-w-0 space-y-2" style={boardColumnStyle}>
-          <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${isCorrespondence ? "3 days per move" : game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} />
+          <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${isCorrespondence ? "3 days per move" : game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} portrait={opponent?.portrait} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} />
           <div className="relative">
             <div className="mb-2 flex justify-end sm:absolute sm:left-[calc(100%+0.5rem)] sm:top-0 sm:z-30 sm:mb-0"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
             <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
@@ -595,7 +595,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Button type="button" variant="ghost" onClick={() => setOrientation((value) => oppositeColor(value))}>⇅ Flip Board</Button>
               <Button href={game.arenaTournamentId ? "/student/tournaments" : isCorrespondence ? "/student/play/correspondence" : "/student/play/live"} variant="ghost">{game.arenaTournamentId ? "Arena" : isCorrespondence ? "Correspondence" : "Live Games"}</Button>
-              {game.status === "active" ? <Button type="button" variant="ghost" disabled={pending || Boolean(game.drawOfferedBy)} onClick={() => void sendAction("offer_draw")}>{viewerOfferedDraw ? "Draw Offered" : "Offer Draw"}</Button> : null}
+              {game.status === "active" && !opponent?.botDifficultyId ? <Button type="button" variant="ghost" disabled={pending || Boolean(game.drawOfferedBy)} onClick={() => void sendAction("offer_draw")}>{viewerOfferedDraw ? "Draw Offered" : "Offer Draw"}</Button> : null}
               {game.status === "active" ? <Button type="button" variant="ghost" className="border-rose-300/25 text-rose-100" disabled={pending} onClick={() => setConfirmation("resign")}>⚑ Resign</Button> : null}
             </div>
             <div className="mt-4 border-t border-white/10 pt-4">

@@ -1,4 +1,5 @@
 import type { TimeControl } from "@/chess/types";
+import type { ArenaBot } from "@/chess/arena/bots";
 import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
 
 export type InternalArenaStatus = "scheduled" | "active" | "finished" | "cancelled";
@@ -16,6 +17,7 @@ export type InternalArenaStanding = {
   currentGameId: string | null;
   rank: number;
   avatar?: StudentAvatarConfig;
+  bot?: ArenaBot;
 };
 
 export type InternalArenaPairing = {

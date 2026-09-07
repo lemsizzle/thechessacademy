@@ -10,7 +10,12 @@ import type { ChessColor, GameResult, PlayerColorChoice } from "@/chess/types";
 import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { applyRatingForCompletedGame } from "@/chess/persistence/ratingServer";
-import { finalizeInternalArenaGame } from "@/chess/persistence/arenaServer";
+import { finalizeInternalArenaGame, scheduleArenaBotTurn } from "@/chess/persistence/arenaServer";
+import { arenaBotDifficulty } from "@/chess/arena/bots";
+import { chooseArenaBotMove } from "@/chess/engine/arenaStockfishServer";
+import { createArenaBotWorkQueue } from "@/chess/arena/botWorkQueue";
+
+const queueArenaBotWork = createArenaBotWorkQueue();
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const LEGACY_CHALLENGE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -113,6 +118,18 @@ function assertParticipant(game: LiveGameRecord, studentId: string) {
   return color;
 }
 
+function gamePlayers(game: LiveGameRecord, students: Map<string, LiveGamePlayer>) {
+  const players: Record<ChessColor, LiveGamePlayer | null> = {
+    white: game.white_player_id ? students.get(game.white_player_id) ?? { id: game.white_player_id, name: "Student" } : null,
+    black: game.black_player_id ? students.get(game.black_player_id) ?? { id: game.black_player_id, name: "Student" } : null
+  };
+  if (game.arena_bot) {
+    const bot = game.arena_bot;
+    players[bot.color] = { id: bot.id, name: `${bot.name} · BOT`, botDifficultyId: bot.difficultyId, portrait: arenaBotDifficulty(bot.difficultyId)?.portrait };
+  }
+  return players;
+}
+
 async function snapshotFor(game: LiveGameRecord, studentId: string): Promise<LiveGameSnapshot> {
   const viewerColor = assertParticipant(game, studentId);
   const { players, avatarItems } = await playerDisplay([game.white_player_id, game.black_player_id]);
@@ -126,10 +143,7 @@ async function snapshotFor(game: LiveGameRecord, studentId: string): Promise<Liv
     daysPerMove: game.days_per_move,
     turnDeadlineAt: game.turn_deadline_at,
     viewer: { id: studentId, color: viewerColor },
-    players: {
-      white: game.white_player_id ? players.get(game.white_player_id) ?? { id: game.white_player_id, name: "Student" } : null,
-      black: game.black_player_id ? players.get(game.black_player_id) ?? { id: game.black_player_id, name: "Student" } : null
-    },
+    players: gamePlayers(game, players),
     avatarItems,
     timeControl: game.time_control,
     initialFen: game.initial_fen,
@@ -169,8 +183,8 @@ async function teacherSnapshotFor(game: LiveGameRecord): Promise<TeacherLiveGame
     version: game.version,
     realtimeTopic: `live-game:${game.id}:${game.realtime_token}`,
     players: {
-      white: requiredPlayer(players, game.white_player_id),
-      black: requiredPlayer(players, game.black_player_id)
+      white: gamePlayers(game, players).white ?? requiredPlayer(players, game.white_player_id),
+      black: gamePlayers(game, players).black ?? requiredPlayer(players, game.black_player_id)
     },
     avatarItems,
     timeControl: game.time_control,
@@ -198,8 +212,8 @@ async function teacherSnapshotFor(game: LiveGameRecord): Promise<TeacherLiveGame
 async function pgnFor(game: LiveGameRecord, completion: LiveGameCompletion, completedAt: string) {
   const chess = replayLiveMoves(game.initial_fen, game.moves);
   const players = await playerMap([game.white_player_id, game.black_player_id]);
-  const whiteName = game.white_player_id ? players.get(game.white_player_id)?.name ?? "Student" : "Student";
-  const blackName = game.black_player_id ? players.get(game.black_player_id)?.name ?? "Student" : "Student";
+  const whiteName = gamePlayers(game, players).white?.name ?? "Student";
+  const blackName = gamePlayers(game, players).black?.name ?? "Student";
   const result = completion.winnerColor === "white" ? "1-0" : completion.winnerColor === "black" ? "0-1" : "1/2-1/2";
   chess.header(
     "Event", game.game_mode === "correspondence" ? "Chess Academy Correspondence Game" : "Chess Academy Live Game",
@@ -219,12 +233,12 @@ function perspectiveResult(winnerColor: ChessColor | null, playerColor: ChessCol
 }
 
 async function persistCompletedPlayers(game: LiveGameRecord) {
-  if (game.status !== "completed" || !game.completed_at || !game.started_at || !game.result_reason || !game.white_player_id || !game.black_player_id) return;
+  if (game.status !== "completed" || !game.completed_at || !game.started_at || !game.result_reason || (!game.arena_bot && (!game.white_player_id || !game.black_player_id))) return;
   const players = await playerMap([game.white_player_id, game.black_player_id]);
   const entries = [
-    { playerId: game.white_player_id, playerColor: "white" as const, opponentId: game.black_player_id, opponentName: players.get(game.black_player_id)?.name ?? "Student" },
-    { playerId: game.black_player_id, playerColor: "black" as const, opponentId: game.white_player_id, opponentName: players.get(game.white_player_id)?.name ?? "Student" }
-  ];
+    { playerId: game.white_player_id, playerColor: "white" as const, opponentId: game.black_player_id, opponentName: gamePlayers(game, players).black?.name ?? "Student" },
+    { playerId: game.black_player_id, playerColor: "black" as const, opponentId: game.white_player_id, opponentName: gamePlayers(game, players).white?.name ?? "Student" }
+  ].filter((entry): entry is typeof entry & { playerId: string } => Boolean(entry.playerId));
   const { data: existing, error: existingError } = await serviceClient()
     .from("internal_chess_games")
     .select("player_id")
@@ -234,8 +248,8 @@ async function persistCompletedPlayers(game: LiveGameRecord) {
   const existingIds = new Set((existing ?? []).map((row) => String(row.player_id)));
   const missing = entries.filter((entry) => !existingIds.has(entry.playerId)).map((entry) => ({
       player_id: entry.playerId,
-      opponent_type: "student",
-      opponent_id: entry.opponentId,
+      opponent_type: game.arena_bot ? "computer" : "student",
+      opponent_id: game.arena_bot?.difficultyId ?? entry.opponentId,
       opponent_name: entry.opponentName,
       player_color: entry.playerColor,
       result: perspectiveResult(game.winner_color, entry.playerColor),
@@ -271,7 +285,7 @@ async function persistCompletedOutputs(game: LiveGameRecord) {
     if (data) completedGame = normalizeRecord(data);
   }
   await persistCompletedPlayers(completedGame);
-  if (completedGame.rated && completedGame.game_mode === "live") await applyRatingForCompletedGame(completedGame.id);
+  if (completedGame.rated && !completedGame.arena_bot && completedGame.game_mode === "live") await applyRatingForCompletedGame(completedGame.id);
   if (completedGame.game_mode === "live" && completedGame.arena_tournament_id) await finalizeInternalArenaGame(completedGame.id);
 }
 
@@ -399,6 +413,8 @@ export async function joinLiveGame(studentId: string, input: unknown) {
 
 export async function getLiveGame(studentId: string, gameId: string) {
   let game = await loadRecord(gameId);
+  assertParticipant(game, studentId);
+  if (game.arena_bot && game.status === "active") scheduleArenaBotTurn(game.id);
   if (game.game_mode === "correspondence" && game.status === "active") {
     await settleCorrespondenceDeadlines({ studentId, gameId: game.id });
     game = await loadRecord(game.id);
@@ -429,7 +445,7 @@ export async function listLiveGames(studentId: string): Promise<LiveGameSummary[
       daysPerMove: game.days_per_move,
       turnDeadlineAt: game.turn_deadline_at,
       viewerColor,
-      opponent: opponentId ? players.get(opponentId) ?? { id: opponentId, name: "Student" } : null,
+      opponent: gamePlayers(game, players)[oppositeColor(viewerColor)] ?? (opponentId ? { id: opponentId, name: "Student" } : null),
       timeControl: game.time_control,
       activeColor: game.active_color,
       winnerColor: game.winner_color,
@@ -454,8 +470,8 @@ export async function listTeacherLiveGames(): Promise<TeacherLiveGameSummary[]> 
   return games.flatMap((game) => game.started_at ? [{
     id: game.id,
     players: {
-      white: requiredPlayer(players, game.white_player_id),
-      black: requiredPlayer(players, game.black_player_id)
+      white: gamePlayers(game, players).white ?? requiredPlayer(players, game.white_player_id),
+      black: gamePlayers(game, players).black ?? requiredPlayer(players, game.black_player_id)
     },
     timeControl: game.time_control,
     activeColor: game.active_color,
@@ -471,6 +487,7 @@ export async function listTeacherLiveGames(): Promise<TeacherLiveGameSummary[]> 
 export async function getTeacherLiveGame(gameId: string) {
   const game = await loadRecord(gameId);
   if (game.game_mode !== "live" || game.status === "waiting" || game.status === "cancelled") throw new LiveGameServerError("This game is not available to watch.", 404);
+  if (game.arena_bot && game.status === "active") scheduleArenaBotTurn(game.id);
   return teacherSnapshotFor(game);
 }
 
@@ -531,7 +548,41 @@ export async function submitLiveMove(studentId: string, gameId: string, input: u
     return snapshotFor(await loadRecord(updated.id), studentId);
   }
   const updated = await updateWithVersion(game, applied.update);
+  if (updated.arena_bot) scheduleArenaBotTurn(updated.id);
   return snapshotFor(updated, studentId);
+}
+
+/** Server-only move generation. Lease + version CAS prevent duplicate moves on retries. */
+export function advanceArenaBotGame(gameId: string) {
+  return queueArenaBotWork(cleanGameId(gameId), () => runArenaBotTurn(gameId));
+}
+
+async function runArenaBotTurn(gameId: string) {
+  const { data, error } = await serviceClient().rpc("claim_internal_arena_bot_turn", { p_game_id: cleanGameId(gameId) });
+  if (error) throw new LiveGameServerError(error.message, 500);
+  const game = Array.isArray(data) && data[0] ? normalizeRecord(data[0]) : null;
+  if (!game?.arena_bot) return;
+  try {
+    const timeout = timeoutCompletion(game, Date.now());
+    if (timeout) { await completeByAction(game, timeout, Date.now()); return; }
+    if (game.active_color !== game.arena_bot.color) return;
+    const uci = await chooseArenaBotMove(game.current_fen, game.arena_bot.difficultyId, { moveHistory: game.moves.map((move) => `${move.from}${move.to}${move.promotion ?? ""}`) });
+    const now = Date.now();
+    const expired = timeoutCompletion(game, now);
+    if (expired) { await completeByAction(game, expired, now); return; }
+    // Synthetic identity goes only to pure move validation, never to student storage.
+    const engineGame = { ...game, [game.arena_bot.color === "white" ? "white_player_id" : "black_player_id"]: game.arena_bot.id };
+    const applied = applyLiveMove(engineGame, game.arena_bot.id, {
+      from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] as LiveMoveInput["promotion"], version: game.version
+    }, now);
+    const updated = await updateWithVersion(game, { ...applied.update, bot_lease_until: null });
+    if (applied.completion) await persistCompletedOutputs(updated);
+  } catch (error) {
+    // A simultaneous resignation can legitimately win the optimistic update.
+    if (!(error instanceof LiveGameServerError && error.status === 409)) throw error;
+  } finally {
+    await serviceClient().from("live_chess_games").update({ bot_lease_until: null }).eq("id", game.id).eq("version", game.version).eq("bot_lease_until", game.bot_lease_until);
+  }
 }
 
 function completedClockUpdate(game: LiveGameRecord, nowMs: number) {
@@ -605,6 +656,7 @@ export async function performLiveGameAction(studentId: string, gameId: string, i
     if (!completion) throw new LiveGameServerError("Neither clock has expired.");
     updated = await completeByAction(game, completion, nowMs);
   } else if (action === "offer_draw") {
+    if (game.arena_bot) throw new LiveGameServerError("Arena bots play on instead of accepting draw offers. Normal chess draws still apply.");
     if (game.draw_offered_by && game.draw_offered_by !== studentId) throw new LiveGameServerError("Your opponent already offered a draw. Accept or decline it.");
     updated = await updateWithVersion(game, { draw_offered_by: studentId, version: game.version + 1 });
   } else if (action === "accept_draw") {

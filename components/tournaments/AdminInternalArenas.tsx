@@ -5,6 +5,7 @@ import { TIME_CONTROLS } from "@/chess/game/timeControls";
 import type { InternalArena } from "@/chess/arena/types";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { ArenaBotControls } from "@/components/tournaments/ArenaBotControls";
 
 type ArenaResponse = { ok?: boolean; arenas?: InternalArena[]; arena?: InternalArena; matchmaking?: { gameId: string | null }; error?: string };
 
@@ -86,7 +87,7 @@ export function AdminInternalArenas({ adminActionToken }: { adminActionToken: st
     const firstStudentId = firstByArena[arena.id];
     const secondStudentId = secondByArena[arena.id];
     if (!firstStudentId || !secondStudentId || firstStudentId === secondStudentId) {
-      setMessage("Choose two different available students.");
+      setMessage("Choose two different available players.");
       return;
     }
     setPending(`pair:${arena.id}`); setMessage("");
@@ -112,7 +113,7 @@ export function AdminInternalArenas({ adminActionToken }: { adminActionToken: st
             <div>
               <p className="text-xs font-black uppercase tracking-wider text-emerald-200">Hosted on Chess Academy</p>
               <h2 id="internal-arena-heading" className="mt-1 text-2xl font-black text-white">Internal Arena Tournaments</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Students continuously enter the queue, play on the Academy board, and earn 2 points for a win or 1 for a draw. You can force any two available students into a game.</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">Students continuously enter the queue, play on the Academy board, and earn 2 points for a win or 1 for a draw. Add computer players at your chosen skill level or force two available players into a game.</p>
             </div>
             <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-1 text-xs font-black uppercase text-emerald-100">{activeCount} active</span>
           </div>
@@ -147,10 +148,12 @@ export function AdminInternalArenas({ adminActionToken }: { adminActionToken: st
                 </div>
               </div>
 
+              <ArenaBotControls arena={arena} adminActionToken={adminActionToken} onChange={load} />
+
               {arena.status === "active" ? (
                 <div className="mt-4 rounded-lg border border-amber-300/25 bg-amber-300/10 p-4">
                   <p className="text-xs font-black uppercase text-amber-100">Teacher force matchmaking</p>
-                  <p className="mt-1 text-xs text-amber-50/80">Choose two students who are not currently playing.</p>
+                  <p className="mt-1 text-xs text-amber-50/80">Choose two available players: student vs student, or student vs bot.</p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <select className={fieldClass()} aria-label="First student" value={firstByArena[arena.id] ?? ""} onChange={(event) => setFirstByArena((value) => ({ ...value, [arena.id]: event.target.value }))}><option value="">First student</option>{available.map((entry) => <option key={entry.studentId} value={entry.studentId}>{entry.name} ({entry.status})</option>)}</select>
                     <select className={fieldClass()} aria-label="Second student" value={secondByArena[arena.id] ?? ""} onChange={(event) => setSecondByArena((value) => ({ ...value, [arena.id]: event.target.value }))}><option value="">Second student</option>{available.map((entry) => <option key={entry.studentId} value={entry.studentId}>{entry.name} ({entry.status})</option>)}</select>
@@ -160,7 +163,7 @@ export function AdminInternalArenas({ adminActionToken }: { adminActionToken: st
               ) : null}
 
               <div className="mt-4 overflow-x-auto rounded-md border border-white/10">
-                <table className="min-w-full text-left text-xs"><thead className="bg-white/5 text-slate-400"><tr><th className="px-3 py-2">#</th><th className="px-3 py-2">Student</th><th className="px-3 py-2">Score</th><th className="px-3 py-2">W-D-L</th><th className="px-3 py-2">State</th></tr></thead><tbody>{arena.standings.map((entry) => <tr key={entry.studentId} className="border-t border-white/5 text-slate-200"><td className="px-3 py-2">{entry.rank}</td><td className="px-3 py-2 font-bold">{entry.name}</td><td className="px-3 py-2 font-black text-amber-100">{entry.score}</td><td className="px-3 py-2">{entry.wins}-{entry.draws}-{entry.losses}</td><td className="px-3 py-2">{entry.currentGameId ? <a className="font-bold text-cyan-200 underline" href={`/admin/live-games/${entry.currentGameId}`}>Watch</a> : entry.status}</td></tr>)}</tbody></table>
+                <table className="min-w-full text-left text-xs"><thead className="bg-white/5 text-slate-400"><tr><th className="px-3 py-2">#</th><th className="px-3 py-2">Player</th><th className="px-3 py-2">Score</th><th className="px-3 py-2">W-D-L</th><th className="px-3 py-2">State</th></tr></thead><tbody>{arena.standings.map((entry) => <tr key={entry.studentId} className="border-t border-white/5 text-slate-200"><td className="px-3 py-2">{entry.rank}</td><td className="px-3 py-2 font-bold">{entry.name}</td><td className="px-3 py-2 font-black text-amber-100">{entry.score}</td><td className="px-3 py-2">{entry.wins}-{entry.draws}-{entry.losses}</td><td className="px-3 py-2">{entry.currentGameId ? <a className="font-bold text-cyan-200 underline" href={`/admin/live-games/${entry.currentGameId}`}>Watch</a> : entry.status}</td></tr>)}</tbody></table>
                 {!arena.standings.length ? <p className="p-4 text-sm text-slate-500">No students have joined yet.</p> : null}
               </div>
             </Card>

@@ -6,6 +6,9 @@ import type { InternalArena, InternalArenaLobby as LobbyData, InternalArenaPairi
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { ArenaBotControls } from "@/components/tournaments/ArenaBotControls";
+import { arenaBotDifficulty } from "@/chess/arena/bots";
+import { BotPortrait } from "@/chess/components/BotPortrait";
 
 type LobbyResponse = { ok?: boolean; lobby?: LobbyData; matchmaking?: { status: string; gameId: string | null }; error?: string };
 type LobbyRole = "student" | "teacher";
@@ -38,12 +41,12 @@ function PodiumPlace({ entry, lobby, rank }: { entry: InternalArenaStanding; lob
   return (
     <div className={`flex min-w-0 flex-1 flex-col items-center rounded-xl border p-4 text-center shadow-glow ${styles}`}>
       <span className="text-3xl" aria-hidden="true">{medal}</span>
-      <AvatarRenderer
+      {entry.bot ? <BotPortrait src={arenaBotDifficulty(entry.bot.difficultyId)?.portrait ?? "/bots/zippy-knight.png"} /> : <AvatarRenderer
         items={lobby.avatarItems}
         avatar={entry.avatar ?? { studentId: entry.studentId, equippedItems: {} }}
         size="lg"
         label={`${entry.name}, place ${rank}`}
-      />
+      />}
       <p className="mt-3 max-w-full truncate text-lg font-black text-white">{entry.name}</p>
       <p className="mt-1 text-sm font-black text-amber-100">{entry.score} points</p>
       <p className="mt-1 text-xs font-bold text-slate-300">{entry.wins} wins · {entry.gamesPlayed} games</p>
@@ -153,7 +156,7 @@ export function InternalArenaLobby({ tournamentId, role, adminActionToken = "" }
 
   async function forceMatch() {
     if (!firstStudentId || !secondStudentId || firstStudentId === secondStudentId) {
-      setMessage("Choose two different available students.");
+      setMessage("Choose two different available players.");
       return;
     }
     setPending("force"); setMessage("");
@@ -253,13 +256,14 @@ export function InternalArenaLobby({ tournamentId, role, adminActionToken = "" }
         </div>
 
         <aside className="min-w-0 space-y-5">
+          {role === "teacher" ? <ArenaBotControls arena={arena} adminActionToken={adminActionToken} onChange={load} /> : null}
           <Card className="p-5">
             <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase text-emerald-200">Ready to play</p><h2 className="mt-1 text-xl font-black text-white">Queue</h2></div><span className="rounded-full bg-emerald-300/10 px-3 py-1 text-sm font-black text-emerald-100">{queued.length}</span></div>
             <div className="mt-4 space-y-2">{queued.map((entry, index) => <div key={entry.studentId} className="flex items-center justify-between rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"><span className="font-bold text-white">{entry.name}</span><span className="text-xs font-black text-slate-400">#{index + 1}</span></div>)}</div>
             {!queued.length ? <p className="mt-4 text-sm text-slate-400">The queue is empty.</p> : null}
           </Card>
 
-          {role === "teacher" && arena.status === "active" ? <Card className="p-5"><p className="text-xs font-black uppercase text-amber-200">Teacher control</p><h2 className="mt-1 text-lg font-black text-white">Force Matchmaking</h2><p className="mt-2 text-xs leading-5 text-slate-400">Pair any two available registered students, including students who paused their queue.</p><div className="mt-3 grid gap-2"><select className={fieldClass} aria-label="First player" value={firstStudentId} onChange={(event) => setFirstStudentId(event.target.value)}><option value="">First player</option>{available.map((entry) => <option key={entry.studentId} value={entry.studentId}>{entry.name} ({entry.status})</option>)}</select><select className={fieldClass} aria-label="Second player" value={secondStudentId} onChange={(event) => setSecondStudentId(event.target.value)}><option value="">Second player</option>{available.map((entry) => <option key={entry.studentId} value={entry.studentId}>{entry.name} ({entry.status})</option>)}</select></div><Button type="button" variant="secondary" className="mt-3 w-full" disabled={pending === "force" || available.length < 2} onClick={() => void forceMatch()}>{pending === "force" ? "Pairing..." : "Force Match"}</Button></Card> : null}
+          {role === "teacher" && arena.status === "active" ? <Card className="p-5"><p className="text-xs font-black uppercase text-amber-200">Teacher control</p><h2 className="mt-1 text-lg font-black text-white">Force Matchmaking</h2><p className="mt-2 text-xs leading-5 text-slate-400">Pair two students, or a student and a bot. Both must be available.</p><div className="mt-3 grid gap-2"><select className={fieldClass} aria-label="First player" value={firstStudentId} onChange={(event) => setFirstStudentId(event.target.value)}><option value="">First player</option>{available.map((entry) => <option key={entry.studentId} value={entry.studentId}>{entry.name} ({entry.status})</option>)}</select><select className={fieldClass} aria-label="Second player" value={secondStudentId} onChange={(event) => setSecondStudentId(event.target.value)}><option value="">Second player</option>{available.map((entry) => <option key={entry.studentId} value={entry.studentId}>{entry.name} ({entry.status})</option>)}</select></div><Button type="button" variant="secondary" className="mt-3 w-full" disabled={pending === "force" || available.length < 2} onClick={() => void forceMatch()}>{pending === "force" ? "Pairing..." : "Force Match"}</Button></Card> : null}
 
           <Card className="p-5">
             <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase text-cyan-200">Tournament room</p><h2 className="mt-1 text-xl font-black text-white">Live Chat</h2></div><span className="h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.8)]" aria-label="Chat updating live" /></div>

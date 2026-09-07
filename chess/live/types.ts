@@ -1,5 +1,6 @@
 import type { ChessColor, GameMove, GameResultReason, TimeControl } from "@/chess/types";
 import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
+import type { ArenaGameBot } from "@/chess/arena/bots";
 
 export type LiveGameStatus = "waiting" | "active" | "completed" | "cancelled";
 export type LiveGameMode = "live" | "correspondence";
@@ -8,9 +9,13 @@ export type LiveGamePlayer = {
   id: string;
   name: string;
   avatar?: StudentAvatarConfig;
+  botDifficultyId?: string;
+  portrait?: string;
 };
 
 export type LiveGameRecord = {
+  arena_bot?: ArenaGameBot | null;
+  bot_lease_until?: string | null;
   id: string;
   challenge_code: string;
   realtime_token: string;
