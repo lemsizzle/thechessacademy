@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Chess } from "chess.js";
 import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
-import { arenaBotDifficulty, MAX_ARENA_BOTS, parseArenaBotInput } from "@/chess/arena/bots";
+import { ARENA_BOT_MIN_RATING, ARENA_BOT_MAX_RATING, ARENA_BOT_RATING_STEP, arenaBotDifficulty, arenaBotRatingId, MAX_ARENA_BOTS, parseArenaBotInput } from "@/chess/arena/bots";
 import { chooseArenaBotMove } from "@/chess/engine/arenaStockfishServer";
 import { readFileSync } from "node:fs";
 
@@ -26,6 +26,39 @@ describe("Arena bot configuration", () => {
     expect(sql).toContain("after insert or update of version, status");
     expect(sql).toContain("bot_lease_until < now()");
   });
+
+  it("supports every slider step and changes engine strength between presets", () => {
+    let previous = arenaBotDifficulty("pawny")!;
+    for (let rating = ARENA_BOT_MIN_RATING; rating <= ARENA_BOT_MAX_RATING; rating += ARENA_BOT_RATING_STEP) {
+      const id = arenaBotRatingId(rating);
+      const bot = arenaBotDifficulty(id)!;
+      expect(parseArenaBotInput({ difficultyId: id, name: "Luna" })).toEqual({ name: "Luna", difficultyId: id });
+      expect(bot.estimatedRating).toBe(rating);
+      expect(bot.qualityDiscipline).toBeGreaterThanOrEqual(previous.qualityDiscipline);
+      expect(bot.maxPlausibleCpLoss).toBeLessThanOrEqual(previous.maxPlausibleCpLoss);
+      expect(bot.thinkTimeMs).toBeGreaterThanOrEqual(previous.thinkTimeMs);
+      expect(bot.multiPv).toBeGreaterThanOrEqual(6);
+      expect(bot.multiPv).toBeLessThanOrEqual(10);
+      expect(Number.isInteger(bot.multiPv)).toBe(true);
+      expect(bot.errorBands.reduce((sum, band) => sum + band.weight, 0)).toBeCloseTo(100);
+      expect(bot.repertoireId).toBeUndefined();
+      previous = bot;
+    }
+    const midpoint = arenaBotDifficulty("arena-675")!;
+    expect(midpoint.qualityDiscipline).toBeCloseTo(0.27);
+    expect(midpoint.tacticalAwareness).toBeCloseTo(0.45);
+    expect(midpoint.thinkTimeMs).toBe(290);
+    expect(midpoint).not.toEqual(arenaBotDifficulty("knight"));
+    expect(arenaBotDifficulty("so-pawny")?.repertoireId).toBe("so-pawny");
+  });
+
+  it("rejects malformed, out-of-range and off-step custom strengths", () => {
+    for (const id of ["arena-374", "arena-1625", "arena-576", "arena-0575", "arena-575.0", "arena-5e2", "arena-575\n", "arena-NaN", "arena-999999999999", "arena--400"]) {
+      expect(arenaBotDifficulty(id)).toBeNull();
+      expect(() => parseArenaBotInput({ difficultyId: id })).toThrow("skill");
+    }
+    for (const rating of [NaN, Infinity, -25, 350, 576, 575.5, 1625]) expect(() => arenaBotRatingId(rating)).toThrow();
+  });
 });
 
 describe("server-run Arena Stockfish", () => {
@@ -40,6 +73,12 @@ describe("server-run Arena Stockfish", () => {
     await expect(chooseArenaBotMove(new Chess().fen(), "spoofed", { moveHistory: [] })).rejects.toThrow("skill");
     await expect(chooseArenaBotMove("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1", "queen", { moveHistory: [] })).rejects.toThrow("No move");
   });
+
+  it.each([375, 675, 1000, 1600])("uses the real engine for custom strength %i", async (rating) => {
+    const chess = new Chess();
+    const move = await chooseArenaBotMove(chess.fen(), arenaBotRatingId(rating), { moveHistory: [] });
+    expect(() => chess.move({ from: move.slice(0, 2), to: move.slice(2, 4), promotion: move[4] })).not.toThrow();
+  }, 15_000);
 
   it("handles promotion on the server", async () => {
     const chess = new Chess("8/2P5/8/8/8/6k1/8/7K w - - 0 1");

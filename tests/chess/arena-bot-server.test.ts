@@ -90,6 +90,15 @@ describe("authoritative Arena bot game flow", () => {
     expect(game.bot_lease_until).toBeNull();
   });
 
+  it("uses the saved custom strength and ignores a student's submitted override", async () => {
+    game.arena_bot!.difficultyId = "arena-875";
+    await submitLiveMove(student,gameId,{ from:"e2",to:"e4",version:1,difficultyId:"arena-375" });
+    await advanceArenaBotGame(gameId);
+    expect(mocks.choose).toHaveBeenCalledWith(expect.any(String),"arena-875",{ moveHistory:["e2e4"] });
+    expect((await getTeacherLiveGame(gameId)).players.black?.botDifficultyId).toBe("arena-875");
+    expect((await getTeacherLiveGame(gameId)).players.black?.portrait).toBeTruthy();
+  });
+
   it("plays the first move when the bot is White and never allows the student to move for it", async () => {
     game = fixture("white"); mocks.choose.mockResolvedValue("e2e4");
     await expect(submitLiveMove(student,gameId,{ from:"e2",to:"e4",version:1 })).rejects.toThrow("not your turn");
@@ -168,6 +177,13 @@ describe("bot-versus-bot Arena games", () => {
     await advanceArenaBotGame(gameId);
     expect(game.moves.length).toBeGreaterThan(8);
     expect(game.moves.length).toBeLessThanOrEqual(16);
+  });
+
+  it("honors different custom strengths for both bots", async () => {
+    game.arena_bot!.difficultyId = "arena-650";
+    game.arena_opponent_bot!.difficultyId = "arena-1450";
+    await advanceArenaBotGame(gameId);
+    expect(mocks.choose.mock.calls.map(call=>call[1])).toEqual(["arena-650","arena-1450","arena-650","arena-1450","arena-650","arena-1450","arena-650","arena-1450"]);
   });
 
   it.each(["white","black"] as const)("scores a %s checkmate without student history or rating writes", async (color) => {

@@ -34,6 +34,7 @@ try {
   }
   await db.exec(sqlFile("20260907012638_internal_arena_bots"));
   await db.exec(sqlFile("20260907173735_internal_arena_bot_pairs"));
+  await db.exec(sqlFile("20260907180710_arena_bot_difficulty_slider"));
   const { id: arena } = await one(`insert into internal_arena_tournaments(name,status,starts_at,ends_at,duration_minutes,time_control_id,time_control,rated,class_group)
     values('Fixture','active',now(),now()+interval '1 hour',60,'10m','{"id":"10m","name":"10 min","initialMs":600000,"incrementMs":0}',true,'A') returning id`);
   await db.query("insert into internal_arena_entries(tournament_id,student_id,status) values($1,$2,'waiting'),($1,$3,'waiting'),($1,$4,'waiting')", [arena, student, second, otherClass]);
@@ -163,11 +164,41 @@ try {
   await finish(last.gameId,"black");
   assert.equal((await one("select status from internal_arena_entries where bot_id=$1",[delta])).status,"finished");
   await assert.rejects(robotPair(), /not accepting/);
-  for (const fn of ["match_internal_arena_bot_pair(uuid,text,text,uuid,uuid)","claim_internal_arena_bot_turn(uuid)","finalize_internal_arena_game(uuid)","manage_internal_arena_bot(uuid,text,uuid,text,text)"]) {
+  // All slider values agree with the API, and malformed values fail closed.
+  for (let rating=375;rating<=1600;rating+=25) {
+    assert.equal((await one("select valid_internal_arena_bot_difficulty($1) valid",[`arena-${rating}`])).valid,true);
+  }
+  for (const id of [null,"arena-374","arena-1625","arena-576","arena-0575","arena-575.0","arena-5e2","arena-575\n","arena-NaN","arena-999999999999","arena--400"]) {
+    assert.equal((await one("select valid_internal_arena_bot_difficulty($1) valid",[id])).valid,false);
+  }
+  const sliderArena=(await one(`insert into internal_arena_tournaments(name,status,starts_at,ends_at,duration_minutes,time_control_id,time_control,rated)
+    values('Slider fixture','active',now(),now()+interval '1 hour',60,'10m','{"id":"10m","name":"10 min","initialMs":600000,"incrementMs":0}',false) returning id`)).id;
+  const sliderAdd=async (id)=>(await one("select manage_internal_arena_bot($1,'add',null,'Slider bot',$2) id",[sliderArena,id])).id;
+  const sliderA=await sliderAdd("arena-675"),sliderB=await sliderAdd("arena-1425");
+  await assert.rejects(sliderAdd("arena-676"),/valid bot/);
+  await assert.rejects(db.query("update internal_arena_bots set difficulty_id='arena-9999' where id=$1",[sliderA]),/difficulty_id_check/);
+  const sliderPair=async ()=>(await one("select match_internal_arena_bot_pair($1,$2,$3,$4,$5) result",[sliderArena,String(code++),fen,sliderA,sliderB])).result;
+  const sliderGame=await sliderPair();
+  const before=await one("select arena_bot,arena_opponent_bot from live_chess_games where id=$1",[sliderGame.gameId]);
+  assert.deepEqual([before.arena_bot.difficultyId,before.arena_opponent_bot.difficultyId].sort(),["arena-1425","arena-675"]);
+  await db.query("select manage_internal_arena_bot($1,'update',$2,'Slider bot','arena-900')",[sliderArena,sliderA]);
+  assert.deepEqual(await one("select arena_bot,arena_opponent_bot from live_chess_games where id=$1",[sliderGame.gameId]),before);
+  for (const column of ["arena_bot","arena_opponent_bot"]) {
+    await assert.rejects(db.query(`update live_chess_games set ${column}=jsonb_set(${column},'{difficultyId}','"arena-576"') where id=$1`,[sliderGame.gameId]),/bot_shape/);
+  }
+  await finish(sliderGame.gameId,"white");
+  const nextSliderGame=await sliderPair();
+  const after=await one("select arena_bot,arena_opponent_bot from live_chess_games where id=$1",[nextSliderGame.gameId]);
+  assert.equal((after.arena_bot.id===sliderA?after.arena_bot:after.arena_opponent_bot).difficultyId,"arena-900");
+  await finish(nextSliderGame.gameId,"black");
+  await db.query("insert into internal_arena_entries(tournament_id,student_id,status) values($1,$2,'waiting')",[sliderArena,student]);
+  const customHuman=(await one("select match_internal_arena_bot($1,$2,$3,$4,$5) result",[sliderArena,student,String(code++),fen,sliderA])).result;
+  assert.equal((await one("select arena_bot from live_chess_games where id=$1",[customHuman.gameId])).arena_bot.difficultyId,"arena-900");
+  for (const fn of ["valid_internal_arena_bot_difficulty(text)","match_internal_arena_bot_pair(uuid,text,text,uuid,uuid)","claim_internal_arena_bot_turn(uuid)","finalize_internal_arena_game(uuid)","manage_internal_arena_bot(uuid,text,uuid,text,text)"]) {
     const privileges=await one("select has_function_privilege('anon',$1,'execute') a,has_function_privilege('authenticated',$1,'execute') b,has_function_privilege('service_role',$1,'execute') s",[fn]);
     assert.deepEqual(privileges,{a:false,b:false,s:true});
   }
-  console.log("PASS: Arena migrations, human/bot/bot pairing, priority, concurrency, alternating leases, scoring, removal during play, idempotency, skill snapshots, shape constraints and service-only privileges.");
+  console.log("PASS: Arena migrations, human/bot/bot pairing, priority, concurrency, alternating leases, scoring, removal during play, idempotency, all 50 slider levels, next-game skill snapshots, shape constraints and service-only privileges.");
 } catch (error) {
   console.error(error.message, error.detail ?? "", error.where ?? "", error.code ?? "");
   process.exitCode = 1;
