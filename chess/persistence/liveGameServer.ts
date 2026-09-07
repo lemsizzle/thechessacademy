@@ -11,7 +11,7 @@ import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { applyRatingForCompletedGame } from "@/chess/persistence/ratingServer";
 import { finalizeInternalArenaGame, scheduleArenaBotTurn } from "@/chess/persistence/arenaServer";
-import { arenaBotDifficulty } from "@/chess/arena/bots";
+import { arenaBotDifficulty, arenaGameBots } from "@/chess/arena/bots";
 import { chooseArenaBotMove } from "@/chess/engine/arenaStockfishServer";
 import { createArenaBotWorkQueue } from "@/chess/arena/botWorkQueue";
 
@@ -123,9 +123,8 @@ function gamePlayers(game: LiveGameRecord, students: Map<string, LiveGamePlayer>
     white: game.white_player_id ? students.get(game.white_player_id) ?? { id: game.white_player_id, name: "Student" } : null,
     black: game.black_player_id ? students.get(game.black_player_id) ?? { id: game.black_player_id, name: "Student" } : null
   };
-  if (game.arena_bot) {
-    const bot = game.arena_bot;
-    players[bot.color] = { id: bot.id, name: `${bot.name} · BOT`, botDifficultyId: bot.difficultyId, portrait: arenaBotDifficulty(bot.difficultyId)?.portrait };
+  for (const bot of arenaGameBots(game)) {
+    players[bot.color] = { id: bot.id, name: bot.name, botDifficultyId: bot.difficultyId, portrait: arenaBotDifficulty(bot.difficultyId)?.portrait };
   }
   return players;
 }
@@ -233,6 +232,8 @@ function perspectiveResult(winnerColor: ChessColor | null, playerColor: ChessCol
 }
 
 async function persistCompletedPlayers(game: LiveGameRecord) {
+  // Bot-only games have Arena results/PGN but no student history or rewards.
+  if (!game.white_player_id && !game.black_player_id) return;
   if (game.status !== "completed" || !game.completed_at || !game.started_at || !game.result_reason || (!game.arena_bot && (!game.white_player_id || !game.black_player_id))) return;
   const players = await playerMap([game.white_player_id, game.black_player_id]);
   const entries = [
@@ -510,6 +511,7 @@ export async function getStudentArenaGame(studentId: string, tournamentId: strin
   if (arenaResult.data.class_group && arenaResult.data.class_group !== studentResult.data.class_group) {
     throw new LiveGameServerError("This Arena is for another class.", 403);
   }
+  if (game.arena_bot && game.status === "active") scheduleArenaBotTurn(game.id);
   return teacherSnapshotFor(game);
 }
 
@@ -554,29 +556,44 @@ export async function submitLiveMove(studentId: string, gameId: string, input: u
 
 /** Server-only move generation. Lease + version CAS prevent duplicate moves on retries. */
 export function advanceArenaBotGame(gameId: string) {
-  return queueArenaBotWork(cleanGameId(gameId), () => runArenaBotTurn(gameId));
+  return queueArenaBotWork(cleanGameId(gameId), async () => {
+    // Short batches keep classroom CPU usage bounded. Lobby/spectator refreshes resume play.
+    const deadline = Date.now() + 8_000;
+    for (let ply = 0; ply < 8; ply += 1) {
+      if (!await runArenaBotTurn(gameId) || Date.now() >= deadline) break;
+    }
+  });
 }
 
 async function runArenaBotTurn(gameId: string) {
   const { data, error } = await serviceClient().rpc("claim_internal_arena_bot_turn", { p_game_id: cleanGameId(gameId) });
   if (error) throw new LiveGameServerError(error.message, 500);
   const game = Array.isArray(data) && data[0] ? normalizeRecord(data[0]) : null;
-  if (!game?.arena_bot) return;
+  if (!game) {
+    // A response can end after the final move was saved but before Arena scoring.
+    // Resume that idempotent work as well, so completed bot games cannot strand the queue.
+    const latest = await loadRecord(gameId);
+    if (latest.arena_bot && latest.status === "completed") await persistCompletedOutputs(latest);
+    return;
+  }
+  if (!game.arena_bot) return;
   try {
     const timeout = timeoutCompletion(game, Date.now());
     if (timeout) { await completeByAction(game, timeout, Date.now()); return; }
-    if (game.active_color !== game.arena_bot.color) return;
-    const uci = await chooseArenaBotMove(game.current_fen, game.arena_bot.difficultyId, { moveHistory: game.moves.map((move) => `${move.from}${move.to}${move.promotion ?? ""}`) });
+    const bot = arenaGameBots(game).find((entry) => entry.color === game.active_color);
+    if (!bot) return;
+    const uci = await chooseArenaBotMove(game.current_fen, bot.difficultyId, { moveHistory: game.moves.map((move) => `${move.from}${move.to}${move.promotion ?? ""}`) });
     const now = Date.now();
     const expired = timeoutCompletion(game, now);
     if (expired) { await completeByAction(game, expired, now); return; }
     // Synthetic identity goes only to pure move validation, never to student storage.
-    const engineGame = { ...game, [game.arena_bot.color === "white" ? "white_player_id" : "black_player_id"]: game.arena_bot.id };
-    const applied = applyLiveMove(engineGame, game.arena_bot.id, {
+    const engineGame = { ...game, [bot.color === "white" ? "white_player_id" : "black_player_id"]: bot.id };
+    const applied = applyLiveMove(engineGame, bot.id, {
       from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] as LiveMoveInput["promotion"], version: game.version
     }, now);
     const updated = await updateWithVersion(game, { ...applied.update, bot_lease_until: null });
     if (applied.completion) await persistCompletedOutputs(updated);
+    return Boolean(updated.arena_opponent_bot && updated.status === "active");
   } catch (error) {
     // A simultaneous resignation can legitimately win the optimistic update.
     if (!(error instanceof LiveGameServerError && error.status === 409)) throw error;

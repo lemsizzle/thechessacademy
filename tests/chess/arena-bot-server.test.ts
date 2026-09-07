@@ -70,7 +70,7 @@ describe("authoritative Arena bot game flow", () => {
   it.each(["white", "black"] as const)("shows a %s bot without creating a student account", async (color) => {
     game = fixture(color);
     const snapshot = await getLiveGame(student,gameId);
-    expect(snapshot.players[color]?.name).toBe("Class Bot · BOT");
+    expect(snapshot.players[color]?.name).toBe("Class Bot");
     expect(snapshot.players[color]?.botDifficultyId).toBe("knight");
     expect(snapshot.players[color]?.portrait).toContain("zippy-knight");
     expect(snapshot.viewer.color).not.toBe(color);
@@ -136,5 +136,68 @@ describe("authoritative Arena bot game flow", () => {
     game = fixture("white"); game.initial_fen="7k/5Q2/6K1/8/8/8/8/8 w - - 0 1"; game.current_fen=game.initial_fen;
     mocks.choose.mockResolvedValue("f7g7"); await advanceArenaBotGame(gameId);
     expect(game.result_reason).toBe("checkmate"); expect(history[0].result).toBe("loss");
+  });
+});
+
+describe("bot-versus-bot Arena games", () => {
+  beforeEach(() => {
+    game = {
+      ...fixture("white"), created_by: null, white_player_id: null, black_player_id: null,
+      arena_opponent_bot: { id: "55555555-5555-4555-8555-555555555555", color: "black", name: "Luna", difficultyId: "queen" }
+    };
+    mocks.choose.mockImplementation(async (fen: string) => {
+      const move = new Chess(fen).moves({ verbose: true })[0];
+      return `${move.from}${move.to}${move.promotion ?? ""}`;
+    });
+  });
+
+  it("shows both nicknames and both skill presets on the spectator board", async () => {
+    const snapshot = await getTeacherLiveGame(gameId);
+    expect(snapshot.players.white).toMatchObject({ id: botId, name: "Class Bot", botDifficultyId: "knight" });
+    expect(snapshot.players.black).toMatchObject({ name: "Luna", botDifficultyId: "queen" });
+    await expect(getLiveGame(student,gameId)).rejects.toThrow("not a player");
+    await expect(submitLiveMove(student,gameId,{from:"e2",to:"e4",version:1})).rejects.toThrow("not a player");
+  });
+
+  it("alternates each bot's saved skill in bounded batches, with no duplicate worker", async () => {
+    await Promise.all([advanceArenaBotGame(gameId),advanceArenaBotGame(gameId)]);
+    expect(game.moves).toHaveLength(8);
+    expect(mocks.choose.mock.calls.map(call=>call[1])).toEqual(["knight","queen","knight","queen","knight","queen","knight","queen"]);
+    expect(game.white_player_id).toBeNull(); expect(game.black_player_id).toBeNull();
+    expect(game.bot_lease_until).toBeNull();
+    await advanceArenaBotGame(gameId);
+    expect(game.moves.length).toBeGreaterThan(8);
+    expect(game.moves.length).toBeLessThanOrEqual(16);
+  });
+
+  it.each(["white","black"] as const)("scores a %s checkmate without student history or rating writes", async (color) => {
+    game.initial_fen = color === "white" ? "7k/5Q2/6K1/8/8/8/8/8 w - - 0 1" : "8/8/8/8/8/6k1/5q2/7K b - - 0 1";
+    game.current_fen = game.initial_fen; game.active_color = color;
+    mocks.choose.mockResolvedValue(color === "white" ? "f7g7" : "f2g2");
+    await advanceArenaBotGame(gameId);
+    expect(game.result_reason).toBe("checkmate"); expect(game.winner_color).toBe(color);
+    expect(mocks.choose).toHaveBeenCalledTimes(1);
+    expect(mocks.finalize).toHaveBeenCalledWith(gameId);
+    expect(history).toEqual([]); expect(mocks.rating).not.toHaveBeenCalled();
+    expect(game.pgn).toContain('[White "Class Bot"]'); expect(game.pgn).toContain('[Black "Luna"]');
+  });
+
+  it("settles either bot's timeout without a late engine move or student rewards", async () => {
+    game.active_color="black"; game.black_ms=1; game.clock_started_at=new Date(Date.now()-1000).toISOString();
+    await advanceArenaBotGame(gameId);
+    expect(game.status).toBe("completed"); expect(game.winner_color).toBe("white");
+    expect(mocks.choose).not.toHaveBeenCalled(); expect(history).toEqual([]);
+    expect(mocks.rating).not.toHaveBeenCalled(); expect(mocks.finalize).toHaveBeenCalledWith(gameId);
+  });
+
+  it("recovers interrupted final scoring without playing the final move twice", async () => {
+    game.initial_fen="7k/5Q2/6K1/8/8/8/8/8 w - - 0 1"; game.current_fen=game.initial_fen;
+    mocks.choose.mockResolvedValue("f7g7");
+    mocks.finalize.mockRejectedValueOnce(new Error("temporary scoring failure"));
+    await expect(advanceArenaBotGame(gameId)).rejects.toThrow("temporary scoring failure");
+    expect(game.status).toBe("completed");
+    await advanceArenaBotGame(gameId);
+    expect(mocks.finalize).toHaveBeenCalledTimes(2);
+    expect(mocks.choose).toHaveBeenCalledTimes(1); expect(history).toEqual([]);
   });
 });

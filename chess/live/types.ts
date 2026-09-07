@@ -15,11 +15,12 @@ export type LiveGamePlayer = {
 
 export type LiveGameRecord = {
   arena_bot?: ArenaGameBot | null;
+  arena_opponent_bot?: ArenaGameBot | null;
   bot_lease_until?: string | null;
   id: string;
   challenge_code: string;
   realtime_token: string;
-  created_by: string;
+  created_by: string | null;
   game_mode: LiveGameMode;
   days_per_move: number | null;
   turn_deadline_at: string | null;

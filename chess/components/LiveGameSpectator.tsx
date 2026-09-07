@@ -50,6 +50,7 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
   const previousClocksRef = useRef<{ gameId: string; white: number | null; black: number | null } | null>(null);
   const { muted, toggleMuted, receiveGameSnapshot, playClockWarning, captureEffect } = useLiveGameSounds();
   const isTeacher = role === "teacher";
+  const hasBots = Boolean(game?.players.white.botDifficultyId || game?.players.black.botDifficultyId);
   const backHref = isTeacher ? "/admin/live-games" : `/student/tournaments/${tournamentId}`;
 
   const receiveGame = useCallback((next: TeacherLiveGameSnapshot) => {
@@ -112,14 +113,14 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
     if (!game || game.status !== "active") return;
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
-    }, connection === "live" ? 15_000 : 3_000);
+    }, connection === "live" && !hasBots ? 15_000 : 3_000);
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
     };
-  }, [connection, game?.status, refresh]);
+  }, [connection, game?.status, hasBots, refresh]);
 
   useEffect(() => {
     if (!game || game.status !== "active" || game.clocks.whiteMs === null) return;

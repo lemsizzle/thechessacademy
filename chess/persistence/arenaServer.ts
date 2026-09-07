@@ -53,6 +53,8 @@ type PairingRow = {
   bot_id: string | null;
   bot_color: "white" | "black" | null;
   bot_name: string | null;
+  opponent_bot_id: string | null;
+  opponent_bot_name: string | null;
   status: "active" | "completed";
   result: "white_win" | "black_win" | "draw" | null;
   white_points: number;
@@ -142,9 +144,9 @@ async function mapArenas(rows: ArenaRow[], viewerStudentId?: string): Promise<In
   const studentIds = [...new Set(entries.flatMap((entry) => entry.student_id ? [entry.student_id] : []))];
   const bots = new Map<string, ArenaBot>();
   if (entries.some((entry) => entry.bot_id)) {
-    const result = await client().from("internal_arena_bots").select("id,name,difficulty_id").in("tournament_id", tournamentIds);
+    const result = await client().from("internal_arena_bots").select("id,name,difficulty_id,removed_at").in("tournament_id", tournamentIds);
     if (result.error) throw new InternalArenaServerError(result.error.message, 500);
-    for (const bot of result.data ?? []) bots.set(bot.id, { id: bot.id, name: bot.name, difficultyId: bot.difficulty_id });
+    for (const bot of result.data ?? []) bots.set(bot.id, { id: bot.id, name: bot.name, difficultyId: bot.difficulty_id, removed: Boolean(bot.removed_at) });
   }
   const students = new Map<string, StudentRow>();
   if (studentIds.length) {
@@ -156,7 +158,7 @@ async function mapArenas(rows: ArenaRow[], viewerStudentId?: string): Promise<In
   return rows.map((row) => {
     const standings = rankArenaStandings(entries.filter((entry) => entry.tournament_id === row.id).map((entry): Omit<InternalArenaStanding, "rank"> => ({
       studentId: entry.student_id ?? entry.bot_id!,
-      name: entry.bot_id ? `${bots.get(entry.bot_id)?.name ?? "Arena bot"} · BOT` : students.get(entry.student_id!)?.display_name || students.get(entry.student_id!)?.lichess_username || "Student",
+      name: entry.bot_id ? bots.get(entry.bot_id)?.name ?? "Computer player" : students.get(entry.student_id!)?.display_name || students.get(entry.student_id!)?.lichess_username || "Student",
       bot: entry.bot_id ? bots.get(entry.bot_id) : undefined,
       status: entry.status,
       score: entry.score,
@@ -192,7 +194,7 @@ async function buildInternalArenaLobby(row: ArenaRow, viewerStudentId?: string, 
   const [pairingResult, chatResult, avatarDisplay] = await Promise.all([
     client()
       .from("internal_arena_pairings")
-      .select("id,game_id,white_student_id,black_student_id,bot_id,bot_color,bot_name,status,result,white_points,black_points,started_at,completed_at")
+      .select("id,game_id,white_student_id,black_student_id,bot_id,bot_color,bot_name,opponent_bot_id,opponent_bot_name,status,result,white_points,black_points,started_at,completed_at")
       .eq("tournament_id", row.id)
       .order("started_at", { ascending: false })
       .limit(60),
@@ -222,23 +224,16 @@ async function buildInternalArenaLobby(row: ArenaRow, viewerStudentId?: string, 
     gameId: pairing.game_id,
     status: pairing.status,
     result: pairing.result,
-    whiteStudentId: pairing.white_student_id ?? pairing.bot_id!,
-    whiteName: pairing.bot_color === "white" ? `${pairing.bot_name ?? "Arena bot"} · BOT` : names.get(pairing.white_student_id!) ?? "Student",
-    blackStudentId: pairing.black_student_id ?? pairing.bot_id!,
-    blackName: pairing.bot_color === "black" ? `${pairing.bot_name ?? "Arena bot"} · BOT` : names.get(pairing.black_student_id!) ?? "Student",
+    whiteStudentId: pairing.white_student_id ?? (pairing.bot_color === "white" ? pairing.bot_id! : pairing.opponent_bot_id!),
+    whiteName: pairing.white_student_id ? names.get(pairing.white_student_id) ?? "Student" : (pairing.bot_color === "white" ? pairing.bot_name : pairing.opponent_bot_name) ?? "Computer player",
+    blackStudentId: pairing.black_student_id ?? (pairing.bot_color === "black" ? pairing.bot_id! : pairing.opponent_bot_id!),
+    blackName: pairing.black_student_id ? names.get(pairing.black_student_id) ?? "Student" : (pairing.bot_color === "black" ? pairing.bot_name : pairing.opponent_bot_name) ?? "Computer player",
     whitePoints: pairing.white_points,
     blackPoints: pairing.black_points,
     startedAt: pairing.started_at,
     completedAt: pairing.completed_at
   }));
-  const botGameIds = ((pairingResult.data ?? []) as PairingRow[]).filter((pairing) => pairing.bot_id && pairing.status === "active").map((pairing) => pairing.game_id);
-  if (botGameIds.length) after(async () => {
-    const { advanceArenaBotGame } = await import("@/chess/persistence/liveGameServer");
-    for (const gameId of botGameIds) {
-      try { await advanceArenaBotGame(gameId); }
-      catch (error) { console.error("Arena bot recovery failed", error instanceof Error ? error.message : "Unknown error"); }
-    }
-  });
+  scheduleArenaBotActivity(arena);
   const messages = ((chatResult.data ?? []) as ChatRow[]).reverse().map((message): InternalArenaChatMessage => ({
     id: message.id,
     studentId: message.student_id,
@@ -258,7 +253,9 @@ async function buildInternalArenaLobby(row: ArenaRow, viewerStudentId?: string, 
 }
 
 export async function listTeacherInternalArenas() {
-  return mapArenas(await loadArenaRows());
+  const arenas = await mapArenas(await loadArenaRows());
+  arenas.forEach(scheduleArenaBotActivity);
+  return arenas;
 }
 
 export async function listStudentInternalArenas(studentId: string) {
@@ -270,7 +267,9 @@ export async function listStudentInternalArenas(studentId: string) {
   if (studentResult.error) throw new InternalArenaServerError(studentResult.error.message, 500);
   const classGroup = studentResult.data?.class_group ? String(studentResult.data.class_group) : null;
   const visible = rows.filter((row) => row.status !== "cancelled" && (!row.class_group || row.class_group === classGroup));
-  return mapArenas(visible, id);
+  const arenas = await mapArenas(visible, id);
+  arenas.forEach(scheduleArenaBotActivity);
+  return arenas;
 }
 
 export async function getTeacherInternalArenaLobby(tournamentId: string) {
@@ -471,7 +470,7 @@ export async function forceInternalArenaPair(tournamentId: string, firstStudentI
   if (first === second) throw new InternalArenaServerError("Choose two different players.");
   const bots = await client().from("internal_arena_bots").select("id").eq("tournament_id", id).in("id", [first, second]);
   if (bots.error) throw new InternalArenaServerError(bots.error.message, 500);
-  if (bots.data?.length === 2) throw new InternalArenaServerError("Pair a bot with a student, not another bot.");
+  if (bots.data?.length === 2) return matchArenaBots(id, first, second);
   if (bots.data?.length === 1) return matchArenaBot(id, bots.data[0].id === first ? second : first, bots.data[0].id);
   for (let attempt = 0; attempt < MAX_CHALLENGE_CODE_ATTEMPTS; attempt += 1) {
     const { data, error } = await client().rpc("force_internal_arena_pair", {
@@ -523,6 +522,39 @@ async function matchArenaBot(tournamentId: string, studentId: string, botId?: st
   throw new InternalArenaServerError("Could not reserve an Arena bot game. Try again.", 500);
 }
 
+async function matchArenaBots(tournamentId: string, firstBotId?: string, secondBotId?: string) {
+  for (let attempt = 0; attempt < MAX_CHALLENGE_CODE_ATTEMPTS; attempt += 1) {
+    const { data, error } = await client().rpc("match_internal_arena_bot_pair", {
+      p_tournament_id: validId(tournamentId), p_challenge_code: generateChallengeCode(), p_initial_fen: new Chess().fen(),
+      p_first_bot_id: firstBotId ?? null, p_second_bot_id: secondBotId ?? null
+    });
+    if (!error) { const result = mapMatchmaking(data); scheduleArenaBotTurn(result.gameId); return result; }
+    if (error.code !== "23505") throw new InternalArenaServerError(error.message, 409);
+  }
+  throw new InternalArenaServerError("Could not reserve a bot-vs-bot game. Try again.", 500);
+}
+
+function scheduleArenaBotActivity(arena: InternalArena) {
+  const bots = arena.standings.filter((entry) => entry.bot);
+  const games = new Set(bots.flatMap((entry) => entry.status === "playing" && entry.currentGameId ? [entry.currentGameId] : []));
+  games.forEach(scheduleArenaBotTurn);
+  if (arena.status !== "active" || !bots.some((entry) => entry.status === "waiting" || entry.status === "joined")) return;
+  after(async () => {
+    try {
+      // Serve waiting humans first. The bot-pair RPC rechecks priority under the Arena lock.
+      const waiting = await client().from("internal_arena_entries").select("student_id").eq("tournament_id", arena.id).eq("status", "waiting").not("student_id", "is", null).limit(12);
+      if (waiting.error) throw new InternalArenaServerError(waiting.error.message, 500);
+      for (const entry of waiting.data ?? []) {
+        try { await matchInternalArenaStudent(arena.id, entry.student_id); }
+        catch (error) { console.error("Arena queued player pairing failed", error instanceof Error ? error.message : "Unknown error"); }
+      }
+      for (let pair = 0; pair < 6; pair += 1) {
+        if ((await matchArenaBots(arena.id)).status !== "matched") break;
+      }
+    } catch (error) { console.error("Arena bot pairing failed", error instanceof Error ? error.message : "Unknown error"); }
+  });
+}
+
 export async function manageInternalArenaBot(tournamentId: string, action: "add" | "update" | "remove", input: unknown, botId?: string) {
   let values: { name: string; difficultyId: string } | null = null;
   if (action !== "remove") {
@@ -535,17 +567,6 @@ export async function manageInternalArenaBot(tournamentId: string, action: "add"
     p_name: values?.name ?? null, p_difficulty_id: values?.difficultyId ?? null
   });
   if (error) throw new InternalArenaServerError(error.message, 409);
-  // Wake students already in the queue when a teacher adds another opponent.
-  if (action === "add") after(async () => {
-    const row = await loadArenaRow(id);
-    if (row.status === "active") {
-      const waiting = await client().from("internal_arena_entries").select("student_id").eq("tournament_id", id).eq("status", "waiting").not("student_id", "is", null).limit(12);
-      if (waiting.error) throw new InternalArenaServerError(waiting.error.message, 500);
-      for (const entry of waiting.data ?? []) {
-        try { await matchInternalArenaStudent(id, entry.student_id); }
-        catch (error) { console.error("Arena bot pairing failed", error instanceof Error ? error.message : "Unknown error"); }
-      }
-    }
-  });
+  // Loading the lobby also wakes waiting humans and remaining bots.
   return getTeacherInternalArenaLobby(id);
 }

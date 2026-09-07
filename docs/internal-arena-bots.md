@@ -6,22 +6,23 @@ Open **Admin → Tournaments** and create/open an internal Arena. Its **Computer
 
 - Choose a skill preset, optionally name the bot, and select **Add Bot**.
 - Add up to 12 bots, including several at the same skill level. The six Play presets range from approximately 375 to 1600; these are estimates, not exact Elo settings. Sir Lem uses the existing Lichess-derived repertoire and personality.
-- Students are matched with other available students first. An idle bot fills an otherwise unpaired student's slot. Bots do not play each other.
-- **Force Matchmaking** accepts a student and an available bot, as well as two students.
+- Students are matched with other available students first. An idle bot fills an otherwise unpaired student's slot. Remaining available bots pair with each other.
+- **Force Matchmaking** accepts any two available players: two students, a student and a bot, or two bots.
 - **Save Skill** changes the bot's next game; a game already underway retains its original difficulty and name.
-- Remove an idle bot using **Remove → Confirm Remove**. A playing bot must finish first. Completed pairings retain the bot's original name.
+- Remove a bot at any time using **Remove → Confirm Remove**. It leaves the queue immediately; a game already underway finishes normally, then the bot leaves the standings. It cannot be paired again. Completed pairings retain its original name.
+- Nicknames display exactly as entered, without an appended “BOT” label.
 
-Bots participate in Arena standings and the podium. Games award the usual 2/1/0 Arena points and are always casual, even in a rated Arena. Only human-vs-human games affect PvP ratings. A student's completed bot game is saved as a computer game for history and analysis; existing computer-game reward/quest rules continue to apply. Bots are separate participants, never fake student accounts.
+Bots participate in Arena standings and the podium. Games award the usual 2/1/0 Arena points and are always casual, even in a rated Arena. Only human-vs-human games affect PvP ratings. A student's completed bot game is saved as a computer game for history and analysis; existing computer-game reward/quest rules continue to apply. Bot-only games update both bots' Arena scores without creating student history, ratings, XP, or quest progress. Bots are separate participants, never fake student accounts.
 
 ## Gameplay and reliability
 
 The server runs the bundled Stockfish engine with the existing Play personalities. Clients cannot submit bot moves or choose the engine's strength. The bot handles either color, promotion, normal automatic draws and clocks. Draw offers are hidden against bots; students can still resign.
 
-Replies run after the HTTP response, with at most two calculations per server process. Database leases and version-checked updates prevent duplicate moves across server instances. Board/lobby refreshes recover interrupted work. No external engine service or new credentials are needed.
+Replies run after the HTTP response, with at most two calculations per server process. Database leases and version-checked updates prevent duplicate moves across server instances. Bot-only play alternates the two saved skill presets in short batches (at most eight plies or approximately eight seconds). Keep an Arena lobby/list or spectator board open for automatic pairing and play; visible-page polling and Realtime refreshes resume the next batch. There is no unattended background scheduler. Board/lobby refreshes recover interrupted work. No external engine service or new credentials are needed.
 
 ## Rollout
 
-Apply `supabase/migrations/20260907012638_internal_arena_bots.sql` before deploying the application. It adds private bot data, bot participant columns, matching/lease RPCs and bot-aware Arena finalization. Existing human games keep their original representation. New tables/RPCs have browser-role privileges revoked and service-role access explicitly granted.
+Apply `supabase/migrations/20260907012638_internal_arena_bots.sql`, then `supabase/migrations/20260907173735_internal_arena_bot_pairs.sql`, before deploying the application. These add private bot data, both bot participant snapshots, matching/lease RPCs, in-progress withdrawal and bot-aware Arena finalization. Existing human games keep their original representation. New tables/RPCs have browser-role privileges revoked and service-role access explicitly granted.
 
 `next.config.ts` includes the existing Stockfish JavaScript and WASM files in the server deployment bundle. Do not omit either file when deploying.
 

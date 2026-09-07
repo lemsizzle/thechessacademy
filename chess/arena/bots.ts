@@ -2,8 +2,12 @@ import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
 import type { ChessColor } from "@/chess/types";
 
 export const MAX_ARENA_BOTS = 12;
-export type ArenaBot = { id: string; name: string; difficultyId: string };
+export type ArenaBot = { id: string; name: string; difficultyId: string; removed?: boolean };
 export type ArenaGameBot = ArenaBot & { color: ChessColor };
+
+export function arenaGameBots(game: { arena_bot?: ArenaGameBot | null; arena_opponent_bot?: ArenaGameBot | null }): ArenaGameBot[] {
+  return [game.arena_bot, game.arena_opponent_bot].filter((bot): bot is ArenaGameBot => Boolean(bot));
+}
 
 export function arenaBotDifficulty(id: unknown) {
   return BOT_DIFFICULTIES.find((bot) => bot.id === id) ?? null;

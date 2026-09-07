@@ -97,7 +97,7 @@ export function AdminInternalArenas({ adminActionToken }: { adminActionToken: st
       });
       const body = await response.json() as ArenaResponse;
       if (!response.ok || !body.matchmaking?.gameId) throw new Error(body.error || "Students could not be paired.");
-      setMessage("The teacher-created pairing is live. Both students will be sent to their board.");
+      setMessage("The pairing is live. Select Watch to follow the game.");
       await load();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Students could not be paired.");
@@ -153,10 +153,10 @@ export function AdminInternalArenas({ adminActionToken }: { adminActionToken: st
               {arena.status === "active" ? (
                 <div className="mt-4 rounded-lg border border-amber-300/25 bg-amber-300/10 p-4">
                   <p className="text-xs font-black uppercase text-amber-100">Teacher force matchmaking</p>
-                  <p className="mt-1 text-xs text-amber-50/80">Choose two available players: student vs student, or student vs bot.</p>
+                  <p className="mt-1 text-xs text-amber-50/80">Choose any two available players, including two bots.</p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <select className={fieldClass()} aria-label="First student" value={firstByArena[arena.id] ?? ""} onChange={(event) => setFirstByArena((value) => ({ ...value, [arena.id]: event.target.value }))}><option value="">First student</option>{available.map((entry) => <option key={entry.studentId} value={entry.studentId}>{entry.name} ({entry.status})</option>)}</select>
-                    <select className={fieldClass()} aria-label="Second student" value={secondByArena[arena.id] ?? ""} onChange={(event) => setSecondByArena((value) => ({ ...value, [arena.id]: event.target.value }))}><option value="">Second student</option>{available.map((entry) => <option key={entry.studentId} value={entry.studentId}>{entry.name} ({entry.status})</option>)}</select>
+                    <select className={fieldClass()} aria-label="First player" value={firstByArena[arena.id] ?? ""} onChange={(event) => setFirstByArena((value) => ({ ...value, [arena.id]: event.target.value }))}><option value="">First player</option>{available.map((entry) => <option key={entry.studentId} value={entry.studentId}>{entry.name} ({entry.status})</option>)}</select>
+                    <select className={fieldClass()} aria-label="Second player" value={secondByArena[arena.id] ?? ""} onChange={(event) => setSecondByArena((value) => ({ ...value, [arena.id]: event.target.value }))}><option value="">Second player</option>{available.map((entry) => <option key={entry.studentId} value={entry.studentId}>{entry.name} ({entry.status})</option>)}</select>
                   </div>
                   <Button type="button" variant="secondary" className="mt-3 w-full" disabled={pending === `pair:${arena.id}` || available.length < 2} onClick={() => void forceMatch(arena)}>{pending === `pair:${arena.id}` ? "Pairing..." : "Force Match"}</Button>
                 </div>
