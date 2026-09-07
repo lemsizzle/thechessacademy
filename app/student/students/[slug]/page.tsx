@@ -1,27 +1,17 @@
+import { notFound } from "next/navigation";
 import { StudentPortalShell } from "@/components/student/StudentPortalShell";
-import { StudentFacingProfileLoader } from "@/components/student/StudentFacingProfileLoader";
-import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
-import { getStudentBySlug } from "@/lib/data/students";
-import { getBadgesResult } from "@/lib/data/badges";
+import { StudentJourneyDashboard } from "@/components/student/StudentJourneyDashboard";
+import { getPublicStudentDashboard } from "@/lib/student/publicDashboard";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentFacingProfilePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [student, badges] = await Promise.all([getStudentBySlug(slug), getBadgesResult()]);
-  const avatarDisplay = student
-    ? await getStudentAvatarDisplayData([student.id])
-    : { items: [], avatars: {} };
-
+  const dashboard = await getPublicStudentDashboard(slug);
+  if (!dashboard) notFound();
   return (
-    <StudentPortalShell title="Student Profile" subtitle="Student-facing progress page.">
-      <StudentFacingProfileLoader
-        slug={slug}
-        initialStudent={student}
-        badges={badges.data}
-        avatarItems={avatarDisplay.items}
-        studentAvatar={student ? avatarDisplay.avatars[student.id] : undefined}
-      />
+    <StudentPortalShell title={`${dashboard.student.name}'s Academy Journey`} subtitle="Student profile · Read-only">
+      <StudentJourneyDashboard data={dashboard} readOnly />
     </StudentPortalShell>
   );
 }

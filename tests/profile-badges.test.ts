@@ -5,15 +5,14 @@ import { ProfileBadgeCase } from "@/components/ProfileBadgeCase";
 import { BadgeCard } from "@/components/BadgeCard";
 import type { Badge, Student } from "@/lib/types";
 
-const data = vi.hoisted(() => ({ student: vi.fn(), badges: vi.fn(), avatar: vi.fn() }));
-vi.mock("@/lib/data/students", () => ({ getStudentBySlug: data.student }));
-vi.mock("@/lib/data/badges", () => ({ getBadgesResult: data.badges }));
-vi.mock("@/lib/avatar/supabaseAvatar", () => ({ getStudentAvatarDisplayData: data.avatar }));
+const data = vi.hoisted(() => ({ dashboard: vi.fn() }));
+vi.mock("@/lib/student/publicDashboard", () => ({ getPublicStudentDashboard: data.dashboard }));
 vi.mock("@/components/student/StudentPortalShell", () => ({ StudentPortalShell: () => null }));
 vi.mock("@/lib/useMockAdminState", () => ({ useMockAdminState: () => ({ students: [], loaded: true }) }));
 vi.mock("@/components/StudentProfile", () => ({ StudentProfile: ({ badges, student }: { badges: Badge[]; student: Student }) => createElement(ProfileBadgeCase, { badges, badgeIds: student.badgeIds }) }));
 import StudentFacingProfilePage from "@/app/student/students/[slug]/page";
-import { StudentFacingProfileLoader } from "@/components/student/StudentFacingProfileLoader";
+import { StudentJourneyDashboard } from "@/components/student/StudentJourneyDashboard";
+import { emptyStudentDashboardTraining, emptyStudentDashboardQuestSummary, buildStudentDashboardProgress } from "@/lib/student/dashboardProjection";
 
 function badge(id: string, tier: Badge["tier"]): Badge {
   return { id, tier, name: `Fork ${tier}`, category: "Tactics", tacticTheme: "Fork", description: "Fork tactics", xpValue: 0, unlockRequirement: "Survival", visualTheme: "chess", artImageUrl: `/badges/${id}.png`, finalImageUrl: null, generationStatus: "selected" };
@@ -52,17 +51,12 @@ describe("profile badges", () => {
     expect(html).not.toContain("badge details");
   });
 
-  it("loads and passes the live badge catalog through student-facing profile pages", async () => {
-    data.student.mockResolvedValue(student);
-    data.badges.mockResolvedValue({ source: "supabase", data: badges });
-    data.avatar.mockResolvedValue({ items: [], avatars: {} });
+  it("uses the real dashboard in read-only mode for student-facing profiles", async () => {
+    const dashboard = { student, badges: [bronze, gold, quest], progress: buildStudentDashboardProgress(student), avatar: null, wallet: { academyCoins: 20, totalCoinsEarned: 20, totalCoinsSpent: 0 }, training: emptyStudentDashboardTraining, quests: emptyStudentDashboardQuestSummary, activity: [], lichess: null, unavailableSections: [] };
+    data.dashboard.mockResolvedValue(dashboard);
     const page = await StudentFacingProfilePage({ params: Promise.resolve({ slug: "player" }) });
-    const loader = page.props.children;
-    expect(data.student).toHaveBeenCalledWith("player");
-    expect(loader.type).toBe(StudentFacingProfileLoader);
-    expect(loader.props.badges).toBe(badges);
-    const html = renderToStaticMarkup(loader);
-    expect(html).toContain("View Fork Gold badge details");
-    expect(html).toContain("View Quest Champion badge details");
+    expect(data.dashboard).toHaveBeenCalledWith("player");
+    expect(page.props.children.type).toBe(StudentJourneyDashboard);
+    expect(page.props.children.props).toMatchObject({ data: dashboard, readOnly: true });
   });
 });

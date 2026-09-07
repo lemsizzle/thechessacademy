@@ -3,46 +3,40 @@
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { grantParentStudentProfileAccess } from "@/lib/publicStudentAccess";
-import type { Student } from "@/lib/types";
-import { useMockAdminState } from "@/lib/useMockAdminState";
+import { lookupPublicStudent } from "@/app/actions/studentProfileLookup";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRef, useState } from "react";
 
 function normalizeUsername(value: string) {
   return value.trim().replace(/^@/, "").toLowerCase();
 }
 
-export function ParentStudentLookup({ initialStudents }: { initialStudents?: Student[] }) {
+export function ParentStudentLookup() {
   const router = useRouter();
-  const { students, loaded } = useMockAdminState();
+  const [pending, setPending] = useState(false);
+  const busy = useRef(false);
   const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
 
-  const searchableStudents = useMemo(() => (
-    (initialStudents ?? students).filter((student) => student.isActive !== false)
-  ), [initialStudents, students]);
-
-  function openStudentProfile(event: React.FormEvent<HTMLFormElement>) {
+  async function openStudentProfile(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy.current) return;
     const query = normalizeUsername(username);
     if (!query) {
       setMessage("Enter the student's Lichess username.");
       return;
     }
 
-    const student = searchableStudents.find((item) => (
-      normalizeUsername(item.lichessUsername ?? "") === query ||
-      normalizeUsername(item.slug) === query
-    ));
-
-    if (!student) {
-      setMessage("No student profile matched that Lichess username yet.");
-      return;
-    }
-
+    busy.current = true;
+    setPending(true);
     setMessage("");
-    grantParentStudentProfileAccess(student.slug);
-    router.push(`/app/students/${student.slug}`);
+    try {
+      const result = await lookupPublicStudent(query);
+      if (!result.slug) { setMessage(result.error ?? "Student not found."); return; }
+      grantParentStudentProfileAccess(result.slug);
+      router.push(`/app/students/${encodeURIComponent(result.slug)}`);
+    } catch { setMessage("Profile lookup is temporarily unavailable. Please try again."); }
+    finally { busy.current = false; setPending(false); }
   }
 
   return (
@@ -57,6 +51,7 @@ export function ParentStudentLookup({ initialStudents }: { initialStudents?: Stu
         <input
           id="parent-student-lookup"
           name="student"
+          maxLength={100}
           autoComplete="username"
           className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-300/60"
           value={username}
@@ -66,11 +61,11 @@ export function ParentStudentLookup({ initialStudents }: { initialStudents?: Stu
           }}
           placeholder="Lichess username or profile slug"
         />
-        <Button type="submit" variant="secondary" disabled={!loaded && !initialStudents?.length}>
-          View Student
+        <Button type="submit" variant="secondary" disabled={pending}>
+          {pending ? "Finding student…" : "View Student"}
         </Button>
       </form>
-      {message && <p className="mt-3 text-sm text-amber-100">{message}</p>}
+      {message && <p role="status" className="mt-3 text-sm text-amber-100">{message}</p>}
     </Card>
   );
 }

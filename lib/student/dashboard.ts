@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getStudentAvatarState, listStudentCoinTransactions } from "@/lib/avatar/supabaseAvatar";
+import { getStudentAvatarState, getStudentAvatarDisplayData, listStudentCoinTransactions } from "@/lib/avatar/supabaseAvatar";
 import { listAdminBadges } from "@/lib/badges/supabaseBadges";
 import { getStoredLichessAccount } from "@/lib/lichess/supabaseAccounts";
 import { getStudentPuzzleTrainingOverview } from "@/lib/puzzle-training/overviewServer";
@@ -101,7 +101,27 @@ function recordUnavailable(
   if (!available) unavailable.add(section);
 }
 
-export async function getStudentDashboardData(studentId: string): Promise<StudentDashboardData> {
+async function readProfileAvatar(studentId: string) {
+  const supabase = getSupabaseServiceClient();
+  if (!supabase) throw new Error("Supabase service access is not configured.");
+  const [display, wallet] = await Promise.all([
+    getStudentAvatarDisplayData([studentId]),
+    supabase.from("student_wallets").select("academy_coins,total_coins_earned,total_coins_spent").eq("student_id", studentId).maybeSingle()
+  ]);
+  if (wallet.error) throw new Error(wallet.error.message);
+  return {
+    source: "supabase" as "supabase" | "seed",
+    items: display.items.filter((item) => Object.values(display.avatars[studentId].equippedItems).includes(item.id)),
+    avatar: display.avatars[studentId],
+    wallet: {
+      academyCoins: Number(wallet.data?.academy_coins ?? 0),
+      totalCoinsEarned: Number(wallet.data?.total_coins_earned ?? 0),
+      totalCoinsSpent: Number(wallet.data?.total_coins_spent ?? 0)
+    }
+  };
+}
+
+export async function getStudentDashboardData(studentId: string, { readOnly = false }: { readOnly?: boolean } = {}): Promise<StudentDashboardData> {
   const [
     studentLookup,
     avatarResult,
@@ -115,7 +135,7 @@ export async function getStudentDashboardData(studentId: string): Promise<Studen
     coinResult
   ] = await Promise.all([
     findSupabaseStudentById(studentId, { includeRelations: false }),
-    loadOptionalDashboardSection(() => getStudentAvatarState(studentId), null),
+    loadOptionalDashboardSection(() => readOnly ? readProfileAvatar(studentId) : getStudentAvatarState(studentId), null),
     loadOptionalDashboardSection(async () => {
       requireSupabaseServiceAccess();
       return getStoredLichessAccount(studentId);

@@ -5,6 +5,7 @@ import type { Badge, Student } from "@/lib/types";
 const mocks = vi.hoisted(() => ({
   findSupabaseStudentById: vi.fn(),
   getStudentAvatarState: vi.fn(),
+  getStudentAvatarDisplayData: vi.fn(),
   listStudentCoinTransactions: vi.fn(),
   listAdminBadges: vi.fn(),
   getStoredLichessAccount: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("@/lib/students/supabaseStudentProfiles", () => ({
 }));
 vi.mock("@/lib/avatar/supabaseAvatar", () => ({
   getStudentAvatarState: mocks.getStudentAvatarState,
+  getStudentAvatarDisplayData: mocks.getStudentAvatarDisplayData,
   listStudentCoinTransactions: mocks.listStudentCoinTransactions
 }));
 vi.mock("@/lib/badges/supabaseBadges", () => ({ listAdminBadges: mocks.listAdminBadges }));
@@ -194,5 +196,17 @@ describe("getStudentDashboardData", () => {
     expect(dashboard.avatar).not.toBeNull();
     expect(dashboard.wallet.academyCoins).toBe(0);
     expect(dashboard.unavailableSections).toContain("avatar");
+  });
+
+  it("reads a visitor's avatar and wallet without initializing or granting anything", async () => {
+    const wallet = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: { academy_coins: 70, total_coins_earned: 100, total_coins_spent: 30 }, error: null }) };
+    mocks.getStudentAvatarDisplayData.mockResolvedValue({ items: [], avatars: { [student.id]: { studentId: student.id, equippedItems: {} } } });
+    mocks.getSupabaseServiceClient.mockReturnValue({ from: vi.fn((table: string) => table === "student_wallets" ? wallet : serviceQuery({ data: [], error: null })) });
+    const { getStudentDashboardData } = await import("@/lib/student/dashboard");
+    const dashboard = await getStudentDashboardData(student.id, { readOnly: true });
+    expect(mocks.getStudentAvatarState).not.toHaveBeenCalled();
+    expect(mocks.getStudentAvatarDisplayData).toHaveBeenCalledWith([student.id]);
+    expect(wallet.eq).toHaveBeenCalledWith("student_id", student.id);
+    expect(dashboard.wallet.academyCoins).toBe(70);
   });
 });

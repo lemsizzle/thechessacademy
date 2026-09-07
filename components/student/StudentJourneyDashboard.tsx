@@ -96,13 +96,20 @@ function JourneyIcon({ kind }: { kind: DestinationKind }) {
   );
 }
 
+function DestinationFrame({ readOnly, href, title, className, children }: { readOnly: boolean; href: string; title: string; className: string; children: ReactNode }) {
+  return readOnly
+    ? <article aria-label={title} className={className}>{children}</article>
+    : <Link href={href} aria-label={`Open ${title}`} className={className}>{children}</Link>;
+}
+
 function JourneyDestination({
   kind,
   href,
   title,
   description,
   summary,
-  detail
+  detail,
+  readOnly = false
 }: {
   kind: DestinationKind;
   href: string;
@@ -110,20 +117,22 @@ function JourneyDestination({
   description: string;
   summary: string;
   detail: string;
+  readOnly?: boolean;
 }) {
   const styles = destinationStyles[kind];
 
   return (
-    <Link
+    <DestinationFrame
+      readOnly={readOnly}
       href={href}
-      aria-label={`Open ${title}`}
+      title={title}
       className={`group relative z-10 flex min-h-56 flex-col rounded-xl border p-5 transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-100 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 sm:p-6 ${styles.frame}`}
     >
       <div className="flex items-start justify-between gap-4">
         <span className={`grid h-14 w-14 shrink-0 place-items-center rounded-xl border shadow-glow ${styles.icon}`}>
           <JourneyIcon kind={kind} />
         </span>
-        <span aria-hidden="true" className="text-2xl font-black text-white/35 transition group-hover:translate-x-1 group-hover:text-white">→</span>
+        {!readOnly && <span aria-hidden="true" className="text-2xl font-black text-white/35 transition group-hover:translate-x-1 group-hover:text-white">→</span>}
       </div>
       <h3 className="mt-5 text-2xl font-black text-white">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-slate-300">{description}</p>
@@ -131,7 +140,7 @@ function JourneyDestination({
         <p className="font-black text-white">{summary}</p>
         <p className="mt-1 text-xs font-bold leading-5 text-slate-400">{detail}</p>
       </div>
-    </Link>
+    </DestinationFrame>
   );
 }
 
@@ -353,11 +362,13 @@ function formatBadgeAwardDate(value: string | undefined) {
 function TrophyCase({
   data,
   headingId,
-  headingLevel = "h2"
+  headingLevel = "h2",
+  readOnly = false
 }: {
   data: StudentDashboardData;
   headingId: string;
   headingLevel?: "h2" | "h3";
+  readOnly?: boolean;
 }) {
   const badgesUnavailable = data.unavailableSections.includes("badges");
   const Heading = headingLevel;
@@ -400,16 +411,16 @@ function TrophyCase({
         </div>
       ) : (
         <div className="mt-5 rounded-xl border border-dashed border-amber-200/25 bg-black/20 p-5 text-center">
-          <p className="font-black text-white">Your first trophy spot is ready.</p>
-          <p className="mt-1 text-sm text-slate-300">Complete Academy challenges and quests to earn badges for your case.</p>
-          <Button href="/student/quests" variant="secondary" className="mt-4">Explore Quests</Button>
+          <p className="font-black text-white">{readOnly ? "No badges earned yet." : "Your first trophy spot is ready."}</p>
+          <p className="mt-1 text-sm text-slate-300">{readOnly ? "Earned Academy badges will appear here." : "Complete Academy challenges and quests to earn badges for your case."}</p>
+          {!readOnly && <Button href="/student/quests" variant="secondary" className="mt-4">Explore Quests</Button>}
         </div>
       )}
     </section>
   );
 }
 
-function AchievementsPanel({ data }: { data: StudentDashboardData }) {
+function AchievementsPanel({ data, readOnly = false }: { data: StudentDashboardData; readOnly?: boolean }) {
   const questsUnavailable = data.unavailableSections.includes("quests");
   const badgesUnavailable = data.unavailableSections.includes("badges");
 
@@ -421,19 +432,19 @@ function AchievementsPanel({ data }: { data: StudentDashboardData }) {
         <StatTile label="Completed quests" value={questsUnavailable ? "Unavailable" : data.quests.completedCount.toLocaleString()} />
       </div>
 
-      <TrophyCase data={data} headingId="achievements-trophy-case-heading" headingLevel="h3" />
+      <TrophyCase data={data} headingId="achievements-trophy-case-heading" headingLevel="h3" readOnly={readOnly} />
     </div>
   );
 }
 
-export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }) {
+export function StudentJourneyDashboard({ data, readOnly = false }: { data: StudentDashboardData; readOnly?: boolean }) {
   const latestWoodpecker = data.training.latestWoodpeckerCycle;
   const expiringQuest = data.quests.soonestExpiring;
   const dailyChessQuote = getDailyChessQuote();
   const progressPanels: Record<ProgressTab, ReactNode> = {
     overview: <OverviewPanel data={data} />,
     training: <TrainingPanel data={data} />,
-    achievements: <AchievementsPanel data={data} />,
+    achievements: <AchievementsPanel data={data} readOnly={readOnly} />,
     activity: data.unavailableSections.includes("activity") ? (
       <UnavailableNotice
         title="Activity is temporarily unavailable."
@@ -478,7 +489,7 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
               <ProgressBar progress={data.progress} />
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <ProgressDialogTrigger tab="overview" className="flex-1">View Progress</ProgressDialogTrigger>
-                <Button href="/student/avatar" variant="secondary" className="flex-1">Avatar &amp; Store</Button>
+                {!readOnly && <Button href="/student/avatar" variant="secondary" className="flex-1">Avatar &amp; Store</Button>}
               </div>
             </div>
           </div>
@@ -492,9 +503,9 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
 
       <section aria-labelledby="journey-map-heading">
         <div className="mb-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Your open journey</p>
-          <h2 id="journey-map-heading" className="mt-1 text-2xl font-black text-white">Choose any destination</h2>
-          <p className="mt-1 text-sm text-slate-400">Every path is open. Train, play, quest, or customize your avatar in any order.</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">{readOnly ? "Academy journey" : "Your open journey"}</p>
+          <h2 id="journey-map-heading" className="mt-1 text-2xl font-black text-white">{readOnly ? `${data.student.name}'s destinations` : "Choose any destination"}</h2>
+          <p className="mt-1 text-sm text-slate-400">{readOnly ? "Training, games, quests, and Academy achievements." : "Every path is open. Train, play, quest, or customize your avatar in any order."}</p>
         </div>
 
         <div className="relative">
@@ -513,6 +524,7 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
           <div className="grid gap-4 md:auto-rows-fr md:grid-cols-2">
             <JourneyDestination
               kind="training"
+              readOnly={readOnly}
               href="/student/training"
               title="Puzzle Training"
               description="Build tactical vision with Survival, Woodpecker, and focused puzzle modes."
@@ -521,14 +533,16 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
             />
             <JourneyDestination
               kind="play"
+              readOnly={readOnly}
               href="/student/play"
               title="Play"
               description="Put your ideas on the board in computer games and live student matches."
               summary="Computer and live games"
-              detail="Choose an opponent, start a challenge, or return to a game."
+              detail={readOnly ? "Computer practice and games with classmates." : "Choose an opponent, start a challenge, or return to a game."}
             />
             <JourneyDestination
               kind="quests"
+              readOnly={readOnly}
               href="/student/quests"
               title="Quests"
               description="Take on Academy challenges, collect rewards, and celebrate completed missions."
@@ -537,11 +551,12 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
             />
             <JourneyDestination
               kind="avatar"
+              readOnly={readOnly}
               href="/student/avatar"
               title="Avatar & Store"
               description="Create your Academy look and discover new items for your avatar."
               summary={data.unavailableSections.includes("avatar") ? "Store ready to explore" : `${data.wallet.academyCoins.toLocaleString()} coins available`}
-              detail="Equip owned items or spend coins on something new."
+              detail={readOnly ? "Equipped avatar shown above." : "Equip owned items or spend coins on something new."}
             />
           </div>
         </div>
@@ -550,7 +565,7 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
       <Card className="relative overflow-hidden border-amber-200/20 bg-gradient-to-br from-amber-950/70 via-slate-950 to-slate-950 p-4 sm:p-5">
         <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-amber-300/10 blur-3xl" />
         <div className="relative">
-          <TrophyCase data={data} headingId="dashboard-trophy-case-heading" />
+          <TrophyCase data={data} headingId="dashboard-trophy-case-heading" readOnly={readOnly} />
         </div>
       </Card>
 
@@ -561,7 +576,7 @@ export function StudentJourneyDashboard({ data }: { data: StudentDashboardData }
             <h2 className="mt-1 text-xl font-black text-white">Recent activity</h2>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button href="/student/play/history" variant="secondary">Game History</Button>
+            {!readOnly && <Button href="/student/play/history" variant="secondary">Game History</Button>}
             <ProgressDialogTrigger tab="activity" variant="ghost">View all activity</ProgressDialogTrigger>
           </div>
         </div>

@@ -74,7 +74,7 @@ export function PortalBoard({ initialStudents, initialActivity }: { initialStude
             </>
           ) : (
             <div className="space-y-4">
-              <ParentStudentLookup initialStudents={initialStudents} />
+              <ParentStudentLookup />
               <Card className="p-4">
                 <p className="text-xs font-black uppercase text-cyan-100">Student privacy</p>
                 <h2 className="mt-1 font-black text-white">Profiles Open One At A Time</h2>
