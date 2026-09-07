@@ -3,6 +3,7 @@
 import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
 import { CorrespondenceProvider } from "@/components/correspondence/CorrespondenceProvider";
+import { OnlinePlayProvider } from "@/components/onlinePlay/OnlinePlayProvider";
 import { BoardAppearanceProvider } from "@/chess/appearance/BoardAppearanceProvider";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
@@ -135,6 +136,7 @@ export function StudentPortalShell({
   }
 
   return (
+    <OnlinePlayProvider key={user.studentId} studentId={user.studentId}>
     <CorrespondenceProvider studentId={user.studentId}>
       <BoardAppearanceProvider studentId={user.studentId}>
       <div className="academy-grid min-h-screen">
@@ -157,5 +159,6 @@ export function StudentPortalShell({
       </div>
       </BoardAppearanceProvider>
     </CorrespondenceProvider>
+    </OnlinePlayProvider>
   );
 }

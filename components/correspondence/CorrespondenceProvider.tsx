@@ -1,6 +1,9 @@
 "use client";
 
 import { Button } from "@/components/Button";
+import { OnlinePlayPanel } from "@/components/onlinePlay/OnlinePlayPanel";
+import { useOnlinePlay } from "@/components/onlinePlay/OnlinePlayProvider";
+import { challengeIsPending } from "@/lib/onlinePlay/types";
 import {
   EMPTY_CORRESPONDENCE_INBOX,
   correspondenceAlerts,
@@ -165,7 +168,7 @@ function InboxDialog({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
       if (event.key !== "Tab" || !dialogRef.current) return;
-      const controls = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+      const controls = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), select:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'));
       if (!controls.length) return;
       const first = controls[0];
       const last = controls[controls.length - 1];
@@ -198,9 +201,9 @@ function InboxDialog({
       >
         <header className="flex items-start justify-between gap-3 border-b border-white/10 p-4 sm:p-5">
           <div>
-            <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Play over a few days</p>
-            <h2 id="correspondence-inbox-title" className="mt-1 text-2xl font-black text-white">Correspondence</h2>
-            <p className="mt-1 text-xs text-slate-400">You have three days to make each move.</p>
+            <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Play together</p>
+            <h2 id="correspondence-inbox-title" className="mt-1 text-2xl font-black text-white">Moves &amp; challenges</h2>
+            <p className="mt-1 text-xs text-slate-400">Live challenges and correspondence games.</p>
           </div>
           <button ref={closeRef} type="button" aria-label="Close correspondence inbox" onClick={onClose} className="rounded-md border border-white/10 bg-white/5 px-3 py-2 font-black text-slate-200 hover:bg-white/10">✕</button>
         </header>
@@ -208,6 +211,9 @@ function InboxDialog({
         <div className="scrollbar-soft flex-1 space-y-5 overflow-y-auto p-4 sm:p-5">
           {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
           {loading ? <p className="text-sm text-slate-400">Loading your challenges...</p> : null}
+
+          <OnlinePlayPanel />
+          <h2 className="font-black text-white">Correspondence <span className="text-xs font-normal text-slate-400">· 3 days per move</span></h2>
 
           <section className="flex items-center justify-between gap-3 rounded-lg border border-cyan-200/20 bg-cyan-200/[0.07] p-3" aria-label="Correspondence notifications">
             <div className="min-w-0">
@@ -277,6 +283,7 @@ function InboxDialog({
 }
 
 export function CorrespondenceProvider({ studentId, children }: { studentId: string; children: ReactNode }) {
+  const onlinePlay = useOnlinePlay();
   const router = useRouter();
   const pathname = usePathname();
   const [inbox, setInbox] = useState<CorrespondenceInbox>(EMPTY_CORRESPONDENCE_INBOX);
@@ -295,6 +302,7 @@ export function CorrespondenceProvider({ studentId, children }: { studentId: str
 
   useEffect(() => {
     pathnameRef.current = pathname;
+    setPanelOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -460,8 +468,9 @@ export function CorrespondenceProvider({ studentId, children }: { studentId: str
   const openInbox = useCallback(() => {
     setPanelOpen(true);
     setToast("");
+    void onlinePlay?.refresh();
     if (inbox.unreadCount > 0) void markSeen();
-  }, [inbox.unreadCount, markSeen]);
+  }, [inbox.unreadCount, markSeen, onlinePlay?.refresh]);
 
   const closeInbox = useCallback(() => {
     setPanelOpen(false);
@@ -557,7 +566,7 @@ export function CorrespondenceProvider({ studentId, children }: { studentId: str
   }
 
   const gamesAwaitingMove = inbox.activeGames.filter((game) => game.status === "active" && game.activeColor === game.viewerColor).length;
-  const notificationCount = inbox.unreadCount + gamesAwaitingMove;
+  const notificationCount = inbox.unreadCount + gamesAwaitingMove + (onlinePlay?.state.incoming.filter((c) => challengeIsPending(c)).length ?? 0);
 
   return (
     <CorrespondenceContext.Provider value={value}>
@@ -582,7 +591,7 @@ export function CorrespondenceProvider({ studentId, children }: { studentId: str
           error={error}
           notificationStatus={notificationStatus}
           onClose={closeInbox}
-          onRefresh={() => void refresh()}
+          onRefresh={() => { void refresh(); void onlinePlay?.refresh(); }}
           onAction={handleInboxAction}
           onEnableNotifications={() => void enableBrowserNotifications()}
         />

@@ -10,6 +10,7 @@ import type { PlayerColorChoice } from "@/chess/types";
 import type { MatchmakingStatus } from "@/chess/rating/types";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { OnlinePlayPanel } from "@/components/onlinePlay/OnlinePlayPanel";
 
 type GamesResponse = { ok: boolean; games?: LiveGameSummary[]; error?: string };
 type GameResponse = { ok: boolean; game?: LiveGameSnapshot; error?: string };
@@ -132,6 +133,7 @@ export function LiveGameLobby() {
 
   return (
     <div className="space-y-4">
+      <OnlinePlayPanel />
       <div className="grid gap-3 xl:grid-cols-3">
         <Card className="flex min-w-0 flex-col p-4 sm:p-5">
           <div className="flex items-center gap-3">
