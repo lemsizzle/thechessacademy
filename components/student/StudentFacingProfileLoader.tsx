@@ -2,17 +2,19 @@
 
 import { EmptyState } from "@/components/EmptyState";
 import { StudentProfile } from "@/components/StudentProfile";
-import type { AvatarItem, Student, StudentAvatarConfig } from "@/lib/types";
+import type { AvatarItem, Badge, Student, StudentAvatarConfig } from "@/lib/types";
 import { useMockAdminState } from "@/lib/useMockAdminState";
 
 export function StudentFacingProfileLoader({
   slug,
   initialStudent,
+  badges,
   avatarItems,
   studentAvatar
 }: {
   slug: string;
   initialStudent?: Student | null;
+  badges: Badge[];
   avatarItems?: AvatarItem[];
   studentAvatar?: StudentAvatarConfig;
 }) {
@@ -28,6 +30,7 @@ export function StudentFacingProfileLoader({
   return (
     <StudentProfile
       student={student}
+      badges={badges}
       showAdminControls={false}
       profileBasePath="/student/students"
       avatarItems={avatarItems}

@@ -1,7 +1,6 @@
 "use client";
 
-import { BadgeCard } from "@/components/BadgeCard";
-import { groupEarnedBadges } from "@/lib/badges/tacticalMilestones";
+import { ProfileBadgeCase } from "@/components/ProfileBadgeCase";
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -94,7 +93,7 @@ export function StudentProfile({
     ...localStudent,
     ...student,
     totalXp: Math.max(localStudent.totalXp, student.totalXp),
-    badgeIds: Array.from(new Set([...student.badgeIds, ...localStudent.badgeIds])),
+    badgeIds: student.badgeIds,
     completedQuestIds: Array.from(new Set([...(student.completedQuestIds ?? []), ...(localStudent.completedQuestIds ?? [])]))
   } : student;
   const quests = initialQuests ?? adminQuests;
@@ -105,7 +104,6 @@ export function StudentProfile({
   const [localQuestAttempts, setLocalQuestAttempts] = useState<StudentQuestAttempt[]>([]);
   const lichessAccount = storedLichessAccount ?? findStudentLichessAccount(effectiveStudent, studentLichessAccounts);
   const xp = getStudentXpWithLichess(effectiveStudent, lichessAccount);
-  const earned = badges.filter((badge) => effectiveStudent.badgeIds.includes(badge.id));
   const events = [...localXpEvents, ...xpEvents].filter((event) => event.studentId === effectiveStudent.id);
   const activityItems = buildStudentActivityItems({
     student: effectiveStudent,
@@ -179,6 +177,8 @@ export function StudentProfile({
         <p className="mt-5 rounded-lg border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-50">{effectiveStudent.encouragement}</p>
       </Card>
 
+      <ProfileBadgeCase badges={badges} badgeIds={student.badgeIds} />
+
       <div className="space-y-3">
         <QuestLogSection title="Next Goal" summary={nextBadge ? `${nextBadge.badge.name} is closest` : "No next badge target yet"} defaultOpen>
           {nextBadge ? (
@@ -233,16 +233,6 @@ export function StudentProfile({
             <StudentLichessQuestSummary student={effectiveStudent} />
             <Button href="/student/submit" variant="secondary">Submit Games And Scores</Button>
           </div>
-        </QuestLogSection>
-
-        <QuestLogSection title="Earned Badges" summary={`${earned.length} earned`}>
-          {earned.length ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-              {groupEarnedBadges(earned).map(({ badge, tiers }) => <BadgeCard key={badge.id} badge={badge} earnedTiers={tiers} earned statusText={badge.isLegacy ? "Legacy earned" : "Earned"} />)}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-300">No earned badges yet. Solve tactic puzzles to unlock the first Bronze badge.</p>
-          )}
         </QuestLogSection>
 
         <QuestLogSection title="Recent Activity" summary={`${activityItems.length} recent update${activityItems.length === 1 ? "" : "s"}`} defaultOpen>
