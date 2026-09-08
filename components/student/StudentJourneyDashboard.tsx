@@ -501,6 +501,26 @@ export function StudentJourneyDashboard({ data, readOnly = false }: { data: Stud
         </div>
       </Card>
 
+      {readOnly ? (
+        <section aria-labelledby="profile-stats-heading" className="rounded-xl border border-white/10 bg-slate-950/70 p-4 sm:p-5">
+          <h2 id="profile-stats-heading" className="text-lg font-black text-white">Training &amp; quest stats</h2>
+          <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div>
+              <dt className="text-sm text-slate-400">Mixed Survival best</dt>
+              <dd className="mt-1 font-black text-cyan-100">{data.unavailableSections.includes("training") ? "Unavailable" : data.training.survival.allTimeScore}</dd>
+            </div>
+            <div>
+              <dt className="text-sm text-slate-400">Latest Woodpecker</dt>
+              <dd className="mt-1 font-black text-cyan-100">{data.unavailableSections.includes("training") ? "Unavailable" : latestWoodpecker ? `${latestWoodpecker.puzzlesPerMinute.toFixed(1)} PPM · ${latestWoodpecker.accuracy}% accuracy` : "No completed cycles yet"}</dd>
+            </div>
+            <div>
+              <dt className="text-sm text-slate-400">Quests</dt>
+              <dd className="mt-1 font-black text-cyan-100">{data.unavailableSections.includes("quests") ? "Unavailable" : `${data.quests.activeCount} active · ${data.quests.completedCount} completed`}</dd>
+              {!data.unavailableSections.includes("quests") && expiringQuest && <dd className="mt-1 text-xs text-slate-400">{expiringQuest.title} · ends {formatDate(expiringQuest.expiresAt)}</dd>}
+            </div>
+          </dl>
+        </section>
+      ) : (
       <section aria-labelledby="journey-map-heading">
         <div className="mb-4">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">{readOnly ? "Academy journey" : "Your open journey"}</p>
@@ -561,6 +581,7 @@ export function StudentJourneyDashboard({ data, readOnly = false }: { data: Stud
           </div>
         </div>
       </section>
+      )}
 
       <Card className="relative overflow-hidden border-amber-200/20 bg-gradient-to-br from-amber-950/70 via-slate-950 to-slate-950 p-4 sm:p-5">
         <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-amber-300/10 blur-3xl" />

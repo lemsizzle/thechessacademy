@@ -44,9 +44,15 @@ describe("shared dashboard presentation", () => {
     for (const text of ["Tob", "Tuesday Rooks", "Bishop Adept", "460 lifetime XP", "42 coins", "View Progress", "Daily chess inspiration", "Mixed Survival best", "Trophy Case", "Recent activity", "View all activity"]) expect(html).toContain(text);
     for (const href of ["/student/avatar", "/student/play/history", "/student/quests", "/student/training", "/student/play"]) expect(html).not.toContain(`href="${href}"`);
     expect(html).not.toContain("Next Goal");
+    expect(html).toContain("Training &amp; quest stats");
+    expect(html).toContain("Latest Woodpecker");
+    expect(html).toContain("0 active · 0 completed");
+    for (const text of ["journey-map-heading", "destinations", "Build tactical vision", "Computer and live games", "Create your Academy look"]) expect(html).not.toContain(text);
   });
   it("leaves the student's own dashboard actions available", () => {
     const html = renderToStaticMarkup(createElement(StudentJourneyDashboard, { data: dashboard }));
     for (const href of ["/student/avatar", "/student/play/history", "/student/quests", "/student/training", "/student/play"]) expect(html).toContain(`href="${href}"`);
+    expect(html).toContain("Choose any destination");
+    expect(html).not.toContain("profile-stats-heading");
   });
 });
