@@ -60,15 +60,18 @@ type Props = {
 
 function AcademyChessboardComponent({ fen, orientation, humanColor, interactive, lastMove, onMove, onIllegalMove, arrows = EMPTY_BOARD_ARROWS, circles = EMPTY_BOARD_CIRCLES, shinySquares = EMPTY_BOARD_SQUARES, activeShinySquares = EMPTY_BOARD_SQUARES, movableSquares, allowedDestinationSquares, allowCheckIgnoringMoves = false, keepMovedPieceSelected = false, allowPremoves = false, premove = null, hiddenPieces = EMPTY_BOARD_SQUARES, onBoardInteraction, animationDurationInMs, allowDrawingArrows = false, annotationMode = null, onAnnotationSquare, onArrowsChange, onCircleToggle, onClearAnnotations, boardId = "academy-play-board" }: Props) {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
+  const [localAnnotations, setLocalAnnotations] = useState<{ fen: string; boardId: string; circles: BoardCircle[] }>({ fen, boardId, circles: [] });
+  const localCircles = allowDrawingArrows && localAnnotations.fen === fen && localAnnotations.boardId === boardId ? localAnnotations.circles : EMPTY_BOARD_CIRCLES;
   const { pieces, squareStyles: themeSquareStyles } = useBoardAppearance();
   const [keyboardSquare, setKeyboardSquare] = useState<Square>(() => boardSquaresForOrientation(orientation)[0]);
   const movedSelectionRef = useRef<string | null>(null);
   const rightGestureRef = useRef<{ startSquare: string; color: string } | null>(null);
   const internalArrowsWerePresentRef = useRef(false);
   const keyboardSquareRefs = useRef(new Map<Square, HTMLButtonElement>());
-  const boardRef = useOutsideBoardAnnotationClear(onClearAnnotations ? () => {
+  const boardRef = useOutsideBoardAnnotationClear(allowDrawingArrows || onClearAnnotations ? () => {
     rightGestureRef.current = null;
-    onClearAnnotations();
+    setLocalAnnotations({ fen, boardId, circles: [] });
+    onClearAnnotations?.();
   } : undefined);
   const chess = useMemo(() => new Chess(fen), [fen]);
   const previousPositionRef = useRef({ chess, humanColor, boardId });
@@ -241,15 +244,15 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
         boxShadow: "inset 0 0 0 4px rgba(255,251,235,.95), 0 0 24px rgba(250,204,21,.9)"
       };
     }
-    for (const circle of circles) {
+    for (const circle of [...circles, ...localCircles]) {
       styles[circle.square] = {
         ...styles[circle.square],
-        boxShadow: `inset 0 0 0 7px ${circle.color}`,
+        backgroundImage: `radial-gradient(circle, transparent 0 58%, ${circle.color} 60% 67%, transparent 69%)`,
         borderRadius: "50%"
       };
     }
     return styles;
-  }, [activeShinySquares, checkSquare, circles, lastMove, legalMoves, premove, selectedSquare, shinySquares]);
+  }, [activeShinySquares, checkSquare, circles, localCircles, lastMove, legalMoves, premove, selectedSquare, shinySquares]);
 
   const handlePieceDrop = useLatestCallback<Parameters<NonNullable<ChessboardOptions["onPieceDrop"]>>, boolean>(({ sourceSquare, targetSquare }) => {
     if (!interactive || annotationMode || !targetSquare || sourceSquare === targetSquare) return false;
@@ -352,6 +355,7 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
     onSquareMouseDown: ({ square }, event) => {
       if (event.button === 0 && !annotationMode) {
         rightGestureRef.current = null;
+        setLocalAnnotations({ fen, boardId, circles: [] });
         onClearAnnotations?.();
       }
       if (event.button === 2) {
@@ -367,9 +371,18 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
       }
     },
     onSquareRightClick: ({ square }) => {
+      if (!allowDrawingArrows) return;
       const color = rightGestureRef.current?.color ?? BOARD_ANNOTATION_COLORS.primary;
       rightGestureRef.current = null;
-      onCircleToggle?.(square, color);
+      if (onCircleToggle) onCircleToggle(square, color);
+      else setLocalAnnotations((current) => {
+        const existing = current.fen === fen && current.boardId === boardId ? current.circles : [];
+        const matching = existing.some((circle) => circle.square === square && circle.color === color);
+        return { fen, boardId, circles: [
+          ...existing.filter((circle) => circle.square !== square),
+          ...(matching ? [] : [{ square, color }])
+        ] };
+      });
     },
     onPieceDrop: handlePieceDrop
   };
