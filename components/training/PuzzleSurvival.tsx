@@ -16,6 +16,7 @@ import type { TacticalBadgeAward } from "@/lib/badges/tacticalMilestones";
 import { Card } from "@/components/Card";
 import { AutoAdvanceSwitch, PuzzleModeSetup, type PuzzleModeChoice } from "@/components/training/PuzzleModeSetup";
 import { WoodpeckerCycleSummary } from "@/components/training/WoodpeckerCycleSummary";
+import { SurvivalRoundRewards } from "@/components/training/SurvivalRoundRewards";
 import { requestWoodpeckerCycleVerification, type WoodpeckerCycleVerificationInput } from "@/lib/puzzle-training/cycleVerification";
 import { legalDestinations, parseUciMove, premoveDestinations } from "@/lib/puzzle-training/engine";
 import { calculatePuzzleAccuracy, calculateWoodpeckerCycleStats, formatSurvivalLives, keepsPremovePieceSelected, nextWoodpeckerPuzzleTarget, nextWoodpeckerStep, PUZZLE_DIFFICULTY_OPTIONS, shuffleWoodpeckerPuzzleIds, SURVIVAL_PUZZLE_LIMIT, survivalDifficultyForPuzzle, WOODPECKER_CYCLE_COUNT, WOODPECKER_SET_SIZE, type WoodpeckerCycleResult } from "@/lib/puzzle-training/modes";
@@ -1275,7 +1276,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
       <Card className="p-6">
         <p className="text-xs font-black uppercase text-amber-200">{summaryEyebrow}</p>
         <h2 className="mt-2 text-3xl font-black text-white">{summaryTitle}</h2>
-        <SurvivalBadgeAwards awards={badgeAwards} />
+        {trainingMode === "survival" && <SurvivalRoundRewards key={sessionId.current} sessionId={sessionId.current} />}
         {completion?.dailyReward && <div className={`mt-5 rounded-lg border p-4 ${completion.dailyReward.awarded ? "border-emerald-300/40 bg-emerald-300/10 text-emerald-100" : "border-cyan-200/30 bg-cyan-300/10 text-cyan-100"}`}><p className="font-black">{completion.dailyReward.awarded ? `Reward claimed: +${completion.dailyReward.xpAwarded} XP and +${completion.dailyReward.coinsAwarded} Academy Coins` : "Today’s reward was already claimed. Nice practice replay!"}</p></div>}
         {trainingMode === "woodpecker"
           && woodpeckerCycleResults.some((result) => result.cycle >= WOODPECKER_CYCLE_COUNT)
