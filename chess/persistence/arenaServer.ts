@@ -15,6 +15,7 @@ import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type ArenaRow = {
+  pairings_paused?: boolean;
   id: string;
   name: string;
   description: string;
@@ -172,6 +173,7 @@ async function mapArenas(rows: ArenaRow[], viewerStudentId?: string): Promise<In
       id: row.id,
       name: row.name,
       description: row.description,
+      pairingsPaused: Boolean(row.pairings_paused),
       status: currentArenaStatus(row.status, row.starts_at, row.ends_at),
       startsAt: row.starts_at,
       endsAt: row.ends_at,
@@ -333,12 +335,33 @@ export async function createInternalArena(input: unknown) {
 export async function updateInternalArenaStatus(tournamentId: string, action: unknown) {
   const id = validId(tournamentId);
   const requested = String(action ?? "");
-  if (!["start", "finish", "cancel"].includes(requested)) throw new InternalArenaServerError("Invalid Arena action.");
+  if (!["start", "finish", "cancel", "pause_pairings", "resume_pairings"].includes(requested)) throw new InternalArenaServerError("Invalid Arena action.");
   const { data: current, error: loadError } = await client().from("internal_arena_tournaments").select("*").eq("id", id).maybeSingle();
   if (loadError) throw new InternalArenaServerError(loadError.message, 500);
   if (!current) throw new InternalArenaServerError("Arena tournament not found.", 404);
   const row = current as ArenaRow;
   const now = new Date();
+  if (requested === "pause_pairings" || requested === "resume_pairings") {
+    const { data, error } = await client().from("internal_arena_tournaments")
+      .update({ pairings_paused: requested === "pause_pairings" }).eq("id", id)
+      .in("status", ["scheduled", "active"]).gt("ends_at", now.toISOString()).select("*").maybeSingle();
+    if (error) throw new InternalArenaServerError(error.message, 500);
+    if (!data) throw new InternalArenaServerError("This Arena is no longer accepting pairing changes.", 409);
+    if (requested === "resume_pairings") after(async () => {
+      const waiting = await client().from("internal_arena_entries").select("student_id")
+        .eq("tournament_id", id).eq("status", "waiting").not("student_id", "is", null).order("updated_at").limit(100);
+      if (waiting.error) { console.error("Arena resume queue failed", waiting.error.message); return; }
+      for (const entry of waiting.data ?? []) {
+        try { await matchInternalArenaStudent(id, entry.student_id); }
+        catch (error) { console.error("Arena resume pairing failed", error instanceof Error ? error.message : "Unknown error"); }
+      }
+      for (let pair = 0; pair < 6; pair += 1) {
+        try { if ((await matchArenaBots(id)).status !== "matched") break; }
+        catch { break; }
+      }
+    });
+    return (await mapArenas([data as ArenaRow]))[0];
+  }
   const update = requested === "start"
     ? { status: "active", starts_at: now.toISOString(), ends_at: new Date(now.getTime() + row.duration_minutes * 60_000).toISOString() }
     : { status: requested === "finish" ? "finished" : "cancelled" };
@@ -386,6 +409,7 @@ export async function matchInternalArenaStudent(tournamentId: string, studentId:
       if (result.status === "matched") { scheduleArenaBotTurn(result.gameId); return result; }
       return matchArenaBot(tournamentId, studentId);
     }
+    if (error.message?.includes("Arena pairings are paused")) return { status: "waiting", gameId: null } satisfies InternalArenaMatchmaking;
     if (error.code !== "23505") throw new InternalArenaServerError(error.message, error.message.includes("not found") ? 404 : 409);
   }
   throw new InternalArenaServerError("Could not reserve a unique Arena game. Try again.", 500);
@@ -517,6 +541,7 @@ async function matchArenaBot(tournamentId: string, studentId: string, botId?: st
       p_bot_id: botId ?? null, p_challenge_code: generateChallengeCode(), p_initial_fen: new Chess().fen()
     });
     if (!error) { const result = mapMatchmaking(data); scheduleArenaBotTurn(result.gameId); return result; }
+    if (error.message?.includes("Arena pairings are paused")) return { status: "waiting", gameId: null } satisfies InternalArenaMatchmaking;
     if (error.code !== "23505") throw new InternalArenaServerError(error.message, 409);
   }
   throw new InternalArenaServerError("Could not reserve an Arena bot game. Try again.", 500);
@@ -529,6 +554,7 @@ async function matchArenaBots(tournamentId: string, firstBotId?: string, secondB
       p_first_bot_id: firstBotId ?? null, p_second_bot_id: secondBotId ?? null
     });
     if (!error) { const result = mapMatchmaking(data); scheduleArenaBotTurn(result.gameId); return result; }
+    if (error.message?.includes("Arena pairings are paused")) return { status: "waiting", gameId: null } satisfies InternalArenaMatchmaking;
     if (error.code !== "23505") throw new InternalArenaServerError(error.message, 409);
   }
   throw new InternalArenaServerError("Could not reserve a bot-vs-bot game. Try again.", 500);
@@ -538,7 +564,7 @@ function scheduleArenaBotActivity(arena: InternalArena) {
   const bots = arena.standings.filter((entry) => entry.bot);
   const games = new Set(bots.flatMap((entry) => entry.status === "playing" && entry.currentGameId ? [entry.currentGameId] : []));
   games.forEach(scheduleArenaBotTurn);
-  if (arena.status !== "active" || !bots.some((entry) => entry.status === "waiting" || entry.status === "joined")) return;
+  if (arena.status !== "active" || arena.pairingsPaused || !bots.some((entry) => entry.status === "waiting" || entry.status === "joined")) return;
   after(async () => {
     try {
       // Serve waiting humans first. The bot-pair RPC rechecks priority under the Arena lock.

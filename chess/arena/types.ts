@@ -45,6 +45,7 @@ export type InternalArenaChatMessage = {
 };
 
 export type InternalArena = {
+  pairingsPaused?: boolean;
   id: string;
   name: string;
   description: string;

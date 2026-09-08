@@ -1,4 +1,5 @@
 import { Chess } from "chess.js";
+import { berserkInitialMs, canBerserk } from "@/chess/arena/berserk";
 import { completeClockMove, clockAt, expiredClockColor, type RunningClock } from "@/chess/game/clock";
 import { fromChessJsColor, oppositeColor } from "@/chess/game/colors";
 import { canColorPossiblyCheckmate } from "@/chess/game/rules";
@@ -6,6 +7,28 @@ import type { ChessColor, GameMove, GameResultReason, PromotionPiece } from "@/c
 import type { LiveGameRecord, LiveMoveInput } from "@/chess/live/types";
 
 export class LiveGameRuleError extends Error {}
+
+export function applyBerserk(game: LiveGameRecord, studentId: string, nowMs: number) {
+  const color = livePlayerColor(game, studentId);
+  if (!color || !canBerserk({ status: game.status, arenaTournamentId: game.arena_tournament_id,
+    timeControl: game.time_control, moves: game.moves,
+    berserk: { white: Boolean(game.white_berserk), black: Boolean(game.black_berserk) } }, color)) {
+    throw new LiveGameRuleError("Berserk is only available before your first move in an Arena game.");
+  }
+  const clock = liveClockAt(game, nowMs);
+  if (!clock || expiredClockColor(clock)) throw new LiveGameRuleError("The clock has expired.");
+  const penalty = game.time_control.initialMs! - berserkInitialMs(game.time_control)!;
+  const remaining = (color === "white" ? clock.whiteMs : clock.blackMs) - penalty;
+  if (remaining <= 0) throw new LiveGameRuleError("Not enough time remaining to go Berserk.");
+  return {
+    white_berserk: Boolean(game.white_berserk) || color === "white",
+    black_berserk: Boolean(game.black_berserk) || color === "black",
+    white_ms: color === "white" ? remaining : clock.whiteMs,
+    black_ms: color === "black" ? remaining : clock.blackMs,
+    clock_started_at: new Date(nowMs).toISOString(),
+    version: game.version + 1
+  };
+}
 
 export type LiveGameCompletion = {
   winnerColor: ChessColor | null;
@@ -96,7 +119,7 @@ export function applyLiveMove(game: LiveGameRecord, studentId: string, input: Li
   };
   const completion = detectLiveBoardCompletion(chess);
   const nextClock = currentClock
-    ? completeClockMove(currentClock, playerColor, game.time_control.incrementMs, moveReceivedAtMs)
+    ? completeClockMove(currentClock, playerColor, (playerColor === "white" ? game.white_berserk : game.black_berserk) ? 0 : game.time_control.incrementMs, moveReceivedAtMs)
     : null;
   const correspondenceDeadline = game.game_mode === "correspondence" && !completion
     ? new Date(nextTurnStartedAtMs + (game.days_per_move ?? 3) * 24 * 60 * 60 * 1_000).toISOString()

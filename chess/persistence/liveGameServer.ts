@@ -3,7 +3,7 @@ import "server-only";
 import { Chess } from "chess.js";
 import { oppositeColor, resolvePlayerColor } from "@/chess/game/colors";
 import { TIME_CONTROLS } from "@/chess/game/timeControls";
-import { liveClockAt, livePlayerColor, replayLiveMoves, timeoutCompletion, correspondenceTimeoutCompletion, applyLiveMove, LiveGameRuleError, type LiveGameCompletion } from "@/chess/live/rules";
+import { liveClockAt, livePlayerColor, replayLiveMoves, timeoutCompletion, correspondenceTimeoutCompletion, applyLiveMove, applyBerserk, LiveGameRuleError, type LiveGameCompletion } from "@/chess/live/rules";
 import { cleanChallengeCode, generateChallengeCode, isSupportedChallengeCode, MAX_CHALLENGE_CODE_ATTEMPTS } from "@/chess/live/challengeCode";
 import type { LiveGameAction, LiveGamePlayer, LiveGameRecord, LiveGameSnapshot, LiveGameSummary, LiveMoveInput, TeacherLiveGameSnapshot, TeacherLiveGameSummary } from "@/chess/live/types";
 import type { ChessColor, GameResult, PlayerColorChoice } from "@/chess/types";
@@ -14,8 +14,10 @@ import { finalizeInternalArenaGame, scheduleArenaBotTurn } from "@/chess/persist
 import { arenaBotDifficulty, arenaGameBots } from "@/chess/arena/bots";
 import { chooseArenaBotMove } from "@/chess/engine/arenaStockfishServer";
 import { createArenaBotWorkQueue } from "@/chess/arena/botWorkQueue";
+import { arenaBotThinkingRemainingMs } from "@/chess/arena/botThinking";
 
 const queueArenaBotWork = createArenaBotWorkQueue();
+const pendingArenaBotTurns = new Map<string, Promise<void>>();
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const LEGACY_CHALLENGE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -142,6 +144,7 @@ async function snapshotFor(game: LiveGameRecord, studentId: string): Promise<Liv
     daysPerMove: game.days_per_move,
     turnDeadlineAt: game.turn_deadline_at,
     viewer: { id: studentId, color: viewerColor },
+    berserk: { white: Boolean(game.white_berserk), black: Boolean(game.black_berserk) },
     players: gamePlayers(game, players),
     avatarItems,
     timeControl: game.time_control,
@@ -177,6 +180,7 @@ async function teacherSnapshotFor(game: LiveGameRecord): Promise<TeacherLiveGame
   if (!game.started_at) throw new LiveGameServerError("This live game has not started.", 409);
   const { players, avatarItems } = await playerDisplay([game.white_player_id, game.black_player_id]);
   return {
+    berserk: { white: Boolean(game.white_berserk), black: Boolean(game.black_berserk) },
     id: game.id,
     status: game.status,
     version: game.version,
@@ -556,16 +560,30 @@ export async function submitLiveMove(studentId: string, gameId: string, input: u
 
 /** Server-only move generation. Lease + version CAS prevent duplicate moves on retries. */
 export function advanceArenaBotGame(gameId: string) {
-  return queueArenaBotWork(cleanGameId(gameId), async () => {
-    // Short batches keep classroom CPU usage bounded. Lobby/spectator refreshes resume play.
-    const deadline = Date.now() + 8_000;
-    for (let ply = 0; ply < 8; ply += 1) {
-      if (!await runArenaBotTurn(gameId) || Date.now() >= deadline) break;
-    }
+  const id = cleanGameId(gameId);
+  const pending = pendingArenaBotTurns.get(id);
+  if (pending) return pending;
+  const task = Promise.resolve().then(async () => {
+    const game = await loadRecord(id);
+    if (!game.arena_bot) return;
+    if (game.status === "completed") { await persistCompletedOutputs(game); return; }
+    if (game.status !== "active") return;
+    const botTurn = arenaGameBots(game).some(bot => bot.color === game.active_color);
+    if (!botTurn && !timeoutCompletion(game, Date.now())) return;
+    const delay = botTurn ? arenaBotThinkingRemainingMs(game, Date.now()) : 0;
+    // Do not hold a CPU slot or the 15-second database lease while thinking.
+    if (delay > 0) await new Promise<void>(resolve => setTimeout(resolve, delay));
+    await queueArenaBotWork(id, async () => { await runArenaBotTurn(id, game); });
+    // One move per callback, including bot-vs-bot games. Existing lobby/board polls
+    // schedule the next turn; never burn through an instant batch of replies.
+  }).finally(() => {
+    pendingArenaBotTurns.delete(id);
   });
+  pendingArenaBotTurns.set(id, task);
+  return task;
 }
 
-async function runArenaBotTurn(gameId: string) {
+async function runArenaBotTurn(gameId: string, expected: LiveGameRecord) {
   const { data, error } = await serviceClient().rpc("claim_internal_arena_bot_turn", { p_game_id: cleanGameId(gameId) });
   if (error) throw new LiveGameServerError(error.message, 500);
   const game = Array.isArray(data) && data[0] ? normalizeRecord(data[0]) : null;
@@ -582,6 +600,10 @@ async function runArenaBotTurn(gameId: string) {
     if (timeout) { await completeByAction(game, timeout, Date.now()); return; }
     const bot = arenaGameBots(game).find((entry) => entry.color === game.active_color);
     if (!bot) return;
+    // Another worker may have moved while we waited, or a clock action may have
+    // changed this turn's budget. A stale callback cannot skip the next think.
+    if (game.moves.length !== expected.moves.length || game.current_fen !== expected.current_fen
+      || arenaBotThinkingRemainingMs(game, Date.now()) > 0) return;
     const uci = await chooseArenaBotMove(game.current_fen, bot.difficultyId, { moveHistory: game.moves.map((move) => `${move.from}${move.to}${move.promotion ?? ""}`) });
     const now = Date.now();
     const expired = timeoutCompletion(game, now);
@@ -634,7 +656,7 @@ export async function performLiveGameAction(studentId: string, gameId: string, i
   const body = input && typeof input === "object" ? input as Record<string, unknown> : {};
   const action = String(body.action ?? "") as LiveGameAction;
   const version = normalizedVersion(body.version);
-  if (!["cancel", "resign", "offer_draw", "accept_draw", "decline_draw", "claim_timeout"].includes(action)) {
+  if (!["cancel", "resign", "offer_draw", "accept_draw", "decline_draw", "claim_timeout", "berserk"].includes(action)) {
     throw new LiveGameServerError("Invalid live game action.");
   }
   let game = await loadRecord(gameId);
@@ -664,7 +686,13 @@ export async function performLiveGameAction(studentId: string, gameId: string, i
   if (game.status !== "active") throw new LiveGameServerError("This game is not active.", 409);
 
   let updated: LiveGameRecord;
-  if (action === "resign") {
+  if (action === "berserk") {
+    let change;
+    try { change = applyBerserk(game, studentId, nowMs); }
+    catch (error) { throw new LiveGameServerError(error instanceof Error ? error.message : "Berserk is unavailable.", 409); }
+    updated = await updateWithVersion(game, change);
+    if (updated.arena_bot) scheduleArenaBotTurn(updated.id);
+  } else if (action === "resign") {
     updated = await completeByAction(game, { winnerColor: oppositeColor(playerColor), reason: "resignation" }, nowMs);
   } else if (action === "claim_timeout") {
     const completion = game.game_mode === "correspondence"

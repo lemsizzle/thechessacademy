@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
+import { canBerserk } from "@/chess/arena/berserk";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
 import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles";
 import { BoardSettings as BoardSoundSettings } from "@/chess/components/BoardSettings";
@@ -535,6 +536,13 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
               <span className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${connection === "live" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{connection === "live" ? (isCorrespondence ? "Synced" : "Live") : connection}</span>
             </div>
             <p className="mt-4 rounded-md border border-white/10 bg-white/5 p-3 text-sm font-bold leading-5 text-slate-200" aria-live="polite">{statusText}</p>
+            {game.arenaTournamentId && (canBerserk(game, viewerColor) || game.berserk?.white || game.berserk?.black) ? (
+              <div className="mt-3 rounded-md border border-orange-300/30 bg-orange-300/10 p-3">
+                {canBerserk(game, viewerColor) && <Button type="button" variant="secondary" disabled={pending} onClick={() => void sendAction("berserk")}>⚔ Berserk</Button>}
+                <p className="mt-2 text-xs text-orange-100">Half your starting time, no increment. Win after making at least 7 moves for +1 Arena point.</p>
+                {(game.berserk?.white || game.berserk?.black) && <p className="mt-1 text-sm font-black text-orange-100" role="status">Berserk: {[game.berserk?.white ? "White" : null, game.berserk?.black ? "Black" : null].filter(Boolean).join(" & ")}</p>}
+              </div>
+            ) : null}
             {premove ? (
               <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-fuchsia-300/30 bg-fuchsia-300/10 p-3 text-sm font-bold text-fuchsia-100">
                 <span>Premove: {premove.from} → {premove.to}</span>
@@ -557,7 +565,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
               <div className="mt-3 rounded-md border border-emerald-300/30 bg-emerald-300/10 p-3">
                 <p className="text-xs font-black uppercase tracking-wider text-emerald-200">Arena game complete</p>
                 <p className="mt-1 text-sm font-bold text-emerald-50">Your score is saved. Arena matchmaking continues when another player is available.</p>
-                <Button href="/student/tournaments" className="mt-3 w-full">Return to Arena</Button>
+                <Button href={`/student/tournaments/${game.arenaTournamentId}`} className="mt-3 w-full">Back to lobby</Button>
               </div>
             ) : game.status === "completed" ? (
               <div className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3">
@@ -624,8 +632,8 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
         <GameDialog
           title="Arena Game Complete"
           description={completionText(game)}
-          primaryLabel="Return to Arena"
-          onPrimary={() => router.push("/student/tournaments")}
+          primaryLabel="Back to lobby"
+          onPrimary={() => router.push(`/student/tournaments/${game.arenaTournamentId}`)}
           secondaryLabel="Close"
           onSecondary={() => setResultOpen(false)}
         >

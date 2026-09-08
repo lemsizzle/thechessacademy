@@ -190,6 +190,7 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
   const bottomColor = orientation;
   return (
     <div className="space-y-4">
+      {(game.berserk?.white || game.berserk?.black) && <p className="rounded-md border border-orange-300/30 bg-orange-300/10 p-3 text-sm font-bold text-orange-100" role="status">⚔ Berserk: {[game.berserk?.white ? game.players.white.name : null, game.berserk?.black ? game.players.black.name : null].filter(Boolean).join(" & ")} · no increment</p>}
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
         <div className="mx-auto min-w-0 space-y-2" style={boardColumnStyle}>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Chess } from "chess.js";
-import { applyLiveMove, correspondenceTimeoutCompletion, liveClockAt, livePlayerColor, LiveGameRuleError, replayLiveMoves, timeoutCompletion } from "@/chess/live/rules";
+import { applyBerserk, applyLiveMove, correspondenceTimeoutCompletion, liveClockAt, livePlayerColor, LiveGameRuleError, replayLiveMoves, timeoutCompletion } from "@/chess/live/rules";
+import { berserkInitialMs } from "@/chess/arena/berserk";
 import type { LiveGameRecord, LiveMoveInput } from "@/chess/live/types";
 
 const WHITE_ID = "11111111-1111-4111-8111-111111111111";
@@ -54,6 +55,36 @@ function play(game: LiveGameRecord, playerId: string, move: Omit<LiveMoveInput, 
 }
 
 describe("live chess game rules", () => {
+  it("Berserk halves starting time without refunding elapsed time or affecting the opponent", () => {
+    const game = record({ arena_tournament_id: "arena" });
+    const now = Date.parse(game.clock_started_at!) + 2_000;
+    const update = applyBerserk(game, WHITE_ID, now);
+    expect(update).toMatchObject({ white_ms: 298_000, black_ms: 600_000, white_berserk: true, black_berserk: false, version: 2 });
+    const moved = play({ ...game, ...update }, WHITE_ID, { from: "e2", to: "e4" }, now + 1_000);
+    expect(moved.white_ms).toBe(297_000);
+    const reply = play(moved, BLACK_ID, { from: "e7", to: "e5" }, now + 2_000);
+    expect(reply.black_ms).toBe(604_000);
+  });
+
+  it("allows Black to Berserk after White's first move but rejects repeats, nonplayers and late activation", () => {
+    const game = record({ arena_tournament_id: "arena" });
+    const now = Date.parse(game.clock_started_at!);
+    const moved = play(game, WHITE_ID, { from: "e2", to: "e4" }, now);
+    const update = applyBerserk(moved, BLACK_ID, now + 1_000);
+    expect(update.black_ms).toBe(299_000);
+    expect(() => applyBerserk({ ...moved, ...update }, BLACK_ID, now + 1_000)).toThrow();
+    expect(() => applyBerserk(moved, WHITE_ID, now)).toThrow();
+    expect(() => applyBerserk(game, "spectator", now)).toThrow();
+    expect(() => applyBerserk(record(), WHITE_ID, now)).toThrow();
+    expect(() => applyBerserk({ ...game, status: "completed" }, WHITE_ID, now)).toThrow();
+    expect(() => applyBerserk(game, WHITE_ID, now + 301_000)).toThrow();
+  });
+
+  it("supports the Lichess 1+2 exception and excludes untimed or zero-time games", () => {
+    expect(berserkInitialMs({ id: "1+2", name: "1+2", initialMs: 60_000, incrementMs: 2_000 })).toBe(60_000);
+    expect(berserkInitialMs({ id: "none", name: "none", initialMs: null, incrementMs: 0 })).toBeNull();
+    expect(berserkInitialMs({ id: "0+2", name: "0+2", initialMs: 0, incrementMs: 2_000 })).toBeNull();
+  });
   it("maps only participating students to their board color", () => {
     const game = record();
     expect(livePlayerColor(game, WHITE_ID)).toBe("white");

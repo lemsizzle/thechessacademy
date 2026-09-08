@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Chess } from "chess.js";
 import type { LiveGameRecord } from "@/chess/live/types";
 import { applyLiveMove } from "@/chess/live/rules";
+import { arenaBotThinkingRemainingMs } from "@/chess/arena/botThinking";
 
 const mocks = vi.hoisted(() => ({ client: vi.fn(), choose: vi.fn(), finalize: vi.fn(), schedule: vi.fn(), rating: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ getSupabaseServiceClient: mocks.client }));
@@ -9,12 +10,20 @@ vi.mock("@/lib/avatar/supabaseAvatar", () => ({ getStudentAvatarDisplayData: asy
 vi.mock("@/chess/engine/arenaStockfishServer", () => ({ chooseArenaBotMove: mocks.choose }));
 vi.mock("@/chess/persistence/arenaServer", () => ({ finalizeInternalArenaGame: mocks.finalize, scheduleArenaBotTurn: mocks.schedule }));
 vi.mock("@/chess/persistence/ratingServer", () => ({ applyRatingForCompletedGame: mocks.rating }));
-import { advanceArenaBotGame, getLiveGame, getTeacherLiveGame, performLiveGameAction, submitLiveMove } from "@/chess/persistence/liveGameServer";
+import { advanceArenaBotGame as scheduleBotMove, getLiveGame, getTeacherLiveGame, performLiveGameAction, submitLiveMove } from "@/chess/persistence/liveGameServer";
+
+async function advanceArenaBotGame(id: string) {
+  const outcome = scheduleBotMove(id).then(() => ({ error: null }), (error: unknown) => ({ error }));
+  await vi.runAllTimersAsync();
+  const result = await outcome;
+  if (result.error) throw result.error;
+}
 
 const student = "11111111-1111-4111-8111-111111111111";
 const botId = "22222222-2222-4222-8222-222222222222";
 const gameId = "33333333-3333-4333-8333-333333333333";
 let game: LiveGameRecord;
+let otherGames: LiveGameRecord[];
 let history: Record<string, unknown>[];
 
 function fixture(color: "white" | "black" = "black"): LiveGameRecord {
@@ -47,9 +56,15 @@ function query(table: string) {
     then: (resolve: (value: unknown) => unknown) => Promise.resolve(execute()).then(resolve)
   };
   function execute() {
-    let rows: Record<string, unknown>[] = table === "live_chess_games" ? [game] : table === "students" ? [{ id: student, display_name: "Learner", lichess_username: null }] : history;
+    let rows: Record<string, unknown>[] = table === "live_chess_games" ? [game, ...otherGames] : table === "students" ? [{ id: student, display_name: "Learner", lichess_username: null }] : history;
     rows = rows.filter(row => filters.every(filter => filter(row)));
-    if (update && rows.length && table === "live_chess_games") { game = { ...game, ...update }; rows = [game]; }
+    if (update && rows.length && table === "live_chess_games") {
+      rows = rows.map(row => ({ ...row, ...update }));
+      for (const row of rows) {
+        if (row.id === game.id) game = row as LiveGameRecord;
+        else otherGames = otherGames.map(other => other.id === row.id ? row as LiveGameRecord : other);
+      }
+    }
     if (insert && table === "internal_chess_games") { history.push(...insert); rows = insert; }
     return { data: rows, error: null };
   }
@@ -57,13 +72,110 @@ function query(table: string) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks(); game = fixture(); history = [];
-  mocks.client.mockReturnValue({ from: query, rpc: async () => {
-    if (game.status !== "active" || game.bot_lease_until) return { data: [], error: null };
-    game = { ...game, bot_lease_until: new Date(Date.now()+15000).toISOString() };
-    return { data: [structuredClone(game)], error: null };
+  vi.useFakeTimers();
+  vi.clearAllMocks(); game = fixture(); otherGames = []; history = [];
+  mocks.client.mockReturnValue({ from: query, rpc: async (_name: string, args: { p_game_id: string }) => {
+    const row = [game, ...otherGames].find(candidate => candidate.id === args.p_game_id)!;
+    if (row.status !== "active" || row.bot_lease_until) return { data: [], error: null };
+    const claimed = { ...row, bot_lease_until: new Date(Date.now()+15000).toISOString() };
+    if (row.id === game.id) game = claimed;
+    else otherGames = otherGames.map(other => other.id === row.id ? claimed : other);
+    return { data: [structuredClone(claimed)], error: null };
   } });
   mocks.choose.mockResolvedValue("e7e5");
+});
+afterEach(() => vi.useRealTimers());
+
+describe("Arena thinking cadence", () => {
+  it("does not let two thinking bots block a third game's ready engine job", async () => {
+    game = fixture("white");
+    const second = { ...fixture("white"), id: "66666666-6666-4666-8666-666666666666" };
+    const ready = { ...fixture("white"), id: "77777777-7777-4777-8777-777777777777",
+      clock_started_at: new Date(Date.now() - 45000).toISOString() };
+    otherGames = [second, ready];
+    mocks.choose.mockResolvedValue("e2e4");
+    const pending = [scheduleBotMove(gameId), scheduleBotMove(second.id), scheduleBotMove(ready.id)];
+    await vi.advanceTimersByTimeAsync(0);
+    await pending[2];
+    expect(mocks.choose).toHaveBeenCalledTimes(1);
+    expect(game.moves).toHaveLength(0);
+    expect(otherGames[0].moves).toHaveLength(0);
+    expect(otherGames[1].moves).toHaveLength(1);
+    await vi.runAllTimersAsync();
+    await Promise.all(pending);
+    expect(mocks.choose).toHaveBeenCalledTimes(3);
+  });
+
+  it("wakes at flag fall rather than playing a late move", async () => {
+    game = fixture("white");
+    game.white_ms = 100;
+    const pending = scheduleBotMove(gameId);
+    await vi.advanceTimersByTimeAsync(100);
+    await pending;
+    expect(game.result_reason).toBe("timeout");
+    expect(mocks.choose).not.toHaveBeenCalled();
+  });
+
+  it("waits before every reply without taking a lease, and polling does not restart the wait", async () => {
+    await submitLiveMove(student, gameId, { from: "e2", to: "e4", version: 1 });
+    const delay = arenaBotThinkingRemainingMs(game, Date.now());
+    const first = scheduleBotMove(gameId);
+    await vi.advanceTimersByTimeAsync(delay - 1);
+    expect(mocks.choose).not.toHaveBeenCalled();
+    expect(game.bot_lease_until).toBeUndefined();
+    expect(scheduleBotMove(gameId)).toBe(first);
+    await vi.advanceTimersByTimeAsync(1);
+    await first;
+    expect(game.moves).toHaveLength(2);
+    expect(game.black_ms).toBe(600000 - delay);
+
+    await submitLiveMove(student, gameId, { from: "g1", to: "f3", version: game.version });
+    mocks.choose.mockResolvedValue("b8c6");
+    const secondDelay = arenaBotThinkingRemainingMs(game, Date.now());
+    const second = scheduleBotMove(gameId);
+    await vi.advanceTimersByTimeAsync(secondDelay - 1);
+    expect(mocks.choose).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await second;
+    expect(game.moves).toHaveLength(4);
+    expect(secondDelay).not.toBe(delay);
+  });
+
+  it("does not move after the student resigns during the wait", async () => {
+    game = fixture("white");
+    const pending = scheduleBotMove(gameId);
+    await vi.advanceTimersByTimeAsync(1);
+    await performLiveGameAction(student, gameId, { action: "resign", version: 1 });
+    await vi.runAllTimersAsync();
+    await pending;
+    expect(mocks.choose).not.toHaveBeenCalled();
+    expect(game.moves).toHaveLength(0);
+  });
+
+  it("does not skip the next bot's wait when another server has already moved", async () => {
+    game = fixture("white");
+    game.arena_opponent_bot = { id: "55555555-5555-4555-8555-555555555555", name: "Luna", color: "black", difficultyId: "queen" };
+    const pending = scheduleBotMove(gameId);
+    await vi.advanceTimersByTimeAsync(1);
+    const engineGame = { ...game, white_player_id: botId };
+    game = { ...game, ...applyLiveMove(engineGame, botId, { from: "e2", to: "e4", version: 1 }, Date.now()).update };
+    await vi.runAllTimersAsync();
+    await pending;
+    expect(mocks.choose).not.toHaveBeenCalled();
+    expect(game.moves).toHaveLength(1);
+    expect(game.bot_lease_until).toBeNull();
+  });
+});
+
+it("persists Berserk through the authenticated action and exposes it in both snapshots", async () => {
+  game.time_control.incrementMs = 3_000;
+  const snapshot = await performLiveGameAction(student, gameId, { action: "berserk", version: 1 });
+  expect(game.white_berserk).toBe(true);
+  expect(game.white_ms).toBeLessThanOrEqual(300_000);
+  expect(snapshot.berserk).toEqual({ white: true, black: false });
+  expect((await getTeacherLiveGame(gameId)).berserk).toEqual({ white: true, black: false });
+  await expect(performLiveGameAction(student, gameId, { action: "berserk", version: 1 })).rejects.toThrow("changed");
+  await expect(performLiveGameAction(botId, gameId, { action: "berserk", version: game.version })).rejects.toThrow("not a player");
 });
 
 describe("authoritative Arena bot game flow", () => {
@@ -168,22 +280,23 @@ describe("bot-versus-bot Arena games", () => {
     await expect(submitLiveMove(student,gameId,{from:"e2",to:"e4",version:1})).rejects.toThrow("not a player");
   });
 
-  it("alternates each bot's saved skill in bounded batches, with no duplicate worker", async () => {
+  it("plays one paced turn at a time, alternating saved skills without duplicate workers", async () => {
     await Promise.all([advanceArenaBotGame(gameId),advanceArenaBotGame(gameId)]);
-    expect(game.moves).toHaveLength(8);
-    expect(mocks.choose.mock.calls.map(call=>call[1])).toEqual(["knight","queen","knight","queen","knight","queen","knight","queen"]);
+    expect(game.moves).toHaveLength(1);
+    expect(mocks.choose.mock.calls.map(call=>call[1])).toEqual(["knight"]);
     expect(game.white_player_id).toBeNull(); expect(game.black_player_id).toBeNull();
     expect(game.bot_lease_until).toBeNull();
     await advanceArenaBotGame(gameId);
-    expect(game.moves.length).toBeGreaterThan(8);
-    expect(game.moves.length).toBeLessThanOrEqual(16);
+    expect(game.moves).toHaveLength(2);
+    expect(mocks.choose.mock.calls.map(call=>call[1])).toEqual(["knight", "queen"]);
   });
 
   it("honors different custom strengths for both bots", async () => {
     game.arena_bot!.difficultyId = "arena-650";
     game.arena_opponent_bot!.difficultyId = "arena-1450";
     await advanceArenaBotGame(gameId);
-    expect(mocks.choose.mock.calls.map(call=>call[1])).toEqual(["arena-650","arena-1450","arena-650","arena-1450","arena-650","arena-1450","arena-650","arena-1450"]);
+    await advanceArenaBotGame(gameId);
+    expect(mocks.choose.mock.calls.map(call=>call[1])).toEqual(["arena-650","arena-1450"]);
   });
 
   it.each(["white","black"] as const)("scores a %s checkmate without student history or rating writes", async (color) => {

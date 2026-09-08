@@ -154,7 +154,24 @@ export function InternalArenaLobby({ tournamentId, role, adminActionToken = "" }
     } finally { setPending(""); }
   }
 
+  async function togglePairings() {
+    if (!lobby || pending) return;
+    setPending("pairings"); setMessage("");
+    try {
+      const response = await fetch(`/api/admin/internal-arenas/${tournamentId}`, {
+        method: "PATCH", credentials: "same-origin",
+        headers: { "content-type": "application/json", ...headers },
+        body: JSON.stringify({ action: lobby.arena.pairingsPaused ? "resume_pairings" : "pause_pairings" })
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Pairings could not be updated.");
+      await load();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Pairings could not be updated."); }
+    finally { setPending(""); }
+  }
+
   async function forceMatch() {
+    if (lobby?.arena.pairingsPaused) { setMessage("Resume pairings before forcing a match."); return; }
     if (!firstStudentId || !secondStudentId || firstStudentId === secondStudentId) {
       setMessage("Choose two different available players.");
       return;
@@ -256,6 +273,8 @@ export function InternalArenaLobby({ tournamentId, role, adminActionToken = "" }
         </div>
 
         <aside className="min-w-0 space-y-5">
+          {arena.pairingsPaused && <Card className="border-amber-300/30 p-4"><p role="status" className="font-bold text-amber-100">Pairings paused by the teacher</p><p className="mt-1 text-xs text-slate-300">Current games and the Arena countdown continue. Waiting players will be paired after the teacher resumes.</p></Card>}
+          {role === "teacher" && (arena.status === "active" || arena.status === "scheduled") && <Card className="p-4"><h2 className="font-black text-white">All pairings</h2><p className="mt-1 text-xs text-slate-400">Controls automatic, forced, and bot matches. Games already underway continue.</p><Button className="mt-3 w-full" type="button" variant="secondary" disabled={Boolean(pending)} onClick={() => void togglePairings()}>{pending === "pairings" ? "Updating…" : arena.pairingsPaused ? "Resume all pairings" : "Pause all pairings"}</Button></Card>}
           {role === "teacher" ? <ArenaBotControls arena={arena} adminActionToken={adminActionToken} onChange={load} /> : null}
           <Card className="p-5">
             <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase text-emerald-200">Ready to play</p><h2 className="mt-1 text-xl font-black text-white">Queue</h2></div><span className="rounded-full bg-emerald-300/10 px-3 py-1 text-sm font-black text-emerald-100">{queued.length}</span></div>

@@ -14,6 +14,8 @@ export type LiveGamePlayer = {
 };
 
 export type LiveGameRecord = {
+  white_berserk?: boolean;
+  black_berserk?: boolean;
   arena_bot?: ArenaGameBot | null;
   arena_opponent_bot?: ArenaGameBot | null;
   bot_lease_until?: string | null;
@@ -55,6 +57,7 @@ export type LiveGameRecord = {
 };
 
 export type LiveGameSnapshot = {
+  berserk?: Record<ChessColor, boolean>;
   id: string;
   challengeCode: string;
   status: LiveGameStatus;
@@ -121,6 +124,7 @@ export type TeacherLiveGameSummary = {
 };
 
 export type TeacherLiveGameSnapshot = {
+  berserk?: Record<ChessColor, boolean>;
   id: string;
   status: LiveGameStatus;
   version: number;
@@ -155,4 +159,4 @@ export type LiveMoveInput = {
   version: number;
 };
 
-export type LiveGameAction = "cancel" | "resign" | "offer_draw" | "accept_draw" | "decline_draw" | "claim_timeout";
+export type LiveGameAction = "cancel" | "resign" | "offer_draw" | "accept_draw" | "decline_draw" | "claim_timeout" | "berserk";
