@@ -1,6 +1,7 @@
 "use client";
 
 import { Sidebar } from "@/components/Sidebar";
+import { ActiveLiveGameBanner } from "@/components/student/ActiveLiveGameBanner";
 import { TopNav } from "@/components/TopNav";
 import { CorrespondenceProvider } from "@/components/correspondence/CorrespondenceProvider";
 import { OnlinePlayProvider } from "@/components/onlinePlay/OnlinePlayProvider";
@@ -145,6 +146,7 @@ export function StudentPortalShell({
           <div className="min-w-0 flex-1">
             <TopNav variant="student" studentName={user.name} onStudentLogout={logout} />
             <main className="mx-auto w-full max-w-7xl px-4 pb-28 pt-6 md:pb-6 lg:px-6">
+              <ActiveLiveGameBanner key={user.studentId} />
               {title && <div className="mb-6">
                 <div>
                   <p className="text-xs font-bold uppercase text-cyan-100">{user.name}</p>
