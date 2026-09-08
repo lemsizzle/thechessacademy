@@ -34,7 +34,12 @@ together. The snapshot is not writable/deletable by the application role.
 2. Deploy the application changes together. Do not include unrelated avatar,
    badge-reset, or existing migration work in this release.
 3. Verify the deployed protected maintenance route authenticates using the
-   production CRON_SECRET. Securely provision the same token to Vault with
+   production ARENA_MAINTENANCE_SECRET (with CRON_SECRET as a legacy fallback).
+   For first-time setup when existing sensitive values cannot be exported, run
+   scripts/provision-arena-maintenance.mjs with the Vercel CLI entrypoint and
+   --provision, then deploy while it waits. It creates a separate random secret,
+   verifies the deployed route and stores it in Vault without printing it.
+   Otherwise securely provision the same token to Vault with
    “node scripts/activate-arena-maintenance.mjs --activate”. The script refuses
    activation if the deployed endpoint cannot authenticate. It never prints secrets.
 4. Confirm academy-arena-maintenance runs every minute in cron.job_run_details

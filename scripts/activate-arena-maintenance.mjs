@@ -8,7 +8,7 @@ if (!process.argv.includes("--activate")) {
   console.log("No changes made. After deployment: node scripts/activate-arena-maintenance.mjs --activate");
   process.exit(0);
 }
-const token = process.env.CRON_SECRET;
+const token = process.env.ARENA_MAINTENANCE_SECRET || process.env.CRON_SECRET;
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!token || token.length < 20 || !url || !key) throw new Error("Verified deployment credentials and a strong CRON_SECRET are required.");
