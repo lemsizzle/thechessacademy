@@ -566,7 +566,9 @@ export function CorrespondenceProvider({ studentId, children }: { studentId: str
   }
 
   const gamesAwaitingMove = inbox.activeGames.filter((game) => game.status === "active" && game.activeColor === game.viewerColor).length;
-  const notificationCount = inbox.unreadCount + gamesAwaitingMove + (onlinePlay?.state.incoming.filter((c) => challengeIsPending(c)).length ?? 0);
+  const incomingChallengeCount = inbox.incoming.filter((challenge) => challenge.status === "pending").length
+    + (onlinePlay?.state.incoming.filter((challenge) => challengeIsPending(challenge)).length ?? 0);
+  const notificationCount = inbox.unreadCount;
 
   return (
     <CorrespondenceContext.Provider value={value}>
@@ -575,14 +577,22 @@ export function CorrespondenceProvider({ studentId, children }: { studentId: str
         ref={triggerRef}
         type="button"
         onClick={openInbox}
-        aria-label={`Correspondence moves and challenges${notificationCount ? `, ${notificationCount} need attention` : ""}`}
+        aria-label={`Moves and challenges${gamesAwaitingMove ? `, your turn in ${gamesAwaitingMove} ${gamesAwaitingMove === 1 ? "game" : "games"}` : ""}${incomingChallengeCount ? `, ${incomingChallengeCount} incoming ${incomingChallengeCount === 1 ? "challenge" : "challenges"}` : ""}${notificationCount ? `, ${notificationCount} updates` : ""}`}
         aria-haspopup="dialog"
-        className="fixed bottom-4 right-4 z-40 inline-flex items-center gap-2 rounded-full border border-cyan-200/40 bg-slate-950/95 px-4 py-3 text-sm font-black text-white shadow-[0_10px_45px_rgba(34,211,238,.28)] transition hover:-translate-y-0.5 hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+        className={`fixed bottom-4 right-4 z-40 inline-flex items-center gap-2 rounded-full border px-4 py-3 text-sm font-black transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${gamesAwaitingMove > 0 ? "border-amber-200 bg-amber-300 text-slate-950 shadow-[0_0_24px_rgba(251,191,36,.35)] hover:bg-amber-200" : incomingChallengeCount > 0 ? "border-rose-200 bg-rose-400 text-slate-950 shadow-[0_0_24px_rgba(251,113,133,.35)] hover:bg-rose-300" : "border-cyan-200/40 bg-slate-950/95 text-white shadow-[0_10px_45px_rgba(34,211,238,.28)] hover:bg-slate-900"}`}
       >
         <span aria-hidden="true">♟</span>
-        <span className="hidden sm:inline">Moves &amp; challenges</span>
-        {notificationCount > 0 ? <span className="flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-400 px-1 text-[11px] text-slate-950">{Math.min(99, notificationCount)}</span> : null}
+        <span className="flex flex-col items-start">
+          {gamesAwaitingMove > 0 ? <span>Your move · {gamesAwaitingMove}</span> : null}
+          {incomingChallengeCount > 0 ? <span className={gamesAwaitingMove > 0 ? "text-xs" : ""}>Incoming {incomingChallengeCount === 1 ? "challenge" : "challenges"} · {incomingChallengeCount}</span> : null}
+          {!gamesAwaitingMove && !incomingChallengeCount ? <span className="hidden sm:inline">Moves &amp; challenges</span> : null}
+        </span>
+        {notificationCount > 0 && !incomingChallengeCount ? <span className="flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-400 px-1 text-[11px] text-slate-950">{Math.min(99, notificationCount)}</span> : null}
       </button>
+      <span role="status" aria-live="polite" className="sr-only">
+        {gamesAwaitingMove > 0 ? `Your turn in ${gamesAwaitingMove} correspondence ${gamesAwaitingMove === 1 ? "game" : "games"}. Open Moves and challenges to play.` : "No correspondence games waiting for your move."}
+        {incomingChallengeCount > 0 ? ` ${incomingChallengeCount} incoming ${incomingChallengeCount === 1 ? "challenge" : "challenges"}. Open Moves and challenges to respond.` : ""}
+      </span>
       {panelOpen && typeof document !== "undefined" ? (
         <InboxDialog
           inbox={inbox}
