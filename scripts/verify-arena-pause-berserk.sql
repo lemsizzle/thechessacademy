@@ -26,6 +26,11 @@ begin
   update public.internal_arena_tournaments set pairings_paused=false where id=arena;
 
   for scenario in 1..4 loop
+    -- Use fresh opponents for independent scoring cases; consecutive rematches are blocked.
+    if scenario>1 then
+      a := public.manage_internal_arena_bot(arena,'add',null,'Test Alpha '||scenario,'knight');
+      b := public.manage_internal_arena_bot(arena,'add',null,'Test Beta '||scenario,'knight');
+    end if;
     result := public.match_internal_arena_bot_pair(arena,'ZZQ'||scenario::text,fen,a,b);
     game := (result->>'gameId')::uuid;
     assert game is not null, 'Resume did not allow pairing';
