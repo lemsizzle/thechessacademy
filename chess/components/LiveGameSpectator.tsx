@@ -10,6 +10,7 @@ import { oppositeColor } from "@/chess/game/colors";
 import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/material";
 import { crossedOneMinuteWarning } from "@/chess/game/clockWarning";
 import { useLiveGameSounds } from "@/chess/hooks/useLiveGameSounds";
+import { useArenaQueue } from "@/chess/hooks/useArenaQueue";
 import { replayFenAtPly, stepReplayPly } from "@/chess/live/replay";
 import type { TeacherLiveGameSnapshot } from "@/chess/live/types";
 import type { ChessColor } from "@/chess/types";
@@ -50,6 +51,7 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
   const previousClocksRef = useRef<{ gameId: string; white: number | null; black: number | null } | null>(null);
   const { muted, toggleMuted, receiveGameSnapshot, playClockWarning, captureEffect } = useLiveGameSounds();
   const isTeacher = role === "teacher";
+  useArenaQueue(isTeacher ? null : tournamentId);
   const hasBots = Boolean(game?.players.white.botDifficultyId || game?.players.black.botDifficultyId);
   const backHref = isTeacher ? "/admin/live-games" : `/student/tournaments/${tournamentId}`;
 

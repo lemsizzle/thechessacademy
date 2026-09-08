@@ -145,13 +145,13 @@ export function StudentPortalShell({
           <div className="min-w-0 flex-1">
             <TopNav variant="student" studentName={user.name} onStudentLogout={logout} />
             <main className="mx-auto w-full max-w-7xl px-4 pb-28 pt-6 md:pb-6 lg:px-6">
-              <div className="mb-6">
+              {title && <div className="mb-6">
                 <div>
                   <p className="text-xs font-bold uppercase text-cyan-100">{user.name}</p>
                   <h1 className="mt-1 text-2xl font-black text-white sm:text-3xl">{title}</h1>
                   {subtitle && <p className="mt-2 max-w-3xl text-sm text-slate-400 sm:text-base">{subtitle}</p>}
                 </div>
-              </div>
+              </div>}
               {children}
             </main>
           </div>

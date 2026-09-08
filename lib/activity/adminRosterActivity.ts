@@ -142,7 +142,7 @@ export async function getAdminRosterActivity(limit = 300): Promise<AdminRosterAc
       id: `coin-${transaction.id}`,
       ...studentContext(studentMap, transaction.student_id),
       kind: "coin",
-      title: spent ? "Academy Coins spent" : transaction.transaction_type === "refund" ? "Academy Coins refunded" : "Academy Coins adjusted",
+      title: spent ? "Academy Coins spent" : transaction.source_type === "arena_podium" ? "Arena podium prize" : transaction.transaction_type === "refund" ? "Academy Coins refunded" : "Academy Coins adjusted",
       detail: `${signed(transaction.amount)} coins - ${transaction.description}`,
       createdAt: transaction.created_at,
       amount: transaction.amount

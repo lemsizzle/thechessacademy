@@ -6,6 +6,11 @@ export type InternalArenaStatus = "scheduled" | "active" | "finished" | "cancell
 export type InternalArenaEntryStatus = "joined" | "waiting" | "playing" | "withdrawn" | "finished";
 
 export type InternalArenaStanding = {
+  queueEnteredAt?: string | null;
+  queueEnabled?: boolean;
+  lastSeenAt?: string | null;
+  coins?: number;
+  tiedCount?: number;
   studentId: string;
   name: string;
   status: InternalArenaEntryStatus;
@@ -21,6 +26,7 @@ export type InternalArenaStanding = {
 };
 
 export type InternalArenaPairing = {
+  board?: { fen: string; whiteMs: number | null; blackMs: number | null; activeColor: "white" | "black"; clockStartedAt: string | null };
   id: string;
   gameId: string;
   status: "active" | "completed";
@@ -45,6 +51,8 @@ export type InternalArenaChatMessage = {
 };
 
 export type InternalArena = {
+  experienceVersion?: number;
+  finalResults?: { standings: ArenaPrize[]; settledAt: string } | null;
   pairingsPaused?: boolean;
   id: string;
   name: string;
@@ -69,11 +77,29 @@ export type InternalArenaMatchmaking = {
 };
 
 export type InternalArenaLobby = {
+  serverTime?: string;
   arena: InternalArena;
   pairings: InternalArenaPairing[];
   messages: InternalArenaChatMessage[];
   avatarItems: AvatarItem[];
   canChat: boolean;
+};
+
+export type ArenaPrize = {
+  studentId: string; name: string; rank: number; score: number; wins: number;
+  gamesPlayed: number; coins: number; tiedCount: number; headToHead: number;
+};
+
+export type ArenaQueueState = InternalArenaMatchmaking & {
+  serverTime: string;
+  queueEnabled: boolean;
+  queueEnteredAt: string | null;
+  tournamentStatus: InternalArenaStatus;
+  pairingsPaused: boolean;
+  startsAt: string;
+  endsAt: string;
+  finalizing: boolean;
+  points: number | null;
 };
 
 export type CreateInternalArenaInput = {

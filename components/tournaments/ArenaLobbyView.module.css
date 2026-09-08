@@ -1,0 +1,5 @@
+.avatar { animation: enter .35s ease-out both; }
+.celebrate { animation: podium 1.8s ease-out both; }
+@keyframes enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes podium { 0% { box-shadow: 0 0 0 0 #fcd34d00; } 35% { box-shadow: 0 0 50px 4px #fcd34d30; } 100% { box-shadow: 0 0 0 0 #fcd34d00; } }
+@media (prefers-reduced-motion: reduce) { .avatar, .celebrate { animation: none; } }

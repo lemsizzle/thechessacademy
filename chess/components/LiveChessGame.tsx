@@ -17,6 +17,8 @@ import { oppositeColor } from "@/chess/game/colors";
 import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/material";
 import { crossedOneMinuteWarning } from "@/chess/game/clockWarning";
 import { useLiveGameSounds } from "@/chess/hooks/useLiveGameSounds";
+import { useArenaQueue } from "@/chess/hooks/useArenaQueue";
+import { arenaQueueLabel } from "@/chess/arena/presentation";
 import { canPlayPremove, isPremovePromotion, type LivePremove } from "@/chess/live/premove";
 import { isCurrentLiveSnapshot, liveBoardInput } from "@/chess/live/boardInput";
 import { hasCoachPresence, type RealtimePresenceState } from "@/chess/live/presence";
@@ -93,6 +95,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   const previousViewerClockRef = useRef<{ gameId: string; milliseconds: number | null } | null>(null);
   const { muted, toggleMuted, receiveGameSnapshot, playClockWarning, captureEffect } = useLiveGameSounds();
   const isCorrespondence = mode === "correspondence" || game?.gameMode === "correspondence";
+  const arenaQueue = useArenaQueue(game?.arenaTournamentId, gameId, game?.status === "completed");
 
   const receiveGame = useCallback((next: LiveGameSnapshot) => {
     if (next.id !== gameId || !isCurrentLiveSnapshot(currentGameRef.current, next)) return;
@@ -634,11 +637,12 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           description={completionText(game)}
           primaryLabel="Back to lobby"
           onPrimary={() => router.push(`/student/tournaments/${game.arenaTournamentId}`)}
-          secondaryLabel="Close"
-          onSecondary={() => setResultOpen(false)}
+          secondaryLabel={arenaQueue.queue && ["finished", "cancelled"].includes(arenaQueue.queue.tournamentStatus) ? "Close" : arenaQueue.pending ? "Updating…" : arenaQueue.queue?.queueEnabled === false ? "Rejoin queue" : "Take a break"}
+          onSecondary={() => arenaQueue.queue && ["finished", "cancelled"].includes(arenaQueue.queue.tournamentStatus) ? setResultOpen(false) : void arenaQueue.update(arenaQueue.queue?.queueEnabled === false ? "join" : "pause")}
         >
           <Button className="mt-4 w-full" href={`/student/play/game/${encodeURIComponent(game.id)}/analysis`}>Review my three key moments</Button>
-          <p className="mt-3 text-sm font-bold text-slate-300">Your result has been added to the standings. You will be paired again when another Arena player is ready.</p>
+          <p className="mt-3 text-xl font-black text-amber-200">{arenaQueue.queue?.points !== null && arenaQueue.queue?.points !== undefined ? `+${arenaQueue.queue.points} tournament points` : "Recording your result…"}</p>
+          <p className="mt-2 text-sm font-bold text-cyan-100" role="status">{arenaQueue.error || (arenaQueue.queue ? arenaQueueLabel(arenaQueue.queue) : "Checking your next pairing…")}</p>
         </GameDialog>
       ) : resultOpen && game.status === "completed" ? (
         <GameDialog

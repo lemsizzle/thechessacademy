@@ -69,6 +69,7 @@ export function AdminInternalArenas({ adminActionToken }: { adminActionToken: st
   }
 
   async function updateArena(arena: InternalArena, action: "start" | "finish" | "cancel") {
+    if (action === "cancel" && !window.confirm("Cancel this tournament without podium prizes? To finish early and award prizes, use Finish tournament instead.")) return;
     setPending(`${action}:${arena.id}`); setMessage("");
     try {
       const response = await fetch(`/api/admin/internal-arenas/${arena.id}`, {
@@ -76,7 +77,7 @@ export function AdminInternalArenas({ adminActionToken }: { adminActionToken: st
       });
       const body = await response.json() as ArenaResponse;
       if (!response.ok || !body.arena) throw new Error(body.error || "Arena could not be updated.");
-      setMessage(`${body.arena.name} is now ${body.arena.status}.`);
+      setMessage(action === "finish" ? "New pairings stopped. Current games will finish and count, then podium prizes will be awarded." : `${body.arena.name} is now ${body.arena.status}.`);
       await load();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Arena could not be updated.");
@@ -143,8 +144,8 @@ export function AdminInternalArenas({ adminActionToken }: { adminActionToken: st
                 <div className="flex flex-wrap gap-2">
                   <Button href={`/admin/tournaments/${arena.id}`} variant="secondary">Open Lobby</Button>
                   {arena.status === "scheduled" ? <Button type="button" variant="secondary" disabled={Boolean(pending)} onClick={() => void updateArena(arena, "start")}>Start Now</Button> : null}
-                  {arena.status === "active" ? <Button type="button" variant="ghost" disabled={Boolean(pending)} onClick={() => void updateArena(arena, "finish")}>Finish</Button> : null}
-                  {arena.status === "scheduled" || arena.status === "active" ? <Button type="button" variant="ghost" disabled={Boolean(pending)} onClick={() => void updateArena(arena, "cancel")}>Cancel</Button> : null}
+                  {arena.status === "active" ? <Button type="button" variant="secondary" title="Stop new pairings. Current games finish and count toward podium prizes." disabled={Boolean(pending)} onClick={() => void updateArena(arena, "finish")}>Finish tournament</Button> : null}
+                  {arena.status === "scheduled" || arena.status === "active" ? <Button type="button" variant="ghost" title="Cancel this tournament without podium prizes." disabled={Boolean(pending)} onClick={() => void updateArena(arena, "cancel")}>Cancel without prizes</Button> : null}
                 </div>
               </div>
 

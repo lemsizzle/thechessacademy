@@ -489,6 +489,14 @@ export async function listTeacherLiveGames(): Promise<TeacherLiveGameSummary[]> 
   }] : []);
 }
 
+export async function maintainArenaGame(gameId: string) {
+  const game = await loadRecord(gameId);
+  if (!game.arena_tournament_id) return;
+  if (game.status === "completed") { await persistCompletedOutputs(game); return; }
+  const completion = game.status === "active" ? timeoutCompletion(game, Date.now()) : null;
+  if (completion) await completeByAction(game, completion, Date.now());
+}
+
 export async function getTeacherLiveGame(gameId: string) {
   const game = await loadRecord(gameId);
   if (game.game_mode !== "live" || game.status === "waiting" || game.status === "cancelled") throw new LiveGameServerError("This game is not available to watch.", 404);
