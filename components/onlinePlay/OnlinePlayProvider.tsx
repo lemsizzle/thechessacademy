@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/Button";
@@ -33,8 +33,11 @@ export function OnlinePlayProvider({ studentId, children }: { studentId: string;
       if (!response.ok) throw new Error(body.error || "Online play could not be loaded.");
       if (!mounted.current || sequence !== generation.current) return;
       const next = body.state as OnlinePlayState;
-      setState(next); setError("");
-      setNotice((current) => current && next.incoming.find((c) => c.id === current.id && challengeIsPending(c)) || null);
+      setState(current => JSON.stringify(current) === JSON.stringify(next) ? current : next); setError("");
+      setNotice((current) => {
+        const nextNotice = current && next.incoming.find((c) => c.id === current.id && challengeIsPending(c)) || null;
+        return JSON.stringify(current) === JSON.stringify(nextNotice) ? current : nextNotice;
+      });
       const incoming = next.incoming.find((c) => challengeIsPending(c) && !notified.current.has(c.id));
       if (incoming) { notified.current.add(incoming.id); setNotice(incoming); }
       const accepted = next.outgoing.find((c) => c.status === "accepted" && c.gameId && waitingFor.current.has(c.id));
@@ -93,7 +96,8 @@ export function OnlinePlayProvider({ studentId, children }: { studentId: string;
     finally { busy.current = false; setPending(false); }
   }, [refresh, router]);
 
-  return <Context.Provider value={{ state, loading, error, pending, refresh, act }}>
+  const contextValue = useMemo(() => ({ state, loading, error, pending, refresh, act }), [state, loading, error, pending, refresh, act]);
+  return <Context.Provider value={contextValue}>
     {children}
     {notice && challengeIsPending(notice) && typeof document !== "undefined" ? createPortal(
       <aside aria-label="Incoming live challenge" className="fixed left-4 right-4 top-20 z-[95] rounded-xl border border-cyan-200/40 bg-slate-950 p-4 shadow-xl sm:left-auto sm:w-80">

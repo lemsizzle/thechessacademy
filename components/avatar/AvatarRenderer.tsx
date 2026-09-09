@@ -1,4 +1,6 @@
 import { avatarCategories, seedAvatarItems } from "@/lib/avatar/catalog";
+import { memo } from "react";
+import { avatarRenderCatalog } from "@/lib/avatar/renderCatalog";
 import { AVATAR_CANVAS_HEIGHT, AVATAR_CANVAS_WIDTH } from "@/lib/avatar/geometry";
 import type { AvatarCategory, AvatarItem, StudentAvatarConfig } from "@/lib/types";
 
@@ -29,8 +31,8 @@ const structuralDefaults = new Map<AvatarCategory, AvatarItem>([
   ["skin_tone", seedAvatarItems.find((item) => item.slug === "warm-skin-tone")!]
 ]);
 
-export function AvatarRenderer({ items, avatar, previewItem, size = "md", label = "Student avatar" }: AvatarRendererProps) {
-  const itemById = new Map([...seedAvatarItems, ...items].map((item) => [item.id, item]));
+function AvatarRendererComponent({ items, avatar, previewItem, size = "md", label = "Student avatar" }: AvatarRendererProps) {
+  const itemById = avatarRenderCatalog(seedAvatarItems, items);
   const layers = avatarCategories
     .filter((category) => category.id !== "board_theme")
     .map((category) => {
@@ -82,3 +84,5 @@ export function AvatarRenderer({ items, avatar, previewItem, size = "md", label 
     </div>
   );
 }
+
+export const AvatarRenderer = memo(AvatarRendererComponent);

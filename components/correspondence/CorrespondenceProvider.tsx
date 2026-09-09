@@ -329,7 +329,7 @@ export function CorrespondenceProvider({ studentId, children }: { studentId: str
       if (!response.ok) throw new Error(responseError(body, "Correspondence challenges could not be loaded."));
       const next = readCorrespondenceInbox(body);
       if (!mounted.current || sequence !== refreshSequence.current) return next;
-      setInbox(next);
+      setInbox(current => JSON.stringify(current) === JSON.stringify(next) ? current : next);
       setError("");
 
       const notificationKey = `correspondence-notified:${studentId}`;

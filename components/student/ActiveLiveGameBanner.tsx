@@ -32,7 +32,10 @@ export function ActiveLiveGameBanner() {
         }
         if (!response.ok) return;
         const data = await response.json() as { games?: LiveGameSummary[] };
-        if (!disposed && Array.isArray(data.games)) setGames(data.games);
+        if (!disposed && Array.isArray(data.games)) {
+          const active = data.games.filter(game => game.status === "active" && game.gameMode === "live");
+          setGames(current => JSON.stringify(current) === JSON.stringify(active) ? current : active);
+        }
       } catch {
         // Keep the return link during a temporary outage; reconnect refreshes it.
       } finally {
