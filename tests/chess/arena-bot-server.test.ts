@@ -3,10 +3,14 @@ import { Chess } from "chess.js";
 import type { LiveGameRecord } from "@/chess/live/types";
 import { applyLiveMove } from "@/chess/live/rules";
 import { arenaBotThinkingRemainingMs } from "@/chess/arena/botThinking";
+import { arenaBotAvatar } from "@/chess/arena/lobbyAvatars";
 
 const mocks = vi.hoisted(() => ({ client: vi.fn(), choose: vi.fn(), finalize: vi.fn(), schedule: vi.fn(), rating: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ getSupabaseServiceClient: mocks.client }));
-vi.mock("@/lib/avatar/supabaseAvatar", () => ({ getStudentAvatarDisplayData: async () => ({ avatars: {}, items: [] }) }));
+vi.mock("@/lib/avatar/supabaseAvatar", () => ({ getStudentAvatarDisplayData: async () => ({ avatars: {}, items: [
+  { id: "store-shirt", category: "clothing", assetUrl: "/shirt.png", isActive: true },
+  { id: "store-hair", category: "hair", assetUrl: "/hair.png", isActive: true }
+] }) }));
 vi.mock("@/chess/engine/arenaStockfishServer", () => ({ chooseArenaBotMove: mocks.choose }));
 vi.mock("@/chess/persistence/arenaServer", () => ({ finalizeInternalArenaGame: mocks.finalize, scheduleArenaBotTurn: mocks.schedule }));
 vi.mock("@/chess/persistence/ratingServer", () => ({ applyRatingForCompletedGame: mocks.rating }));
@@ -185,6 +189,10 @@ describe("authoritative Arena bot game flow", () => {
     expect(snapshot.players[color]?.name).toBe("Class Bot");
     expect(snapshot.players[color]?.botDifficultyId).toBe("knight");
     expect(snapshot.players[color]?.portrait).toContain("zippy-knight");
+    expect(snapshot.players[color]?.avatar).toEqual(arenaBotAvatar(game.arena_tournament_id!, botId, snapshot.avatarItems));
+    expect(snapshot.players[color]?.avatar?.equippedItems.clothing).toBe("store-shirt");
+    expect(snapshot.avatarItems.map(item => item.id)).toContain("store-hair");
+    expect((await getTeacherLiveGame(gameId)).players[color]?.avatar).toEqual(snapshot.players[color]?.avatar);
     expect(snapshot.viewer.color).not.toBe(color);
     expect((await getTeacherLiveGame(gameId)).players[color]?.id).toBe(botId);
     await expect(getLiveGame(botId,gameId)).rejects.toThrow("not a player");

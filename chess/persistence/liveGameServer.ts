@@ -1,4 +1,5 @@
 import "server-only";
+import { arenaBotAvatar } from "@/chess/arena/lobbyAvatars";
 
 import { Chess } from "chess.js";
 import { oppositeColor, resolvePlayerColor } from "@/chess/game/colors";
@@ -90,7 +91,7 @@ async function playerMap(ids: Array<string | null>) {
   return players;
 }
 
-async function playerDisplay(ids: Array<string | null>) {
+async function playerDisplay(ids: Array<string | null>, game?: LiveGameRecord) {
   const uniqueIds = [...new Set(ids.filter((id): id is string => Boolean(id)))];
   const [players, avatarDisplay] = await Promise.all([
     playerMap(uniqueIds),
@@ -99,6 +100,13 @@ async function playerDisplay(ids: Array<string | null>) {
   if (!avatarDisplay) return { players, avatarItems: [] };
 
   const equippedItemIds = new Set<string>();
+  if (game?.arena_tournament_id) {
+    for (const bot of arenaGameBots(game)) {
+      const avatar = arenaBotAvatar(game.arena_tournament_id, bot.id, avatarDisplay.items);
+      players.set(bot.id, { id: bot.id, name: bot.name, avatar });
+      for (const itemId of Object.values(avatar.equippedItems)) if (itemId) equippedItemIds.add(itemId);
+    }
+  }
   for (const studentId of uniqueIds) {
     const avatar = avatarDisplay.avatars[studentId];
     const player = players.get(studentId);
@@ -126,14 +134,14 @@ function gamePlayers(game: LiveGameRecord, students: Map<string, LiveGamePlayer>
     black: game.black_player_id ? students.get(game.black_player_id) ?? { id: game.black_player_id, name: "Student" } : null
   };
   for (const bot of arenaGameBots(game)) {
-    players[bot.color] = { id: bot.id, name: bot.name, botDifficultyId: bot.difficultyId, portrait: arenaBotDifficulty(bot.difficultyId)?.portrait };
+    players[bot.color] = { id: bot.id, name: bot.name, botDifficultyId: bot.difficultyId, avatar: students.get(bot.id)?.avatar, portrait: arenaBotDifficulty(bot.difficultyId)?.portrait };
   }
   return players;
 }
 
 async function snapshotFor(game: LiveGameRecord, studentId: string): Promise<LiveGameSnapshot> {
   const viewerColor = assertParticipant(game, studentId);
-  const { players, avatarItems } = await playerDisplay([game.white_player_id, game.black_player_id]);
+  const { players, avatarItems } = await playerDisplay([game.white_player_id, game.black_player_id], game);
   return {
     id: game.id,
     challengeCode: game.challenge_code,
@@ -178,7 +186,7 @@ function requiredPlayer(players: Map<string, LiveGamePlayer>, playerId: string |
 
 async function teacherSnapshotFor(game: LiveGameRecord): Promise<TeacherLiveGameSnapshot> {
   if (!game.started_at) throw new LiveGameServerError("This live game has not started.", 409);
-  const { players, avatarItems } = await playerDisplay([game.white_player_id, game.black_player_id]);
+  const { players, avatarItems } = await playerDisplay([game.white_player_id, game.black_player_id], game);
   return {
     berserk: { white: Boolean(game.white_berserk), black: Boolean(game.black_berserk) },
     id: game.id,

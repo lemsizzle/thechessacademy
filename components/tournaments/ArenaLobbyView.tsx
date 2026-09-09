@@ -17,7 +17,7 @@ type Props = {
 };
 
 function Avatar({ entry, lobby, large = false }: { entry: InternalArenaStanding; lobby: InternalArenaLobby; large?: boolean }) {
-  const avatar = entry.bot ? arenaBotAvatar(lobby.arena.id, entry.studentId, lobby.avatarItems) : entry.avatar ?? { studentId: entry.studentId, equippedItems: {} };
+  const avatar = entry.avatar ?? (entry.bot ? arenaBotAvatar(lobby.arena.id, entry.bot.id, lobby.avatarItems) : { studentId: entry.studentId, equippedItems: {} });
   return <AvatarRenderer items={lobby.avatarItems} avatar={avatar} size={large ? "lg" : "sm"} label={`${entry.name}'s avatar`} />;
 }
 

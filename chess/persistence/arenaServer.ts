@@ -1,4 +1,5 @@
 import "server-only";
+import { arenaBotAvatar } from "@/chess/arena/lobbyAvatars";
 import { after } from "next/server";
 
 import { Chess } from "chess.js";
@@ -252,7 +253,7 @@ async function buildInternalArenaLobby(row: ArenaRow, viewerStudentId?: string, 
   const names = new Map(arena.standings.map((entry) => [entry.studentId, entry.name]));
   const equippedItemIds = new Set<string>();
   const standings = arena.standings.map((entry) => {
-    const avatar = avatarDisplay.avatars[entry.studentId];
+    const avatar = entry.bot ? arenaBotAvatar(arena.id, entry.bot.id, avatarDisplay.items) : avatarDisplay.avatars[entry.studentId];
     for (const itemId of Object.values(avatar?.equippedItems ?? {})) {
       if (itemId) equippedItemIds.add(itemId);
     }
