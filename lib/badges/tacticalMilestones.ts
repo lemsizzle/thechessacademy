@@ -1,4 +1,5 @@
 import type { Badge, BadgeTier, TacticTheme } from "@/lib/types";
+import { getArenaLegend } from "./arenaLegends";
 
 export const tacticalMilestones = {
   Bronze: { puzzles: 10, coins: 20, rank: 1 },
@@ -43,13 +44,13 @@ export function groupEarnedBadges(badges: Badge[]): EarnedBadgeGroup[] {
   const groups = new Map<string, EarnedBadgeGroup>();
   for (const badge of badges) {
     const tactic = getBadgeTactic(badge);
-    const key = tactic && getTacticalMilestone(badge) ? `tactic:${tactic}` : `badge:${badge.id}`;
+    const key = getArenaLegend(badge) ? "series:arena-legends" : tactic && getTacticalMilestone(badge) ? `tactic:${tactic}` : `badge:${badge.id}`;
     const group = groups.get(key);
     if (!group) groups.set(key, { badge, tiers: [badge] });
     else if (!group.tiers.some((item) => item.id === badge.id)) group.tiers.push(badge);
   }
   for (const group of groups.values()) {
-    group.tiers.sort((a, b) => (getTacticalMilestone(b)?.rank ?? 0) - (getTacticalMilestone(a)?.rank ?? 0));
+    group.tiers.sort((a, b) => (getArenaLegend(b)?.rank ?? getTacticalMilestone(b)?.rank ?? 0) - (getArenaLegend(a)?.rank ?? getTacticalMilestone(a)?.rank ?? 0));
     group.badge = group.tiers[0];
   }
   return [...groups.values()];
