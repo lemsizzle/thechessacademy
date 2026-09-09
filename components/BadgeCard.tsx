@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { getBadgeTierStyles, getTierAura } from "@/lib/badges";
 import type { Badge } from "@/lib/types";
 import { getTacticalMilestone, tacticalTier } from "@/lib/badges/tacticalMilestones";
+import { isChaosMastery } from "@/lib/badges/chaosMastery";
 
 function getFallbackBadgeArtUrl(badge: Badge) {
   const variant = (badge.id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) % 3) + 1;
@@ -23,11 +24,12 @@ export function BadgeCard({ badge, earned = false, statusText, earnedTiers }: { 
         aria-label={`View ${badge.name} badge details`}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
-        className={`group relative grid aspect-square min-w-0 place-items-center overflow-hidden rounded-2xl border p-3 transition hover:border-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-4 focus-visible:ring-offset-slate-950 sm:p-5 ${tierStyles} ${earned ? "" : "grayscale opacity-55"}`}
+        className={`group relative grid min-w-0 place-items-center overflow-hidden rounded-2xl border p-3 transition hover:border-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-4 focus-visible:ring-offset-slate-950 sm:p-5 ${tierStyles} ${earned ? "content-start gap-3" : "aspect-square grayscale opacity-55"}`}
       >
         <span className={`block aspect-square w-full max-w-48 rounded-full bg-gradient-to-br ${aura} p-1 shadow-glow transition-transform motion-safe:group-hover:scale-105 motion-safe:group-active:scale-95`}>
           <img src={imageUrl} alt="" width={192} height={192} loading="lazy" decoding="async" className="h-full w-full rounded-full bg-slate-950 object-contain" />
         </span>
+        {earned && <span className="block min-h-8 w-full break-words text-center text-xs font-semibold leading-4 text-slate-100 sm:text-sm sm:leading-5">{badge.name}</span>}
       </button>
       {open && <BadgeDetails badge={badge} earnedTiers={earnedTiers ?? [badge]} statusText={statusText ?? (earned ? "Earned" : "Locked")} onClose={() => setOpen(false)} />}
     </>
@@ -96,7 +98,7 @@ function BadgeDetails({ badge: highestBadge, earnedTiers, statusText, onClose }:
           <span className="rounded-full bg-white/10 px-3 py-1">{milestone ? `${milestone.coins} coins` : `${badge.xpValue} XP`}</span>
         </div>
         {badge.description && <p className="mt-5 break-words text-sm leading-relaxed text-slate-300">{badge.description}</p>}
-        {(milestone || badge.unlockRequirement) && <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4"><h3 className="text-sm font-bold text-white">How to earn it</h3><p className="mt-1 break-words text-sm leading-relaxed text-slate-300">{milestone ? `Solve ${milestone.puzzles} different puzzles for this tactic in Survival. Earn ${milestone.coins} Academy Coins once when this tier unlocks.` : badge.unlockRequirement}</p></div>}
+        {(milestone || badge.unlockRequirement) && <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4"><h3 className="text-sm font-bold text-white">How to earn it</h3><p className="mt-1 break-words text-sm leading-relaxed text-slate-300">{isChaosMastery(badge) ? badge.unlockRequirement : milestone ? `Solve ${milestone.puzzles} different puzzles for this tactic in Survival. Earn ${milestone.coins} Academy Coins once when this tier unlocks.` : badge.unlockRequirement}</p></div>}
         {earnedTiers.length > 1 && <section aria-label="Earned tiers" className="mt-6 border-t border-white/10 pt-5">
           <h3 className="text-sm font-bold text-white">Your earned tiers</h3>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">

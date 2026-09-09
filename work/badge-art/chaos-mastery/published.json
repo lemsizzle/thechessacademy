@@ -1,0 +1,34 @@
+[
+  {
+    "id": "c4a05a00-0000-4000-8000-000000000001",
+    "name": "Chaos Mastery: Bronze",
+    "tier": "C",
+    "xp_value": 0,
+    "unlock_requirement": "Solve 10 different puzzles without hints in one new Mixed Themes Survival round. Earn 20 Academy Coins once.",
+    "art_image_url": "https://yjtawpnflanerbodbieo.supabase.co/storage/v1/object/public/badge-art/chaos-mastery-20260909/chaos-mastery-bronze-v1.webp"
+  },
+  {
+    "id": "c4a05a00-0000-4000-8000-000000000002",
+    "name": "Chaos Mastery: Silver",
+    "tier": "B",
+    "xp_value": 0,
+    "unlock_requirement": "Solve 20 different puzzles without hints in one new Mixed Themes Survival round. Earn 40 Academy Coins once.",
+    "art_image_url": "https://yjtawpnflanerbodbieo.supabase.co/storage/v1/object/public/badge-art/chaos-mastery-20260909/chaos-mastery-silver-v1.webp"
+  },
+  {
+    "id": "c4a05a00-0000-4000-8000-000000000003",
+    "name": "Chaos Mastery: Gold",
+    "tier": "A",
+    "xp_value": 0,
+    "unlock_requirement": "Solve 30 different puzzles without hints in one new Mixed Themes Survival round. Earn 100 Academy Coins once.",
+    "art_image_url": "https://yjtawpnflanerbodbieo.supabase.co/storage/v1/object/public/badge-art/chaos-mastery-20260909/chaos-mastery-gold-v1.webp"
+  },
+  {
+    "id": "c4a05a00-0000-4000-8000-000000000004",
+    "name": "Chaos Mastery: Platinum",
+    "tier": "S",
+    "xp_value": 0,
+    "unlock_requirement": "Solve 40 different puzzles without hints in one new Mixed Themes Survival round. Earn 200 Academy Coins once.",
+    "art_image_url": "https://yjtawpnflanerbodbieo.supabase.co/storage/v1/object/public/badge-art/chaos-mastery-20260909/chaos-mastery-platinum-v1.webp"
+  }
+]

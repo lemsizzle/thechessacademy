@@ -1,5 +1,6 @@
 import type { Badge, BadgeTier, TacticTheme } from "@/lib/types";
 import { getArenaLegend } from "./arenaLegends";
+import { isChaosMastery } from "./chaosMastery";
 
 export const tacticalMilestones = {
   Bronze: { puzzles: 10, coins: 20, rank: 1 },
@@ -35,7 +36,7 @@ export function getBadgeTactic(badge: Badge) {
 
 export function getTacticalMilestone(badge: Badge) {
   const tier = tacticalTier(badge.tier);
-  return getBadgeTactic(badge) && tier ? tacticalMilestones[tier] : undefined;
+  return (getBadgeTactic(badge) || isChaosMastery(badge)) && tier ? tacticalMilestones[tier] : undefined;
 }
 
 export type EarnedBadgeGroup = { badge: Badge; tiers: Badge[] };
@@ -44,7 +45,7 @@ export function groupEarnedBadges(badges: Badge[]): EarnedBadgeGroup[] {
   const groups = new Map<string, EarnedBadgeGroup>();
   for (const badge of badges) {
     const tactic = getBadgeTactic(badge);
-    const key = getArenaLegend(badge) ? "series:arena-legends" : tactic && getTacticalMilestone(badge) ? `tactic:${tactic}` : `badge:${badge.id}`;
+    const key = isChaosMastery(badge) ? "series:chaos-mastery" : getArenaLegend(badge) ? "series:arena-legends" : tactic && getTacticalMilestone(badge) ? `tactic:${tactic}` : `badge:${badge.id}`;
     const group = groups.get(key);
     if (!group) groups.set(key, { badge, tiers: [badge] });
     else if (!group.tiers.some((item) => item.id === badge.id)) group.tiers.push(badge);

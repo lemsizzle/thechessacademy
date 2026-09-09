@@ -31,6 +31,9 @@ describe("profile badges", () => {
     expect(html).toContain('aria-label="Earned badges"');
     expect(html).toContain('src="/badges/current-gold-uuid.png"');
     expect(html).toContain("View Quest Champion badge details");
+    expect(html).toContain(">Fork Gold</span>");
+    expect(html).toContain(">Quest Champion</span>");
+    expect(html).not.toContain(">Fork Bronze</span>");
     expect(html).toContain('aria-haspopup="dialog"');
     expect(html).not.toContain("View Fork Bronze badge details");
     expect(html).not.toContain("unearned-platinum");

@@ -23,9 +23,11 @@ describe("automatic Survival awards", () => {
       p_session_id: "session-a"
     });
   });
-  it("does not check badge rewards for mixed-theme Survival rounds", async () => {
+  it("checks Chaos Mastery rewards for mixed-theme Survival rounds", async () => {
     await saveTrainingAttempt({ ...attempt, selectedTheme: "mixed" });
-    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalledWith("award_survival_tactical_badges", {
+      p_student_id: "student-a", p_session_id: "session-a"
+    });
   });
   it.each(["daily", "woodpecker", "legacy"] as const)("does not award Survival badges for %s", async (trainingMode) => {
     await saveTrainingAttempt({ ...attempt, trainingMode });

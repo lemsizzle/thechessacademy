@@ -219,7 +219,7 @@ export async function saveTrainingAttempt(input: {
     .upsert(record, { onConflict: "student_id,puzzle_id,session_id" });
   if (error) throw new Error(error.message);
   let badgeAwards: TacticalBadgeAward[] = [];
-  if (input.trainingMode === "survival" && input.solved && input.selectedTheme !== "mixed") {
+  if (input.trainingMode === "survival" && input.solved) {
     try {
       const { data, error: badgeError } = await serviceClient().rpc("award_survival_tactical_badges", {
         p_student_id: input.studentId,
