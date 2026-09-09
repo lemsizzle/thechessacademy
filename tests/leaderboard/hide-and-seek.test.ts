@@ -67,6 +67,7 @@ describe("Hide and Seek leaderboard", () => {
 
     await expect(getHideAndSeekLeaderboardScores()).resolves.toEqual([{
       studentId: "student-a",
+      mode: "standard",
       weekScore: 820,
       monthScore: 905,
       allTimeScore: 1_000,
@@ -74,7 +75,7 @@ describe("Hide and Seek leaderboard", () => {
       monthAttempts: 4,
       allTimeAttempts: 7
     }]);
-    expect(rpc).toHaveBeenCalledWith("get_hide_and_seek_leaderboard");
+    expect(rpc).toHaveBeenCalledWith("get_hide_and_seek_leaderboard_by_mode");
   });
 
   it("renders the teacher-only focus with points and no theme control", () => {
@@ -138,5 +139,21 @@ describe("Hide and Seek leaderboard", () => {
 
     expect(html).toContain("No Hide and Seek attempts found");
     expect(html).toContain("No saved attempts match this class and time period yet.");
+  });
+
+  it("ranks hard mode independently, including legitimate zero-point failures", () => {
+    const html = renderToStaticMarkup(createElement(LeaderboardTable, {
+      students: students.slice(0, 2), lichessAccounts: [], survivalScores: [], badges: [],
+      initialFocus: "Hide and Seek Hard Mode",
+      hideAndSeekScores: [
+        { ...score, studentId: "stu-001", mode: "standard", allTimeScore: 999 },
+        { ...score, studentId: "stu-001", mode: "hard", allTimeScore: 0 },
+        { ...score, studentId: "stu-002", mode: "standard" }
+      ]
+    }));
+    expect(html).toContain("0 points");
+    expect(html).not.toContain("999 points");
+    expect(html).not.toContain(students[1].name);
+    expect(html).toContain("Best Hide and Seek Hard Mode Score");
   });
 });

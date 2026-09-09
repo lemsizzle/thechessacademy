@@ -17,7 +17,7 @@ import { getLevelFromXp } from "@/lib/xp";
 import { useEffect, useMemo, useState } from "react";
 
 type TimeWindow = LeaderboardTimeWindow;
-type Focus = "Overall XP" | "Survival Puzzles" | "Hide and Seek" | "Star Wars";
+type Focus = "Overall XP" | "Survival Puzzles" | "Hide and Seek" | "Star Wars" | "Star Wars Time Trial" | "Hide and Seek Hard Mode";
 
 const timeOptions: Array<{ value: TimeWindow; label: string }> = [
   { value: "week", label: "This Week" },
@@ -82,11 +82,20 @@ export function LeaderboardTable({
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
   const [focus, setFocus] = useState<Focus>(initialFocus);
   const [survivalTheme, setSurvivalTheme] = useState<PuzzleThemeSlug>("mixed");
+  const [trialDuration, setTrialDuration] = useState(60_000);
+  const isHideAndSeek = focus === "Hide and Seek" || focus === "Hide and Seek Hard Mode";
+  const isStarWars = focus === "Star Wars" || focus === "Star Wars Time Trial";
   const [recentXpEvents, setRecentXpEvents] = useState<XpEvent[]>(initialXpEvents ?? xpEvents);
   const defaultEquippedItems = useMemo(() => getDefaultEquippedItems(avatarItems), [avatarItems]);
   const survivalScoresByStudentAndTheme = useMemo(() => new Map(survivalScores.map((score) => [survivalLeaderboardScoreKey(score.studentId, score.theme), score])), [survivalScores]);
-  const hideAndSeekScoresByStudent = useMemo(() => new Map((hideAndSeekScores ?? []).map((score) => [score.studentId, score])), [hideAndSeekScores]);
-  const starWarsScoresByStudent = useMemo(() => new Map((starWarsScores ?? []).map((score) => [score.studentId, score])), [starWarsScores]);
+  const hideAndSeekScoresByStudent = useMemo(() => new Map((hideAndSeekScores ?? [])
+    .filter((score) => (score.mode ?? "standard") === (focus === "Hide and Seek Hard Mode" ? "hard" : "standard"))
+    .map((score) => [score.studentId, score])), [hideAndSeekScores, focus]);
+  const starWarsScoresByStudent = useMemo(() => new Map((starWarsScores ?? [])
+    .filter((score) => focus === "Star Wars Time Trial"
+      ? score.mode === "time_trial" && score.timeLimitMs === trialDuration
+      : (score.mode ?? "classic") === "classic")
+    .map((score) => [score.studentId, score])), [starWarsScores, focus, trialDuration]);
   const hasHideAndSeekFocus = hideAndSeekScores !== undefined;
   const hasStarWarsFocus = starWarsScores !== undefined;
 
@@ -111,11 +120,11 @@ export function LeaderboardTable({
           survivalScoresByStudentAndTheme.get(survivalLeaderboardScoreKey(student.id, survivalTheme)),
           timeWindow
         ))
-        || (focus === "Hide and Seek" && hasHideAndSeekLeaderboardScore(
+        || (isHideAndSeek && hasHideAndSeekLeaderboardScore(
           hideAndSeekScoresByStudent.get(student.id),
           timeWindow
         ))
-        || (focus === "Star Wars" && hasStarWarsLeaderboardScore(
+        || (isStarWars && hasStarWarsLeaderboardScore(
           starWarsScoresByStudent.get(student.id),
           timeWindow
         ))
@@ -126,21 +135,23 @@ export function LeaderboardTable({
         let score = getStudentXpScore(student, timeWindow, recentXpEvents, account);
         if (focus === "Survival Puzzles") {
           score = getSurvivalLeaderboardScore(survivalScoresByStudentAndTheme.get(survivalLeaderboardScoreKey(student.id, survivalTheme)), timeWindow);
-        } else if (focus === "Hide and Seek") {
+        } else if (isHideAndSeek) {
           score = getHideAndSeekLeaderboardScore(hideAndSeekScoresByStudent.get(student.id), timeWindow);
-        } else if (focus === "Star Wars") {
+        } else if (isStarWars) {
           score = getStarWarsLeaderboardScore(starWarsScoresByStudent.get(student.id), timeWindow);
         }
         return { ...student, score, effectiveXp: xp.totalXp, lichessXp: xp.lichessXp };
       })
       .sort((a, b) => b.score - a.score || b.effectiveXp - a.effectiveXp || a.name.localeCompare(b.name))
       .map((student, index) => ({ ...student, rank: index + 1 }));
-  }, [classGroup, focus, hideAndSeekScoresByStudent, lichessAccounts, recentXpEvents, starWarsScoresByStudent, students, survivalScoresByStudentAndTheme, survivalTheme, timeWindow]);
+  }, [classGroup, focus, isHideAndSeek, isStarWars, hideAndSeekScoresByStudent, lichessAccounts, recentXpEvents, starWarsScoresByStudent, students, survivalScoresByStudentAndTheme, survivalTheme, timeWindow]);
   const podium = ranked.slice(0, 3);
   const scoreLabel = focus === "Overall XP"
     ? (timeWindow === "all" ? "Total XP" : "XP Earned")
     : focus === "Survival Puzzles"
       ? "Best Survival Run"
+      : focus === "Hide and Seek Hard Mode" ? "Best Hide and Seek Hard Mode Score"
+      : focus === "Star Wars Time Trial" ? `Best Star Wars Time Trial · ${trialDuration / 60_000} min`
       : focus === "Hide and Seek"
         ? "Best Hide and Seek Score"
         : "Best Star Wars Run";
@@ -182,7 +193,16 @@ export function LeaderboardTable({
                   <option>Overall XP</option>
                   <option>Survival Puzzles</option>
                   {hasHideAndSeekFocus ? <option>Hide and Seek</option> : null}
+                  {hasHideAndSeekFocus ? <option>Hide and Seek Hard Mode</option> : null}
                   {hasStarWarsFocus ? <option>Star Wars</option> : null}
+                  {hasStarWarsFocus ? <option>Star Wars Time Trial</option> : null}
+                </select>
+              </label>
+            )}
+            {focus === "Star Wars Time Trial" && (
+              <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">Trial duration
+                <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={trialDuration} onChange={(event) => setTrialDuration(Number(event.target.value))}>
+                  {[1, 3, 5].map((minutes) => <option key={minutes} value={minutes * 60_000}>{minutes} {minutes === 1 ? "minute" : "minutes"}</option>)}
                 </select>
               </label>
             )}
@@ -195,15 +215,15 @@ export function LeaderboardTable({
             )}
           </div>
         </div>
-        {focus === "Hide and Seek" && ranked.length === 0 ? (
+        {isHideAndSeek && ranked.length === 0 ? (
           <div className="mt-4 rounded-md border border-violet-200/20 bg-violet-300/[0.06] p-4" role="status">
-            <p className="font-black text-white">No Hide and Seek attempts found</p>
+            <p className="font-black text-white">No {focus} attempts found</p>
             <p className="mt-1 text-sm text-slate-400">No saved attempts match this class and time period yet.</p>
           </div>
         ) : null}
-        {focus === "Star Wars" && ranked.length === 0 ? (
+        {isStarWars && ranked.length === 0 ? (
           <div className="mt-4 rounded-md border border-violet-200/20 bg-violet-300/[0.06] p-4" role="status">
-            <p className="font-black text-white">No Star Wars scores found</p>
+            <p className="font-black text-white">No {focus} scores found</p>
             <p className="mt-1 text-sm text-slate-400">No verified runs match this class and time period yet.</p>
           </div>
         ) : null}

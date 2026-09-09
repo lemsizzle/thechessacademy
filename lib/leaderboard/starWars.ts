@@ -2,6 +2,8 @@ import type { LeaderboardTimeWindow } from "@/lib/leaderboard/survival";
 
 export type StarWarsLeaderboardScore = {
   studentId: string;
+  mode?: "classic" | "time_trial";
+  timeLimitMs?: number | null;
   weekScore: number;
   monthScore: number;
   allTimeScore: number;

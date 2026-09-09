@@ -5,6 +5,7 @@ import Link from "next/link";
 import { defaultPieces } from "react-chessboard";
 import type { InternalArenaLobby, InternalArenaPairing, InternalArenaStanding } from "@/chess/arena/types";
 import { arenaClock, arenaFinalLabel } from "@/chess/arena/presentation";
+import { arenaBotAvatar } from "@/chess/arena/lobbyAvatars";
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { Button } from "@/components/Button";
 import styles from "./ArenaLobbyView.module.css";
@@ -16,7 +17,8 @@ type Props = {
 };
 
 function Avatar({ entry, lobby, large = false }: { entry: InternalArenaStanding; lobby: InternalArenaLobby; large?: boolean }) {
-  return <AvatarRenderer items={lobby.avatarItems} avatar={entry.avatar ?? { studentId: entry.studentId, equippedItems: {} }} size={large ? "lg" : "sm"} label={`${entry.name}'s avatar`} />;
+  const avatar = entry.bot ? arenaBotAvatar(lobby.arena.id, entry.studentId, lobby.avatarItems) : entry.avatar ?? { studentId: entry.studentId, equippedItems: {} };
+  return <AvatarRenderer items={lobby.avatarItems} avatar={avatar} size={large ? "lg" : "sm"} label={`${entry.name}'s avatar`} />;
 }
 
 function LiveBoard({ pairing, lobby, role, now }: { pairing: InternalArenaPairing; lobby: InternalArenaLobby; role: Props["role"]; now: number }) {
@@ -81,8 +83,8 @@ function Podium({ lobby }: { lobby: InternalArenaLobby }) {
 export function ArenaLobbyView({ lobby, now, role, status, pending, onJoin, onPause, onTogglePairings, chat, teacherControls }: Props) {
   const [tab, setTab] = useState<"Standings" | "Games" | "Chat">("Standings");
   const { arena } = lobby;
-  const students = arena.standings.filter(e => !e.bot && e.status !== "withdrawn");
-  const bots = arena.standings.filter(e => e.bot && e.status !== "withdrawn");
+  const players = arena.standings.filter(e => e.status !== "withdrawn")
+    .sort((a, b) => b.score - a.score || b.wins - a.wins || a.name.localeCompare(b.name));
   const active = lobby.pairings.filter(p => p.status === "active");
   const recent = lobby.pairings.filter(p => p.status === "completed").slice(0, 6);
   const finalLabel = arenaFinalLabel(lobby);
@@ -111,19 +113,18 @@ export function ArenaLobbyView({ lobby, now, role, status, pending, onJoin, onPa
       const name = (["Standings", "Games", "Chat"] as const)[next]; setTab(name); document.getElementById(`arena-tab-${name}`)?.focus();
     }} onClick={() => setTab(name)} className={`min-h-11 rounded-lg text-sm font-bold focus-visible:outline focus-visible:outline-cyan-200 ${tab === name ? "bg-cyan-200/15 text-cyan-100" : "text-slate-400"}`}>{name}{name === "Games" ? ` · ${active.length}` : ""}</button>)}</div>
     <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-      <section id="arena-panel-Standings" aria-label="Student standings" className={`min-w-0 space-y-4 ${tab === "Standings" ? "" : "hidden lg:block"}`}>
+      <section id="arena-panel-Standings" aria-label="Player standings" className={`min-w-0 space-y-4 ${tab === "Standings" ? "" : "hidden lg:block"}`}>
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/85">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-4"><h2 className="font-black text-white">Student standings</h2><span className="text-xs text-slate-400">{students.length} students</span></div>
-          <div>{students.map(entry => <div key={entry.studentId} className={`flex min-w-0 items-center gap-3 border-b border-white/5 px-3 py-3 last:border-0 ${arena.entry?.studentId === entry.studentId ? "bg-cyan-200/10" : ""}`}>
-            <span className="w-6 shrink-0 text-center text-sm font-black text-slate-400">{entry.rank || "—"}</span>
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-4"><h2 className="font-black text-white">Players</h2><span className="text-xs text-slate-400">{players.length} players</span></div>
+          <div>{players.map((entry, index) => <div key={entry.studentId} className={`flex min-w-0 items-center gap-3 border-b border-white/5 px-3 py-3 last:border-0 ${arena.entry?.studentId === entry.studentId ? "bg-cyan-200/10" : ""}`}>
+            <span className="w-6 shrink-0 text-center text-sm font-black text-slate-400">{index + 1}</span>
             <span className={styles.avatar}><Avatar entry={entry} lobby={lobby} /></span>
             <div className="min-w-0 flex-1"><p className="truncate text-sm font-black text-white">{entry.name}{arena.entry?.studentId === entry.studentId && <span className="ml-2 text-xs font-normal text-cyan-200">you</span>}</p><p className="mt-1 text-[11px] text-slate-400">{entry.wins} wins · {entry.gamesPlayed} games{entry.status === "playing" ? " · Playing" : entry.status === "waiting" ? " · Queued" : ""}</p></div>
             <div className="text-right"><p className="text-xl font-black tabular-nums text-amber-100">{entry.score}</p><p className="text-[9px] uppercase text-slate-500">points</p></div>
           </div>)}</div>
-          {!students.length && <p className="px-5 py-10 text-center text-sm text-slate-400">Be the first to join the Arena.</p>}
+          {!players.length && <p className="px-5 py-10 text-center text-sm text-slate-400">Be the first to join the Arena.</p>}
         </div>
-        {bots.length > 0 && <details className="rounded-xl border border-white/10 bg-slate-950/60 p-4"><summary className="cursor-pointer text-xs font-bold text-slate-400">Practice bots · {bots.length} <span className="font-normal">— no podium prizes</span></summary><div className="mt-3 space-y-2">{bots.map(bot => <div key={bot.studentId} className="flex justify-between gap-2 text-xs text-slate-300"><span>♟ {bot.name}</span><span>{bot.status === "playing" ? "Playing" : "Available"} · {bot.score} pts</span></div>)}</div></details>}
-        <details className="rounded-xl border border-white/10 p-4 text-xs text-slate-400"><summary className="cursor-pointer font-bold">Arena rules</summary><p className="mt-3 leading-6">Win: 2 points. Draw: 1 point. Eligible Berserk wins earn the existing bonus. Students pair first; a practice bot may join after five seconds. No consecutive opponents. Games started before the deadline still count.</p>{arena.experienceVersion === 1 && <p className="mt-2 leading-6">Prizes require a completed game. Ties use wins, then head-to-head only if everyone in the tied group has met. Remaining ties share the affected prizes, rounded down to whole coins.</p>}{arena.description && <p className="mt-2">{arena.description}</p>}</details>
+        <details className="rounded-xl border border-white/10 p-4 text-xs text-slate-400"><summary className="cursor-pointer font-bold">Arena rules</summary><p className="mt-3 leading-6">Win: 2 points. Draw: 1 point. Eligible Berserk wins earn the existing bonus. No consecutive opponents. Games started before the deadline still count.</p>{role === "teacher" && <p className="mt-2 leading-6">Students pair first; a practice bot may join after five seconds. Only students qualify for podium prizes.</p>}{arena.experienceVersion === 1 && <p className="mt-2 leading-6">Prizes require a completed game. Ties use wins, then head-to-head only if everyone in the tied group has met. Remaining ties share the affected prizes, rounded down to whole coins.</p>}{arena.description && <p className="mt-2">{arena.description}</p>}</details>
       </section>
       <div className="min-w-0 space-y-4">
         <section id="arena-panel-Games" aria-label="Live games" className={`rounded-2xl border border-white/10 bg-slate-950/85 p-4 ${tab === "Games" ? "" : "hidden lg:block"}`}>

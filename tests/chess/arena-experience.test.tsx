@@ -32,4 +32,14 @@ describe("Arena status and result presentation", () => {
     expect(html).toContain("Confirming final results"); expect(html).not.toContain("prizes added to your wallets");
     expect(html).toContain("100"); expect(html).toContain("50"); expect(html).toContain("30 coins");
   });
+  it("includes computer players in the same student-facing standings without a separate bot section", () => {
+    const entry = { studentId: "student", name: "Alex", status: "waiting" as const, score: 2, gamesPlayed: 1, wins: 1, draws: 0, losses: 0, currentGameId: null, rank: 1 };
+    const mixed = { ...lobby, arena: { ...lobby.arena, standings: [entry, { ...entry, studentId: "computer", name: "Sam", score: 4, bot: { id: "computer", name: "Sam", difficultyId: "pawn" } }] } };
+    const html = renderToStaticMarkup(<ArenaLobbyView lobby={mixed} now={0} role="student" status="Waiting" onJoin={() => {}} onPause={() => {}} onTogglePairings={() => {}} chat={null} />);
+    expect(html).toContain("2 players");
+    expect(html).toContain("Sam&#x27;s avatar");
+    expect(html).not.toContain("Practice bots");
+    expect(html).not.toContain("practice bot");
+    expect(html.indexOf("Sam&#x27;s avatar")).toBeLessThan(html.indexOf("Alex&#x27;s avatar"));
+  });
 });

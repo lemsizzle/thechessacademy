@@ -2,6 +2,7 @@ import type { LeaderboardTimeWindow } from "@/lib/leaderboard/survival";
 
 export type HideAndSeekLeaderboardScore = {
   studentId: string;
+  mode?: "standard" | "hard";
   weekScore: number;
   monthScore: number;
   allTimeScore: number;

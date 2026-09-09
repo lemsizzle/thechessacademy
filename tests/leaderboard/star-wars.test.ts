@@ -46,11 +46,13 @@ describe("Star Wars leaderboard", () => {
 
     await expect(getStarWarsLeaderboardScores()).resolves.toEqual([{
       studentId: "student-a",
+      mode: "classic",
+      timeLimitMs: null,
       weekScore: 8,
       monthScore: 13,
       allTimeScore: 500
     }]);
-    expect(rpc).toHaveBeenCalledWith("get_star_wars_leaderboard");
+    expect(rpc).toHaveBeenCalledWith("get_star_wars_leaderboard_by_mode");
   });
 
   it("renders verified runs as points and excludes students without a score", () => {
@@ -81,5 +83,24 @@ describe("Star Wars leaderboard", () => {
 
     expect(html).toContain("No Star Wars scores found");
     expect(html).toContain("No verified runs match this class and time period yet.");
+  });
+
+  it("separates time trials by duration and excludes classic scores", () => {
+    const html = renderToStaticMarkup(createElement(LeaderboardTable, {
+      students: students.slice(0, 2), lichessAccounts: [], survivalScores: [], badges: [],
+      initialFocus: "Star Wars Time Trial",
+      starWarsScores: [
+        { ...score, studentId: "stu-001", mode: "classic", allTimeScore: 99 },
+        { ...score, studentId: "stu-001", mode: "time_trial", timeLimitMs: 60000, allTimeScore: 7 },
+        { ...score, studentId: "stu-001", mode: "time_trial", timeLimitMs: 180000, allTimeScore: 88 },
+        { ...score, studentId: "stu-002", mode: "time_trial", timeLimitMs: 300000, allTimeScore: 55 }
+      ]
+    }));
+    expect(html).toContain("7 points");
+    expect(html).not.toContain("99 points");
+    expect(html).not.toContain("88 points");
+    expect(html).not.toContain(students[1].name);
+    expect(html).toContain("3 minutes");
+    expect(html).toContain("5 minutes");
   });
 });

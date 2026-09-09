@@ -5,6 +5,8 @@ import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
 type StarWarsScoreRow = {
   student_id: string;
+  mode: "classic" | "time_trial";
+  time_limit_ms: number | null;
   week_score: number | string | null;
   month_score: number | string | null;
   all_time_score: number | string | null;
@@ -19,11 +21,13 @@ export async function getStarWarsLeaderboardScores(): Promise<StarWarsLeaderboar
   const client = getSupabaseServiceClient();
   if (!client) return [];
 
-  const { data, error } = await client.rpc("get_star_wars_leaderboard");
+  const { data, error } = await client.rpc("get_star_wars_leaderboard_by_mode");
   if (error) throw new Error(error.message);
 
   return ((data ?? []) as StarWarsScoreRow[]).map((row) => ({
     studentId: row.student_id,
+    mode: row.mode ?? "classic",
+    timeLimitMs: row.time_limit_ms ?? null,
     weekScore: boundedScore(row.week_score),
     monthScore: boundedScore(row.month_score),
     allTimeScore: boundedScore(row.all_time_score)
