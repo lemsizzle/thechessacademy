@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   getStudentMobileMoreGroups,
+  isNavigationActive,
   getStudentMobilePrimaryLinks,
   getStudentMoreLinks,
   getStudentNavigationHubs,
-  type NavLink,
-  type StudentNavHub
+  type NavLink
 } from "@/components/navigation";
 
 type OpenMenu = "account" | "more" | null;
@@ -18,15 +18,6 @@ const primaryLinks = getStudentMobilePrimaryLinks();
 const navigationHubs = getStudentNavigationHubs();
 const moreGroups = getStudentMobileMoreGroups();
 const standaloneMoreLinks = getStudentMoreLinks();
-
-function isRouteWithin(pathname: string, href: string) {
-  if (href === "/student") return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function isHubActive(pathname: string, hub: StudentNavHub) {
-  return isRouteWithin(pathname, hub.href) || hub.branches.some((branch) => isRouteWithin(pathname, branch.href));
-}
 
 function NavigationIcon({ href }: { href: string }) {
   const commonProps = {
@@ -77,8 +68,14 @@ function MobileLink({ link, active, onSelect }: { link: NavLink; active: boolean
   );
 }
 
-export function StudentNavigation({ studentName, onLogout }: { studentName: string; onLogout: () => void }) {
+export function StudentNavigation(props: { studentName: string; onLogout: () => void }) {
+  return <Suspense fallback={null}><StudentNavigationContent {...props} /></Suspense>;
+}
+
+function StudentNavigationContent({ studentName, onLogout }: { studentName: string; onLogout: () => void }) {
   const pathname = usePathname();
+  const search = useSearchParams().toString();
+  const isRouteWithin = (path: string, href: string) => isNavigationActive(path, href, search);
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
@@ -99,12 +96,19 @@ export function StudentNavigation({ studentName, onLogout }: { studentName: stri
 
   useEffect(() => {
     setOpenMenu(null);
-  }, [pathname]);
+  }, [pathname, search]);
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const closeMobileMenu = () => { if (desktop.matches) setOpenMenu(null); };
+    desktop.addEventListener("change", closeMobileMenu);
+    return () => desktop.removeEventListener("change", closeMobileMenu);
+  }, []);
 
   useEffect(() => {
     if (!openMenu) return;
     const target = openMenu === "account" ? accountMenuRef.current : moreDialogRef.current;
-    window.requestAnimationFrame(() => focusableElements(target)[0]?.focus());
+    const focusFrame = window.requestAnimationFrame(() => focusableElements(target)[0]?.focus());
 
     function handleKeyDown(event: globalThis.KeyboardEvent) {
       if (event.key === "Escape") {
@@ -124,6 +128,7 @@ export function StudentNavigation({ studentName, onLogout }: { studentName: stri
     const previousOverflow = document.body.style.overflow;
     if (openMenu === "more") document.body.style.overflow = "hidden";
     return () => {
+      window.cancelAnimationFrame(focusFrame);
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("pointerdown", handlePointerDown);
       document.body.style.overflow = previousOverflow;
@@ -150,8 +155,8 @@ export function StudentNavigation({ studentName, onLogout }: { studentName: stri
       <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/90 px-4 py-3 backdrop-blur lg:px-6">
         <div className="flex items-center justify-between gap-3">
           <Link href="/student" className="min-w-0 font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80">
-            <span className="sm:hidden">Chess Academy</span>
-            <span className="hidden sm:inline">The Chess Academy Quest Board</span>
+            <span className="sm:hidden">⌂ Home</span>
+            <span className="hidden sm:inline">⌂ Academy Home</span>
           </Link>
           <div className="relative">
             <button
@@ -171,7 +176,6 @@ export function StudentNavigation({ studentName, onLogout }: { studentName: stri
               <div
                 ref={accountMenuRef}
                 id="student-account-menu"
-                role="menu"
                 aria-label="Account"
                 className="absolute right-0 top-12 z-50 w-60 rounded-lg border border-white/10 bg-slate-950 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
               >
@@ -179,14 +183,13 @@ export function StudentNavigation({ studentName, onLogout }: { studentName: stri
                 <p className="truncate px-3 pb-3 text-sm font-black text-white">{studentName}</p>
                 <div className="border-t border-white/10 pt-2">
                   <Link
-                    role="menuitem"
                     href="/student"
                     onClick={() => closeMenu({ restoreFocus: false })}
                     className="block w-full rounded-md px-3 py-2.5 text-left text-sm font-bold text-slate-200 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80"
                   >
                     Dashboard
                   </Link>
-                  <button role="menuitem" type="button" onClick={onLogout} className="w-full rounded-md px-3 py-2.5 text-left text-sm font-bold text-rose-200 hover:bg-rose-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/80">
+                  <button type="button" onClick={onLogout} className="w-full rounded-md px-3 py-2.5 text-left text-sm font-bold text-rose-200 hover:bg-rose-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/80">
                     Logout
                   </button>
                 </div>
@@ -202,7 +205,7 @@ export function StudentNavigation({ studentName, onLogout }: { studentName: stri
             <MobileLink
               key={link.href}
               link={link}
-              active={isHubActive(pathname, navigationHubs.find((hub) => hub.href === link.href) ?? { ...link, branches: [] })}
+              active={isRouteWithin(pathname, link.href) || (navigationHubs.find((hub) => hub.href === link.href)?.branches.some((branch) => isRouteWithin(pathname, branch.href)) ?? false)}
             />
           ))}
           <button

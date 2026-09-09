@@ -15,6 +15,18 @@ export type StudentNavHub = NavLink & {
   branches: NavLink[];
 };
 
+// Match whole path segments, and retain query-based destinations such as Stats.
+export function isNavigationActive(pathname: string, href: string, search = "") {
+  const [target, query] = href.split("?");
+  const exactRoots = ["/", "/app", "/admin", "/student"];
+  const matchesPath = pathname === target || (!exactRoots.includes(target) && pathname.startsWith(`${target}/`));
+  if (!matchesPath) return false;
+  const current = new URLSearchParams(search);
+  if (query) return Array.from(new URLSearchParams(query)).every(([key, value]) => current.get(key) === value);
+  if (target === "/student" && current.has("progress")) return false;
+  return true;
+}
+
 const exploreLinks: NavLink[] = [
   { href: "/app", label: "Students", icon: "\u265F\uFE0F" },
   { href: "/app/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" },

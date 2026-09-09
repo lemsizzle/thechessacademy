@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { getNavigationGroups, getTopNavActions, type NavVariant } from "@/components/navigation";
 import { StudentNavigation } from "@/components/student/StudentNavigation";
 
@@ -23,6 +27,27 @@ export function TopNav({
   studentName?: string;
   onStudentLogout?: () => void;
 }) {
+  const pathname = usePathname();
+  const menuRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (menuRef.current) menuRef.current.open = false;
+  }, [pathname]);
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const close = () => { if (menuRef.current) menuRef.current.open = false; };
+    const resize = () => { if (desktop.matches) close(); };
+    const outside = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) close();
+    };
+    document.addEventListener("pointerdown", outside);
+    desktop.addEventListener("change", resize);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      desktop.removeEventListener("change", resize);
+    };
+  }, []);
+
   if (variant === "student" && studentName && onStudentLogout) {
     return <StudentNavigation studentName={studentName} onLogout={onStudentLogout} />;
   }
@@ -44,9 +69,16 @@ export function TopNav({
             />
           ))}
         </div>
-        <details className="relative md:hidden">
+        <details ref={menuRef} className="relative md:hidden" onKeyDown={(event) => {
+          if (event.key === "Escape" && menuRef.current?.open) {
+            menuRef.current.open = false;
+            menuRef.current.querySelector("summary")?.focus();
+          }
+        }}>
           <summary className="list-none rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-100">Menu</summary>
-          <div className="absolute right-0 top-11 z-30 w-72 rounded-lg border border-white/10 bg-slate-950 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)]">
+          <div className="absolute right-0 top-11 z-30 max-h-[calc(100dvh-6rem)] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-lg border border-white/10 bg-slate-950 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)]" onClick={(event) => {
+            if ((event.target as HTMLElement).closest("a") && menuRef.current) menuRef.current.open = false;
+          }}>
             <div className="space-y-4">
               {groups.map((group, index) => (
                 <div key={group.title ?? `mobile-${index}`}>

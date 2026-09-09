@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import {
   getNavigationGroups,
+  isNavigationActive,
   getStudentMoreLinks,
   getStudentNavigationHubs,
   type NavLink,
@@ -13,17 +14,6 @@ import {
 import { TournamentLiveIndicator } from "@/components/TournamentLiveIndicator";
 
 const SIDEBAR_STORAGE_KEY = "academy-sidebar-collapsed:v1";
-
-function routePath(href: string) {
-  return href.split("?")[0] ?? href;
-}
-
-function isRouteWithin(pathname: string, href: string) {
-  if (href.includes("?")) return false;
-  const target = routePath(href);
-  if (target === "/student" || target === "/admin" || target === "/") return pathname === target;
-  return pathname === target || pathname.startsWith(`${target}/`);
-}
 
 function SidebarLink({
   link,
@@ -50,8 +40,14 @@ function SidebarLink({
   );
 }
 
-export function Sidebar({ variant = "public" }: { variant?: NavVariant }) {
+export function Sidebar(props: { variant?: NavVariant }) {
+  return <Suspense fallback={null}><SidebarContent {...props} /></Suspense>;
+}
+
+function SidebarContent({ variant = "public" }: { variant?: NavVariant }) {
   const pathname = usePathname();
+  const search = useSearchParams().toString();
+  const isRouteWithin = (path: string, href: string) => isNavigationActive(path, href, search);
   const groups = getNavigationGroups(variant);
   const studentHubs = variant === "student" ? getStudentNavigationHubs() : [];
   const studentMoreLinks = variant === "student" ? getStudentMoreLinks() : [];
@@ -121,6 +117,7 @@ export function Sidebar({ variant = "public" }: { variant?: NavVariant }) {
       <nav id={`${variant}-sidebar-navigation`} aria-label={`${variant} navigation`} className={`${collapsed ? "mt-4 space-y-4" : "mt-6 space-y-5"}`}>
         {variant === "student" ? (
           <>
+            <SidebarLink link={{ href: "/student", label: "Home", icon: "⌂" }} collapsed={collapsed} active={isRouteWithin(pathname, "/student")} />
             {studentHubs.map((hub) => (
               <div key={hub.href} className={collapsed ? undefined : "space-y-1.5"}>
                 <SidebarLink link={hub} collapsed={collapsed} active={isRouteWithin(pathname, hub.href) || hub.branches.some((branch) => isRouteWithin(pathname, branch.href))} />
