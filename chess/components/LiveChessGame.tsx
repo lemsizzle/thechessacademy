@@ -495,7 +495,13 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   const statusText = game.status === "waiting"
     ? "Waiting for your opponent to join. This page will update automatically."
     : game.status === "active"
-      ? pending ? "Move sent. Your clock is paused while the server confirms." : game.activeColor === viewerColor ? "Your move." : premove ? "Premove queued. It will play after your opponent moves." : `Waiting for ${opponent?.name ?? "your opponent"}. You can queue a premove.`
+      ? pending
+        ? isCorrespondence ? "Move sent. Waiting for confirmation." : "Move sent. Your clock is paused while the server confirms."
+        : game.activeColor === viewerColor
+          ? "Your move."
+          : isCorrespondence
+            ? `Waiting for ${opponent?.name ?? "your opponent"} to move.`
+            : premove ? "Premove queued. It will play after your opponent moves." : `Waiting for ${opponent?.name ?? "your opponent"}. You can queue a premove.`
       : completionText(game);
 
   return (

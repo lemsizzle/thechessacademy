@@ -1,7 +1,8 @@
 "use client";
 
 import { type Square } from "chess.js";
-import { Chessboard, type ChessboardOptions } from "react-chessboard";
+import type { ChessboardOptions } from "react-chessboard";
+import { ResponsiveChessboard } from "@/chess/components/ResponsiveChessboard";
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
 import { BoardSettings } from "@/chess/components/BoardSettings";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
@@ -670,7 +671,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
         <div className="mx-auto w-full max-w-[640px] space-y-2">
           <BoardSettings />
         <div className="aspect-square overflow-hidden rounded-xl border border-violet-200/25 bg-slate-950/80 p-1 sm:p-2">
-          <Chessboard key={`star-wars-board-${puzzle.id}-${runVariant}`} options={boardOptions} />
+          <ResponsiveChessboard key={`star-wars-board-${puzzle.id}-${runVariant}`} options={boardOptions} />
         </div>
         </div>
 

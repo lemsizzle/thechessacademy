@@ -1,7 +1,8 @@
 "use client";
 
 import { Chess, type Square } from "chess.js";
-import { Chessboard, type ChessboardOptions } from "react-chessboard";
+import type { ChessboardOptions } from "react-chessboard";
+import { ResponsiveChessboard } from "@/chess/components/ResponsiveChessboard";
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
 import { BoardSettings } from "@/chess/components/BoardSettings";
 import dynamic from "next/dynamic";
@@ -1333,10 +1334,10 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
       </Card>
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
-        <div className="mx-auto w-full max-w-[640px] space-y-2">
+        <div className="mx-auto w-full min-w-0 max-w-[640px] space-y-2">
           <BoardSettings />
         <div ref={puzzleBoardRef} className="overflow-hidden rounded-lg border border-cyan-200/20 bg-slate-950/70">
-          {positionFen ? <Chessboard key={`academy-puzzle-board-${puzzle?.id ?? "loading"}-${annotationResetKey}`} options={boardOptions} /> : <div className="flex aspect-square items-center justify-center text-sm text-slate-400">Preparing board...</div>}
+          {positionFen ? <ResponsiveChessboard key={`academy-puzzle-board-${puzzle?.id ?? "loading"}-${annotationResetKey}`} options={boardOptions} /> : <div className="flex aspect-square items-center justify-center text-sm text-slate-400">Preparing board...</div>}
         </div>
         </div>
 

@@ -3,8 +3,51 @@
 From the repository root, run `node scripts/serve-gameplay-harness.mjs`, then open
 `http://127.0.0.1:9417`. This fixture renders the actual board and live-game
 components with isolated, in-memory games. It does not contact production APIs.
-Styles are minimal: this is an input/network regression fixture, not a visual
-layout or authentication test. Stop the server with Ctrl+C when finished.
+The fixture includes the application's Tailwind styles and board CSS modules.
+It does not test authentication or production persistence. Stop the server with
+Ctrl+C when finished.
+
+## Automated browser checks
+
+Install Playwright and its Chromium/WebKit browsers in your test environment.
+The scripts accept `PLAYWRIGHT_MODULE` for an existing Playwright installation
+and `PLAYWRIGHT_CHROMIUM_EXECUTABLE` for an existing Chromium browser.
+
+Keep the default server running on port 9417. In a second terminal, start the
+additional screen fixture (PowerShell):
+
+```powershell
+$env:GAMEPLAY_FIXTURE='tests/browser/areas-harness.jsx'
+$env:GAMEPLAY_PORT='9418'
+$env:GAMEPLAY_MOCK_ENGINE='1'
+node scripts/serve-gameplay-harness.mjs
+```
+
+Then run, from the repository root:
+
+```powershell
+node tests/browser/verify-live.cjs
+node tests/browser/verify-areas.cjs
+node tests/browser/verify-modes.cjs
+```
+
+These exercise the real UI components at 390, 820, and 1440 pixels in both
+Chromium and WebKit. Screenshots and failure details go to `work/gameplay-audit`.
+
+- `verify-live`: tap and keyboard moves, deselection, locked boards, dragging
+  during an opponent reply, optimistic moves, premoves, stale responses, rollback.
+- `verify-areas`: board/arrow proportions, overflow, analysis navigation,
+  underpromotion, adaptive review, Star Wars, Hide and Seek, Survival, adventure
+  lessons/boss, bot game/takeback/annotations, teacher and tournament spectators.
+- `verify-modes`: modal focus, Tab wrapping, Escape/cancel, correspondence turn
+  restrictions, Woodpecker, daily puzzles, and the actual Stockfish WASM worker.
+
+The screen fixture uses deterministic simulated API responses and bot replies.
+The separate `engineMove` check loads the real bundled Stockfish worker. These
+checks do not certify multiplayer delivery, database writes, rewards, every
+lesson, or physical iPad/iPhone behavior.
+
+Correspondence is also available manually at `http://127.0.0.1:9417/?live&correspondence`.
 
 ## Shared board
 

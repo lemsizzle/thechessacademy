@@ -209,7 +209,7 @@ function CoveredBoard() {
       role="img"
       aria-label="Covered chessboard. Press Start Search to reveal the pieces and begin the timer."
     >
-      <div className="grid h-full grid-rows-8 overflow-hidden rounded-lg" aria-hidden="true">
+      <div className="grid aspect-square w-full grid-rows-8 overflow-hidden rounded-lg" aria-hidden="true">
         {RANKS.map((rank, row) => (
           <div key={rank} className="grid grid-cols-8">
             {FILES.map((file, column) => (
@@ -340,7 +340,7 @@ function SearchBoard({
 
   return (
     <div className="aspect-square w-full overflow-hidden rounded-xl border border-emerald-200/25 bg-slate-950 p-1 shadow-[0_0_48px_rgba(52,211,153,.16)] sm:p-2">
-      <div className="relative grid h-full grid-rows-8 overflow-hidden rounded-lg" role="grid" aria-label="Hide and Seek chessboard">
+      <div className="relative grid aspect-square w-full grid-rows-8 overflow-hidden rounded-lg" role="grid" aria-label="Hide and Seek chessboard">
         {RANKS.map((rank, row) => (
           <div key={rank} className="grid grid-cols-8" role="row">
             {FILES.map((file, column) => {

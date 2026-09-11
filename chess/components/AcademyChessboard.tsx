@@ -1,7 +1,8 @@
 "use client";
 
 import { Chess, type Square } from "chess.js";
-import { Chessboard, type ChessboardOptions } from "react-chessboard";
+import type { ChessboardOptions } from "react-chessboard";
+import { ResponsiveChessboard } from "@/chess/components/ResponsiveChessboard";
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { annotationColorForModifiers, BOARD_ANNOTATION_COLORS, LICHESS_ANNOTATION_CLEAR_OPTIONS } from "@/chess/components/boardAnnotations";
@@ -388,8 +389,8 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
   };
 
   const instructionsId = `${boardId}-keyboard-instructions`;
-  return <div ref={boardRef} className="relative h-full w-full">
-    <div aria-hidden="true" className="h-full w-full"><Chessboard key={boardId} options={options} /></div>
+  return <div ref={boardRef} className="relative aspect-square w-full min-w-0">
+    <div aria-hidden="true" className="w-full min-w-0"><ResponsiveChessboard key={boardId} options={options} /></div>
     <p id={instructionsId} className="sr-only">Use the arrow keys to move between squares. Press Enter or Space to select a piece or destination. Press Escape to clear the selected square.</p>
     <div role="grid" aria-label={`Chessboard, ${orientation} perspective`} aria-describedby={instructionsId} aria-readonly={!interactive} className="pointer-events-none absolute inset-0 z-20 grid grid-rows-8">
       {Array.from({ length: 8 }, (_, rowIndex) => (

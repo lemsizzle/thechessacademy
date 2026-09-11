@@ -237,6 +237,7 @@ export function AnalysisWorkspace({ initialTree, title, subtitle, editable = tru
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       const target = event.target as HTMLElement | null;
       if (target?.matches("input, textarea, select, [contenteditable=true], [data-board-square]")) return;
       let next = activeId;

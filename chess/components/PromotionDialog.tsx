@@ -3,6 +3,7 @@
 import type { ChessColor, PromotionPiece } from "@/chess/types";
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
 import { PaperPiece } from "@/chess/appearance/PaperPieces";
+import { useGameDialogFocus } from "@/chess/hooks/useGameDialogFocus";
 
 const labels: Array<{ piece: PromotionPiece; label: string; white: string; black: string }> = [
   { piece: "q", label: "Queen", white: "♕", black: "♛" },
@@ -13,9 +14,10 @@ const labels: Array<{ piece: PromotionPiece; label: string; white: string; black
 
 export function PromotionDialog({ color, onChoose, onCancel }: { color: ChessColor; onChoose: (piece: PromotionPiece) => void; onCancel: () => void }) {
   const { appearance } = useBoardAppearance();
+  const dialogRef = useGameDialogFocus(onCancel);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
-      <section className="w-full max-w-sm rounded-xl border border-amber-300/35 bg-slate-950 p-5 shadow-gold" role="dialog" aria-modal="true" aria-labelledby="promotion-title">
+      <section ref={dialogRef} tabIndex={-1} className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-amber-300/35 bg-slate-950 p-5 shadow-gold" role="dialog" aria-modal="true" aria-labelledby="promotion-title">
         <h2 id="promotion-title" className="text-xl font-black text-white">Choose a promotion</h2>
         <p className="mt-1 text-sm text-slate-400">Which piece should your pawn become?</p>
         <div className="mt-5 grid grid-cols-2 gap-3">

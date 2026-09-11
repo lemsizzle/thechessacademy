@@ -19,7 +19,7 @@ function BoardFixture() {
     moves,
     fen: config.fen
   };
-  return <div style={{ width: "min(480px, 95vw)" }}>
+  return <div style={{ width: "100%", maxWidth: 480 }}>
     <div><button onClick={() => window.boardTest.reset()}>Reset</button><button onClick={() => window.boardTest.reply("e5")}>Opponent e5</button><button onClick={() => { replyDuringDrag.current = true; }}>Reply during next drag</button><button onClick={() => window.boardTest.lock()}>Lock board</button></div>
     <div onPointerMoveCapture={(event) => { if (event.buttons === 1 && replyDuringDrag.current) { replyDuringDrag.current = false; setTimeout(() => window.boardTest.reply("e5"), 60); } }}>
     <AcademyChessboard key={config.key} boardId="test-board" fen={config.fen} orientation={config.orientation} humanColor={config.humanColor} interactive={config.interactive} lastMove={null} allowPremoves
@@ -34,6 +34,7 @@ function BoardFixture() {
   </div>;
 }
 
+const gameMode = location.search.includes("correspondence") ? "correspondence" : "live";
 const serverChess = new Chess();
 const player = (id, name) => ({ id, name, slug: id, avatar: null, rating: 1200 });
 let version = 1;
@@ -42,8 +43,8 @@ let request;
 let overrideSnapshot;
 function snapshot() {
   return {
-    id: "fixture", challengeCode: "TEST", status: "active", version, realtimeTopic: "", gameMode: "live",
-    daysPerMove: null, turnDeadlineAt: null, viewer: { id: "white", color: "white" },
+    id: "fixture", challengeCode: "TEST", status: "active", version, realtimeTopic: "", gameMode,
+    daysPerMove: gameMode === "correspondence" ? 3 : null, turnDeadlineAt: gameMode === "correspondence" ? new Date(Date.now() + 259200000).toISOString() : null, viewer: { id: "white", color: "white" },
     players: { white: player("white", "Student"), black: player("black", "Opponent") }, avatarItems: [],
     timeControl: { id: "3+2", name: "3 + 2", initialMs: 180000, incrementMs: 2000 },
     initialFen: new Chess().fen(), fen: serverChess.fen(), moves: [...moves], activeColor: serverChess.turn() === "w" ? "white" : "black",
@@ -83,6 +84,6 @@ function LiveFixture() {
   const [, tick] = useState(0);
   const initial = useRef(snapshot());
   useEffect(() => { const timer = setInterval(() => tick((n) => n + 1), 100); return () => clearInterval(timer); }, []);
-  return <><div><button onClick={() => window.liveTest.acknowledge()}>Confirm pending move</button><button onClick={() => window.liveTest.acknowledge(true)}>Reject pending move</button><button onClick={() => window.liveTest.reply("e5")}>Opponent e5</button><button onClick={() => window.liveTest.stale(initial.current)}>Deliver stale snapshot</button></div><output id="requests">Requests: {JSON.stringify(window.liveTest.requests)}</output><LiveChessGame gameId="fixture" /></>;
+  return <><div><button onClick={() => window.liveTest.acknowledge()}>Confirm pending move</button><button onClick={() => window.liveTest.acknowledge(true)}>Reject pending move</button><button onClick={() => window.liveTest.reply("e5")}>Opponent e5</button><button onClick={() => window.liveTest.stale(initial.current)}>Deliver stale snapshot</button></div><output id="requests">Requests: {JSON.stringify(window.liveTest.requests)}</output><LiveChessGame gameId="fixture" mode={gameMode} /></>;
 }
 createRoot(document.getElementById("root")).render(location.search.includes("live") ? <LiveFixture /> : <BoardFixture />);
