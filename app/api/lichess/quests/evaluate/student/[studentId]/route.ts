@@ -1,3 +1,4 @@
+import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import { evaluateStudentQuestRequest } from "@/lib/quests/evaluateStudentQuestRequest";
 import { readStudentSession } from "@/lib/auth/session";
 import { mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
@@ -46,7 +47,7 @@ async function hasQuestXpEvent(studentId: string, title: string, periodStart: st
   return Boolean(data?.length);
 }
 
-async function persistQuestXpOnce(studentId: string, title: string, periodStart: string, amount: number, lichessUsername: string) {
+async function persistQuestXpOnce(studentId: string, title: string, periodStart: string, amount: number, lichessUsername?: string) {
   if (amount <= 0) return undefined;
   if (await hasQuestXpEvent(studentId, title, periodStart)) return undefined;
   const saved = await addSupabaseStudentXp(studentId, {
@@ -69,51 +70,58 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
     questAttempts?: StudentQuestAttempt[];
     timeZone?: string;
   };
-  if (!body.username) return NextResponse.json({ error: "Student username is required." }, { status: 400 });
+
   const cookieStore = await cookies();
   const session = readStudentSession(cookieStore);
   if (!session || session.studentId !== studentId) {
     return NextResponse.json({ error: "Student log in required." }, { status: 401 });
   }
-  let quests = body.quests ?? [];
+  const academyOnly = session.authProvider === "academy";
+  if (academyOnly) {
+    try { await requireActiveStudent(); } catch { return NextResponse.json({ error: "Student log in required." }, { status: 401 }); }
+  }
+  const username = academyOnly ? "" : body.username ?? "";
+  if (!academyOnly && !username) return NextResponse.json({ error: "Student username is required." }, { status: 400 });
+  let quests = academyOnly ? [] : body.quests ?? [];
   try {
     const storedQuests = await listAdminQuests();
     if (storedQuests.length) quests = storedQuests;
   } catch {
     // A local installation without Supabase can still evaluate its local rules.
   }
+  if (academyOnly) quests = quests.filter((quest) => quest.source === "internal_games" || quest.source === "internal_puzzles");
   if (!quests.length) return NextResponse.json({ error: "No quest rules are available." }, { status: 400 });
-  const existingState = await getLichessSyncState(studentId);
+  const existingState = academyOnly ? null : await getLichessSyncState(studentId);
   const cooldownSeconds = getCooldownSeconds(existingState);
   const lichessCoolingDown = cooldownSeconds > 0;
-  if (!lichessCoolingDown) await recordLichessSyncAttempt(studentId, body.username);
+  if (!academyOnly && !lichessCoolingDown) await recordLichessSyncAttempt(studentId, username);
   const persistedTracking = await getSupabaseQuestTracking(studentId);
   const completionEvents = mergeQuestCompletions(persistedTracking.completions, body.completionEvents);
   const questAttempts = mergeQuestAttempts(persistedTracking.attempts, body.questAttempts);
-  const storedAccount = await getStoredLichessAccount(studentId);
+  const storedAccount = academyOnly ? null : await getStoredLichessAccount(studentId);
   const result = await evaluateStudentQuestRequest({
     studentId,
-    username: body.username,
+    username: username,
     quests,
     arenaResults: body.arenaResults,
-    account: storedAccount ?? body.account,
+    account: academyOnly ? undefined : storedAccount ?? body.account,
     existingAwards: body.existingAwards,
     completionEvents,
     questAttempts,
     timeZone: body.timeZone
   }, cookieStore, {
-    allowPuzzleToken: session?.studentId === studentId,
-    skipLichessActivity: lichessCoolingDown
+    allowPuzzleToken: !academyOnly && session?.studentId === studentId,
+    skipLichessActivity: academyOnly || lichessCoolingDown
   });
   if (result.rateLimited) {
     await recordLichessSyncRateLimit(
       studentId,
-      body.username,
+      username,
       "Lichess rate limit reached while syncing quest activity.",
       result.retryAfterSeconds || 60
     );
-  } else if (!lichessCoolingDown) {
-    await recordLichessSyncSuccess(studentId, body.username, result.requestCount ?? 0);
+  } else if (!academyOnly && !lichessCoolingDown) {
+    await recordLichessSyncSuccess(studentId, username, result.requestCount ?? 0);
   }
   const progressToSave = mergeQuestProgress(persistedTracking.progress, result.progress, quests);
 

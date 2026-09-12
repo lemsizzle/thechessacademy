@@ -13,6 +13,7 @@ export async function POST(request: Request) {
   const cookieStore = await cookies();
   const session = readStudentSession(cookieStore);
   if (!session) return NextResponse.json({ error: "Student log in required." }, { status: 401 });
+  if (session.authProvider === "academy") return NextResponse.json({ error: "Your Academy profile is already set up." }, { status: 409 });
 
   const input = await request.json().catch(() => ({})) as { displayName?: string; classGroup?: string };
   const displayName = input.displayName?.trim();

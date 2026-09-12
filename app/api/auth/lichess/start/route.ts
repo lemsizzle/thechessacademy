@@ -1,5 +1,6 @@
 import { buildPkceChallenge, createPkceVerifier, getLichessClientId, getLichessOAuthScopeParam, getLichessRedirectUri, getMissingLichessOAuthConfig, hasLichessOAuthConfig, setLichessOAuthCookies } from "@/lib/auth/lichessOAuth";
 import { NextResponse } from "next/server";
+import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,14 @@ export async function GET(request: Request) {
   const student = cleanToken(url.searchParams.get("student"));
   const returnTo = safeReturnTo(url.searchParams.get("returnTo"));
   const retry = url.searchParams.get("retry") === "1" ? "1" : "";
+  let linkStudentId = "";
+  if (url.searchParams.get("link") === "1") {
+    try {
+      const session = await requireActiveStudent();
+      if (session.authProvider !== "academy") return NextResponse.redirect(new URL("/student", url.origin));
+      linkStudentId = session.studentId;
+    } catch { return NextResponse.redirect(new URL("/login", url.origin)); }
+  }
 
   if (process.env.NODE_ENV === "production" && !hasLichessOAuthConfig()) {
     const target = new URL("/login", url.origin);
@@ -40,6 +49,6 @@ export async function GET(request: Request) {
   authUrl.searchParams.set("code_challenge", challenge);
 
   const response = NextResponse.redirect(authUrl);
-  setLichessOAuthCookies(response, state, verifier, { redirectUri, student, returnTo, retry });
+  setLichessOAuthCookies(response, state, verifier, { redirectUri, student, returnTo, retry, linkStudentId });
   return response;
 }

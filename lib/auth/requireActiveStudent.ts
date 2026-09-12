@@ -27,6 +27,13 @@ export async function requireActiveStudent() {
 
   if (error) throw new Error(error.message);
   if (!data) throw new StudentAuthenticationError("Student profile no longer exists.");
+  if (session.authProvider === "academy") {
+    const credential = await supabase.from("student_login_credentials")
+      .select("student_id").eq("student_id", session.studentId).eq("username", session.academyUsername).maybeSingle();
+    if (credential.error) throw new Error("Could not verify Academy access.");
+    if (!credential.data) throw new StudentAuthenticationError("Student login no longer exists.");
+    return session;
+  }
   const row = data as { lichess_id: string | null; lichess_username: string | null };
   const sameLichessId = Boolean(row.lichess_id && row.lichess_id === session.lichessUserId);
   const sameUsername = Boolean(row.lichess_username && row.lichess_username.toLowerCase() === session.lichessUsername.toLowerCase());

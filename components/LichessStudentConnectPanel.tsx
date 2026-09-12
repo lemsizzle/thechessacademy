@@ -84,7 +84,7 @@ export function LichessStudentConnectPanel({ student, profileBasePath = "/app/st
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <div className="rounded-lg border border-white/10 bg-white/5 p-3">
           <p className="text-xs font-bold uppercase text-slate-400">Username</p>
-          <p className="mt-1 font-black text-white">{student.lichessUsername ?? student.slug}</p>
+          <p className="mt-1 font-black text-white">{student.lichessUsername || "Not linked"}</p>
         </div>
         <div className="rounded-lg border border-white/10 bg-white/5 p-3">
           <p className="text-xs font-bold uppercase text-slate-400">Last Sync</p>

@@ -456,8 +456,8 @@ export function AdminPanel({
   async function saveStudent() {
     const studentToSave = students.find((student) => student.id === selectedStudent) ?? currentStudent;
     if (!studentToSave) return;
-    const lichessUsername = cleanLichessUsername(studentToSave.lichessUsername || studentToSave.slug || studentToSave.name);
-    const slug = slugify(lichessUsername);
+    const lichessUsername = cleanLichessUsername(studentToSave.lichessUsername || "");
+    const slug = studentToSave.slug || slugify(studentToSave.name);
     const draft = { ...studentToSave, classGroup: studentToSave.classGroup || UNASSIGNED_CLASS, lichessUsername, slug };
     try {
       const response = await fetch(`/api/admin/students/${encodeURIComponent(studentToSave.id)}`, {
@@ -727,7 +727,7 @@ export function AdminPanel({
 
   async function syncAllLichessProgress() {
     const selectedStudentBeforeSync = selectedStudent;
-    const studentsToSync = students.filter((student) => (student.lichessUsername || student.slug)?.trim());
+    const studentsToSync = students.filter((student) => student.lichessUsername?.trim());
     if (!studentsToSync.length) {
       window.alert("No students have Lichess usernames yet.");
       return;
@@ -741,7 +741,7 @@ export function AdminPanel({
       let ratingSyncCount = 0;
 
       for (const student of studentsToSync) {
-        const username = cleanLichessUsername(student.lichessUsername || student.slug);
+        const username = cleanLichessUsername(student.lichessUsername || "");
         if (!username) continue;
         try {
           const response = await fetch("/api/lichess/sync", {
@@ -831,7 +831,7 @@ export function AdminPanel({
         body: JSON.stringify({
           students: studentsToSync.map((student) => ({
             studentId: student.id,
-            username: cleanLichessUsername(student.lichessUsername || student.slug),
+            username: cleanLichessUsername(student.lichessUsername || ""),
             account: nextAccounts.find((account) => account.studentId === student.id),
             arenaResults: arenaTournamentResults.filter((result) => result.studentId === student.id)
           })),
@@ -1408,10 +1408,10 @@ export function AdminPanel({
         <label className="grid gap-1 text-xs font-bold text-slate-300">Lichess Username
           <input
             className={fieldClass()}
-            value={currentStudent.lichessUsername ?? currentStudent.slug}
+            value={currentStudent.lichessUsername ?? ""}
             onChange={(event) => {
               const lichessUsername = cleanLichessUsername(event.target.value);
-              updateStudent({ lichessUsername, slug: slugify(lichessUsername) });
+              updateStudent({ lichessUsername });
             }}
           />
           <span className="text-[11px] font-normal text-slate-500">Profile link: /app/students/{currentStudent.slug}</span>

@@ -12,7 +12,7 @@ export async function GET() {
   const byId = session?.studentId
     ? await findSupabaseStudentById(session.studentId, { includeRelations: false })
     : { configured: false, student: null };
-  const byLichess = session
+  const byLichess = session && session.authProvider !== "academy"
     ? await findSupabaseStudentByLichess(session.lichessUserId, session.lichessUsername, { includeRelations: false })
     : { configured: false, student: null };
 

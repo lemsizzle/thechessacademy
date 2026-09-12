@@ -19,7 +19,7 @@ export function StudentCard({ student, lichessAccount, profileBasePath = "/app/s
       <div className="absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-70" />
       <div className="absolute -right-10 -top-10 h-28 w-28 rotate-45 border border-white/10 bg-white/5 transition group-hover:scale-110" />
       <div className="relative">
-        <StudentCallingCard name={student.name} classGroup={student.classGroup} lichessUsername={student.lichessUsername ?? student.slug} xp={xp.totalXp} />
+        <StudentCallingCard name={student.name} classGroup={student.classGroup} lichessUsername={student.lichessUsername} xp={xp.totalXp} />
         <div className="mt-4 rounded-md border border-white/10 bg-black/25 p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <p className="text-xs font-black uppercase text-slate-400">Power XP</p>

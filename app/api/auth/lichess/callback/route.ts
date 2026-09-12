@@ -7,6 +7,9 @@ import { encryptLichessToken } from "@/lib/lichess/tokenCrypto";
 import { findStudentByLichess } from "@/lib/students/findStudentByLichess";
 import { findSupabaseStudentByLichess } from "@/lib/students/supabaseStudentProfiles";
 import { cookies } from "next/headers";
+import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
+import { linkAcademyLichess } from "@/lib/auth/linkAcademyLichess";
+import { findSupabaseStudentById } from "@/lib/students/supabaseStudentProfiles";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -19,12 +22,14 @@ export async function GET(request: Request) {
   const expectedState = cookieStore.get(LICHESS_OAUTH_STATE_COOKIE)?.value;
   const verifier = cookieStore.get(LICHESS_PKCE_COOKIE)?.value;
   const contextRaw = cookieStore.get(LICHESS_OAUTH_CONTEXT_COOKIE)?.value;
-  const context = contextRaw ? JSON.parse(contextRaw) as { redirectUri?: string; returnTo?: string; student?: string; retry?: string } : {};
+  let context: { redirectUri?: string; returnTo?: string; student?: string; retry?: string; linkStudentId?: string } = {};
+  try { context = contextRaw ? JSON.parse(contextRaw) ?? {} : {}; } catch { /* Invalid context fails OAuth below. */ }
   const safeReturnTo = context.returnTo?.startsWith("/") && !context.returnTo.startsWith("//") ? context.returnTo : "";
   const studentFromContext = context.student?.replace(/[^a-zA-Z0-9_-]/g, "") ?? "";
   const alreadyRetried = context.retry === "1";
 
   function getErrorRedirect() {
+    if (context.linkStudentId) return new URL("/student?lichess=error", url.origin);
     if (!alreadyRetried) {
       const retryTarget = new URL("/api/auth/lichess/start", url.origin);
       retryTarget.searchParams.set("retry", "1");
@@ -67,7 +72,15 @@ export async function GET(request: Request) {
     if (!token.access_token) throw new Error("Missing access token");
 
     const profile = await fetchAuthenticatedLichessAccount(token.access_token);
-    const supabaseLookup = await findSupabaseStudentByLichess(profile.id, profile.username, { includeRelations: false });
+    let academyStudentId: string | undefined;
+    if (context.linkStudentId) {
+      const academySession = await requireActiveStudent();
+      if (academySession.authProvider !== "academy" || academySession.studentId !== context.linkStudentId) throw new Error("Link session changed.");
+      academyStudentId = await linkAcademyLichess(academySession, profile);
+    }
+    const supabaseLookup = academyStudentId
+      ? await findSupabaseStudentById(academyStudentId, { includeRelations: false })
+      : await findSupabaseStudentByLichess(profile.id, profile.username, { includeRelations: false });
     const knownStudent = process.env.NODE_ENV !== "production" && !supabaseLookup.configured
       ? findKnownLichessStudent(cookieStore, profile.id, profile.username)
       : null;

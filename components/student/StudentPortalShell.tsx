@@ -29,11 +29,16 @@ export function StudentPortalShell({
   const [user, setUser] = useState<StudentUser | null>(initialUser);
   const [checked, setChecked] = useState(Boolean(initialUser));
   const pathname = usePathname();
+  const [linkFailed, setLinkFailed] = useState(false);
+  useEffect(() => {
+    setLinkFailed(new URLSearchParams(window.location.search).get("lichess") === "error");
+  }, [pathname]);
   const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const allowLocalMockSession = process.env.NODE_ENV !== "production" && !supabaseBackedApp;
   const autoSyncCooldownMs = 10 * 60 * 1000;
 
   async function syncLichessForLogin(studentUser: StudentUser) {
+    if (studentUser.authProvider === "academy" || !studentUser.lichessUsername) return;
     if (studentUser.onboardingCompleted === false) return;
     const syncKey = `quest-board-auto-lichess-sync:${studentUser.studentId}`;
     const lastSyncedAt = Number(window.sessionStorage.getItem(syncKey) ?? 0);
@@ -153,6 +158,11 @@ export function StudentPortalShell({
                   <h1 className="mt-1 text-2xl font-black text-white sm:text-3xl">{title}</h1>
                   {subtitle && <p className="mt-2 max-w-3xl text-sm text-slate-400 sm:text-base">{subtitle}</p>}
                 </div>
+              </div>}
+              {user.authProvider === "academy" && pathname === "/student" && <div className="mb-5 rounded-xl border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-300">
+                <p>Signed in as <strong>{user.academyUsername}</strong>. Lichess is optional for Academy activities.</p>
+                <a className="mt-2 inline-block font-bold text-cyan-200 underline" href="/api/auth/lichess/start?link=1&returnTo=%2Fstudent">Connect Lichess for Lichess progress</a>
+                {linkFailed && <p role="alert" className="mt-2 text-amber-200">Lichess was not connected. Use the account assigned by your teacher, or ask your teacher for help.</p>}
               </div>}
               {children}
             </main>

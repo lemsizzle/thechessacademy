@@ -134,6 +134,7 @@ export async function POST(request: Request) {
   const cookieStore = await cookies();
   const session = readStudentSession(cookieStore);
   if (!session) return NextResponse.json({ error: "Student log in required." }, { status: 401 });
+  if (session.authProvider === "academy") return NextResponse.json({ error: "Connect Lichess to sync Lichess activity." }, { status: 409 });
 
   const encryptedToken = cookieStore.get(LICHESS_TOKEN_COOKIE)?.value;
   const token = encryptedToken ? decryptLichessToken(encryptedToken) : null;

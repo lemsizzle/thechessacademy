@@ -46,7 +46,9 @@ function verifiedSession(value: string) {
   return decode<StudentSession>(payload);
 }
 
-export function createStudentSession(input: Omit<StudentSession, "id" | "role" | "createdAt" | "expiresAt">): StudentSession {
+type SessionInput<T> = T extends StudentSession ? Omit<T, "id" | "role" | "createdAt" | "expiresAt"> : never;
+
+export function createStudentSession(input: SessionInput<StudentSession>): StudentSession {
   const now = new Date();
   const expires = new Date(now.getTime() + SESSION_MAX_AGE * 1000);
   return {
@@ -77,16 +79,25 @@ export function readStudentSession(cookieStore: { get: (name: string) => { value
   if (!raw) return null;
   const session = verifiedSession(raw);
   if (!session || session.role !== "student") return null;
-  if (new Date(session.expiresAt).getTime() <= Date.now()) return null;
+  const expiresAt = new Date(session.expiresAt).getTime();
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+  if (typeof session.studentId !== "string" || typeof session.name !== "string") return null;
+  if (session.authProvider === "academy") {
+    if (typeof session.academyUsername !== "string" || !/^[a-z0-9_-]{3,24}$/.test(session.academyUsername)) return null;
+  } else if ((session.authProvider !== undefined && session.authProvider !== "lichess")
+    || typeof session.lichessUserId !== "string" || !session.lichessUserId
+    || typeof session.lichessUsername !== "string" || !session.lichessUsername) return null;
   return session;
 }
 
 export function sessionToStudentUser(session: StudentSession): StudentUser {
   return {
-    id: `lichess-session-${session.lichessUserId}`,
+    id: session.authProvider === "academy" ? `academy-session-${session.studentId}` : `lichess-session-${session.lichessUserId}`,
+    authProvider: session.authProvider ?? "lichess",
+    academyUsername: session.academyUsername,
     studentId: session.studentId,
     name: session.name,
-    email: `${session.lichessUsername}@lichess.local`,
+    email: session.authProvider === "academy" ? "" : `${session.lichessUsername}@lichess.local`,
     role: "student",
     lichessUsername: session.lichessUsername,
     onboardingCompleted: session.onboardingCompleted

@@ -114,10 +114,11 @@ async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult
   const user = await getFreshStudentUser();
   if (!user) throw new Error("Student log in is required.");
 
+  const academyOnly = user.authProvider === "academy";
   let store = readAdminStore();
   let account: StudentLichessAccount | undefined;
 
-  try {
+  if (!academyOnly) try {
     const previousAccount = (store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === user.studentId);
     const syncResponse = await fetch("/api/lichess/sync/me", {
       method: "POST",
@@ -134,9 +135,9 @@ async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult
     // Quest checks can still use the saved username or session username.
   }
 
-  account = account ?? (store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === user.studentId);
-  const username = account?.lichessUsername ?? user.lichessUsername;
-  if (!username) throw new Error("No linked Lichess username was found. Log out and log back in with Lichess, then sync again.");
+  account = academyOnly ? undefined : account ?? (store.studentLichessAccounts ?? seedAccounts).find((item) => item.studentId === user.studentId);
+  const username = account?.lichessUsername ?? user.lichessUsername ?? "";
+  if (!username && !academyOnly) throw new Error("No linked Lichess username was found. Log out and log back in with Lichess, then sync again.");
 
   let badgeAwardCount = 0;
   const syncDate = new Date().toISOString().slice(0, 10);
@@ -154,7 +155,7 @@ async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult
     message: "Quest activity refresh is running from one shared flow.",
     createdAt: syncDate
   };
-  updateAdminStore({
+  if (!academyOnly) updateAdminStore({
     lichessConnections: [
       nextConnection,
       ...(store.lichessConnections ?? seedConnections).filter((item) => item.studentId !== user.studentId)

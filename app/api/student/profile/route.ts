@@ -4,6 +4,7 @@ import { isSupabaseProjectConfigured } from "@/lib/supabase/server";
 import { getStoredLichessAccount } from "@/lib/lichess/supabaseAccounts";
 import { listStudentCoinTransactions } from "@/lib/avatar/supabaseAvatar";
 import { cookies } from "next/headers";
+import { requireActiveStudent, StudentAuthenticationError } from "@/lib/auth/requireActiveStudent";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,20 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const session = readStudentSession(await cookies());
   if (!session) return NextResponse.json({ error: "Student log in required." }, { status: 401 });
+  if (session.authProvider === "academy") {
+    try {
+      await requireActiveStudent();
+      const [profile, lichessAccount, coinTransactions] = await Promise.all([
+        findSupabaseStudentById(session.studentId), getStoredLichessAccount(session.studentId),
+        listStudentCoinTransactions(session.studentId)
+      ]);
+      if (!profile.student) return NextResponse.json({ error: "Student profile unavailable." }, { status: 503 });
+      return NextResponse.json({ user: sessionToStudentUser(session), student: profile.student, lichessAccount,
+        coinTransactions, needsOnboarding: false });
+    } catch (error) {
+      return NextResponse.json({ error: "Student access unavailable." }, { status: error instanceof StudentAuthenticationError ? 401 : 503 });
+    }
+  }
 
   const byId = session.onboardingCompleted ? await findSupabaseStudentById(session.studentId) : { configured: false, student: null };
   const linked = byId.student ? byId : await findSupabaseStudentByLichess(session.lichessUserId, session.lichessUsername);

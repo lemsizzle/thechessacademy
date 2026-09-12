@@ -39,7 +39,7 @@ function mapStudent(row: StudentRow, badgeIds: string[], completedQuestIds: stri
   return {
     id: row.id,
     slug: row.public_slug,
-    lichessUsername: row.lichess_username ?? row.public_slug,
+    lichessUsername: row.lichess_username ?? undefined,
     name: row.display_name,
     avatar: row.avatar_url ?? avatarFromName(row.display_name),
     classGroup: row.class_group ?? "Unassigned",

@@ -1,11 +1,12 @@
 import { AdminPanel } from "@/components/admin/AdminPanel";
+import { ManualStudentCreator } from "@/components/admin/ManualStudentCreator";
 import { AppShell } from "@/components/AppShell";
 import { createAdminActionToken } from "@/lib/auth/adminSession";
 import { listAvatarItems } from "@/lib/avatar/supabaseAvatar";
 import { listAdminBadges } from "@/lib/badges/supabaseBadges";
 import { listSupabaseStudents } from "@/lib/students/supabaseStudentProfiles";
 import { listStoredLichessAccounts } from "@/lib/lichess/supabaseAccounts";
-import { deleteAdminStudent } from "./actions";
+import { createAdminStudent, deleteAdminStudent } from "./actions";
 
 export default async function AdminStudentsPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
   const { student } = await searchParams;
@@ -21,6 +22,7 @@ export default async function AdminStudentsPage({ searchParams }: { searchParams
 
   return (
     <AppShell title="Manage Students" variant="admin">
+      <ManualStudentCreator actionToken={adminActionToken} createStudentAction={createAdminStudent} />
       <AdminPanel
         mode="students"
         requestedStudent={student}

@@ -45,7 +45,7 @@ function toStudent(row: SupabaseStudentRow, badgeIds: string[] = [], completedQu
   return {
     id: row.id,
     slug: row.public_slug,
-    lichessUsername: row.lichess_username ?? row.public_slug,
+    lichessUsername: row.lichess_username ?? undefined,
     name: row.display_name,
     avatar: row.avatar_url ?? row.display_name.slice(0, 1).toUpperCase(),
     classGroup: row.class_group ?? UNASSIGNED_CLASS,
@@ -55,7 +55,7 @@ function toStudent(row: SupabaseStudentRow, badgeIds: string[] = [], completedQu
     totalXp: row.total_xp ?? 0,
     badgeIds,
     completedQuestIds,
-    encouragement: "Welcome to the academy. Your Lichess account is linked and your quest board is ready."
+    encouragement: "Welcome to the academy. Your quest board is ready."
   };
 }
 
@@ -212,6 +212,7 @@ export async function createSupabaseStudentForLichess(
   session: StudentSession,
   input: { displayName: string; classGroup: string }
 ) {
+  if (session.authProvider === "academy") throw new Error("A Lichess session is required for onboarding.");
   if (!isSupabaseServiceConfigured()) {
     throw new Error("Supabase service role is not configured.");
   }
@@ -541,7 +542,7 @@ export async function updateSupabaseStudentProfile(
       display_name: displayName,
       public_slug: publicSlug,
       class_group: classGroup,
-      lichess_username: input.lichessUsername?.trim() || publicSlug
+      lichess_username: input.lichessUsername?.trim() || null
     })
     .eq("id", ids[0])
     .select(studentSelect)

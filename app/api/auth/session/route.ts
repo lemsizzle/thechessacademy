@@ -2,6 +2,7 @@ import { createStudentSession, readStudentSession, sessionToStudentUser, setStud
 import { findSupabaseStudentById, findSupabaseStudentByLichess } from "@/lib/students/supabaseStudentProfiles";
 import { isSupabaseProjectConfigured } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
+import { requireActiveStudent, StudentAuthenticationError } from "@/lib/auth/requireActiveStudent";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,15 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const session = readStudentSession(await cookies());
   if (!session) return NextResponse.json({ user: null }, { status: 401 });
+  if (session.authProvider === "academy") {
+    try {
+      await requireActiveStudent();
+      return NextResponse.json({ user: sessionToStudentUser(session), studentExists: true,
+        session: { studentId: session.studentId, onboardingCompleted: true } });
+    } catch (error) {
+      return NextResponse.json({ user: null }, { status: error instanceof StudentAuthenticationError ? 401 : 503 });
+    }
+  }
 
   const byId = session.onboardingCompleted
     ? await findSupabaseStudentById(session.studentId, { includeRelations: false })
