@@ -4,6 +4,7 @@ import { StudentPortalShell } from "@/components/student/StudentPortalShell";
 import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 import { getStudentBotProgression } from "@/chess/persistence/botProgressionServer";
+import { sessionToStudentUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export default async function StudentPlayPage() {
   const equippedAvatarItems = avatarDisplay.items.filter((item) => equippedItemIds.has(item.id));
 
   return (
-    <StudentPortalShell title="Play Chess" subtitle="Choose a mode and start playing.">
+    <StudentPortalShell initialUser={sessionToStudentUser(student)} title="Play Chess" subtitle="Choose a mode and start playing.">
       <div className="space-y-5">
         <PlayModeGrid />
         <section id="computer-game" className="scroll-mt-5" aria-labelledby="computer-game-title">

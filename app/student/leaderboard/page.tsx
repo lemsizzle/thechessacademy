@@ -9,23 +9,32 @@ import { getStarWarsLeaderboardScores } from "@/lib/leaderboard/starWarsServer";
 import { getSurvivalLeaderboardScores } from "@/lib/leaderboard/survivalServer";
 import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import { sessionToStudentUser } from "@/lib/auth/session";
+import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentLeaderboardPage() {
   const session = await requireActiveStudent();
-  const [students, xpEvents, badges, survivalScores, hideAndSeekScores, starWarsScores] = await Promise.all([
-    getStudentsResult(),
+  return <StudentPortalShell title="Leaderboard" subtitle="Class rankings without leaving your student portal." initialUser={sessionToStudentUser(session)}>
+    <Suspense fallback={<p role="status" className="p-5 text-slate-300">Loading rankings…</p>}>
+      <Rankings studentId={session.studentId} />
+    </Suspense>
+  </StudentPortalShell>;
+}
+
+async function Rankings({ studentId }: { studentId: string }) {
+  const studentsPromise = getStudentsResult();
+  const [students, xpEvents, badges, survivalScores, hideAndSeekScores, starWarsScores, avatarDisplay] = await Promise.all([
+    studentsPromise,
     getXpEventsResult(),
     getBadgesResult(),
     getSurvivalLeaderboardScores(),
     getHideAndSeekLeaderboardScores(),
-    getStarWarsLeaderboardScores()
+    getStarWarsLeaderboardScores(),
+    studentsPromise.then((students) => getStudentAvatarDisplayData(students.data.map((student) => student.id)))
   ]);
-  const avatarDisplay = await getStudentAvatarDisplayData(students.data.map((student) => student.id));
 
   return (
-    <StudentPortalShell title="Leaderboard" subtitle="Class rankings without leaving your student portal." initialUser={sessionToStudentUser(session)}>
       <LeaderboardBoard
         initialStudents={students.data}
         initialXpEvents={xpEvents.data}
@@ -37,8 +46,7 @@ export default async function StudentLeaderboardPage() {
         starWarsScores={starWarsScores}
         profileBasePath="/student/students"
         enableCorrespondenceChallenges
-        viewerStudentId={session.studentId}
+        viewerStudentId={studentId}
       />
-    </StudentPortalShell>
   );
 }

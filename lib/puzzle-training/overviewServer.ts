@@ -124,7 +124,7 @@ function mapWoodpeckerSet(row: WoodpeckerSetRow): WoodpeckerSetOverview {
 
 export async function getStudentPuzzleTrainingOverview(
   studentId: string,
-  preloadedSurvivalScores?: SurvivalLeaderboardScore[]
+  preloadedSurvivalScores?: SurvivalLeaderboardScore[] | Promise<SurvivalLeaderboardScore[]>
 ): Promise<PuzzleTrainingOverview> {
   const client = getSupabaseServiceClient();
   if (!client) return emptyPuzzleTrainingOverview;

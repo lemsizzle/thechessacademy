@@ -74,6 +74,9 @@ function getAppOrigin(fallbackOrigin: string) {
 }
 
 export function getLichessRedirectUri(origin: string) {
+  // Production sign-in must return to the host that issued the PKCE cookies,
+  // even when older deployment environment values still name the Vercel alias.
+  if (origin === "https://chessquest.app") return `${origin}/api/auth/lichess/callback`;
   const configured = process.env.LICHESS_REDIRECT_URI?.trim();
   if (configured && (process.env.NODE_ENV !== "production" || !isLocalhostUrl(configured))) {
     return configured;

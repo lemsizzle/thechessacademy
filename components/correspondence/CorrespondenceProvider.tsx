@@ -366,7 +366,7 @@ export function CorrespondenceProvider({ studentId, children }: { studentId: str
             });
             notification.onclick = () => {
               window.focus();
-              window.location.assign(primaryAlert.href);
+              router.push(primaryAlert.href);
               notification.close();
             };
           } catch {

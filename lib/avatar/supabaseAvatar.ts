@@ -298,8 +298,10 @@ export async function getStudentAvatarState(studentId: string): Promise<StudentA
   if (!isSupabaseServiceConfigured()) return fallbackState(studentId);
 
   try {
-    const items = await listAvatarItems({ includeInactive: false, useService: true });
-    const wallet = await ensureWallet(studentId);
+    const [items, wallet] = await Promise.all([
+      listAvatarItems({ includeInactive: false, useService: true }),
+      ensureWallet(studentId)
+    ]);
     const inventory = await ensureDefaultInventory(studentId, items);
     const avatar = await ensureAvatar(studentId, items, inventory);
     return {
