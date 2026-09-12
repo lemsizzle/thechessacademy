@@ -31,6 +31,14 @@ describe("Naruto Mythic bundle", () => {
       expect(html.includes('data-nine-tails="true"')).toBe(code === "wN");
     }
   });
+  it("keeps both pawns round and free of busy chakra effects", () => {
+    for (const code of ["wP", "bP"] as const) {
+      const html = renderToStaticMarkup(createElement(narutoPieces[code] as ComponentType));
+      expect(html).toContain('data-character="shinobi-pawn"');
+      expect(html).toContain('data-pawn-head="round"');
+      expect(html).not.toContain('data-chakra');
+    }
+  });
   it("prevents unowned use while allowing mix and match", () => {
     const appearance = { boardTheme: "naruto", pieceTheme: "paper" } as const;
     expect(parseBoardAppearance(JSON.stringify(appearance))).toEqual(appearance);

@@ -26,10 +26,19 @@ export function NarutoPiece({ kind, black = false, svgStyle }: { kind: Kind; bla
       </linearGradient>
     </defs>
     <ellipse cx="32" cy="58" rx="23" ry="3" fill="#000" opacity=".35" />
-    <path d="M12 49L7 37L12 39L8 26L15 32L13 15L21 25M51 49L58 35L52 39L56 24L49 30L50 14L43 25" fill={black ? "#ad264a" : "#ffb426"} opacity=".3" />
-    <path d="M9 48L7 42M55 46L59 38M12 22L10 17M53 19L55 12" stroke={gold} strokeWidth="1.3" />
+    {kind !== "P" && <g data-chakra="true">
+      <path d="M12 49L7 37L12 39L8 26L15 32L13 15L21 25M51 49L58 35L52 39L56 24L49 30L50 14L43 25" fill={black ? "#ad264a" : "#ffb426"} opacity=".3" />
+      <path d="M9 48L7 42M55 46L59 38M12 22L10 17M53 19L55 12" stroke={gold} strokeWidth="1.3" />
+    </g>}
     <g stroke={edge} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round">
-      {kind === "N" ? <g data-character={black ? "susanoo" : "kurama"}>
+      {kind === "P" ? <g data-character="shinobi-pawn">
+        <path d="M28 32H36Q35 41 42 48H22Q29 41 28 32Z" fill={`url(#${id})`} />
+        <path d="M25 34H39" stroke={gold} strokeWidth="2" />
+        <circle data-pawn-head="round" cx="32" cy="23" r="10" fill={`url(#${id})`} />
+        <path d="M22 21Q32 19 42 21V25Q32 23 22 25Z" fill="#242b3b" strokeWidth=".8" />
+        <rect x="28" y="21" width="8" height="3" rx=".7" fill="#c3d9e5" stroke="none" />
+        <path d="M28 27H29M35 27H36" stroke={black ? "#fff0d8" : "#443023"} strokeWidth="1.5" />
+      </g> : kind === "N" ? <g data-character={black ? "susanoo" : "kurama"}>
         {!black && <g fill="#ef942b" stroke="#743716" strokeWidth=".9" data-nine-tails="true">
           {Array.from({ length: 9 }, (_, index) => <path key={index} transform={`rotate(${index * 15 - 60} 36 43)`} d="M35 46Q47 38 40 17Q55 26 45 45L40 49Z" />)}
         </g>}
@@ -94,12 +103,11 @@ export function NarutoPiece({ kind, black = false, svgStyle }: { kind: Kind; bla
         {!black && <path d="M22 28L26 29M22 30L26 31M38 29L42 28M38 31L42 30" stroke="#9a5f45" strokeWidth=".6" />}
         <path d="M22 33L29 36L32 42L35 36L42 33L41 44H23Z" fill={black ? "#252337" : "#ffefce"} stroke="#242033" />
         <path d="M32 42V48" stroke={gold} strokeWidth="2" />
-        {kind === "P" && <path d="M42 19L53 23L45 25L50 29L42 25Z" fill="#232b3b" stroke="#141b28" />}
         {kind === "R" && <path d="M20 14V5H25V10H29V5H35V10H39V5H44V14Z" fill={`url(#${id})`} />}
       </>}
       <path d="M22 47H42L47 51L50 57H14L17 51Z" fill={`url(#${id})`} />
       <path d="M18 52H46M17 56H47" stroke={gold} strokeWidth="2" />
-      {(kind === "P" || kind === "R") && <g transform="translate(0 7) scale(1 .85)">
+      {kind === "R" && <g transform="translate(0 7) scale(1 .85)">
         {black ? <path d="M27 40C22 39 23 35 27 35C27 31 33 31 34 35C39 33 43 37 39 40C35 43 30 42 27 40Z" fill="#dc354b" stroke="#ffd3c9" strokeWidth=".7" /> :
           <path d="M34 35C28 32 25 38 29 40C34 43 38 37 34 35M28 40L25 42L25 38M35 35L38 32" fill="none" stroke="#76411b" strokeWidth="1.3" />}
       </g>}
