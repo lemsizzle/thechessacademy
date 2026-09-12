@@ -75,7 +75,7 @@ export async function GET(request: Request) {
     let academyStudentId: string | undefined;
     if (context.linkStudentId) {
       const academySession = await requireActiveStudent();
-      if (academySession.authProvider !== "academy" || academySession.studentId !== context.linkStudentId) throw new Error("Link session changed.");
+      if ((academySession.authProvider !== "academy" && academySession.authProvider !== "supabase") || academySession.studentId !== context.linkStudentId) throw new Error("Link session changed.");
       academyStudentId = await linkAcademyLichess(academySession, profile);
     }
     const supabaseLookup = academyStudentId

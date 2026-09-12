@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const session = readStudentSession(await cookies());
   if (!session) return NextResponse.json({ user: null }, { status: 401 });
-  if (session.authProvider === "academy") {
+  if ((session.authProvider === "academy" || session.authProvider === "supabase")) {
     try {
       await requireActiveStudent();
       return NextResponse.json({ user: sessionToStudentUser(session), studentExists: true,

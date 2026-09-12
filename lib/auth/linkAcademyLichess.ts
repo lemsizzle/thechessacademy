@@ -4,7 +4,7 @@ import type { StudentSession } from "@/lib/types";
 
 /** Called only after OAuth state/PKCE and the active signed Academy session are verified. */
 export async function linkAcademyLichess(session: StudentSession, profile: { id: string; username: string }) {
-  if (session.authProvider !== "academy") throw new Error("Academy login required.");
+  if ((session.authProvider !== "academy" && session.authProvider !== "supabase")) throw new Error("Academy login required.");
   const supabase = getSupabaseServiceClient();
   if (!supabase) throw new Error("Student storage unavailable.");
   const existing = await supabase.from("students").select("id,lichess_id,lichess_username")

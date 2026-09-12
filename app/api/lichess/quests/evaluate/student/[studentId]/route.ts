@@ -76,7 +76,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
   if (!session || session.studentId !== studentId) {
     return NextResponse.json({ error: "Student log in required." }, { status: 401 });
   }
-  const academyOnly = session.authProvider === "academy";
+  const academyOnly = (session.authProvider === "academy" || session.authProvider === "supabase");
   if (academyOnly) {
     try { await requireActiveStudent(); } catch { return NextResponse.json({ error: "Student log in required." }, { status: 401 }); }
   }

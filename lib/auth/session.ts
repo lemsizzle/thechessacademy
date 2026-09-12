@@ -84,6 +84,8 @@ export function readStudentSession(cookieStore: { get: (name: string) => { value
   if (typeof session.studentId !== "string" || typeof session.name !== "string") return null;
   if (session.authProvider === "academy") {
     if (typeof session.academyUsername !== "string" || !/^[a-z0-9_-]{3,24}$/.test(session.academyUsername)) return null;
+  } else if (session.authProvider === "supabase") {
+    if (typeof session.authUserId !== "string" || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(session.authUserId)) return null;
   } else if ((session.authProvider !== undefined && session.authProvider !== "lichess")
     || typeof session.lichessUserId !== "string" || !session.lichessUserId
     || typeof session.lichessUsername !== "string" || !session.lichessUsername) return null;
@@ -92,12 +94,12 @@ export function readStudentSession(cookieStore: { get: (name: string) => { value
 
 export function sessionToStudentUser(session: StudentSession): StudentUser {
   return {
-    id: session.authProvider === "academy" ? `academy-session-${session.studentId}` : `lichess-session-${session.lichessUserId}`,
+    id: session.authProvider === "academy" || session.authProvider === "supabase" ? `academy-session-${session.studentId}` : `lichess-session-${session.lichessUserId}`,
     authProvider: session.authProvider ?? "lichess",
     academyUsername: session.academyUsername,
     studentId: session.studentId,
     name: session.name,
-    email: session.authProvider === "academy" ? "" : `${session.lichessUsername}@lichess.local`,
+    email: session.authProvider === "academy" || session.authProvider === "supabase" ? "" : `${session.lichessUsername}@lichess.local`,
     role: "student",
     lichessUsername: session.lichessUsername,
     onboardingCompleted: session.onboardingCompleted

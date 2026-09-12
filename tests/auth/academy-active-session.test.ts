@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mock = vi.hoisted(() => ({ session: {} as any, results: [] as unknown[], filters: [] as unknown[] }));
 vi.mock("next/headers", () => ({ cookies: async () => ({}) }));
 vi.mock("@/lib/auth/session", () => ({ readStudentSession: () => mock.session }));
-vi.mock("@/lib/supabase/server", () => ({ getSupabaseServiceClient: () => ({ from: () => {
+vi.mock("@/lib/supabase/server", () => ({ getSupabaseServiceClient: () => ({ rpc: async (_name: string, args: unknown) => { mock.filters.push(args); return mock.results.shift(); }, from: () => {
   const q: any = { select: () => q, eq: (...args: unknown[]) => { mock.filters.push(args); return q; }, maybeSingle: async () => mock.results.shift() }; return q;
 } }) }));
 import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
@@ -15,6 +15,14 @@ describe("provider-aware active student validation", () => {
   });
   it("rejects missing/inactive profiles", async () => { mock.results.push({ data: null }); await expect(requireActiveStudent()).rejects.toThrow(); });
   it("rejects revoked Academy credentials", async () => { mock.results.push({ data: {} }, { data: null }); await expect(requireActiveStudent()).rejects.toThrow("no longer exists"); });
+  it("requires the registered Auth identity to own the active student", async () => {
+    mock.session = { ...mock.session, authProvider: "supabase", authUserId: "22222222-2222-4222-8222-222222222222" };
+    mock.results.push({ data: {} }, { data: true });
+    expect(await requireActiveStudent()).toBe(mock.session);
+    expect(mock.filters).toContainEqual({ p_student_id: mock.session.studentId, p_auth_user_id: mock.session.authUserId });
+    mock.results.push({ data: {} }, { data: false });
+    await expect(requireActiveStudent()).rejects.toThrow("no longer exists");
+  });
   it.each([undefined, "lichess"])("validates legacy and explicit Lichess sessions (%s)", async (provider) => {
     mock.session = { ...mock.session, authProvider: provider, lichessUserId: "real-id", lichessUsername: "RealName" };
     mock.results.push({ data: { lichess_id: "real-id", lichess_username: "RealName" } });

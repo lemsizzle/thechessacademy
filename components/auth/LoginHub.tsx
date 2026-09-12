@@ -7,7 +7,7 @@ import { useState } from "react";
 
 type LoginMode = "student" | "admin";
 
-export function LoginHub({ initialMode = "student" }: { initialMode?: LoginMode }) {
+export function LoginHub({ initialMode = "student", initialMethod = "academy" }: { initialMode?: LoginMode; initialMethod?: "academy" | "email" }) {
   const [mode, setMode] = useState<LoginMode>(initialMode);
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("Enter the teacher password.");
@@ -72,7 +72,7 @@ export function LoginHub({ initialMode = "student" }: { initialMode?: LoginMode 
         </div>
 
         {mode === "student" ? (
-          <StudentLoginForm />
+          <StudentLoginForm initialMethod={initialMethod} />
         ) : (
           <Card className="mx-auto w-full max-w-lg p-5">
             <h2 className="font-black text-white">Teacher Log In</h2>

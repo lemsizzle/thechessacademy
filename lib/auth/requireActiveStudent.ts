@@ -27,6 +27,12 @@ export async function requireActiveStudent() {
 
   if (error) throw new Error(error.message);
   if (!data) throw new StudentAuthenticationError("Student profile no longer exists.");
+  if (session.authProvider === "supabase") {
+    const access = await supabase.rpc("verify_registered_student", { p_student_id: session.studentId, p_auth_user_id: session.authUserId });
+    if (access.error) throw new Error("Could not verify registered access.");
+    if (access.data !== true) throw new StudentAuthenticationError("Student login no longer exists.");
+    return session;
+  }
   if (session.authProvider === "academy") {
     const credential = await supabase.from("student_login_credentials")
       .select("student_id").eq("student_id", session.studentId).eq("username", session.academyUsername).maybeSingle();

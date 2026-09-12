@@ -4,8 +4,10 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { LichessLoginButton } from "@/components/student/LichessLoginButton";
 import { useState } from "react";
+import { EmailAuthForm } from "@/components/auth/EmailAuthForm";
 
-export function StudentLoginForm() {
+export function StudentLoginForm({ initialMethod = "academy" }: { initialMethod?: "academy" | "email" }) {
+  const [method, setMethod] = useState(initialMethod);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -43,10 +45,14 @@ export function StudentLoginForm() {
     <Card className="mx-auto w-full max-w-lg p-5">
       <h2 className="font-black text-white">Student Log In</h2>
       <p className="mt-2 text-sm text-slate-300">
-        Use your Chess Academy login, or continue with Lichess.
+        Welcome back. Choose how you created your account.
       </p>
 
-      <form onSubmit={submitAcademyLogin} className="mt-5 space-y-3">
+      <div className="my-5 grid grid-cols-2 gap-2" aria-label="Login method">
+        <button type="button" aria-pressed={method === "academy"} onClick={() => { setMethod("academy"); setPassword(""); setMessage(""); }} className={`rounded-lg px-3 py-3 text-sm font-bold ${method === "academy" ? "bg-cyan-300 text-slate-950" : "bg-white/5 text-slate-200"}`}>Academy username</button>
+        <button type="button" aria-pressed={method === "email"} onClick={() => { setMethod("email"); setPassword(""); setMessage(""); }} className={`rounded-lg px-3 py-3 text-sm font-bold ${method === "email" ? "bg-cyan-300 text-slate-950" : "bg-white/5 text-slate-200"}`}>Email</button>
+      </div>
+      {method === "email" ? <EmailAuthForm /> : <form onSubmit={submitAcademyLogin} className="mt-5 space-y-3">
         <label htmlFor="student-username" className="block text-sm font-bold text-slate-200">Academy username</label>
         <input
           id="student-username"
@@ -75,7 +81,7 @@ export function StudentLoginForm() {
         <Button className="w-full" type="submit" disabled={loading}>
           {loading ? "Logging in..." : "Log In"}
         </Button>
-      </form>
+      </form>}
 
       {message ? <p role="status" className="mt-3 text-sm text-slate-300">{message}</p> : null}
 
@@ -85,10 +91,11 @@ export function StudentLoginForm() {
         <div className="h-px flex-1 bg-white/10" />
       </div>
 
-      <LichessLoginButton />
+      <div className="space-y-3"><Button href="/api/auth/google/start" variant="secondary" className="w-full">Continue with Google</Button><LichessLoginButton /></div>
       <p className="mt-3 text-xs text-slate-500">
         Lichess handles its own password. The Chess Academy never receives it.
       </p>
+      <p className="mt-5 text-center text-sm text-slate-300">New here? <a href="/register" className="font-bold text-cyan-200 underline">Create an account</a></p>
     </Card>
   );
 }

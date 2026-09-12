@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const session = readStudentSession(await cookies());
   if (!session) return NextResponse.json({ error: "Student log in required." }, { status: 401 });
-  if (session.authProvider === "academy") {
+  if ((session.authProvider === "academy" || session.authProvider === "supabase")) {
     try {
       await requireActiveStudent();
       const [profile, lichessAccount, coinTransactions] = await Promise.all([

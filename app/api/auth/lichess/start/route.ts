@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   if (url.searchParams.get("link") === "1") {
     try {
       const session = await requireActiveStudent();
-      if (session.authProvider !== "academy") return NextResponse.redirect(new URL("/student", url.origin));
+      if ((session.authProvider !== "academy" && session.authProvider !== "supabase")) return NextResponse.redirect(new URL("/student", url.origin));
       linkStudentId = session.studentId;
     } catch { return NextResponse.redirect(new URL("/login", url.origin)); }
   }

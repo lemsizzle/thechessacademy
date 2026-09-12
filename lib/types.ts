@@ -153,7 +153,7 @@ export type CoinTransaction = {
 export type UserRole = "admin" | "student";
 
 export type StudentUser = {
-  authProvider?: "lichess" | "academy";
+  authProvider?: "lichess" | "academy" | "supabase";
   academyUsername?: string;
   id: string;
   studentId: string;
@@ -172,8 +172,9 @@ export type StudentSession = {
   onboardingCompleted: boolean;
   createdAt: string;
   expiresAt: string;
-} & ({ authProvider?: "lichess"; lichessUserId: string; lichessUsername: string; academyUsername?: never }
-  | { authProvider: "academy"; academyUsername: string; lichessUserId?: never; lichessUsername?: never });
+} & ({ authProvider?: "lichess"; lichessUserId: string; lichessUsername: string; academyUsername?: never; authUserId?: never }
+  | { authProvider: "academy"; academyUsername: string; lichessUserId?: never; lichessUsername?: never; authUserId?: never }
+  | { authProvider: "supabase"; authUserId: string; academyUsername?: never; lichessUserId?: never; lichessUsername?: never });
 
 export type StudentAuthAccount = {
   id: string;

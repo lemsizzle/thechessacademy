@@ -212,7 +212,7 @@ export async function createSupabaseStudentForLichess(
   session: StudentSession,
   input: { displayName: string; classGroup: string }
 ) {
-  if (session.authProvider === "academy") throw new Error("A Lichess session is required for onboarding.");
+  if ((session.authProvider === "academy" || session.authProvider === "supabase")) throw new Error("A Lichess session is required for onboarding.");
   if (!isSupabaseServiceConfigured()) {
     throw new Error("Supabase service role is not configured.");
   }

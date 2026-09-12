@@ -114,7 +114,7 @@ async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult
   const user = await getFreshStudentUser();
   if (!user) throw new Error("Student log in is required.");
 
-  const academyOnly = user.authProvider === "academy";
+  const academyOnly = (user.authProvider === "academy" || user.authProvider === "supabase");
   let store = readAdminStore();
   let account: StudentLichessAccount | undefined;
 
