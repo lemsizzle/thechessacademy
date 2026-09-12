@@ -22,6 +22,15 @@ describe("Naruto Mythic bundle", () => {
       expect(html).not.toMatch(/<image|<animate|<filter/);
     }
   });
+  it("assigns the requested characters to recognizable chess roles", () => {
+    const assignments = { wN: "kurama", bN: "susanoo", wK: "hokage", bK: "hokage", wQ: "tsunade", bQ: "tsunade", wB: "shinobi-bishop", bB: "shinobi-bishop" };
+    for (const [code, character] of Object.entries(assignments)) {
+      const Piece = narutoPieces[code as keyof typeof narutoPieces];
+      const html = renderToStaticMarkup(createElement(Piece as ComponentType));
+      expect(html).toContain(`data-character="${character}"`);
+      expect(html.includes('data-nine-tails="true"')).toBe(code === "wN");
+    }
+  });
   it("prevents unowned use while allowing mix and match", () => {
     const appearance = { boardTheme: "naruto", pieceTheme: "paper" } as const;
     expect(parseBoardAppearance(JSON.stringify(appearance))).toEqual(appearance);
