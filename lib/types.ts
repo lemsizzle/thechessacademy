@@ -92,7 +92,7 @@ export type AvatarCategory =
   | "aura_effect"
   | "board_theme";
 
-export type AvatarRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary";
+export type AvatarRarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic";
 export type AvatarUnlockType = "purchase" | "achievement" | "admin_grant" | "default";
 export type AvatarAcquisitionType = "default" | "purchase" | "achievement" | "admin_grant";
 export type CoinTransactionType = "earn" | "spend" | "adjustment" | "refund";

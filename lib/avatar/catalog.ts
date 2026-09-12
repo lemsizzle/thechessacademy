@@ -2,6 +2,7 @@ import { getConfiguredAvatarPrice } from "@/lib/avatar/economy";
 import { paperChessSet } from "@/lib/avatar/paperChessSet";
 import { blossomChessSet } from "@/lib/avatar/blossomChessSet";
 import { eightBitChessSet } from "@/lib/avatar/eightBitChessSet";
+import { narutoChessSet } from "@/lib/avatar/narutoChessSet";
 import { AVATAR_CANVAS_HEIGHT, AVATAR_CANVAS_WIDTH, AVATAR_LOGICAL_HEIGHT, AVATAR_LOGICAL_WIDTH } from "@/lib/avatar/geometry";
 import type { AvatarCategory, AvatarItem, AvatarRarity, AvatarUnlockType } from "@/lib/types";
 
@@ -22,7 +23,7 @@ export const avatarCategories: Array<{ id: AvatarCategory; label: string; layerO
   { id: "board_theme", label: "Boards & Pieces", layerOrder: 0 }
 ];
 
-export const avatarRarities: AvatarRarity[] = ["Common", "Uncommon", "Rare", "Epic", "Legendary"];
+export const avatarRarities: AvatarRarity[] = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"];
 export const avatarUnlockTypes: AvatarUnlockType[] = ["purchase", "achievement", "admin_grant", "default"];
 
 export const avatarCategoryLabels = Object.fromEntries(avatarCategories.map((item) => [item.id, item.label])) as Record<AvatarCategory, string>;
@@ -32,7 +33,8 @@ export const avatarRarityStyles: Record<AvatarRarity, string> = {
   Uncommon: "border-emerald-300/40 bg-emerald-300/10 text-emerald-100",
   Rare: "border-sky-300/50 bg-sky-300/10 text-sky-100",
   Epic: "border-fuchsia-300/50 bg-fuchsia-300/10 text-fuchsia-100",
-  Legendary: "border-amber-200/70 bg-amber-300/15 text-amber-100 shadow-gold"
+  Legendary: "border-amber-200/70 bg-amber-300/15 text-amber-100 shadow-gold",
+  Mythic: "border-fuchsia-200/80 bg-gradient-to-r from-fuchsia-300/20 via-violet-300/20 to-cyan-300/20 text-fuchsia-50 shadow-[0_0_22px_rgba(217,70,239,0.45)]"
 };
 
 function layerShape(category: AvatarCategory, slug: string, accent: string) {
@@ -108,6 +110,7 @@ export const defaultAvatarItemSlugs = [
 
 export const seedAvatarItems: AvatarItem[] = [
   eightBitChessSet,
+  narutoChessSet,
   blossomChessSet,
   paperChessSet,
   item({ slug: "starlit-board", name: "Starlit Board", description: "A simple chessboard classroom backdrop.", category: "background", rarity: "Common", price: 0, layerOrder: 0, unlockType: "default", unlockRequirement: "Starter avatar item.", color: "%2367e8f9" }),

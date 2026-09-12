@@ -7,7 +7,8 @@ export const academyCoinEconomy = {
     Uncommon: { min: 20, max: 35 },
     Rare: { min: 40, max: 65 },
     Epic: { min: 75, max: 110 },
-    Legendary: { min: 125, max: 175 }
+    Legendary: { min: 125, max: 175 },
+    Mythic: { min: 500, max: 1000 }
   } satisfies Record<AvatarRarity, { min: number; max: number }>,
   itemPrices: {
     "steady-brows": 5,

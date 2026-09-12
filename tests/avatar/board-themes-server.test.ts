@@ -35,7 +35,7 @@ describe("board theme ownership and purchases", () => {
     expect(await response.json()).toEqual({ studentId, ownsPaper: true, ownedThemes: ["paper"] });
     expect(from).toHaveBeenCalledExactlyOnceWith("student_inventory");
     expect(query.eq).toHaveBeenCalledWith("student_id", studentId);
-    expect(query.in).toHaveBeenCalledWith("avatar_items.slug", ["paper-chess-set", "blossom-chess-set", "eight-bit-chess-set"]);
+    expect(query.in).toHaveBeenCalledWith("avatar_items.slug", ["paper-chess-set", "blossom-chess-set", "eight-bit-chess-set", "naruto-chess-set"]);
     expect(query.eq).toHaveBeenCalledWith("avatar_items.category", "board_theme");
   });
   it("does not grant Paper without an inventory row", async () => {
@@ -53,7 +53,7 @@ describe("board theme ownership and purchases", () => {
     query.limit.mockResolvedValue({ data: [paperChessSet, blossomChessSet].map((item) => ({ avatar_items: [{ slug: item.slug, category: item.category }] })), error: null });
     expect(await (await GET()).json()).toEqual({ studentId, ownsPaper: true, ownedThemes: ["paper", "blossom"] });
     expect(from).toHaveBeenCalledTimes(1);
-    expect(query.limit).toHaveBeenCalledWith(3);
+    expect(query.limit).toHaveBeenCalledWith(4);
   });
   it("does not unlock unknown or miscategorized items", async () => {
     query.limit.mockResolvedValue({ data: [{ avatar_items: { slug: blossomChessSet.slug, category: "background" } }, { avatar_items: { slug: "unknown", category: "board_theme" } }], error: null });

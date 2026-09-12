@@ -3,10 +3,12 @@ import type { CSSProperties } from "react";
 export const PAPER_CHESS_SET_SLUG = "paper-chess-set";
 export const BLOSSOM_CHESS_SET_SLUG = "blossom-chess-set";
 export const EIGHT_BIT_CHESS_SET_SLUG = "eight-bit-chess-set";
+export const NARUTO_CHESS_SET_SLUG = "naruto-chess-set";
 export const PURCHASABLE_CHESS_THEMES = {
   paper: { label: "Paper", slug: PAPER_CHESS_SET_SLUG },
   blossom: { label: "Blossom", slug: BLOSSOM_CHESS_SET_SLUG },
-  eightBit: { label: "8-Bit", slug: EIGHT_BIT_CHESS_SET_SLUG }
+  eightBit: { label: "8-Bit", slug: EIGHT_BIT_CHESS_SET_SLUG },
+  naruto: { label: "Naruto", slug: NARUTO_CHESS_SET_SLUG }
 } as const;
 export type PurchasedChessTheme = keyof typeof PURCHASABLE_CHESS_THEMES;
 export const purchasedChessThemes = Object.keys(PURCHASABLE_CHESS_THEMES) as PurchasedChessTheme[];
@@ -55,6 +57,12 @@ export function unlockedAppearance(preferences: BoardAppearance, ownedThemes: re
 // CSS-only fibres: no large textures, image requests, filters, or animation work per move.
 const paperTexture = "repeating-linear-gradient(12deg, transparent 0 5px, rgba(70,49,32,.035) 5px 6px), repeating-linear-gradient(102deg, transparent 0 11px, rgba(255,255,255,.09) 11px 12px)";
 export const BOARD_THEME_STYLES: Record<ChessTheme, { lightSquareStyle: CSSProperties; darkSquareStyle: CSSProperties; lightSquareNotationStyle: CSSProperties; darkSquareNotationStyle: CSSProperties }> = {
+  naruto: {
+    lightSquareStyle: { backgroundColor: "#e8cfa0", backgroundImage: "radial-gradient(circle at center, transparent 32%, #9a651a18 33% 35%, transparent 36%), linear-gradient(135deg, #fff4da55, transparent)", boxShadow: "inset 0 0 0 1px #b68b4c" },
+    darkSquareStyle: { backgroundColor: "#343047", backgroundImage: "radial-gradient(circle at center, transparent 32%, #ec66811c 33% 35%, transparent 36%), linear-gradient(135deg, #88496225, transparent)", boxShadow: "inset 0 0 0 1px #8e6545" },
+    lightSquareNotationStyle: { color: "#543214", fontWeight: 800 },
+    darkSquareNotationStyle: { color: "#ffe1a0", fontWeight: 800 }
+  },
   eightBit: {
     lightSquareStyle: { backgroundColor: "#a4d4c4", boxShadow: "inset 3px 3px #c5efda, inset -3px -3px #78afa6" },
     darkSquareStyle: { backgroundColor: "#414e76", boxShadow: "inset 3px 3px #56678f, inset -3px -3px #303b60" },
