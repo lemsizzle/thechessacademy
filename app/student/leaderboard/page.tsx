@@ -7,7 +7,7 @@ import { getXpEventsResult } from "@/lib/data/xpEvents";
 import { getHideAndSeekLeaderboardScores } from "@/lib/leaderboard/hideAndSeekServer";
 import { getStarWarsLeaderboardScores } from "@/lib/leaderboard/starWarsServer";
 import { getSurvivalLeaderboardScores } from "@/lib/leaderboard/survivalServer";
-import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
+import { requireStudentPage as requireActiveStudent } from "@/lib/auth/requireStudentPage";
 import { sessionToStudentUser } from "@/lib/auth/session";
 import { Suspense } from "react";
 

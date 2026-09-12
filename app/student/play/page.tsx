@@ -1,7 +1,7 @@
 import { VsComputerGame } from "@/chess/components/VsComputerGame";
 import { PlayModeGrid } from "@/chess/components/PlayModeGrid";
 import { StudentPortalShell } from "@/components/student/StudentPortalShell";
-import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
+import { requireStudentPage as requireActiveStudent } from "@/lib/auth/requireStudentPage";
 import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 import { getStudentBotProgression } from "@/chess/persistence/botProgressionServer";
 import { sessionToStudentUser } from "@/lib/auth/session";

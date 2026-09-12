@@ -1,6 +1,6 @@
 import { LiveChessGame } from "@/chess/components/LiveChessGame";
 import { StudentPortalShell } from "@/components/student/StudentPortalShell";
-import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
+import { requireStudentPage as requireActiveStudent } from "@/lib/auth/requireStudentPage";
 import { sessionToStudentUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
