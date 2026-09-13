@@ -3,6 +3,7 @@ import { evaluateInternalPuzzleQuest, type InternalQuestPuzzleActivity } from "@
 import { createPendingQuestAwards } from "@/lib/quests/createPendingQuestAward";
 import { getConditionsForSource } from "@/lib/quests/questOptions";
 import type { Quest } from "@/lib/types";
+import { mapSupabaseQuest, type QuestRow } from "@/lib/data/quests";
 
 const quest: Quest = {
   id: "academy-puzzle-streaker", title: "Puzzle Streaker", description: "Reach a 15-puzzle streak in Survival mode.",
@@ -21,6 +22,15 @@ function run(count: number, sessionId = "run-a"): InternalQuestPuzzleActivity[] 
 const evaluate = (attempts: InternalQuestPuzzleActivity[], error?: string) => evaluateInternalPuzzleQuest("student", quest, window, attempts, error);
 
 describe("Puzzle Streaker", () => {
+  it("preserves the Survival condition when loading the saved quest", () => {
+    const loaded = mapSupabaseQuest({
+      id: quest.id, title: quest.title, description: quest.description, source: quest.source,
+      condition_type: quest.conditionType, required_count: 15, xp_reward: 150,
+      badge_reward_id: null, is_active: true, starts_at: null, ends_at: null, created_at: null, updated_at: null
+    } satisfies QuestRow);
+    expect(loaded.conditionType).toBe("internal_survival_streak_reached");
+    expect(evaluateInternalPuzzleQuest("student", loaded, window, run(15).map(a => ({ ...a, trainingMode: "woodpecker" }))).completed).toBe(false);
+  });
   it("requires 15, awards 150 XP, and prevents duplicate awards", () => {
     expect(evaluate(run(14)).completed).toBe(false);
     const progress = evaluate(run(15));
