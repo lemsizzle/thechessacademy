@@ -14,6 +14,10 @@ export type InternalQuestGameActivity = {
 
 export type InternalQuestPuzzleActivity = {
   id: string;
+  sessionId?: string;
+  trainingMode?: string;
+  incorrectMoveCount?: number;
+  completedAt?: string;
   attemptedAt: string;
   solved: boolean;
   firstTryCorrect: boolean;
@@ -93,6 +97,36 @@ export function evaluateInternalPuzzleQuest(
   woodpeckerSets: InternalQuestWoodpeckerSetActivity[] = [],
   starWarsRuns: InternalQuestStarWarsActivity[] = []
 ): LichessQuestProgress {
+  if (quest.conditionType === "internal_survival_streak_reached") {
+    const streaks = new Map<string, number>();
+    const seen = new Set<string>();
+    let currentValue = 0;
+    const ordered = attempts.filter((attempt) => attempt.trainingMode === "survival"
+      && attempt.sessionId
+      && Date.parse(attempt.attemptedAt) >= window.start.getTime()
+      && Date.parse(attempt.completedAt ?? attempt.attemptedAt) <= window.end.getTime())
+      .sort((a, b) => Date.parse(a.attemptedAt) - Date.parse(b.attemptedAt) || a.id.localeCompare(b.id));
+    for (const attempt of ordered) {
+      if (seen.has(attempt.id)) continue;
+      seen.add(attempt.id);
+      const session = attempt.sessionId!;
+      // Match Survival's counter: a wrong move resets it; solving that puzzle starts at one.
+      const previous = attempt.incorrectMoveCount === 0 ? (streaks.get(session) ?? 0) : 0;
+      const streak = attempt.solved ? previous + 1 : 0;
+      streaks.set(session, streak);
+      currentValue = Math.max(currentValue, streak);
+    }
+    const requiredValue = quest.requiredCount ?? 15;
+    return {
+      studentId, questId: quest.id,
+      sourcePeriodStart: window.start.toISOString(), sourcePeriodEnd: window.end.toISOString(),
+      currentValue, requiredValue, completed: !fetchError && currentValue >= requiredValue,
+      evidence: fetchError ? academyReadError("puzzle", fetchError)
+        : `Best Survival streak: ${currentValue} consecutive puzzles in one run during ${window.label}.`,
+      mode: "connected", updatedAt: new Date().toISOString()
+    };
+  }
+
   if (quest.conditionType === "internal_star_wars_level_reached") {
     const requiredValue = quest.requiredCount ?? quest.requiredScore ?? 1;
     const eligibleRuns = starWarsRuns.filter((run) => (

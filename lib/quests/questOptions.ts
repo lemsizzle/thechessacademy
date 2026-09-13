@@ -24,6 +24,7 @@ export const questConditions: Array<{ value: QuestConditionType; label: string; 
   { value: "internal_puzzle_theme_solved_count", label: "Solve an Academy tactic theme", source: "internal_puzzles", countLabel: "Theme Puzzles" },
   { value: "internal_woodpecker_set_completed_count", label: "Complete a 20-puzzle Woodpecker set", source: "internal_puzzles", countLabel: "Completed Sets" },
   { value: "internal_star_wars_level_reached", label: "Reach a Star Wars level", source: "internal_puzzles", countLabel: "Star Wars Level" },
+  { value: "internal_survival_streak_reached", label: "Reach a Survival puzzle streak", source: "internal_puzzles", countLabel: "Consecutive Solves" },
   { value: "rated_win_count", label: "Win rated games", source: "lichess_games", countLabel: "Rated Wins" },
   { value: "rated_games_played_count", label: "Play rated games", source: "lichess_games", countLabel: "Rated Games" },
   { value: "rapid_win_count", label: "Win rated rapid games", source: "lichess_games", countLabel: "Rapid Wins" },

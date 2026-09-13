@@ -42,6 +42,10 @@ export async function loadInternalQuestGames(studentId: string, window: QuestWin
 
 type PuzzleAttemptRow = {
   id: string;
+  session_id: string;
+  training_mode: string;
+  incorrect_move_count: number;
+  completed_at: string;
   attempted_at: string;
   solved: boolean;
   first_try_correct: boolean;
@@ -59,7 +63,7 @@ export async function loadInternalQuestPuzzles(studentId: string, window: QuestW
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await serviceClient()
       .from("student_puzzle_attempts")
-      .select("id,attempted_at,solved,first_try_correct,selected_theme,chess_puzzles(themes)")
+      .select("id,session_id,training_mode,incorrect_move_count,completed_at,attempted_at,solved,first_try_correct,selected_theme,chess_puzzles(themes)")
       .eq("student_id", studentId)
       .gte("attempted_at", window.start.toISOString())
       .lte("attempted_at", window.end.toISOString())
@@ -73,6 +77,10 @@ export async function loadInternalQuestPuzzles(studentId: string, window: QuestW
   }
   const puzzleAttempts = rows.map((row): InternalQuestPuzzleActivity => ({
     id: row.id,
+    sessionId: row.session_id,
+    trainingMode: row.training_mode,
+    incorrectMoveCount: row.incorrect_move_count,
+    completedAt: row.completed_at,
     attemptedAt: row.attempted_at,
     solved: row.solved,
     firstTryCorrect: row.first_try_correct,
