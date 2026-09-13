@@ -6,6 +6,7 @@ import type { InternalArena } from "@/chess/arena/types";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ArenaBotControls } from "@/components/tournaments/ArenaBotControls";
+import { ArenaScheduleEditor } from "@/components/tournaments/ArenaScheduleEditor";
 
 type ArenaResponse = { ok?: boolean; arenas?: InternalArena[]; arena?: InternalArena; matchmaking?: { gameId: string | null }; error?: string };
 
@@ -55,7 +56,7 @@ export function AdminInternalArenas({ adminActionToken }: { adminActionToken: st
         method: "POST",
         credentials: "same-origin",
         headers: { "content-type": "application/json", "x-admin-action-token": adminActionToken },
-        body: JSON.stringify({ name, description, startsAt: startsAt || undefined, durationMinutes, timeControlId, rated, classGroup })
+        body: JSON.stringify({ name, description, startsAt: startsAt ? new Date(startsAt).toISOString() : undefined, durationMinutes, timeControlId, rated, classGroup })
       });
       const body = await response.json() as ArenaResponse;
       if (!response.ok || !body.arena) throw new Error(body.error || "Arena could not be created.");
@@ -149,6 +150,7 @@ export function AdminInternalArenas({ adminActionToken }: { adminActionToken: st
                 </div>
               </div>
 
+              <ArenaScheduleEditor arena={arena} adminActionToken={adminActionToken} onSaved={load} />
               <ArenaBotControls arena={arena} adminActionToken={adminActionToken} onChange={load} />
 
               {arena.status === "active" ? (

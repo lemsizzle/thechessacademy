@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { InternalArenaServerError, updateInternalArenaStatus } from "@/chess/persistence/arenaServer";
+import { InternalArenaServerError, updateInternalArenaSchedule, updateInternalArenaStatus } from "@/chess/persistence/arenaServer";
 import { ADMIN_SESSION_COOKIE, isAuthorizedAdminRequest } from "@/lib/auth/adminSession";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ to
   }
   try {
     const [{ tournamentId }, body] = await Promise.all([params, request.json().catch(() => null)]) as [{ tournamentId: string }, { action?: string } | null];
-    return NextResponse.json({ ok: true, arena: await updateInternalArenaStatus(tournamentId, body?.action) });
+    const arena = body?.action === "schedule"
+      ? await updateInternalArenaSchedule(tournamentId, body)
+      : await updateInternalArenaStatus(tournamentId, body?.action);
+    return NextResponse.json({ ok: true, arena });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Arena could not be updated." }, { status: error instanceof InternalArenaServerError ? error.status : 500 });
   }

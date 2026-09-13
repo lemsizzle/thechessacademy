@@ -379,6 +379,40 @@ export async function createInternalArena(input: unknown) {
   return (await mapArenas([data as ArenaRow]))[0];
 }
 
+export async function updateInternalArenaSchedule(tournamentId: string, input: unknown) {
+  const id = validId(tournamentId);
+  const body = input && typeof input === "object" ? input as Record<string, unknown> : {};
+  const duration = body.durationMinutes;
+  if (typeof duration !== "number" || !Number.isInteger(duration) || duration < 10 || duration > 240) {
+    throw new InternalArenaServerError("Arena duration must be between 10 and 240 minutes.");
+  }
+  const { data: current, error: loadError } = await client().from("internal_arena_tournaments").select("*").eq("id", id).maybeSingle();
+  if (loadError) throw new InternalArenaServerError(loadError.message, 500);
+  if (!current) throw new InternalArenaServerError("Arena tournament not found.", 404);
+  const row = current as ArenaRow;
+  const now = Date.now();
+  if (!["scheduled", "active"].includes(row.status) || Date.parse(row.ends_at) <= now) {
+    throw new InternalArenaServerError("Finished or cancelled tournaments cannot be rescheduled.", 409);
+  }
+  const start = body.startsAt === undefined ? Date.parse(row.starts_at)
+    : typeof body.startsAt === "string" && /(?:Z|[+-]\d{2}:\d{2})$/i.test(body.startsAt) ? Date.parse(body.startsAt) : NaN;
+  if (!Number.isFinite(start)) throw new InternalArenaServerError("Choose a valid start time with a timezone.");
+  const alreadyStarted = row.status === "active" || Date.parse(row.starts_at) <= now;
+  if (alreadyStarted && start !== Date.parse(row.starts_at)) {
+    throw new InternalArenaServerError("This tournament has started. You can still change its duration.", 409);
+  }
+  const end = start + duration * 60_000;
+  if (!Number.isFinite(new Date(end).getTime()) || end <= now) throw new InternalArenaServerError("The new end time must be in the future. Use Finish tournament to end it now.");
+  const { data, error } = await client().from("internal_arena_tournaments").update({
+    starts_at: new Date(start).toISOString(), ends_at: new Date(end).toISOString(), duration_minutes: duration,
+    status: start <= now ? "active" : "scheduled"
+  }).eq("id", id).eq("status", row.status).eq("starts_at", row.starts_at).eq("ends_at", row.ends_at)
+    .select("*").maybeSingle();
+  if (error) throw new InternalArenaServerError(error.message, 500);
+  if (!data) throw new InternalArenaServerError("The tournament changed while saving. Reload it and try again.", 409);
+  return (await mapArenas([data as ArenaRow]))[0];
+}
+
 export async function updateInternalArenaStatus(tournamentId: string, action: unknown) {
   const id = validId(tournamentId);
   const requested = String(action ?? "");
