@@ -131,7 +131,13 @@ export function ArenaLobbyView({ lobby, now, role, status, pending, onJoin, onPa
           <div className="mb-4 flex items-center justify-between"><h2 className="font-black text-white">Live boards</h2><span className="text-xs text-emerald-200">{active.length} in play</span></div>
           <div className="grid grid-cols-2 gap-3">{active.map(pairing => <LiveBoard key={pairing.id} pairing={pairing} lobby={lobby} role={role} now={now} />)}</div>
           {!active.length && <div className="rounded-xl border border-dashed border-white/10 px-5 py-10 text-center"><p className="text-2xl text-cyan-200" aria-hidden="true">♜</p><p className="mt-3 text-sm font-bold text-slate-300">{accepting ? "The next boards will appear here" : "All boards have finished"}</p><p className="mt-1 text-xs text-slate-500">{accepting ? "Watch a game while you wait." : "Thanks for playing!"}</p></div>}
-          {recent.length > 0 && <details className="mt-4 border-t border-white/10 pt-3"><summary className="cursor-pointer text-xs font-bold text-slate-400">Recent results</summary><div className="mt-2 divide-y divide-white/5">{recent.map(p => <p key={p.id} className="py-2 text-xs text-slate-300">{p.whiteName} <span className="font-black text-amber-100">{p.whitePoints}–{p.blackPoints}</span> {p.blackName}</p>)}</div></details>}
+          {recent.length > 0 && <details className="mt-4 border-t border-white/10 pt-3"><summary className="cursor-pointer text-xs font-bold text-slate-400">Recent results</summary><div className="mt-2 divide-y divide-white/5">{recent.map(p => <Link key={p.id}
+            href={`/${role === "teacher" ? "admin" : "student"}/tournaments/${arena.id}/analysis/${p.gameId}`}
+            aria-label={`Analyze ${p.whiteName} versus ${p.blackName}`}
+            className="flex min-h-11 flex-wrap items-center justify-between gap-2 rounded px-2 py-3 text-xs text-slate-300 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200">
+            <span className="min-w-0 break-words">{p.whiteName} <span className="font-black text-amber-100">{p.whitePoints}–{p.blackPoints}</span> {p.blackName}</span>
+            <span className="shrink-0 font-bold text-cyan-200">Analyze game →</span>
+          </Link>)}</div></details>}
         </section>
         <section id="arena-panel-Chat" aria-label="Arena chat" className={tab === "Chat" ? "" : "hidden lg:block"}>{chat}</section>
       </div>

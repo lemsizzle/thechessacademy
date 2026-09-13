@@ -10,6 +10,13 @@ const lobby: InternalArenaLobby = {
   pairings: [], messages: [], avatarItems: [], canChat: false
 };
 describe("Arena status and result presentation", () => {
+  it.each(["teacher", "student"] as const)("links completed results to the %s tournament analysis board", role => {
+    const withResult = { ...lobby, pairings: [{ id: "pairing", gameId: "game", status: "completed", whiteName: "Alex", blackName: "Sam", whitePoints: 2, blackPoints: 0 } as InternalArenaLobby["pairings"][number]] };
+    const html = renderToStaticMarkup(<ArenaLobbyView lobby={withResult} now={0} role={role} status="Finished" onJoin={() => {}} onPause={() => {}} onTogglePairings={() => {}} chat={null} />);
+    expect(html).toContain(`href="/${role === "teacher" ? "admin" : "student"}/tournaments/arena/analysis/game"`);
+    expect(html).toContain('aria-label="Analyze Alex versus Sam"');
+    expect(html).toContain("Analyze game");
+  });
   it("uses distinct registered, queued, paused, break, paired and final statuses", () => {
     expect(arenaQueueLabel(queue)).toBe("Finding an opponent");
     expect(arenaQueueLabel({ ...queue, tournamentStatus: "scheduled" })).toContain("Registered");
