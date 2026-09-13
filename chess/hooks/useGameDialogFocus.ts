@@ -4,13 +4,13 @@ import { useEffect, useRef } from "react";
 import { useLatestCallback } from "@/chess/hooks/useLatestCallback";
 
 /** Keep keyboard gameplay inside an open modal and return focus when it closes. */
-export function useGameDialogFocus(onDismiss?: () => void) {
+export function useGameDialogFocus(onDismiss?: () => void, enabled = true) {
   const dialogRef = useRef<HTMLElement>(null);
   const dismiss = useLatestCallback(() => onDismiss?.());
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    if (!dialog) return;
+    if (!dialog || !enabled) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const controls = () => Array.from(dialog.querySelectorAll<HTMLElement>(
       'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
@@ -45,7 +45,7 @@ export function useGameDialogFocus(onDismiss?: () => void) {
       document.removeEventListener("keydown", handleKey, true);
       if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
-  }, [dismiss]);
+  }, [dismiss, enabled]);
 
   return dialogRef;
 }

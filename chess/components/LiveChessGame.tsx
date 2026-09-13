@@ -11,7 +11,6 @@ import { GameDialog } from "@/chess/components/GameDialog";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
-import { VictoryCelebration } from "@/chess/components/VictoryCelebration";
 import { promotionOptions, tryMove } from "@/chess/game/rules";
 import { oppositeColor } from "@/chess/game/colors";
 import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/material";
@@ -506,7 +505,6 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
 
   return (
     <div className="space-y-4">
-      {game.status === "completed" && game.winnerColor === viewerColor ? <VictoryCelebration /> : null}
       {game.status === "waiting" && !isCorrespondence ? (
         <Card className="p-5 text-center sm:p-6">
           <p className="text-xs font-black uppercase tracking-wider text-amber-200">Private challenge code</p>
@@ -534,7 +532,38 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           <PlayerPanel name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}${isCorrespondence ? " · 3 days per move" : ""}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} avatar={viewer?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />
         </div>
 
-        <aside className="space-y-4 xl:sticky xl:top-4">
+        <aside className="space-y-4 xl:sticky xl:top-20">
+      {resultOpen && game.status === "completed" && game.arenaTournamentId ? (
+        <GameDialog inline           title={game.winnerColor && game.winnerColor !== viewerColor ? "Defeat — good effort" : game.winnerColor === viewerColor ? "Victory!" : "Arena Game Complete"}
+          tone={game.winnerColor && game.winnerColor !== viewerColor ? "loss" : "default"}
+          description={completionText(game)}
+          primaryLabel="Back to lobby"
+          onPrimary={() => router.push(`/student/tournaments/${game.arenaTournamentId}`)}
+          secondaryLabel={arenaQueue.queue && ["finished", "cancelled"].includes(arenaQueue.queue.tournamentStatus) ? "Close" : arenaQueue.pending ? "Updating…" : arenaQueue.queue?.queueEnabled === false ? "Rejoin queue" : "Take a break"}
+          onSecondary={() => arenaQueue.queue && ["finished", "cancelled"].includes(arenaQueue.queue.tournamentStatus) ? setResultOpen(false) : void arenaQueue.update(arenaQueue.queue?.queueEnabled === false ? "join" : "pause")}
+        >
+          <Button className="mt-4 w-full" href={`/student/play/game/${encodeURIComponent(game.id)}/analysis`}>Review my three key moments</Button>
+          <p className="mt-3 text-xl font-black text-amber-200">{arenaQueue.queue?.points !== null && arenaQueue.queue?.points !== undefined ? `+${arenaQueue.queue.points} tournament points` : "Recording your result…"}</p>
+          <p className="mt-2 text-sm font-bold text-cyan-100" role="status">{arenaQueue.error || (arenaQueue.queue ? arenaQueueLabel(arenaQueue.queue) : "Checking your next pairing…")}</p>
+        </GameDialog>
+      ) : resultOpen && game.status === "completed" ? (
+        <GameDialog inline           title={game.winnerColor && game.winnerColor !== viewerColor ? "Defeat — good effort" : game.winnerColor === viewerColor ? "Victory!" : "Good Game"}
+          tone={game.winnerColor && game.winnerColor !== viewerColor ? "loss" : "default"}
+          description={completionText(game)}
+          primaryLabel={rematchLabel}
+          primaryDisabled={rematchPending || viewerRequestedRematch || challengeAgainSent}
+          onPrimary={requestRematch}
+          secondaryLabel={opponentRequestedRematch && !isCorrespondence ? "Decline & Return to Play" : "Close"}
+          onSecondary={opponentRequestedRematch && !isCorrespondence ? declineRematch : () => setResultOpen(false)}
+        >
+          <Button className="mt-4 w-full" href={`/student/play/game/${encodeURIComponent(game.id)}/analysis`}>Review my three key moments</Button>
+          <p className="mt-3 text-sm font-bold text-slate-300">
+            {isCorrespondence
+              ? challengeAgainSent ? "Your challenge is waiting in the other student's inbox." : "Want another slow game? Send a new correspondence challenge."
+              : viewerRequestedRematch ? "Waiting for your opponent to accept. The rematch will open automatically." : opponentRequestedRematch ? "Your opponent has already requested another game." : "Want another game? Request a rematch and your opponent can accept from this screen."}
+          </p>
+        </GameDialog>
+      ) : null}
           <Card className="p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -637,37 +666,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
         void sendMove(pendingPromotion.from, pendingPromotion.to, piece);
       }} onCancel={() => setPendingPromotion(null)} /> : null}
       {confirmation ? <GameDialog title={confirmation === "resign" ? `Resign this ${isCorrespondence ? "correspondence" : "live"} game?` : "Cancel this challenge?"} description={confirmation === "resign" ? "Your opponent will win immediately." : "The private challenge code will stop working."} primaryLabel={confirmation === "resign" ? "Resign" : "Cancel Challenge"} onPrimary={() => void sendAction(confirmation)} secondaryLabel="Keep Playing" onSecondary={() => setConfirmation(null)} /> : null}
-      {resultOpen && game.status === "completed" && game.arenaTournamentId ? (
-        <GameDialog
-          title="Arena Game Complete"
-          description={completionText(game)}
-          primaryLabel="Back to lobby"
-          onPrimary={() => router.push(`/student/tournaments/${game.arenaTournamentId}`)}
-          secondaryLabel={arenaQueue.queue && ["finished", "cancelled"].includes(arenaQueue.queue.tournamentStatus) ? "Close" : arenaQueue.pending ? "Updating…" : arenaQueue.queue?.queueEnabled === false ? "Rejoin queue" : "Take a break"}
-          onSecondary={() => arenaQueue.queue && ["finished", "cancelled"].includes(arenaQueue.queue.tournamentStatus) ? setResultOpen(false) : void arenaQueue.update(arenaQueue.queue?.queueEnabled === false ? "join" : "pause")}
-        >
-          <Button className="mt-4 w-full" href={`/student/play/game/${encodeURIComponent(game.id)}/analysis`}>Review my three key moments</Button>
-          <p className="mt-3 text-xl font-black text-amber-200">{arenaQueue.queue?.points !== null && arenaQueue.queue?.points !== undefined ? `+${arenaQueue.queue.points} tournament points` : "Recording your result…"}</p>
-          <p className="mt-2 text-sm font-bold text-cyan-100" role="status">{arenaQueue.error || (arenaQueue.queue ? arenaQueueLabel(arenaQueue.queue) : "Checking your next pairing…")}</p>
-        </GameDialog>
-      ) : resultOpen && game.status === "completed" ? (
-        <GameDialog
-          title="Good Game"
-          description={completionText(game)}
-          primaryLabel={rematchLabel}
-          primaryDisabled={rematchPending || viewerRequestedRematch || challengeAgainSent}
-          onPrimary={requestRematch}
-          secondaryLabel={opponentRequestedRematch && !isCorrespondence ? "Decline & Return to Play" : "Close"}
-          onSecondary={opponentRequestedRematch && !isCorrespondence ? declineRematch : () => setResultOpen(false)}
-        >
-          <Button className="mt-4 w-full" href={`/student/play/game/${encodeURIComponent(game.id)}/analysis`}>Review my three key moments</Button>
-          <p className="mt-3 text-sm font-bold text-slate-300">
-            {isCorrespondence
-              ? challengeAgainSent ? "Your challenge is waiting in the other student's inbox." : "Want another slow game? Send a new correspondence challenge."
-              : viewerRequestedRematch ? "Waiting for your opponent to accept. The rematch will open automatically." : opponentRequestedRematch ? "Your opponent has already requested another game." : "Want another game? Request a rematch and your opponent can accept from this screen."}
-          </p>
-        </GameDialog>
-      ) : null}
+
     </div>
   );
 }
