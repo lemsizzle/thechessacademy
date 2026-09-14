@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { annotationColorForModifiers, BOARD_ANNOTATION_COLORS, toggleBoardCircle, type BoardCircle } from "./boardAnnotations";
 import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
 import styles from "./ResponsiveChessboard.module.css";
+import { castlingDropTarget } from "@/chess/game/castlingInput";
 
 /** Keep squares, pieces and annotations in one coordinate space on every screen. */
 export function ResponsiveChessboard({ options }: { options: ChessboardOptions }) {
@@ -24,6 +25,10 @@ export function ResponsiveChessboard({ options }: { options: ChessboardOptions }
     <div ref={boardRef} className={styles.frame}>
       <Chessboard options={{
         ...options,
+        onPieceDrop: options.onPieceDrop ? drop => options.onPieceDrop!({
+          ...drop,
+          targetSquare: drop.targetSquare ? castlingDropTarget(options.position, drop.sourceSquare, drop.targetSquare) : drop.targetSquare
+        }) : undefined,
         onSquareMouseDown: (square, event) => {
           if (event.button === 0) clearCircles();
           if (event.button === 2) gesture.current = { square: square.square, color: annotationColorForModifiers(event) };
