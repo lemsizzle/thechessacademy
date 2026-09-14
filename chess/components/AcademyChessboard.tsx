@@ -62,18 +62,18 @@ type Props = {
 function AcademyChessboardComponent({ fen, orientation, humanColor, interactive, lastMove, onMove, onIllegalMove, arrows = EMPTY_BOARD_ARROWS, circles = EMPTY_BOARD_CIRCLES, shinySquares = EMPTY_BOARD_SQUARES, activeShinySquares = EMPTY_BOARD_SQUARES, movableSquares, allowedDestinationSquares, allowCheckIgnoringMoves = false, keepMovedPieceSelected = false, allowPremoves = false, premove = null, hiddenPieces = EMPTY_BOARD_SQUARES, onBoardInteraction, animationDurationInMs, allowDrawingArrows = false, annotationMode = null, onAnnotationSquare, onArrowsChange, onCircleToggle, onClearAnnotations, boardId = "academy-play-board" }: Props) {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [localAnnotations, setLocalAnnotations] = useState<{ fen: string; boardId: string; circles: BoardCircle[] }>({ fen, boardId, circles: [] });
-  const localCircles = allowDrawingArrows && localAnnotations.fen === fen && localAnnotations.boardId === boardId ? localAnnotations.circles : EMPTY_BOARD_CIRCLES;
+  const localCircles = localAnnotations.fen === fen && localAnnotations.boardId === boardId ? localAnnotations.circles : EMPTY_BOARD_CIRCLES;
   const { pieces, squareStyles: themeSquareStyles } = useBoardAppearance();
   const [keyboardSquare, setKeyboardSquare] = useState<Square>(() => boardSquaresForOrientation(orientation)[0]);
   const movedSelectionRef = useRef<string | null>(null);
   const rightGestureRef = useRef<{ startSquare: string; color: string } | null>(null);
   const internalArrowsWerePresentRef = useRef(false);
   const keyboardSquareRefs = useRef(new Map<Square, HTMLButtonElement>());
-  const boardRef = useOutsideBoardAnnotationClear(allowDrawingArrows || onClearAnnotations ? () => {
+  const boardRef = useOutsideBoardAnnotationClear(() => {
     rightGestureRef.current = null;
     setLocalAnnotations({ fen, boardId, circles: [] });
     onClearAnnotations?.();
-  } : undefined);
+  });
   const chess = useMemo(() => new Chess(fen), [fen]);
   const previousPositionRef = useRef({ chess, humanColor, boardId });
   const visualSquares = useMemo(() => boardSquaresForOrientation(orientation), [orientation]);
@@ -372,7 +372,6 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
       }
     },
     onSquareRightClick: ({ square }) => {
-      if (!allowDrawingArrows) return;
       const color = rightGestureRef.current?.color ?? BOARD_ANNOTATION_COLORS.primary;
       rightGestureRef.current = null;
       if (onCircleToggle) onCircleToggle(square, color);
