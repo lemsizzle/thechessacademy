@@ -500,7 +500,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           ? "Your move."
           : isCorrespondence
             ? `Waiting for ${opponent?.name ?? "your opponent"} to move.`
-            : premove ? "Premove queued. It will play after your opponent moves." : `Waiting for ${opponent?.name ?? "your opponent"}. You can queue a premove.`
+            : premove ? "Premove queued. Click or tap anywhere on the board to cancel." : `Waiting for ${opponent?.name ?? "your opponent"}. You can queue a premove.`
       : completionText(game);
 
   return (
@@ -525,7 +525,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           <div className="relative">
             <div className="mb-2 flex justify-end sm:absolute sm:left-[calc(100%+0.5rem)] sm:top-0 sm:z-30 sm:mb-0"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
             <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
-              <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} allowPremoves={canQueuePremove} premove={displayedPremove} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
+              <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} allowPremoves={canQueuePremove} premove={displayedPremove} onCancelPremove={() => setPremove(null)} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
               <BoardCaptureParticles effect={captureEffect} orientation={orientation} />
             </div>
           </div>

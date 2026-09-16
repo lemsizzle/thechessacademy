@@ -1074,7 +1074,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
     updateQueuedPremove({ from, to });
     setSelectedSquare(null);
     setLegalSquares([]);
-    setMessage(`Premove queued: ${from} to ${to}. It will play after the reply.`);
+    setMessage(`Premove queued: ${from} to ${to}. Click or tap anywhere on the board to cancel.`);
     executeReadyPremove();
     return true;
   }
@@ -1337,7 +1337,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
         <div className="mx-auto w-full min-w-0 max-w-[640px] space-y-2">
           <BoardSettings />
         <div ref={puzzleBoardRef} className="overflow-hidden rounded-lg border border-cyan-200/20 bg-slate-950/70">
-          {positionFen ? <ResponsiveChessboard key={`academy-puzzle-board-${puzzle?.id ?? "loading"}-${annotationResetKey}`} options={boardOptions} /> : <div className="flex aspect-square items-center justify-center text-sm text-slate-400">Preparing board...</div>}
+          {positionFen ? <ResponsiveChessboard key={`academy-puzzle-board-${puzzle?.id ?? "loading"}-${annotationResetKey}`} options={boardOptions} onCancelPremove={queuedPremove ? () => cancelPremove() : undefined} /> : <div className="flex aspect-square items-center justify-center text-sm text-slate-400">Preparing board...</div>}
         </div>
         </div>
 

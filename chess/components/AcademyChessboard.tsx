@@ -46,6 +46,7 @@ type Props = {
   /** Allow the human pieces to queue a move while the opponent's clock is running. */
   allowPremoves?: boolean;
   premove?: [string, string] | null;
+  onCancelPremove?: () => void;
   hiddenPieces?: string[];
   /** Called when a student starts interacting with the board. */
   onBoardInteraction?: () => void;
@@ -59,7 +60,7 @@ type Props = {
   boardId?: string;
 };
 
-function AcademyChessboardComponent({ fen, orientation, humanColor, interactive, lastMove, onMove, onIllegalMove, arrows = EMPTY_BOARD_ARROWS, circles = EMPTY_BOARD_CIRCLES, shinySquares = EMPTY_BOARD_SQUARES, activeShinySquares = EMPTY_BOARD_SQUARES, movableSquares, allowedDestinationSquares, allowCheckIgnoringMoves = false, keepMovedPieceSelected = false, allowPremoves = false, premove = null, hiddenPieces = EMPTY_BOARD_SQUARES, onBoardInteraction, animationDurationInMs, allowDrawingArrows = false, annotationMode = null, onAnnotationSquare, onArrowsChange, onCircleToggle, onClearAnnotations, boardId = "academy-play-board" }: Props) {
+function AcademyChessboardComponent({ fen, orientation, humanColor, interactive, lastMove, onMove, onIllegalMove, arrows = EMPTY_BOARD_ARROWS, circles = EMPTY_BOARD_CIRCLES, shinySquares = EMPTY_BOARD_SQUARES, activeShinySquares = EMPTY_BOARD_SQUARES, movableSquares, allowedDestinationSquares, allowCheckIgnoringMoves = false, keepMovedPieceSelected = false, allowPremoves = false, premove = null, onCancelPremove, hiddenPieces = EMPTY_BOARD_SQUARES, onBoardInteraction, animationDurationInMs, allowDrawingArrows = false, annotationMode = null, onAnnotationSquare, onArrowsChange, onCircleToggle, onClearAnnotations, boardId = "academy-play-board" }: Props) {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [localAnnotations, setLocalAnnotations] = useState<{ fen: string; boardId: string; circles: BoardCircle[] }>({ fen, boardId, circles: [] });
   const localCircles = localAnnotations.fen === fen && localAnnotations.boardId === boardId ? localAnnotations.circles : EMPTY_BOARD_CIRCLES;
@@ -136,6 +137,11 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
   }
 
   function selectOrMove(square: string) {
+    if (premove && onCancelPremove) {
+      setSelectedSquare(null);
+      onCancelPremove();
+      return;
+    }
     if (annotationMode && onAnnotationSquare) {
       onAnnotationSquare(square);
       return;
@@ -178,6 +184,7 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
       event.preventDefault();
       event.stopPropagation();
       setSelectedSquare(null);
+      onCancelPremove?.();
       return;
     }
     if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -389,7 +396,7 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
 
   const instructionsId = `${boardId}-keyboard-instructions`;
   return <div ref={boardRef} className="relative aspect-square w-full min-w-0">
-    <div aria-hidden="true" className="w-full min-w-0"><ResponsiveChessboard key={boardId} options={options} /></div>
+    <div aria-hidden="true" className="w-full min-w-0"><ResponsiveChessboard key={boardId} options={options} onCancelPremove={premove && onCancelPremove ? () => { setSelectedSquare(null); onCancelPremove(); } : undefined} /></div>
     <p id={instructionsId} className="sr-only">Use the arrow keys to move between squares. Press Enter or Space to select a piece or destination. Press Escape to clear the selected square.</p>
     <div role="grid" aria-label={`Chessboard, ${orientation} perspective`} aria-describedby={instructionsId} aria-readonly={!interactive} className="pointer-events-none absolute inset-0 z-20 grid grid-rows-8">
       {Array.from({ length: 8 }, (_, rowIndex) => (

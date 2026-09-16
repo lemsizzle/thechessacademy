@@ -8,7 +8,8 @@ import styles from "./ResponsiveChessboard.module.css";
 import { castlingDropTarget } from "@/chess/game/castlingInput";
 
 /** Keep squares, pieces and annotations in one coordinate space on every screen. */
-export function ResponsiveChessboard({ options }: { options: ChessboardOptions }) {
+export function ResponsiveChessboard({ options, onCancelPremove }: { options: ChessboardOptions; onCancelPremove?: () => void }) {
+  const cancelledGesture = useRef(false);
   // Boards with controlled annotations keep their existing handler. All other
   // boards get circles independently of whether arrow drawing is enabled.
   const [annotations, setAnnotations] = useState({ position: options.position, id: options.id, circles: [] as BoardCircle[] });
@@ -22,7 +23,35 @@ export function ResponsiveChessboard({ options }: { options: ChessboardOptions }
   };
   const boardRef = useOutsideBoardAnnotationClear(options.onSquareRightClick ? undefined : clearCircles);
   return (
-    <div ref={boardRef} className={styles.frame}>
+    <div ref={boardRef} className={styles.frame}
+      onPointerDownCapture={event => {
+        cancelledGesture.current = Boolean(onCancelPremove && (event.button === 0 || event.button === 2));
+        if (!cancelledGesture.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onCancelPremove?.();
+      }}
+      onClickCapture={event => {
+        if (!cancelledGesture.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onMouseDownCapture={event => {
+        if (cancelledGesture.current) event.stopPropagation();
+      }}
+      onTouchStartCapture={event => {
+        if (cancelledGesture.current) event.stopPropagation();
+      }}
+      onTouchEndCapture={event => {
+        if (!cancelledGesture.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onContextMenuCapture={event => {
+        if (!cancelledGesture.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+      }}>
       <Chessboard options={{
         ...options,
         onPieceDrop: options.onPieceDrop ? drop => options.onPieceDrop!({
