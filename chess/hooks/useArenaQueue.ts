@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ArenaQueueState } from "@/chess/arena/types";
+import { arenaPresencePollMs } from "@/lib/pollingPolicy";
 
 export function useArenaQueue(tournamentId?: string | null, gameId?: string, navigate = true) {
   const router = useRouter();
@@ -13,6 +14,8 @@ export function useArenaQueue(tournamentId?: string | null, gameId?: string, nav
   const loading = useRef(false);
   const mounted = useRef(true);
   const navigated = useRef("");
+  const pollDelay = useRef(15_000);
+  pollDelay.current = arenaPresencePollMs(queue, navigate);
 
   const update = useCallback(async (action: "heartbeat" | "pause" | "join" = "heartbeat") => {
     if (!tournamentId || (action === "heartbeat" && loading.current)) return;
@@ -39,9 +42,14 @@ export function useArenaQueue(tournamentId?: string | null, gameId?: string, nav
   useEffect(() => {
     mounted.current = true;
     setQueue(null); navigated.current = "";
-    const heartbeat = () => { if (document.visibilityState === "visible") void update(); };
+    let lastPoll = 0;
+    const heartbeat = () => {
+      if (document.visibilityState !== "visible" || Date.now() - lastPoll < pollDelay.current) return;
+      lastPoll = Date.now();
+      void update();
+    };
     heartbeat();
-    const timer = window.setInterval(heartbeat, navigate ? 2000 : 5000);
+    const timer = window.setInterval(heartbeat, 1_000);
     document.addEventListener("visibilitychange", heartbeat);
     window.addEventListener("online", heartbeat);
     return () => { mounted.current = false; ++requestId.current; loading.current = false; clearInterval(timer); document.removeEventListener("visibilitychange", heartbeat); window.removeEventListener("online", heartbeat); };

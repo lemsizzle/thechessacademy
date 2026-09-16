@@ -9,7 +9,7 @@ export function TournamentLiveIndicator({ compact = false }: { compact?: boolean
 
   const refresh = useCallback(async () => {
     try {
-      const response = await fetch("/api/tournaments/live-status", { cache: "no-store" });
+      const response = await fetch("/api/tournaments/live-status");
       if (!response.ok) return;
       const data = await response.json() as { live?: boolean };
       setLive(data.live === true);

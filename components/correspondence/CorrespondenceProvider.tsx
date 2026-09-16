@@ -49,7 +49,7 @@ type CorrespondenceContextValue = {
 };
 
 const CorrespondenceContext = createContext<CorrespondenceContextValue | null>(null);
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 120_000;
 
 function browserNotificationKey(studentId: string) {
   return `correspondence-browser-notifications:v1:${studentId}`;

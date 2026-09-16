@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/Button";
+import { onlinePlayPollMs } from "@/lib/pollingPolicy";
 import { challengeIsPending, EMPTY_ONLINE_PLAY, ONLINE_CLOCKS, type DirectChallenge, type OnlinePlayState } from "@/lib/onlinePlay/types";
 
 type Action = { action: "challenge"; recipientId: string; timeControlId: string } | { action: "accept" | "decline" | "cancel"; challengeId: string };
@@ -24,6 +25,8 @@ export function OnlinePlayProvider({ studentId, children }: { studentId: string;
   const notified = useRef(new Set<string>());
   const waitingFor = useRef(new Set<string>());
   const heartbeatAt = useRef(0);
+  const pollDelay = useRef(15_000);
+  pollDelay.current = onlinePlayPollMs([...state.incoming, ...state.outgoing].some(challengeIsPending));
 
   const refresh = useCallback(async () => {
     const sequence = ++generation.current;
@@ -57,8 +60,10 @@ export function OnlinePlayProvider({ studentId, children }: { studentId: string;
     mounted.current = true;
     notified.current.clear(); waitingFor.current.clear(); heartbeatAt.current = 0;
     let polling = false;
+    let lastPoll = 0;
     const tick = async () => {
-      if (polling || document.visibilityState !== "visible") return;
+      if (polling || document.visibilityState !== "visible" || Date.now() - lastPoll < pollDelay.current) return;
+      lastPoll = Date.now();
       polling = true;
       try {
         if (Date.now() - heartbeatAt.current >= 30_000) {

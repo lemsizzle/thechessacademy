@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
+import { liveGamePollMs } from "@/lib/pollingPolicy";
 import { canBerserk } from "@/chess/arena/berserk";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
 import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles";
@@ -136,7 +137,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   }, [game?.viewer.color]);
 
   useEffect(() => {
-    if (!game?.realtimeTopic || game.status === "cancelled") return;
+    if (!game?.realtimeTopic || game.status === "completed" || game.status === "cancelled") return;
     const client = getSupabaseClient();
     if (!client) {
       setConnection("polling");
@@ -157,17 +158,18 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
   }, [game?.realtimeTopic, game?.status, refresh]);
 
   useEffect(() => {
-    if (!game || game.status === "cancelled") return;
+    const delay = liveGamePollMs(game?.status, isCorrespondence, Boolean(game?.players.white?.botDifficultyId || game?.players.black?.botDifficultyId), connection === "live");
+    if (delay === null) return;
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
-    }, isCorrespondence ? 30_000 : (game.players.white?.botDifficultyId || game.players.black?.botDifficultyId) ? 2_000 : connection === "live" ? 15_000 : 3_000);
+    }, delay);
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
     };
-  }, [connection, game?.status, isCorrespondence, refresh]);
+  }, [connection, game?.status, game?.players.white?.botDifficultyId, game?.players.black?.botDifficultyId, isCorrespondence, refresh]);
 
   useEffect(() => {
     if (!game || game.status !== "completed" || announcedCompletedGame.current === game.id) return;

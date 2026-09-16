@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 function liveStatusResponse(live: boolean) {
   return NextResponse.json(
     { live },
-    { headers: { "Cache-Control": "private, no-store, max-age=0" } }
+    // This response is one public boolean, never student-specific data.
+    { headers: { "Cache-Control": "public, max-age=15", "Vercel-CDN-Cache-Control": "public, s-maxage=30, stale-while-revalidate=30" } }
   );
 }
 

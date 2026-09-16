@@ -49,7 +49,7 @@ export function InternalArenaLobby({ tournamentId, role, adminActionToken = "" }
     const interval = window.setInterval(() => {
       setNow(Date.now() + serverOffset.current);
       if (document.visibilityState === "visible") void load().catch(() => undefined);
-    }, 2_000);
+    }, 5_000);
     return () => window.clearInterval(interval);
   }, [load]);
 

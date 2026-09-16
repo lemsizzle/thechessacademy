@@ -43,7 +43,7 @@ export function ActiveLiveGameBanner() {
       }
     }
     void refresh();
-    const interval = window.setInterval(refresh, 10_000);
+    const interval = window.setInterval(refresh, 30_000);
     window.addEventListener("focus", refresh);
     window.addEventListener("online", refresh);
     document.addEventListener("visibilitychange", refresh);
