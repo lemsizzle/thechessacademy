@@ -35,7 +35,7 @@ window.fetch = async (url, options = {}) => {
         data = { puzzle: { id: 'fixture', displayFen: initial, orientation: 'white', sideToMove: 'White', prompt: 'Play e4', sourceKind: 'lichess', token: 'fixture', daily: null } };
     else if (path.includes('/puzzle-training/move')) {
         const chess = new Chess(initial);
-        chess.move({ from: body.from, to: body.to });
+        chess.move(body.move);
         data = { accepted: true, completed: true, token: 'done', positionFen: chess.fen(), message: 'Puzzle complete', completion: { themes: ['opening'], rating: 800, gameUrl: null, mistakes: 0, hintsUsed: 0, elapsedSeconds: 1 } };
     }
     else if (path.includes('/star-wars/start')) {

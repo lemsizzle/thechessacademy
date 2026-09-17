@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createCandidateCache } from "./candidateCache";
 import type { TacticalBadgeAward } from "@/lib/badges/tacticalMilestones";
 import { requireActiveStudent, requireSignedInStudent } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
@@ -123,7 +124,15 @@ export async function awardDailyTrainingPuzzle(studentId: string, puzzleId: stri
   };
 }
 
-async function candidateQuery(theme: Exclude<PuzzleThemeSlug, "mixed">, level: PuzzleLevelSlug, pivot: number, afterPivot: boolean) {
+const cachedCandidates = createCandidateCache<ChessPuzzleRow>();
+
+function candidateQuery(theme: Exclude<PuzzleThemeSlug, "mixed">, level: PuzzleLevelSlug, pivot: number, afterPivot: boolean) {
+  // Random buckets keep variety while allowing consecutive solves to reuse a pool.
+  const bucket = Math.floor(pivot * 8);
+  return cachedCandidates(`${theme}:${level}:${bucket}:${afterPivot}`, () => loadCandidates(theme, level, pivot, afterPivot));
+}
+
+async function loadCandidates(theme: Exclude<PuzzleThemeSlug, "mixed">, level: PuzzleLevelSlug, pivot: number, afterPivot: boolean) {
   let query = serviceClient()
     .from("chess_puzzles")
     .select(puzzleSelect)

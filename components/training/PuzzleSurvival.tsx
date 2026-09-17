@@ -26,7 +26,8 @@ import { emptyPremoveHandoff, takeReadyPremove, withPremoveReply, withPremoveRep
 import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrainingPuzzle, type PuzzleCompletionDetails, type PuzzleLevelSlug, type PuzzleMoveResult, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 const STARTING_LIVES = 3;
-const OPPONENT_REPLY_DELAY_MS = 420;
+// Release input when the shared board animation finishes, not 420ms afterwards.
+const OPPONENT_REPLY_DELAY_MS = BOARD_MOTION_OPTIONS.animationDurationInMs;
 const AUTO_ADVANCE_DELAY_MS = 140;
 const WOODPECKER_AUTO_ADVANCE_DELAY_MS = 50;
 const MOVE_REQUEST_TIMEOUT_MS = 12_000;
