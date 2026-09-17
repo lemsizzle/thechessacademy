@@ -1,4 +1,5 @@
 import "server-only";
+import { GAME_SUMMARY_COLUMNS } from "./gameSummaryColumns";
 
 import type {
   CorrespondenceChallenge,
@@ -216,7 +217,7 @@ export async function getCorrespondenceInbox(studentId: string): Promise<Corresp
       .limit(100),
     serviceClient()
       .from("live_chess_games")
-      .select("*")
+      .select(GAME_SUMMARY_COLUMNS)
       .eq("game_mode", "correspondence")
       .eq("status", "active")
       .or(`white_player_id.eq.${id},black_player_id.eq.${id}`)

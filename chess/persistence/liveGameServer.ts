@@ -1,4 +1,5 @@
 import "server-only";
+import { GAME_SUMMARY_COLUMNS } from "./gameSummaryColumns";
 import { arenaBotAvatar } from "@/chess/arena/lobbyAvatars";
 
 import { Chess } from "chess.js";
@@ -432,14 +433,17 @@ export async function getLiveGame(studentId: string, gameId: string) {
     await settleCorrespondenceDeadlines({ studentId, gameId: game.id });
     game = await loadRecord(game.id);
   }
-  if (game.status === "completed") await persistCompletedOutputs(game);
-  return snapshotFor(await loadRecord(gameId), studentId);
+  if (game.status === "completed") {
+    await persistCompletedOutputs(game);
+    game = await loadRecord(gameId);
+  }
+  return snapshotFor(game, studentId);
 }
 
 export async function listLiveGames(studentId: string): Promise<LiveGameSummary[]> {
   const { data, error } = await serviceClient()
     .from("live_chess_games")
-    .select("*")
+    .select(GAME_SUMMARY_COLUMNS)
     .eq("game_mode", "live")
     .or(`white_player_id.eq.${studentId},black_player_id.eq.${studentId}`)
     .order("updated_at", { ascending: false })

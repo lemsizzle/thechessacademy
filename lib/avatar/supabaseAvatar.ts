@@ -1,4 +1,5 @@
 import { defaultAvatarItemSlugs, getDefaultEquippedItems, normalizeAvatarCategory, normalizeAvatarRarity, normalizeUnlockType, seedAvatarItems } from "@/lib/avatar/catalog";
+import { unstable_cache, revalidateTag } from "next/cache";
 import { coinsFromXp, normalizeAvatarPrice } from "@/lib/avatar/economy";
 import { canEquipAvatarItem } from "@/lib/avatar/rules";
 import { getSupabaseServerReadClient, getSupabaseServiceClient, isSupabaseProjectConfigured, isSupabaseServiceConfigured } from "@/lib/supabase/server";
@@ -318,9 +319,18 @@ export async function getStudentAvatarState(studentId: string): Promise<StudentA
   }
 }
 
+// Only shared display metadata is cached. Purchases, ownership and equipped
+// items continue to read authoritative data, and admin edits expire the catalog.
+const displayCatalogTag = "avatar-display-catalog";
+const cachedDisplayCatalog = unstable_cache(
+  async (_project: string) => listAvatarItems({ includeInactive: false, useService: true }),
+  ["avatar-display-catalog-v1"],
+  { revalidate: 300, tags: [displayCatalogTag] }
+);
+
 export async function getStudentAvatarDisplayData(studentIds: string[]) {
   const uniqueStudentIds = Array.from(new Set(studentIds.filter(Boolean)));
-  const items = await listAvatarItems({ includeInactive: false, useService: true });
+  const items = await cachedDisplayCatalog(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "unconfigured");
   const defaultEquippedItems = getDefaultEquippedItems(items);
   const avatars: Record<string, StudentAvatarConfig> = Object.fromEntries(
     uniqueStudentIds.map((studentId) => [studentId, { studentId, equippedItems: defaultEquippedItems }])
@@ -425,6 +435,7 @@ export async function createAvatarItem(input: AvatarItemInput) {
     .select("id,name,slug,description,category,rarity,price,asset_url,thumbnail_url,layer_order,unlock_type,unlock_requirement,is_active,is_featured,created_at,updated_at")
     .single();
   if (error) throw new Error(error.message);
+  revalidateTag(displayCatalogTag, { expire: 0 });
   return toItem(data as AvatarItemRow);
 }
 
@@ -460,6 +471,7 @@ export async function updateAvatarItem(itemId: string, input: Partial<AvatarItem
     .select("id,name,slug,description,category,rarity,price,asset_url,thumbnail_url,layer_order,unlock_type,unlock_requirement,is_active,is_featured,created_at,updated_at")
     .single();
   if (error) throw new Error(error.message);
+  revalidateTag(displayCatalogTag, { expire: 0 });
   return toItem(data as AvatarItemRow);
 }
 
