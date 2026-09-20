@@ -93,6 +93,7 @@ export type GameOutcome = {
 };
 
 export type GameMove = {
+  clockAfterMs?: number;
   ply: number;
   color: ChessColor;
   san: string;

@@ -5,6 +5,8 @@ import { getBadgeTierStyles, getTierAura } from "@/lib/badges";
 import type { Badge } from "@/lib/types";
 import { getTacticalMilestone, tacticalTier } from "@/lib/badges/tacticalMilestones";
 import { isChaosMastery } from "@/lib/badges/chaosMastery";
+import { achievementById, isGameAchievement } from "@/lib/badges/gameAchievements/catalog";
+import { achievementGameLink } from "@/lib/badges/gameAchievements/evidence";
 
 function getFallbackBadgeArtUrl(badge: Badge) {
   const variant = (badge.id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) % 3) + 1;
@@ -71,7 +73,7 @@ function BadgeDetails({ badge: highestBadge, earnedTiers, statusText, onClose }:
           event.preventDefault();
           onClose();
         } else if (event.key === "Tab") {
-          const buttons = dialogRef.current?.querySelectorAll<HTMLButtonElement>("button");
+          const buttons = dialogRef.current?.querySelectorAll<HTMLElement>("button, a[href]");
           if (!buttons?.length) return;
           const first = buttons[0];
           const last = buttons[buttons.length - 1];
@@ -94,11 +96,12 @@ function BadgeDetails({ badge: highestBadge, earnedTiers, statusText, onClose }:
         <p className="mt-2 text-center text-sm text-cyan-100">{selectedStatus}</p>
         <div className="mt-4 flex flex-wrap justify-center gap-2 text-sm font-bold">
           {badge.tier && <span className={`rounded-full border px-3 py-1 ${getBadgeTierStyles(badge.tier)}`}>{tacticalTier(badge.tier)}</span>}
-          <span className="rounded-full bg-white/10 px-3 py-1">{badge.category}</span>
-          <span className="rounded-full bg-white/10 px-3 py-1">{milestone ? `${milestone.coins} coins` : `${badge.xpValue} XP`}</span>
+          <span className="rounded-full bg-white/10 px-3 py-1">{achievementById.get(badge.id)?.group ?? badge.category}</span>
+          <span className="rounded-full bg-white/10 px-3 py-1">{isGameAchievement(badge) ? `${badge.xpValue} XP + ${badge.xpValue} coins` : milestone ? `${milestone.coins} coins` : `${badge.xpValue} XP`}</span>
         </div>
         {badge.description && <p className="mt-5 break-words text-sm leading-relaxed text-slate-300">{badge.description}</p>}
         {(milestone || badge.unlockRequirement) && <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4"><h3 className="text-sm font-bold text-white">How to earn it</h3><p className="mt-1 break-words text-sm leading-relaxed text-slate-300">{isChaosMastery(badge) ? badge.unlockRequirement : milestone ? `Solve ${milestone.puzzles} different puzzles for this tactic in Survival. Earn ${milestone.coins} Academy Coins once when this tier unlocks.` : badge.unlockRequirement}</p></div>}
+        {achievementGameLink(badge.achievementEvidence) && <a className="mt-5 block rounded-lg bg-cyan-200 px-4 py-3 text-center font-bold text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" href={achievementGameLink(badge.achievementEvidence)!}>Replay the earning moment ↗</a>}
         {earnedTiers.length > 1 && <section aria-label="Earned tiers" className="mt-6 border-t border-white/10 pt-5">
           <h3 className="text-sm font-bold text-white">Your earned tiers</h3>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">

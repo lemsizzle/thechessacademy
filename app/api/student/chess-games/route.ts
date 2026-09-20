@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireActiveStudent, StudentAuthenticationError } from "@/lib/auth/requireActiveStudent";
 import { BotLockedError } from "@/chess/persistence/botProgressionServer";
 import { saveCompletedGame } from "@/chess/persistence/saveCompletedGame";
+import { scheduleGameAchievements } from "@/lib/badges/gameAchievements/server";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ export async function POST(request: Request) {
     const student = await requireActiveStudent();
     const body = await request.json().catch(() => null);
     const saved = await saveCompletedGame(student.studentId, body);
+    scheduleGameAchievements([student.studentId]);
     return NextResponse.json({ ok: true, gameId: saved.id, unlockedBotIds: saved.unlockedBotIds }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Completed game could not be saved.";

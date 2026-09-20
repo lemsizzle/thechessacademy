@@ -3,11 +3,13 @@ import { StudentPortalShell } from "@/components/student/StudentPortalShell";
 import { requireStudentPage as requireActiveStudent } from "@/lib/auth/requireStudentPage";
 import { sessionToStudentUser } from "@/lib/auth/session";
 import { getStudentDashboardData } from "@/lib/student/dashboard";
+import { scheduleGameAchievements } from "@/lib/badges/gameAchievements/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentHomePage() {
   const session = await requireActiveStudent();
+  scheduleGameAchievements([session.studentId]);
   const dashboard = await getStudentDashboardData(session.studentId);
 
   return (

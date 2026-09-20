@@ -1,4 +1,5 @@
 import { LICHESS_TOKEN_COOKIE } from "@/lib/auth/roles";
+import { scheduleLichessAchievements } from "@/lib/badges/gameAchievements/server";
 import { readStudentSession } from "@/lib/auth/session";
 import { fetchAuthenticatedLichessAccount } from "@/lib/lichess/fetchAccount";
 import { fetchStudentGamesForWindow } from "@/lib/lichess/fetchStudentGamesForWindow";
@@ -81,13 +82,15 @@ async function enrichAccountActivity(account: StudentLichessAccount, token: stri
   let puzzleActivity: Awaited<ReturnType<typeof fetchStudentPuzzleActivityForWindow>> = [];
 
   try {
-    rapidGames = await fetchStudentGamesForWindow(account.lichessUsername, start, end, "rapid", token);
+    rapidGames = await fetchStudentGamesForWindow(account.lichessUsername, start, end, "rapid", token,
+      games => scheduleLichessAchievements(account.studentId, account.lichessUsername, games));
   } catch (error) {
     hitGameRateLimit = error instanceof Error && error.message.toLowerCase().includes("rate-limiting");
   }
   if (!hitGameRateLimit) {
     try {
-      blitzGames = await fetchStudentGamesForWindow(account.lichessUsername, start, end, "blitz", token);
+      blitzGames = await fetchStudentGamesForWindow(account.lichessUsername, start, end, "blitz", token,
+        games => scheduleLichessAchievements(account.studentId, account.lichessUsername, games));
     } catch {
       // Lichess game activity can be rate-limited while ratings and puzzles still update.
     }

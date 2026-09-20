@@ -42,6 +42,7 @@ type XpEventRow = {
 };
 
 type StudentBadgeAwardRow = {
+  achievement_evidence?: import("@/lib/badges/gameAchievements/evidence").GameAchievementEvidence;
   badge_id: string;
   awarded_at: string;
 };
@@ -85,7 +86,7 @@ async function listStudentBadgeAwards(studentId: string) {
 
   const { data, error } = await supabase
     .from("student_badges")
-    .select("badge_id,awarded_at")
+    .select("badge_id,awarded_at,achievement_evidence")
     .eq("student_id", studentId)
     .order("awarded_at", { ascending: false });
 
@@ -181,7 +182,7 @@ export async function getStudentDashboardData(studentId: string, { readOnly = fa
   const badgeAwardById = new Map(badgeAwardsResult.value.map((award) => [award.badge_id, award]));
   const badgesWithAwardDates = badgeResult.value.map((badge) => {
     const award = badgeAwardById.get(badge.id);
-    return award ? { ...badge, createdAt: award.awarded_at } : badge;
+    return award ? { ...badge, createdAt: award.awarded_at, achievementEvidence: award.achievement_evidence } : badge;
   });
   const badgeById = new Map(badgesWithAwardDates.map((badge) => [badge.id, badge]));
   const earnedBadges = badgeAwardsResult.value.flatMap((award) => {

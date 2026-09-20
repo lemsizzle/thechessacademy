@@ -38,6 +38,7 @@ export type ConceptTheme =
 export type GenerationStatus = "idle" | "pending" | "generated" | "selected" | "error";
 
 export type Badge = {
+  achievementEvidence?: import("@/lib/badges/gameAchievements/evidence").GameAchievementEvidence;
   id: string;
   name: string;
   description: string;

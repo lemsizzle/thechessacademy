@@ -391,6 +391,7 @@ function TrophyCase({
         </span>
       </div>
 
+      {!readOnly && <Button href="/student/achievements" variant="secondary" className="mt-4">Explore Game Achievements</Button>}
       {badgesUnavailable ? (
         <div className="mt-5">
           <UnavailableNotice title="Badges are temporarily unavailable." detail="Your earned badges are safe and will return when the achievement service reconnects." />

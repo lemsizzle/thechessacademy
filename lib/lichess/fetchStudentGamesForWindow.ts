@@ -13,6 +13,10 @@ export type RawLichessGame = {
   turns?: number;
   moves?: string;
   pgn?: string;
+  variant?: string;
+  initialFen?: string;
+  clocks?: number[];
+  clock?: { increment?: number };
   winner?: "white" | "black";
   winnerColor?: "white" | "black";
   color?: "white" | "black";
@@ -25,7 +29,7 @@ export type RawLichessGame = {
 export type LichessGamePerfType = "bullet" | "blitz" | "rapid" | "classical" | "correspondence";
 
 const GAME_ACTIVITY_CACHE_TTL_MS = 60_000;
-const gameActivityCache = new Map<string, { expiresAt: number; games: LichessQuestGame[] }>();
+const gameActivityCache = new Map<string, { expiresAt: number; games: LichessQuestGame[]; raw: RawLichessGame[] }>();
 
 function cacheKey(username: string, start: Date, end: Date, perfTypes: LichessGamePerfType[]) {
   const normalizedEndMinute = Math.floor(end.getTime() / 60_000);
@@ -125,13 +129,14 @@ export function mapLichessGameForStudent(game: RawLichessGame, username: string,
   };
 }
 
-export async function fetchStudentGamesForWindow(username: string, start: Date, end: Date, perfType: LichessGamePerfType | LichessGamePerfType[] = "rapid", accessToken?: string | null) {
+export async function fetchStudentGamesForWindow(username: string, start: Date, end: Date, perfType: LichessGamePerfType | LichessGamePerfType[] = "rapid", accessToken?: string | null, observeGames?: (games: RawLichessGame[]) => void) {
   const perfTypes = Array.from(new Set(Array.isArray(perfType) ? perfType : [perfType]));
   const fallbackPerfType = perfTypes[0] ?? "rapid";
   const requestEnd = new Date(Math.min(end.getTime(), Date.now() + 2 * 60_000));
   const key = cacheKey(username, start, requestEnd, perfTypes);
   const cached = gameActivityCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.games;
+  if (cached && cached.expiresAt > Date.now()) { observeGames?.(cached.raw); return cached.games; }
+  if (gameActivityCache.size >= 64) gameActivityCache.delete(gameActivityCache.keys().next().value!);
   const narrowParams = new URLSearchParams({
     since: String(start.getTime()),
     until: String(requestEnd.getTime()),
@@ -139,6 +144,7 @@ export async function fetchStudentGamesForWindow(username: string, start: Date, 
     perfType: perfTypes.join(","),
     max: "300",
     moves: "true",
+    clocks: "true",
     pgnInJson: "true"
   });
   const broadParams = new URLSearchParams({
@@ -146,6 +152,7 @@ export async function fetchStudentGamesForWindow(username: string, start: Date, 
     until: String(requestEnd.getTime()),
     max: "300",
     moves: "true",
+    clocks: "true",
     pgnInJson: "true"
   });
 
@@ -154,7 +161,8 @@ export async function fetchStudentGamesForWindow(username: string, start: Date, 
     const games = narrowGames
       .map((game) => mapLichessGameForStudent(game, username, fallbackPerfType))
       .filter((game) => perfTypes.includes(game.perfType as LichessGamePerfType));
-    gameActivityCache.set(key, { expiresAt: Date.now() + GAME_ACTIVITY_CACHE_TTL_MS, games });
+    gameActivityCache.set(key, { expiresAt: Date.now() + GAME_ACTIVITY_CACHE_TTL_MS, games, raw: narrowGames });
+    observeGames?.(narrowGames);
     return games;
   } catch (error) {
     if (isLichessRateLimitError(error)) throw error;
@@ -165,7 +173,8 @@ export async function fetchStudentGamesForWindow(username: string, start: Date, 
   const games = broadGames
     .map((game) => mapLichessGameForStudent(game, username, fallbackPerfType))
     .filter((game) => perfTypes.includes(game.perfType as LichessGamePerfType) && game.rated);
-  gameActivityCache.set(key, { expiresAt: Date.now() + GAME_ACTIVITY_CACHE_TTL_MS, games });
+  gameActivityCache.set(key, { expiresAt: Date.now() + GAME_ACTIVITY_CACHE_TTL_MS, games, raw: broadGames });
+  observeGames?.(broadGames);
   return games;
 }
 

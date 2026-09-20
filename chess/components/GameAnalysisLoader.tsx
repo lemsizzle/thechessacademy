@@ -8,7 +8,7 @@ import { AddToStudyDialog } from "@/chess/components/AddToStudyDialog";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 
-export function GameAnalysisLoader({ gameId, basePath }: { gameId: string; basePath: "/student" | "/admin" }) {
+export function GameAnalysisLoader({ gameId, basePath, initialPly = 0 }: { gameId: string; basePath: "/student" | "/admin"; initialPly?: number }) {
   const [game, setGame] = useState<CompletedGameRecord | null>(null);
   const [analysisTree, setAnalysisTree] = useState<AnalysisTree | null>(null);
   const [error, setError] = useState("");
@@ -35,6 +35,7 @@ export function GameAnalysisLoader({ gameId, basePath }: { gameId: string; baseP
   return <><AnalysisWorkspace
     key={game.id}
     initialTree={analysisTree}
+    initialPly={initialPly}
     gameMode
     reviewColor={game.playerColor}
     reviewGameId={basePath === "/student" ? game.id : undefined}

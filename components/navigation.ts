@@ -64,6 +64,7 @@ const studentNavigationHubs: StudentNavHub[] = [
 ];
 
 const studentMoreLinks: NavLink[] = [
+  { href: "/student/achievements", label: "Game Achievements", icon: "\u{1F396}\uFE0F" },
   { href: "/student/studies", label: "Studies", icon: "\u{1F4D3}" },
   { href: "/student/submit", label: "Submit Work", icon: "\u{1F4DD}" },
   { href: "/student?progress=overview", label: "Stats", icon: "\u{1F4C8}" },

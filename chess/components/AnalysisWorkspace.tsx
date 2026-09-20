@@ -16,6 +16,7 @@ import { useMistakeReview } from "@/chess/hooks/useMistakeReview";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type Props = {
+  initialPly?: number;
   initialTree: AnalysisTree;
   title: string;
   subtitle?: string;
@@ -148,9 +149,13 @@ function GuidedExerciseEditor({ fen, exercise, canPublish, onSave, onPublish, on
   </Card>;
 }
 
-export function AnalysisWorkspace({ initialTree, title, subtitle, editable = true, saveStatus = "idle", saveMessage = "", onTreeChange, actions, gameMode = false, canManageReferenceEvaluations = false, canManageGuidedExercises = false, guidedStudentMode = false, guidedExerciseContext, reviewColor, reviewGameId }: Props) {
+export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle, editable = true, saveStatus = "idle", saveMessage = "", onTreeChange, actions, gameMode = false, canManageReferenceEvaluations = false, canManageGuidedExercises = false, guidedStudentMode = false, guidedExerciseContext, reviewColor, reviewGameId }: Props) {
   const [tree, setTree] = useState(initialTree);
-  const [activeId, setActiveId] = useState(initialTree.rootId);
+  const [activeId, setActiveId] = useState(() => {
+    let node = initialTree.nodes[initialTree.rootId];
+    while (node.mainChildId && node.ply < initialPly) node = initialTree.nodes[node.mainChildId];
+    return node.id;
+  });
   const [orientation, setOrientation] = useState<"white" | "black">(reviewColor ?? "white");
   const [engineOn, setEngineOn] = useState(false);
   const [showBoardTools, setShowBoardTools] = useState(false);

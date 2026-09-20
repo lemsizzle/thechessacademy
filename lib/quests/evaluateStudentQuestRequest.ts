@@ -1,4 +1,5 @@
 import { LICHESS_TOKEN_COOKIE } from "@/lib/auth/roles";
+import { scheduleLichessAchievements } from "@/lib/badges/gameAchievements/server";
 import { decryptLichessToken } from "@/lib/lichess/tokenCrypto";
 import { createMockStudentGamesForWindow, fetchStudentGamesForWindow, type LichessGamePerfType } from "@/lib/lichess/fetchStudentGamesForWindow";
 import { createMockStudentPuzzleActivityForWindow, fetchStudentPuzzleActivityForWindow } from "@/lib/lichess/fetchStudentPuzzleActivityForWindow";
@@ -220,7 +221,8 @@ export async function evaluateStudentQuestRequest(
     const window = mergeWindows(Array.from(gameWindowsByPerf.values()).flat());
     try {
       requestCount += 1;
-      const games = await fetchStudentGamesForWindow(input.username, window.start, window.end, requestedPerfTypes, token);
+      const games = await fetchStudentGamesForWindow(input.username, window.start, window.end, requestedPerfTypes, token,
+        rawGames => scheduleLichessAchievements(input.studentId, input.username, rawGames));
       for (const perfType of requestedPerfTypes) {
         gamesByPerf.set(perfType, games.filter((game) => game.perfType === perfType));
       }

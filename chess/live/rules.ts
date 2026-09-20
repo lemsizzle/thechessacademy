@@ -121,6 +121,7 @@ export function applyLiveMove(game: LiveGameRecord, studentId: string, input: Li
   const nextClock = currentClock
     ? completeClockMove(currentClock, playerColor, (playerColor === "white" ? game.white_berserk : game.black_berserk) ? 0 : game.time_control.incrementMs, moveReceivedAtMs)
     : null;
+  if (nextClock) savedMove.clockAfterMs = playerColor === "white" ? nextClock.whiteMs : nextClock.blackMs;
   const correspondenceDeadline = game.game_mode === "correspondence" && !completion
     ? new Date(nextTurnStartedAtMs + (game.days_per_move ?? 3) * 24 * 60 * 60 * 1_000).toISOString()
     : null;
