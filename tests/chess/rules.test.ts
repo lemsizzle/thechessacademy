@@ -1,8 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { Chess } from "chess.js";
-import { boardDropAction, createOutcome, detectBoardOutcome, legalMovesFrom, promotionOptions, tryMove, undoComputerTurn } from "@/chess/game/rules";
+import { boardDropAction, createOutcome, detectBoardOutcome, gameMoves, legalMovesFrom, promotionOptions, tryMove, undoComputerTurn } from "@/chess/game/rules";
 
 describe("internal chess rules", () => {
+  it.each([
+    { fen: undefined, moves: ["e4", "a6", "e5", "d5", "exd6"] },
+    { fen: "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1", moves: ["O-O", "O-O-O"] },
+    { fen: "8/P7/8/8/8/8/8/k6K w - - 0 1", moves: ["a8=N"] }
+  ])("preserves every recorded position and move when projecting game history: $moves", ({ fen, moves }) => {
+    const chess = new Chess(fen);
+    const positions = moves.map((san) => {
+      chess.move(san);
+      return chess.fen();
+    });
+    const originalFen = chess.fen();
+    const projected = gameMoves(chess);
+    expect(projected.map((move) => move.fenAfter)).toEqual(positions);
+    expect(projected.map((move) => move.san)).toEqual(moves);
+    expect(projected.map((move) => move.ply)).toEqual(moves.map((_, index) => index + 1));
+    expect(chess.fen()).toBe(originalFen);
+    chess.undo();
+    expect(gameMoves(chess).map((move) => move.fenAfter)).toEqual(positions.slice(0, -1));
+  });
+
   it("accepts legal moves and rejects illegal moves", () => {
     const chess = new Chess();
     expect(legalMovesFrom(chess, "e2").map((move) => move.to)).toEqual(["e3", "e4"]);

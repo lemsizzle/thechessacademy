@@ -7,6 +7,7 @@ import type { ChessColor, ClockSnapshot, TimeControl } from "@/chess/types";
 export function useGameClock() {
   const [display, setDisplay] = useState<ClockSnapshot | null>(null);
   const [expiredColor, setExpiredColor] = useState<ChessColor | null>(null);
+  const [running, setRunning] = useState(false);
   const runningRef = useRef<RunningClock | null>(null);
   const controlRef = useRef<TimeControl | null>(null);
   const displayRef = useRef<ClockSnapshot | null>(null);
@@ -18,6 +19,7 @@ export function useGameClock() {
     const expired = expiredClockColor(next);
     if (expired) {
       runningRef.current = null;
+      setRunning(false);
       setExpiredColor(expired);
     }
     displayRef.current = next;
@@ -26,6 +28,7 @@ export function useGameClock() {
   }, []);
 
   useEffect(() => {
+    if (!running) return;
     let timeout: number;
     const tick = () => {
       const snapshot = refresh();
@@ -39,7 +42,7 @@ export function useGameClock() {
     };
     timeout = window.setTimeout(tick, 100);
     return () => window.clearTimeout(timeout);
-  }, [refresh]);
+  }, [refresh, running]);
 
   const reset = useCallback((control: TimeControl) => {
     controlRef.current = control;
@@ -48,6 +51,7 @@ export function useGameClock() {
     displayRef.current = snapshot;
     setDisplay(snapshot);
     runningRef.current = snapshot ? { ...snapshot, startedAt: Date.now() } : null;
+    setRunning(snapshot !== null);
     return snapshot;
   }, []);
 
@@ -60,6 +64,7 @@ export function useGameClock() {
     const expired = expiredClockColor(current);
     if (expired) {
       runningRef.current = null;
+      setRunning(false);
       displayRef.current = current;
       setDisplay(current);
       setExpiredColor(expired);
@@ -78,6 +83,7 @@ export function useGameClock() {
     displayRef.current = snapshot;
     setDisplay(snapshot);
     runningRef.current = snapshot ? { ...snapshot, startedAt: Date.now() } : null;
+    setRunning(snapshot !== null);
   }, []);
 
   const pause = useCallback(() => {
@@ -85,6 +91,7 @@ export function useGameClock() {
     if (!running) return;
     const snapshot = clockAt(running, Date.now());
     runningRef.current = null;
+    setRunning(false);
     displayRef.current = snapshot;
     setDisplay(snapshot);
   }, []);

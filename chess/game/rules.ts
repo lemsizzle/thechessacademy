@@ -189,9 +189,7 @@ export function hasHumanMove(chess: Chess, humanColor: ChessColor) {
 }
 
 export function gameMoves(chess: Chess): GameMove[] {
-  const replay = new Chess();
   return chess.history({ verbose: true }).map((move, index) => {
-    replay.move({ from: move.from, to: move.to, promotion: move.promotion });
     return {
       ply: index + 1,
       color: fromChessJsColor(move.color),
@@ -199,7 +197,7 @@ export function gameMoves(chess: Chess): GameMove[] {
       from: move.from,
       to: move.to,
       promotion: move.promotion as PromotionPiece | undefined,
-      fenAfter: replay.fen()
+      fenAfter: move.after
     };
   });
 }

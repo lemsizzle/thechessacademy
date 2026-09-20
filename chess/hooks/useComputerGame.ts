@@ -17,7 +17,8 @@ const STANDARD_FEN = new Chess().fen();
 const UCI_MOVE = /^([a-h][1-8])([a-h][1-8])([qrbn])?$/;
 
 export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[]) => void) {
-  const chessRef = useRef(new Chess());
+  const [initialChess] = useState(() => new Chess());
+  const chessRef = useRef(initialChess);
   const outcomeRef = useRef<GameOutcome | null>(null);
   const clockHistoryRef = useRef<Array<ClockSnapshot | null>>([]);
   const engineRequestFenRef = useRef<string | null>(null);
@@ -67,12 +68,12 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
 
   const syncPosition = useCallback((move?: { from: string; to: string }) => {
     const chess = chessRef.current;
+    const nextMoves = gameMoves(chess);
     setFen(chess.fen());
-    setMoves(gameMoves(chess));
+    setMoves(nextMoves);
     if (move) setLastMove([move.from, move.to]);
     else {
-      const history = chess.history({ verbose: true });
-      const latest = history.at(-1);
+      const latest = nextMoves.at(-1);
       setLastMove(latest ? [latest.from, latest.to] : null);
     }
   }, []);
@@ -396,7 +397,11 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
   const activeColor = outcome ? null : clockDisplay?.activeColor ?? fromChessJsColor(chessRef.current.turn());
   const humanTurn = Boolean(config && !outcome && !thinking && chessRef.current.turn() === chessJsColor(config.humanColor));
   const canQueuePremove = Boolean(config && !outcome && chessRef.current.turn() !== chessJsColor(config.humanColor));
-  const canTakeBack = Boolean(config && !outcome && hasHumanMove(chessRef.current, config.humanColor));
+  // Clock ticks do not change the move list. Avoid replaying chess.js history on each tick.
+  const canTakeBack = useMemo(
+    () => Boolean(config && !outcome && moves.some((move) => move.color === config.humanColor)),
+    [config, moves, outcome]
+  );
   const clockTimes = useMemo(() => ({
     white: clockDisplay?.whiteMs ?? null,
     black: clockDisplay?.blackMs ?? null

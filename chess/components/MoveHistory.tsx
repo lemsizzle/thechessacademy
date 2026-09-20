@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { memo, useEffect, useRef, type RefObject } from "react";
 import type { GameMove } from "@/chess/types";
 
 type Props = {
@@ -32,7 +32,7 @@ function MoveCell({ move, selected, onSelect, selectedMoveRef }: {
   );
 }
 
-export function MoveHistory({ moves, selectedPly, onSelectPly }: Props) {
+export const MoveHistory = memo(function MoveHistory({ moves, selectedPly, onSelectPly }: Props) {
   const historyRef = useRef<HTMLDivElement>(null);
   const selectedMoveRef = useRef<HTMLButtonElement>(null);
   const rows: Array<{ number: number; white?: GameMove; black?: GameMove }> = [];
@@ -83,4 +83,4 @@ export function MoveHistory({ moves, selectedPly, onSelectPly }: Props) {
       )}
     </div>
   );
-}
+});
