@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/Sidebar";
+import { AdminStorageNotice } from "@/components/admin/AdminStorageNotice";
 import { TopNav } from "@/components/TopNav";
 import { StudentPublicRedirect } from "@/components/student/StudentPublicRedirect";
 import type { NavVariant } from "@/components/navigation";
@@ -16,6 +17,7 @@ export function AppShell({ children, title, subtitle, variant = "public" }: { ch
               <h1 className="text-2xl font-black text-white sm:text-3xl">{title}</h1>
               {subtitle && <p className="mt-2 max-w-3xl text-sm text-slate-400 sm:text-base">{subtitle}</p>}
             </div>}
+            {variant === "admin" && <AdminStorageNotice />}
             {children}
             {variant === "public" ? (
               <Suspense fallback={null}>

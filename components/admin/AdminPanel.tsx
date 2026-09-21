@@ -2085,7 +2085,7 @@ export function AdminPanel({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-black text-white">Local Mock Storage</h2>
-          <p className="text-sm text-slate-400">Admin changes save in this browser and survive refreshes until reset.</p>
+          <p className="text-sm text-slate-400">Local-only settings save in this browser when storage is available. Check any storage warning above before reloading.</p>
         </div>
         <Button variant="ghost" onClick={resetLocalData}>Reset Mock Data</Button>
       </div>

@@ -3,6 +3,8 @@ import type { ActivityEvent, ArenaTournamentResult, Badge, ClassGroup, GameAnaly
 export const ADMIN_STORE_KEY = "quest-board-admin-state-v1";
 export const ADMIN_SESSION_KEY = "quest-board-admin";
 export const ADMIN_STORE_UPDATED_EVENT = "quest-board-admin-store-updated";
+let unsavedState: AdminStoreState | undefined;
+export function hasUnsavedAdminState() { return unsavedState !== undefined; }
 
 export type AdminStoreState = {
   students?: Student[];
@@ -39,6 +41,7 @@ export type AdminStoreState = {
 
 export function readAdminStore(): AdminStoreState {
   if (typeof window === "undefined") return {};
+  if (unsavedState) return unsavedState;
 
   try {
     return JSON.parse(window.localStorage.getItem(ADMIN_STORE_KEY) ?? "{}") as AdminStoreState;
@@ -49,10 +52,19 @@ export function readAdminStore(): AdminStoreState {
 
 export function updateAdminStore(patch: Partial<AdminStoreState>) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(ADMIN_STORE_KEY, JSON.stringify({ ...readAdminStore(), ...patch }));
+  const next = { ...readAdminStore(), ...patch };
+  try {
+    window.localStorage.setItem(ADMIN_STORE_KEY, JSON.stringify(next));
+    unsavedState = undefined;
+  } catch {
+    // Preserve edits for this tab without crashing every page using the shared cache.
+    // Never delete the previously saved state or unrelated browser data to make room.
+    unsavedState = next;
+  }
   window.dispatchEvent(new CustomEvent(ADMIN_STORE_UPDATED_EVENT));
 }
 
 export function hasAdminSession() {
-  return typeof window !== "undefined" && window.localStorage.getItem(ADMIN_SESSION_KEY) === "true";
+  try { return typeof window !== "undefined" && window.localStorage.getItem(ADMIN_SESSION_KEY) === "true"; }
+  catch { return false; }
 }
