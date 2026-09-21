@@ -6,7 +6,7 @@ export const survivalAdamantiumBadge: Badge = {
   tier: "Adamantium", xpValue: 1000, isActive: true, generationStatus: "selected",
   description: "A score of fifty. An achievement of extraordinary endurance.",
   unlockRequirement: "Solve 50 different puzzles without hints in one Survival round, in any theme or variant. Earn 1,000 XP and 1,000 Academy Coins once.",
-  visualTheme: "Adamantium Survival medal (placeholder artwork)",
-  artImageUrl: "/badges/survival-adamantium-placeholder.svg", finalImageUrl: null
+  visualTheme: "Engraved adamantium knight medallion with violet and cyan magic",
+  artImageUrl: "https://yjtawpnflanerbodbieo.supabase.co/storage/v1/object/public/badge-art/adamantium-20260922/survival-adamantium-v1.webp", finalImageUrl: null
 };
 export function isSurvivalAdamantium(badge: Pick<Badge, "id">) { return badge.id === SURVIVAL_ADAMANTIUM_ID; }

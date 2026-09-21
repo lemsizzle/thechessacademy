@@ -22,7 +22,7 @@ export function GameAchievementCollection({ awards,launchedAt }: { awards:Achiev
     </section>
     <section aria-label="Survival milestone" className="flex flex-col gap-5 rounded-2xl border border-violet-200/30 bg-violet-300/5 p-5 sm:flex-row sm:items-center">
       <div className="w-36 shrink-0"><BadgeCard badge={survivalAdamantiumBadge} earned={earned.has(survivalAdamantiumBadge.id)} /></div>
-      <div><p className="text-xs font-bold uppercase text-violet-200">Survival milestone · {earned.has(survivalAdamantiumBadge.id) ? "Earned" : "Locked"}</p><h2 className="mt-2 text-xl font-black text-white">Adamantium</h2><p className="mt-2 text-sm leading-6 text-slate-300">{survivalAdamantiumBadge.unlockRequirement}</p><p className="mt-2 text-xs text-slate-400">Temporary artwork · Platinum Survival badges now award 500 XP + 500 coins.</p></div>
+      <div><p className="text-xs font-bold uppercase text-violet-200">Survival milestone · {earned.has(survivalAdamantiumBadge.id) ? "Earned" : "Locked"}</p><h2 className="mt-2 text-xl font-black text-white">Adamantium</h2><p className="mt-2 text-sm leading-6 text-slate-300">{survivalAdamantiumBadge.unlockRequirement}</p></div>
     </section>
     <div className="grid gap-3 sm:grid-cols-3">
       <label className="text-sm font-bold text-slate-200">Find a badge<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search achievements" className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3" /></label>
