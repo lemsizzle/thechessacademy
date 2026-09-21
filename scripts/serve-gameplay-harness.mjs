@@ -31,7 +31,7 @@ const js = result.outputFiles.find((file) => file.path.endsWith(".js")).contents
 const boardCss = result.outputFiles.find((file) => file.path.endsWith(".css"))?.text ?? "";
 const html = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/bundle.css"></head><body><main class="mx-auto max-w-7xl p-4"><div id="root"></div></main><script src="/bundle.js"></script></body></html>';
 createServer((req, res) => {
-  if (/^\/badges\/game-achievements\/[a-z0-9-]+\.svg$/.test(req.url)) {
+  if (req.url === "/badges/survival-adamantium-placeholder.svg" || /^\/badges\/game-achievements\/[a-z0-9-]+\.svg$/.test(req.url)) {
     res.setHeader("Content-Type", "image/svg+xml");
     res.end(readFileSync("public" + req.url));
     return;

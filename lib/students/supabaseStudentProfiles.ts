@@ -367,6 +367,7 @@ function toSupabaseBadgeTier(tier: BadgeTier | undefined) {
   if (tier === "Silver" || tier === "B") return "B";
   if (tier === "Gold" || tier === "A") return "A";
   if (tier === "Platinum" || tier === "S") return "S";
+  if (tier === "Adamantium" || tier === "SS") return "SS";
   return "C";
 }
 

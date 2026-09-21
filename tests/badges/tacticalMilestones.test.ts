@@ -1,13 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { groupEarnedBadges, getTacticalMilestone, inferBadgeTactic } from "@/lib/badges/tacticalMilestones";
 import type { Badge } from "@/lib/types";
+import { survivalAdamantiumBadge } from "@/lib/badges/survivalAdamantium";
+import { badgeToSupabasePayload, toBadgeTier } from "@/lib/badges/supabaseBadges";
 
 function badge(id: string, name: string, tier: Badge["tier"], category: Badge["category"] = "Tactics"): Badge {
   return { id, name, tier, category, description: "", unlockRequirement: "", xpValue: 10, visualTheme: "", artImageUrl: null, finalImageUrl: null, generationStatus: "idle" };
 }
 
 describe("tactical badge milestones and trophy case", () => {
-  it.each([["C", 10, 20], ["Silver", 20, 40], ["A", 30, 100], ["Platinum", 40, 200]] as const)("maps %s to the correct threshold and coins", (tier, puzzles, coins) => {
+  it("preserves Adamantium's tier and one-time universal Survival reward", () => {
+    expect(toBadgeTier("SS")).toBe("Adamantium");
+    expect(badgeToSupabasePayload(survivalAdamantiumBadge)).toMatchObject({tier:"SS",xp_value:1000});
+    expect(getTacticalMilestone(survivalAdamantiumBadge)).toMatchObject({puzzles:50,xp:1000,coins:1000});
+    expect(getTacticalMilestone(badge("pin", "Pin Platinum", "Platinum"))).toMatchObject({xp:500,coins:500});
+  });
+  it.each([["C", 10, 20], ["Silver", 20, 40], ["A", 30, 100], ["Platinum", 40, 500]] as const)("maps %s to the correct threshold and coins", (tier, puzzles, coins) => {
     expect(getTacticalMilestone(badge("pin", "Pin Apprentice", tier))).toMatchObject({ puzzles, coins });
   });
 

@@ -73,7 +73,7 @@ export function SurvivalRoundRewardsView({ rewards }: { rewards: RoundRewards })
 
 function EarnedBadge({ badge }: { badge: SurvivalRoundBadge }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const tier = ({ C: "Bronze", B: "Silver", A: "Gold", S: "Platinum" } as Record<string, string>)[badge.tier] ?? badge.tier;
+  const tier = ({ C: "Bronze", B: "Silver", A: "Gold", S: "Platinum", SS: "Adamantium" } as Record<string, string>)[badge.tier] ?? badge.tier;
   const fallback = `/mock-badge-art/${tier.toLowerCase()}-1.svg?${new URLSearchParams({ badge: badge.name, category: badge.category })}`;
   return (
     <li className="min-w-0 rounded-xl border border-white/15 bg-slate-950/60 p-3 text-center">
@@ -81,7 +81,7 @@ function EarnedBadge({ badge }: { badge: SurvivalRoundBadge }) {
         width={192} height={192} unoptimized onError={() => setImageFailed(true)}
         className="mx-auto aspect-square w-full max-w-48 rounded-full object-contain" />
       <p className="mt-3 break-words font-black text-white">{badge.name}</p>
-      <p className="mt-1 text-sm text-amber-200">{tier}{badge.coins > 0 ? ` · +${badge.coins} coins` : ""}</p>
+      <p className="mt-1 text-sm text-amber-200">{tier}{badge.xp ? ` · +${badge.xp} XP` : ""}{badge.coins > 0 ? ` · +${badge.coins} coins` : ""}</p>
     </li>
   );
 }

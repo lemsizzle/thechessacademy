@@ -49,7 +49,7 @@ type QuestEvaluationResponse = {
   error?: string;
 };
 const badgeCategories: BadgeCategory[] = ["Tactics", "Concepts", "Checkmates", "Openings", "Endgames", "Tournament", "Sportsmanship", "Creativity", "Boss Achievements"];
-const badgeTiers: BadgeTier[] = ["Bronze", "Silver", "Gold", "Platinum"];
+const badgeTiers: BadgeTier[] = ["Bronze", "Silver", "Gold", "Platinum", "Adamantium"];
 const questTypes: QuestType[] = ["weekly", "boss"];
 const questStatuses: QuestStatus[] = ["available", "in-progress", "completed"];
 

@@ -1,12 +1,14 @@
 import type { Badge, BadgeTier, TacticTheme } from "@/lib/types";
 import { getArenaLegend } from "./arenaLegends";
 import { isChaosMastery } from "./chaosMastery";
+import { isSurvivalAdamantium } from "./survivalAdamantium";
 
 export const tacticalMilestones = {
-  Bronze: { puzzles: 10, coins: 20, rank: 1 },
-  Silver: { puzzles: 20, coins: 40, rank: 2 },
-  Gold: { puzzles: 30, coins: 100, rank: 3 },
-  Platinum: { puzzles: 40, coins: 200, rank: 4 }
+  Bronze: { puzzles: 10, coins: 20, xp: 0, rank: 1 },
+  Silver: { puzzles: 20, coins: 40, xp: 0, rank: 2 },
+  Gold: { puzzles: 30, coins: 100, xp: 0, rank: 3 },
+  Platinum: { puzzles: 40, coins: 500, xp: 500, rank: 4 },
+  Adamantium: { puzzles: 50, coins: 1000, xp: 1000, rank: 5 }
 } as const;
 
 export function tacticalTier(tier?: BadgeTier) {
@@ -14,6 +16,7 @@ export function tacticalTier(tier?: BadgeTier) {
   if (tier === "B") return "Silver";
   if (tier === "A") return "Gold";
   if (tier === "S") return "Platinum";
+  if (tier === "SS") return "Adamantium";
   return tier;
 }
 
@@ -35,6 +38,7 @@ export function getBadgeTactic(badge: Badge) {
 }
 
 export function getTacticalMilestone(badge: Badge) {
+  if (isSurvivalAdamantium(badge)) return tacticalMilestones.Adamantium;
   const tier = tacticalTier(badge.tier);
   return (getBadgeTactic(badge) || isChaosMastery(badge)) && tier ? tacticalMilestones[tier] : undefined;
 }
@@ -57,4 +61,4 @@ export function groupEarnedBadges(badges: Badge[]): EarnedBadgeGroup[] {
   return [...groups.values()];
 }
 
-export type TacticalBadgeAward = { badgeId: string; name: string; tier: string; coins: number };
+export type TacticalBadgeAward = { badgeId: string; name: string; tier: string; coins: number; xp?: number };

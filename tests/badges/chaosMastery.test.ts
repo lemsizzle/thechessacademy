@@ -10,8 +10,8 @@ const badges = ["Bronze", "Silver", "Gold", "Platinum"].map((tier, i) => ({
 describe("Chaos Mastery", () => {
   it("matches existing survival thresholds and coin bonuses", () => {
     expect(badges.map(getTacticalMilestone)).toEqual([
-      { puzzles: 10, coins: 20, rank: 1 }, { puzzles: 20, coins: 40, rank: 2 },
-      { puzzles: 30, coins: 100, rank: 3 }, { puzzles: 40, coins: 200, rank: 4 }
+      { puzzles: 10, coins: 20, xp: 0, rank: 1 }, { puzzles: 20, coins: 40, xp: 0, rank: 2 },
+      { puzzles: 30, coins: 100, xp: 0, rank: 3 }, { puzzles: 40, coins: 500, xp: 500, rank: 4 }
     ]);
   });
   it("groups earned tiers highest first and deduplicates", () => {

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { BadgeCard } from "@/components/BadgeCard";
 import { achievementBadge, gameAchievements } from "@/lib/badges/gameAchievements/catalog";
 import type { GameAchievementEvidence } from "@/lib/badges/gameAchievements/evidence";
+import { survivalAdamantiumBadge } from "@/lib/badges/survivalAdamantium";
 export type AchievementAward = { badge_id:string;awarded_at:string;achievement_evidence?:GameAchievementEvidence };
 export function GameAchievementCollection({ awards,launchedAt }: { awards:AchievementAward[];launchedAt:string|null }) {
   const [group,setGroup]=useState("All");
@@ -18,6 +19,10 @@ export function GameAchievementCollection({ awards,launchedAt }: { awards:Achiev
       <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Learn useful tactics, spot unusual patterns, and fill your trophy case. Every badge awards XP and the same number of Academy Coins once. Play your best chess; the curiosities are optional discoveries, not recommended strategies.</p>
       <div className="mt-5 flex items-center gap-4"><span className="shrink-0 text-2xl font-black text-amber-100">{count} / {gameAchievements.length}</span><progress aria-label="Game achievements earned" value={count} max={gameAchievements.length} className="h-3 min-w-0 w-full max-w-sm accent-amber-300" /></div>
       <p className="mt-4 text-xs leading-5 text-slate-400">{launchedAt ? `Games started from ${new Date(launchedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"})} count.` : "Unlocking begins when this collection is released."} Completed Academy games from the normal starting position count without takebacks. Linked Lichess games are checked during activity sync; match streaks use Academy games only. Clock badges need recorded move times. Past games and practice boards do not count.</p>
+    </section>
+    <section aria-label="Survival milestone" className="flex flex-col gap-5 rounded-2xl border border-violet-200/30 bg-violet-300/5 p-5 sm:flex-row sm:items-center">
+      <div className="w-36 shrink-0"><BadgeCard badge={survivalAdamantiumBadge} earned={earned.has(survivalAdamantiumBadge.id)} /></div>
+      <div><p className="text-xs font-bold uppercase text-violet-200">Survival milestone · {earned.has(survivalAdamantiumBadge.id) ? "Earned" : "Locked"}</p><h2 className="mt-2 text-xl font-black text-white">Adamantium</h2><p className="mt-2 text-sm leading-6 text-slate-300">{survivalAdamantiumBadge.unlockRequirement}</p><p className="mt-2 text-xs text-slate-400">Temporary artwork · Platinum Survival badges now award 500 XP + 500 coins.</p></div>
     </section>
     <div className="grid gap-3 sm:grid-cols-3">
       <label className="text-sm font-bold text-slate-200">Find a badge<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search achievements" className="mt-1 w-full rounded-lg border border-white/20 bg-slate-950 p-3" /></label>

@@ -5,6 +5,7 @@ export type SurvivalRoundBadge = {
   category: string;
   imageUrl: string | null;
   coins: number;
+  xp?: number;
 };
 
 export type SurvivalRoundRewards = {

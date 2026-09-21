@@ -44,6 +44,7 @@ export function toBadgeTier(tier: string | null | undefined): BadgeTier | undefi
   if (tier === "B") return "Silver";
   if (tier === "A") return "Gold";
   if (tier === "S") return "Platinum";
+  if (tier === "SS") return "Adamantium";
   return tier as BadgeTier;
 }
 
@@ -53,6 +54,7 @@ function toSupabaseTier(tier: BadgeTier | undefined, category?: BadgeCategory) {
   if (tier === "Silver" || tier === "B") return "B";
   if (tier === "Gold" || tier === "A") return "A";
   if (tier === "Platinum" || tier === "S") return "S";
+  if (tier === "Adamantium" || tier === "SS") return "SS";
   return "C";
 }
 

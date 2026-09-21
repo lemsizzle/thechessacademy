@@ -20,7 +20,7 @@ const tierConfig = {
   },
   Platinum: {
     requiredPuzzleCount: 40,
-    xpValue: 100,
+    xpValue: 500,
     visualTheme: "platinum radiant glow, legendary boss-level emblem"
   }
 } satisfies Record<Extract<BadgeTier, "Bronze" | "Silver" | "Gold" | "Platinum">, { requiredPuzzleCount: number; xpValue: number; visualTheme: string }>;

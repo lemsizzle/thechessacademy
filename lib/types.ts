@@ -1,4 +1,4 @@
-export type BadgeTier = "Bronze" | "Silver" | "Gold" | "Platinum" | "C" | "B" | "A" | "S";
+export type BadgeTier = "Bronze" | "Silver" | "Gold" | "Platinum" | "Adamantium" | "C" | "B" | "A" | "S" | "SS";
 
 export type BadgeCategory =
   | "Concepts"
