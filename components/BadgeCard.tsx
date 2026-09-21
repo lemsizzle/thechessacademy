@@ -39,7 +39,7 @@ export function BadgeCard({ badge, earned = false, statusText, earnedTiers }: { 
   );
 }
 
-function BadgeDetails({ badge: highestBadge, earnedTiers, statusText, onClose }: { badge: Badge; earnedTiers: Badge[]; statusText: string; onClose: () => void }) {
+export function BadgeDetails({ badge: highestBadge, earnedTiers, statusText, onClose }: { badge: Badge; earnedTiers: Badge[]; statusText: string; onClose: () => void }) {
   const [selectedId, setSelectedId] = useState(highestBadge.id);
   const badge = earnedTiers.find((item) => item.id === selectedId) ?? highestBadge;
   const imageUrl = badge.finalImageUrl || badge.artImageUrl || getFallbackBadgeArtUrl(badge);
