@@ -90,6 +90,38 @@ These optional server-side values tune the curated pool:
 
 Changing the values and rerunning the importer is safe because rows are upserted by `lichess_puzzle_id`.
 
+### Expand the pool without changing existing puzzles
+
+Add `--new-only` to skip existing IDs **before** filling theme quotas. This mode
+reads only puzzle IDs from Supabase, validates new solutions, and inserts with
+conflict-ignore protection. Existing answers, ratings, random keys, inactive
+entries, and student attempts stay unchanged. `--new-only --dry-run` also needs
+the server environment because it reads existing IDs, but writes nothing.
+
+For beginner through intermediate practice:
+
+```powershell
+$env:PUZZLE_IMPORT_RATING_MIN="600"
+$env:PUZZLE_IMPORT_RATING_MAX="1799"
+$env:PUZZLE_IMPORT_PER_THEME="1000"
+npm run import:lichess-puzzles -- "data/lichess/lichess_db_puzzle.csv.zst" --fast --new-only --dry-run
+# Review the preview, then run the same command without --dry-run.
+```
+
+This adds up to 1,000 new matches per supported theme; puzzles with multiple
+themes count toward multiple quotas. Every selected position and solution is
+replayed with chess.js before import. Popularity and play-count quality filters
+still apply. Rerunning `--new-only` deliberately adds another batch rather than
+reselecting the old puzzles.
+
+New-only batch writes retry transient network/server failures up to three times
+with conflict-ignore protection. Set `PUZZLE_IMPORT_MANIFEST_PATH` to an ignored
+local path such as `.local/lichess/import-selection.json` to retain the exact
+validated selection before uploading. This maintenance artifact contains puzzle
+answers; keep it outside the public app and Git. If an upload is interrupted,
+check the database count before retrying: the new-only command selects a fresh
+batch, whereas replaying the retained selection safely fills only its missing IDs.
+
 For a one-command temporary quota change in PowerShell:
 
 ```powershell
@@ -99,6 +131,15 @@ Remove-Item Env:PUZZLE_IMPORT_PER_THEME
 ```
 
 ## Verify imported counts
+
+Production expansion on 2026-09-23: added **22,387** new puzzles rated 600–1799
+from the existing official Lichess archive. Breakdown: 4,584 beginner, 8,486
+improver, and 9,317 intermediate. Every supported theme gained at least 1,000
+new matches (themes overlap). The active catalog grew from 47,304 to **69,691**
+rows and occupies 39 MB including indexes. All selected solution lines passed
+chess.js validation; live SQL confirmed the count, zero duplicate Lichess IDs,
+and no new rows outside the requested range. Existing rows were not updated.
+The database change is live independently of deployment of the importer tooling.
 
 Run these queries in the Supabase SQL Editor:
 
