@@ -27,6 +27,7 @@ export function BoardAppearanceProvider({ studentId, children }: { studentId: st
 function StudentBoardAppearance({ studentId, children }: { studentId: string; children: ReactNode }) {
   const [preferences, setPreferences] = useState(DEFAULT_BOARD_APPEARANCE);
   const [ownedThemes, setOwnedThemes] = useState<readonly PurchasedChessTheme[]>(NO_OWNED_THEMES);
+  const ownedThemesRef = useRef<readonly PurchasedChessTheme[]>(NO_OWNED_THEMES);
   const [loading, setLoading] = useState(true);
   const request = useRef<Promise<readonly PurchasedChessTheme[]> | null>(null);
   const mounted = useRef(false);
@@ -40,10 +41,10 @@ function StudentBoardAppearance({ studentId, children }: { studentId: string; ch
         const data = await response.json() as { studentId?: string; ownsPaper?: boolean; ownedThemes?: unknown };
         // Retain Paper compatibility during a rolling deployment; never infer Blossom ownership.
         const owned = data.studentId === studentId ? parseOwnedChessThemes(data.ownedThemes ?? (data.ownsPaper === true ? ["paper"] : [])) : NO_OWNED_THEMES;
-        if (mounted.current) setOwnedThemes(owned);
+        if (mounted.current) { ownedThemesRef.current = owned; setOwnedThemes(owned); }
         return owned;
       })
-      .catch(() => { if (mounted.current) setOwnedThemes(NO_OWNED_THEMES); return NO_OWNED_THEMES; })
+      .catch(() => { if (mounted.current) { ownedThemesRef.current = NO_OWNED_THEMES; setOwnedThemes(NO_OWNED_THEMES); } return NO_OWNED_THEMES; })
       .finally(() => { request.current = null; if (mounted.current) setLoading(false); });
     return request.current;
   }, [studentId]);
@@ -64,12 +65,12 @@ function StudentBoardAppearance({ studentId, children }: { studentId: string; ch
 
   const setAppearance = useCallback((next: BoardAppearance) => {
     const valid = parseBoardAppearance(JSON.stringify(next));
-    const allowed = unlockedAppearance(valid, ownedThemes);
+    const allowed = unlockedAppearance(valid, ownedThemesRef.current);
     if (allowed.boardTheme !== valid.boardTheme || allowed.pieceTheme !== valid.pieceTheme) return false;
     setPreferences(valid);
     try { window.localStorage.setItem(key, JSON.stringify(valid)); } catch { /* Changing appearance still works without browser storage. */ }
     return true;
-  }, [key, ownedThemes]);
+  }, [key]);
   const value = useMemo(() => ({ appearance: unlockedAppearance(preferences, ownedThemes), ownedThemes, loading, setAppearance, refreshOwnership }), [preferences, ownedThemes, loading, setAppearance, refreshOwnership]);
   return <BoardAppearanceContext.Provider value={value}>{children}</BoardAppearanceContext.Provider>;
 }

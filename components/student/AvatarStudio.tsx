@@ -10,7 +10,8 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { avatarCategories, avatarCategoryLabels, avatarRarities, avatarRarityStyles, isAvatarItemEquipped, isAvatarItemNew } from "@/lib/avatar/catalog";
 import type { AvatarCategory, AvatarItem, AvatarRarity, StudentAvatarConfig, StudentInventoryItem, StudentWallet } from "@/lib/types";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import styles from "./AvatarStudio.module.css";
 
 type AvatarPayload = {
   items: AvatarItem[];
@@ -34,6 +35,7 @@ export function AvatarStudio() {
   const [equipped, setEquipped] = useState<Partial<Record<AvatarCategory, string>>>({});
   const [message, setMessage] = useState("Loading avatar items...");
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
+  const mutationPending = useRef(false);
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("category") === "board_theme") setCategory("board_theme");
@@ -72,6 +74,8 @@ export function AvatarStudio() {
   const renderAvatar = state ? { ...state.avatar, equippedItems: equipped } : { studentId: "loading", equippedItems: {} };
 
   async function saveAvatar(nextEquipped: Partial<Record<AvatarCategory, string>>, itemId: string) {
+    if (mutationPending.current) return;
+    mutationPending.current = true;
     setBusyItemId(itemId);
     setMessage("Saving avatar...");
     try {
@@ -90,11 +94,15 @@ export function AvatarStudio() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save avatar.");
     } finally {
+      mutationPending.current = false;
       setBusyItemId(null);
     }
   }
 
   async function purchase(item: AvatarItem) {
+    if (mutationPending.current) return;
+    mutationPending.current = true;
+    let purchased = false;
     setBusyItemId(item.id);
     setMessage(`Purchasing ${item.name}...`);
     try {
@@ -110,19 +118,36 @@ export function AvatarStudio() {
       setState(data);
       setEquipped(data.avatar.equippedItems);
       setPreviewItemId(item.id);
+      purchased = true;
+      setMessage(`Equipping ${item.name}...`);
       if (item.category === "board_theme") {
         await refreshOwnership(true);
-        setMessage(`${item.name} purchased! Choose Use theme below, or use the gear beside any board.`);
-      } else setMessage(`${item.name} purchased. It is ready to equip.`);
+        const theme = chessThemeForSlug(item.slug);
+        if (!theme || !setAppearance({ boardTheme: theme, pieceTheme: theme })) throw new Error("The chess set could not be selected yet.");
+      } else {
+        const equipResponse = await fetch("/api/student/avatar", {
+          method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+          body: JSON.stringify({ equippedItems: { ...data.avatar.equippedItems, [item.category]: item.id } })
+        });
+        const equippedData = await equipResponse.json() as AvatarPayload;
+        if (!equipResponse.ok || equippedData.error) throw new Error(equippedData.error ?? "Could not save avatar.");
+        setState(equippedData);
+        setEquipped(equippedData.avatar.equippedItems);
+        setPreviewItemId(null);
+      }
+      setMessage(`${item.name} purchased and equipped!`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Purchase failed.");
+      setMessage(purchased
+        ? `${item.name} is purchased and safely in your collection, but could not be equipped. Use ${item.category === "board_theme" ? "Use theme" : "Equip"} to retry without buying again.`
+        : error instanceof Error ? error.message : "Purchase failed.");
     } finally {
+      mutationPending.current = false;
       setBusyItemId(null);
     }
   }
 
   function equip(item: AvatarItem) {
-    if (!owned.has(item.id)) return;
+    if (!owned.has(item.id) || mutationPending.current) return;
     if (item.category === "board_theme") {
       const theme = chessThemeForSlug(item.slug);
       if (theme && setAppearance({ boardTheme: theme, pieceTheme: theme })) setMessage(`${item.name} board and pieces selected. Ready for your next game or puzzle!`);
@@ -130,11 +155,11 @@ export function AvatarStudio() {
       return;
     }
     const next = { ...equipped, [item.category]: item.id };
-    setEquipped(next);
     void saveAvatar(next, item.id);
   }
 
   function unequip(item: AvatarItem) {
+    if (mutationPending.current) return;
     if (item.category === "board_theme") {
       const theme = chessThemeForSlug(item.slug);
       setAppearance({ boardTheme: appearance.boardTheme === theme ? "academy" : appearance.boardTheme, pieceTheme: appearance.pieceTheme === theme ? "academy" : appearance.pieceTheme });
@@ -144,7 +169,6 @@ export function AvatarStudio() {
     if (item.category === "base_face" || item.category === "skin_tone") return;
     const next = { ...equipped };
     delete next[item.category];
-    setEquipped(next);
     void saveAvatar(next, item.id);
   }
 
@@ -156,22 +180,25 @@ export function AvatarStudio() {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
-      <Card className="p-5 xl:sticky xl:top-20 xl:self-start">
-        <div className="flex flex-col items-center gap-4">
+    <div className={styles.layout}>
+      <Card className={styles.preview}>
+        <section aria-label="Avatar preview" className={styles.previewContent}>
+          <div className={styles.artwork}>
           {state && (previewItem?.category === "board_theme" ? <ChessSetPreview slug={previewItem.slug} large /> : <AvatarRenderer items={state.items} avatar={renderAvatar} previewItem={previewItem} size="studio" label="Live avatar preview" />)}
+          </div>
+          <div className="min-w-0 space-y-2">
           <div className="grid w-full grid-cols-2 gap-2">
-            <div className="rounded-lg border border-cyan-200/20 bg-cyan-300/10 p-3 text-center">
+            <div className="rounded-lg border border-cyan-200/20 bg-cyan-300/10 p-2 text-center">
               <p className="text-xs font-black uppercase text-cyan-100">Owned</p>
-              <p className="text-2xl font-black text-white">{state?.ownedItemIds.length ?? "..."}</p>
+              <p className="text-lg font-black text-white">{state?.ownedItemIds.length ?? "..."}</p>
             </div>
-            <div className="rounded-lg border border-amber-200/20 bg-amber-300/10 p-3 text-center">
+            <div className="rounded-lg border border-amber-200/20 bg-amber-300/10 p-2 text-center">
               <p className="text-xs font-black uppercase text-amber-100">Academy Coins</p>
-              <p className="text-2xl font-black text-white">{state?.wallet.academyCoins.toLocaleString() ?? "..."}</p>
+              <p className="text-lg font-black text-white">{state?.wallet.academyCoins.toLocaleString() ?? "..."}</p>
             </div>
           </div>
           {previewItem && (
-            <div className="w-full rounded-lg border border-white/10 bg-white/5 p-3">
+            <div className="w-full rounded-lg border border-white/10 bg-white/5 p-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-black text-white">{previewItem.name}</p>
@@ -181,8 +208,9 @@ export function AvatarStudio() {
               </div>
             </div>
           )}
-          <p className="w-full text-sm text-slate-300" role="status">{message}</p>
-        </div>
+          <p className="w-full text-xs text-slate-300" role="status">{message}</p>
+          </div>
+        </section>
       </Card>
 
       <div className="min-w-0 space-y-4">
@@ -223,6 +251,7 @@ export function AvatarStudio() {
               const itemPreviewed = previewItemId === item.id;
               const affordable = (state?.wallet.academyCoins ?? 0) >= item.price;
               const busy = busyItemId === item.id;
+              const mutationDisabled = busyItemId !== null;
               return (
                 <Card key={item.id} className={`p-4 ${itemEquipped ? "border-amber-200/60 bg-amber-300/10" : itemPreviewed ? "border-cyan-200/60 bg-cyan-300/10" : item.isFeatured ? "border-purple-300/40" : ""}`}>
                   <div className="flex items-start gap-3">
@@ -243,15 +272,15 @@ export function AvatarStudio() {
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <Button variant="secondary" className="px-3 py-2" onClick={() => setPreviewItemId(item.id)}>{itemPreviewed ? "Previewing" : "Preview"}</Button>
                     {itemOwned ? (
-                      <Button className="px-3 py-2" disabled={itemEquipped || busy} onClick={() => equip(item)}>{itemEquipped ? "Equipped" : busy ? "Saving..." : item.category === "board_theme" ? "Use theme" : "Equip"}</Button>
+                      <Button className="px-3 py-2" disabled={itemEquipped || mutationDisabled} onClick={() => equip(item)}>{itemEquipped ? "Equipped" : busy ? "Saving..." : item.category === "board_theme" ? "Use theme" : "Equip"}</Button>
                     ) : item.unlockType === "purchase" ? (
-                      <Button className="px-3 py-2" disabled={!affordable || busy} onClick={() => purchase(item)}>{busy ? "Buying..." : affordable ? `Buy - ${item.price}` : "Need More Coins"}</Button>
+                      <Button className="px-3 py-2" disabled={!affordable || mutationDisabled} onClick={() => purchase(item)}>{busy ? "Purchasing..." : affordable ? "Purchase and equip" : "Need More Coins"}</Button>
                     ) : (
                       <Button className="px-3 py-2" variant="ghost" disabled>Locked</Button>
                     )}
                   </div>
                   {itemEquipped && item.category !== "base_face" && item.category !== "skin_tone" && (
-                    <Button className="mt-2 w-full px-3 py-2" variant="ghost" disabled={busy} onClick={() => unequip(item)}>Unequip</Button>
+                    <Button className="mt-2 w-full px-3 py-2" variant="ghost" disabled={mutationDisabled} onClick={() => unequip(item)}>Unequip</Button>
                   )}
                 </Card>
               );
