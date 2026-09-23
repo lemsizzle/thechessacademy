@@ -229,6 +229,16 @@ export function AdminPanel({
   const [syncingAllLichess, setSyncingAllLichess] = useState(false);
 
   useEffect(() => {
+    let active = true;
+    void fetch("/api/classes", { cache: "no-store" }).then(async response => {
+      if (!response.ok) return;
+      const data = await response.json();
+      if (active && Array.isArray(data.data)) setOutschoolGroups(data.data);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     const parsed = readAdminStore();
     if (initialStudents) {
       setStudents(initialStudents);
@@ -294,7 +304,7 @@ export function AdminPanel({
 
   useEffect(() => {
     if (!loaded) return;
-    updateAdminStore({ students, badges, quests, classGroups: outschoolGroups, studentTacticProgress: tacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, pendingAwards, lichessSyncLogs, lichessQuestProgress, studentQuestAttempts, pendingQuestAwards, questCompletionEvents, log });
+    updateAdminStore({ students, badges, quests, studentTacticProgress: tacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, pendingAwards, lichessSyncLogs, lichessQuestProgress, studentQuestAttempts, pendingQuestAwards, questCompletionEvents, log });
   }, [badges, loaded, log, outschoolGroups, quests, students, tacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, pendingAwards, lichessSyncLogs, lichessQuestProgress, studentQuestAttempts, pendingQuestAwards, questCompletionEvents]);
 
   useEffect(() => {

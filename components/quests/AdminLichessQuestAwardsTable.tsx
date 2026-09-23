@@ -125,8 +125,7 @@ export function AdminLichessQuestAwardsTable() {
         xpEvents: [...persistedXp.map((item) => item.event), ...(store.xpEvents ?? [])],
         questXpEvents: [...autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today })), ...(store.questXpEvents ?? [])],
         questActivityEvents: [...autoApprovedAwards.map((award) => ({ id: `activity-${award.id}`, title: "Lichess quest auto-completed", detail: `${award.title} awarded ${award.xpAmount} XP.`, createdAt: today })), ...(store.questActivityEvents ?? [])],
-        lichessQuestProgress: mergedQuestProgress,
-        lichessActivitySnapshots: data.evaluations.flatMap((evaluation) => evaluation.snapshots ?? [])
+        lichessQuestProgress: mergedQuestProgress
       });
       setAwards(nextAwards);
       setStudents(updatedStudents);

@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import { PGlite } from '../work/achievement-db-test/node_modules/@electric-sql/pglite/dist/index.js';
+const db = new PGlite();
+await db.exec(`create role anon; create role authenticated; create role service_role bypassrls; create table public.students(id text primary key,class_group text); grant all on public.students to service_role; insert into students values('s1','Knights'),('s2','Rooks');`);
+await db.exec(await fs.readFile('supabase/migrations/20260923014136_durable_class_settings.sql','utf8'));
+await db.exec('set role service_role');
+const groups = [{id:'a',name:'Knights'},{id:'b',name:'Rooks'}];
+async function save(g,rev,imp=false) { return (await db.query('select public.save_academy_classes($1::jsonb,$2,$3,$4::jsonb) as result',[JSON.stringify(g),rev,imp,imp?JSON.stringify(g):null])).rows[0].result; }
+assert.equal((await save(groups,0,true)).revision,1);
+assert.equal((await save([{id:'old',name:'Stale browser'}],0,true)).imported,false);
+assert.equal((await db.query('select count(*)::int as n from academy_class_import_backups')).rows[0].n,2);
+await save([{id:'a',name:'Rooks'},{id:'b',name:'Knights'}],1);
+assert.deepEqual((await db.query('select class_group from students order by id')).rows.map(r=>r.class_group),['Rooks','Knights']);
+await assert.rejects(()=>save(groups,1), /another tab/);
+await save([{id:'a',name:'Rooks'}],2);
+assert.equal((await db.query("select class_group from students where id='s2'")).rows[0].class_group,'Unassigned');
+await assert.rejects(()=>save([{id:'a',name:'Rooks'},{id:'b',name:'rooks'}],3),/unique/);
+await db.exec('reset role; set role anon');
+await assert.rejects(()=>db.query('select * from academy_class_settings'),/permission denied/);
+await assert.rejects(()=>save([],3),/permission denied/);
+await db.close();
+console.log('PASS: class import backups, stale import preservation, rename swaps, deletion assignments, revision conflicts, validation and permissions.');

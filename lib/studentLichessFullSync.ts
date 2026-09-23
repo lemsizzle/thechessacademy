@@ -219,8 +219,7 @@ async function runStudentLichessFullSync(): Promise<StudentLichessFullSyncResult
     studentQuestAttempts: nextQuestAttempts,
     questXpEvents: [...(data.xpEvents?.length ? data.xpEvents : autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today }))), ...(store.questXpEvents ?? [])],
     questActivityEvents: [...autoApprovedAwards.map((award) => ({ id: `activity-${award.id}`, title: "Quest auto-completed", detail: `${award.title} awarded ${award.xpAmount} XP.`, createdAt: today })), ...(store.questActivityEvents ?? [])],
-    students: nextStudents,
-    lichessActivitySnapshots: [...(data.snapshots ?? []), ...(store.lichessActivitySnapshots ?? [])]
+    students: nextStudents
   });
   void fetch("/api/quest-progress", {
     method: "POST",

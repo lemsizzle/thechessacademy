@@ -11,7 +11,7 @@ import { studentGameSubmissions as seedStudentGameSubmissions, studentScoreSubmi
 import { studentTacticProgress as seedStudentTacticProgress } from "@/data/studentTacticProgress";
 import { ADMIN_STORE_UPDATED_EVENT, readAdminStore } from "@/lib/mockStorage";
 import type { Badge, ClassGroup, GameReviewSubmission, LichessConnection, LichessSyncLog, PendingAward, Quest, Resource, Student, StudentGameSubmission, StudentLichessAccount, StudentScoreSubmission, StudentTacticProgress } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function normalizeQuests(quests: Quest[]) {
   return quests.map((quest) => ({
@@ -21,6 +21,7 @@ function normalizeQuests(quests: Quest[]) {
 }
 
 export function useMockAdminState() {
+  const serverClasses = useRef<ClassGroup[] | null>(null);
   const [students, setStudents] = useState<Student[]>(seedStudents);
   const [badges, setBadges] = useState<Badge[]>(seedBadges);
   const [quests, setQuests] = useState<Quest[]>(() => normalizeQuests(seedQuests));
@@ -42,7 +43,7 @@ export function useMockAdminState() {
     setStudents(parsed.students ?? seedStudents);
     setBadges(parsed.badges ?? seedBadges);
     setQuests(normalizeQuests(parsed.quests ?? seedQuests));
-    setClassGroups(parsed.classGroups ?? seedClassGroups);
+    setClassGroups(serverClasses.current ?? parsed.classGroups ?? seedClassGroups);
     setResources(parsed.resources ?? seedResources);
     setStudentTacticProgress(parsed.studentTacticProgress ?? seedStudentTacticProgress);
     setLichessConnections(parsed.lichessConnections ?? seedLichessConnections);
@@ -56,9 +57,16 @@ export function useMockAdminState() {
     }
 
     loadState();
+    let active = true;
+    void fetch("/api/classes", { cache: "no-store" }).then(async response => {
+      if (!response.ok) return;
+      const data = await response.json();
+      if (active && Array.isArray(data.data)) { serverClasses.current = data.data; setClassGroups(data.data); }
+    }).catch(() => {});
     window.addEventListener(ADMIN_STORE_UPDATED_EVENT, loadState);
     window.addEventListener("storage", loadState);
     return () => {
+      active = false;
       window.removeEventListener(ADMIN_STORE_UPDATED_EVENT, loadState);
       window.removeEventListener("storage", loadState);
     };
