@@ -1,5 +1,9 @@
 "use client";
 
+import { refreshCelebrations } from "@/lib/celebrations";
+
+import { BoardViewport } from "@/chess/components/BoardViewport";
+
 import { type Square } from "chess.js";
 import type { ChessboardOptions } from "react-chessboard";
 import { ResponsiveChessboard } from "@/chess/components/ResponsiveChessboard";
@@ -319,6 +323,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       if (!mountedRef.current || activeRunIdRef.current !== targetRunId) return;
       latestSavedScoreRef.current = Math.max(latestSavedScoreRef.current, body.result.score);
       saveBest(body.result.personalBest);
+      refreshCelebrations();
       if (latestSavedScoreRef.current >= latestSubmittedScoreRef.current) setScoreSyncState("saved");
     } catch {
       if (mountedRef.current
@@ -667,13 +672,13 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
         </Card>
       ) : null}
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
-        <div className="mx-auto w-full max-w-[640px] space-y-2">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
+        <BoardViewport maxWidth={640}>
           <BoardSettings />
         <div className="aspect-square overflow-hidden rounded-xl border border-violet-200/25 bg-slate-950/80 p-1 sm:p-2">
           <ResponsiveChessboard key={`star-wars-board-${puzzle.id}-${runVariant}`} options={boardOptions} />
         </div>
-        </div>
+        </BoardViewport>
 
         <aside className="space-y-4">
           <Card className="overflow-hidden border-violet-300/25">

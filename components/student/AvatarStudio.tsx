@@ -1,5 +1,7 @@
 "use client";
 
+import { refreshCelebrations } from "@/lib/celebrations";
+
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { ChessSetPreview } from "@/chess/appearance/ChessSetPreview";
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
@@ -104,6 +106,7 @@ export function AvatarStudio() {
       });
       const data = await response.json() as AvatarPayload;
       if (!response.ok || data.error) throw new Error(data.error ?? "Purchase failed.");
+      refreshCelebrations();
       setState(data);
       setEquipped(data.avatar.equippedItems);
       setPreviewItemId(item.id);

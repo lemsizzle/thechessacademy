@@ -1,5 +1,9 @@
 "use client";
 
+import { celebrate, refreshCelebrations } from "@/lib/celebrations";
+
+import { BoardViewport } from "@/chess/components/BoardViewport";
+
 import { Chess, type Square } from "chess.js";
 import type { ChessboardOptions } from "react-chessboard";
 import { ResponsiveChessboard } from "@/chess/components/ResponsiveChessboard";
@@ -944,6 +948,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
       if (result.completed && result.completion) {
         if (result.completion.badgeAwards?.length) {
           const awards = result.completion.badgeAwards;
+          awards.forEach(award => celebrate({ id: `badge:${award.badgeId}`, kind: "badge", name: award.name }));
           setBadgeAwards((current) => [...current, ...awards.filter((award) => !current.some((item) => item.badgeId === award.badgeId))]);
         }
         resetPremoveHandoff();
@@ -1033,6 +1038,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
           || (trainingMode === "woodpecker" && woodpeckerCycleRef.current >= WOODPECKER_CYCLE_COUNT && woodpeckerCycleFinished);
         setPhase(sessionFinished ? "summary" : "solved");
         moveLocked.current = false;
+        if (sessionFinished) refreshCelebrations();
         if (!sessionFinished && autoAdvanceRef.current) {
           setMessage("Correct! Loading the next puzzle...");
           schedulePuzzleAdvance(() => {
@@ -1385,13 +1391,13 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
         </div>
       </Card>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
-        <div className="mx-auto w-full min-w-0 max-w-[640px] space-y-2">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
+        <BoardViewport maxWidth={640}>
           <BoardSettings />
         <div ref={puzzleBoardRef} className="overflow-hidden rounded-lg border border-cyan-200/20 bg-slate-950/70">
           {positionFen ? <ResponsiveChessboard key={`academy-puzzle-board-${puzzle?.id ?? "loading"}-${annotationResetKey}`} options={boardOptions} onCancelPremove={queuedPremove ? () => cancelPremove() : undefined} /> : <div className="flex aspect-square items-center justify-center text-sm text-slate-400">Preparing board...</div>}
         </div>
-        </div>
+        </BoardViewport>
 
         <div className="space-y-4">
           <Card className="p-5">

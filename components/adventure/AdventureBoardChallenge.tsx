@@ -1,5 +1,7 @@
 "use client";
 
+import { BoardViewport } from "@/chess/components/BoardViewport";
+
 import { Chess, type PieceSymbol, type Square } from "chess.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { blackPiecesRemaining, findUnprotectedBlackCapture, findVisibleBlackAttack, hasUnprotectedBlackCapture } from "@/adventure/fundamentals";
@@ -479,10 +481,10 @@ export function AdventureBoardChallenge({ challenge, onComplete, puzzleRatings =
       </div>}
 
       <div className={`mt-5 grid gap-5 ${compact ? "lg:grid-cols-[minmax(0,1fr)_220px]" : "lg:grid-cols-[minmax(0,1fr)_260px]"}`}>
-        <div className="relative mx-auto aspect-square w-full max-w-[560px] overflow-hidden rounded-xl border border-cyan-100/20 bg-slate-900 p-1 sm:p-2">
+        <BoardViewport maxWidth={560} className="relative aspect-square overflow-hidden rounded-xl border border-cyan-100/20 bg-slate-900 p-1 sm:p-2">
           <AcademyChessboard fen={fen} orientation="white" humanColor="white" interactive={!won && !pendingPromotion && !failureMessage && !isBlackReplyAnimating && !isCheckAttemptAnimating} lastMove={lastMove} onMove={move} onIllegalMove={puzzle.illegalMoveMessage ? () => setFeedback(puzzle.illegalMoveMessage!) : undefined} arrows={boardArrows} circles={hintCircles} onBoardInteraction={() => { setShowTrailHints(false); setHintLevel(0); }} onArrowsChange={(arrows) => setPracticeArrows(arrows.filter((arrow) => !instructionalArrows.some((guide) => guide.startSquare === arrow.startSquare && guide.endSquare === arrow.endSquare && guide.color === arrow.color)))} animationDurationInMs={isBlackReplyAnimating ? BLACK_REPLY_ANIMATION_MS : undefined} allowDrawingArrows allowCheckIgnoringMoves={puzzle.fundamental?.goal === "escape-check"} shinySquares={displayStarSquares} activeShinySquares={displayStarSquares} movableSquares={movableSquares} keepMovedPieceSelected hiddenPieces={hiddenPieces} boardId={`adventure-${challenge.id}-${puzzle.id}`} />
           {blackReplyPhase && <div className="pointer-events-none absolute inset-x-4 top-4 z-10 rounded-full border border-rose-100/60 bg-rose-950/85 px-4 py-2 text-center text-sm font-black uppercase tracking-wider text-rose-50 shadow-[0_0_22px_rgba(251,113,133,.6)]">{blackReplyPhase === "watch" ? "Watch Black's reply…" : blackReplyPhase === "moving" ? (blackReplyKind === "save-king" ? "Black saves the king!" : "Black is capturing!") : (blackReplyKind === "save-king" ? "The king escaped!" : "Piece captured!")}</div>}
-        </div>
+        </BoardViewport>
         <aside className="space-y-4">
           <div className="rounded-xl border border-white/10 bg-white/5 p-4">
             <p className="text-xs font-black uppercase tracking-wider text-cyan-200">What this teaches</p>

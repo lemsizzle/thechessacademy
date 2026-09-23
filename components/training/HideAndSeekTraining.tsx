@@ -1,5 +1,9 @@
 "use client";
 
+import { refreshCelebrations } from "@/lib/celebrations";
+
+import { BoardViewport } from "@/chess/components/BoardViewport";
+
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
 import { BoardSettings } from "@/chess/components/BoardSettings";
 import { useChessSounds } from "@/chess/hooks/useChessSounds";
@@ -205,7 +209,7 @@ function BoardPiece({ piece, square }: { piece: HideAndSeekPieceCode; square: Hi
 function CoveredBoard() {
   return (
     <div
-      className="relative aspect-square overflow-hidden rounded-xl border border-emerald-200/25 bg-slate-950 p-1 shadow-[0_0_48px_rgba(52,211,153,.14)] sm:p-2"
+      data-chess-board className="relative aspect-square overflow-hidden rounded-xl border border-emerald-200/25 bg-slate-950 p-1 shadow-[0_0_48px_rgba(52,211,153,.14)] sm:p-2"
       role="img"
       aria-label="Covered chessboard. Press Start Search to reveal the pieces and begin the timer."
     >
@@ -339,7 +343,7 @@ function SearchBoard({
   }
 
   return (
-    <div className="aspect-square w-full overflow-hidden rounded-xl border border-emerald-200/25 bg-slate-950 p-1 shadow-[0_0_48px_rgba(52,211,153,.16)] sm:p-2">
+    <div data-chess-board className="aspect-square w-full overflow-hidden rounded-xl border border-emerald-200/25 bg-slate-950 p-1 shadow-[0_0_48px_rgba(52,211,153,.16)] sm:p-2">
       <div className="relative grid aspect-square w-full grid-rows-8 overflow-hidden rounded-lg" role="grid" aria-label="Hide and Seek chessboard">
         {RANKS.map((rank, row) => (
           <div key={rank} className="grid grid-cols-8" role="row">
@@ -629,6 +633,7 @@ export function HideAndSeekTraining({
       }
       if (operation !== operationRef.current) return;
       setResult(payload.result);
+      refreshCelebrations();
       setElapsedMs(payload.result.elapsedMs);
       const resultSound = hideAndSeekResultSound(payload.result);
       if (resultSound) playSound(resultSound);
@@ -707,8 +712,8 @@ export function HideAndSeekTraining({
         </div>
       </Card>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(300px,1fr)]">
-        <div className="mx-auto w-full max-w-[640px] space-y-2">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,640px)_minmax(300px,1fr)]">
+        <BoardViewport maxWidth={640}>
           <BoardSettings muted={muted} onToggleMuted={() => setMuted((value) => !value)} />
           {round ? (
             <SearchBoard
@@ -721,7 +726,7 @@ export function HideAndSeekTraining({
               onToggle={toggleSquare}
             />
           ) : <CoveredBoard />}
-        </div>
+        </BoardViewport>
 
         <aside className="space-y-4">
           <Card className="overflow-hidden border-emerald-300/25">

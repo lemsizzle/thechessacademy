@@ -23,7 +23,7 @@ export function ResponsiveChessboard({ options, onCancelPremove }: { options: Ch
   };
   const boardRef = useOutsideBoardAnnotationClear(options.onSquareRightClick ? undefined : clearCircles);
   return (
-    <div ref={boardRef} className={styles.frame}
+    <div ref={boardRef} data-chess-board className={styles.frame}
       onPointerDownCapture={event => {
         cancelledGesture.current = Boolean(onCancelPremove && (event.button === 0 || event.button === 2));
         if (!cancelledGesture.current) return;

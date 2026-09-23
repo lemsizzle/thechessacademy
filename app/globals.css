@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Give an active board room on tablets without removing page navigation. */
+@media (max-width: 1199px) {
+  .student-play-area:has([data-chess-board]) { padding-top: 12px; }
+  .student-play-area:has([data-chess-board]) [data-page-heading] { margin-bottom: 12px; }
+  .student-play-area:has([data-chess-board]) [data-page-heading] p { display: none; }
+  .student-play-area:has([data-chess-board]) [data-page-heading] h1 { font-size: 1.25rem; margin-top: 0; }
+}
+
 :root {
   color-scheme: dark;
   background: #0b1020;

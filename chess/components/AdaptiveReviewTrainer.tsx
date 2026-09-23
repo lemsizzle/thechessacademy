@@ -1,5 +1,7 @@
 "use client";
 
+import { BoardViewport } from "@/chess/components/BoardViewport";
+
 import { Chess } from "chess.js";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -212,8 +214,8 @@ export function AdaptiveReviewTrainer({
   }] : [];
   const solved = result?.outcome === "correct" || result?.outcome === "revealed";
 
-  return <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
-    <div className="mx-auto w-full max-w-[640px] space-y-2">
+  return <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
+    <BoardViewport maxWidth={640}>
       <BoardSettings />
       <div className="overflow-hidden rounded-lg border border-violet-300/25 bg-slate-950/70">
       <AcademyChessboard
@@ -238,7 +240,7 @@ export function AdaptiveReviewTrainer({
         }}
       />
       </div>
-    </div>
+    </BoardViewport>
     <div className="space-y-4">
       <Card className="p-5">
         <div className="flex items-center justify-between gap-3"><span className={`rounded px-2 py-1 text-xs font-black uppercase ${current.severity === "blunder" ? "bg-rose-300/15 text-rose-100" : "bg-orange-300/15 text-orange-100"}`}>{current.severity}</span><span className="text-xs font-bold text-slate-400">{items.length} due</span></div>

@@ -1,5 +1,9 @@
 "use client";
 
+import { refreshCelebrations } from "@/lib/celebrations";
+
+import { BoardViewport } from "@/chess/components/BoardViewport";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
 import { liveGamePollMs } from "@/lib/pollingPolicy";
@@ -36,9 +40,6 @@ type Confirmation = "cancel" | "resign" | null;
 type RematchDecision = "request" | "accept" | "decline";
 type RematchResponse = { ok: boolean; rematch?: { status: "waiting" | "matched" | "declined"; gameId: string | null; source: LiveGameSnapshot }; error?: string };
 
-const boardColumnStyle = {
-  width: "min(100%, 700px, max(220px, calc(100svh - 25rem)))"
-};
 
 function clockValue(game: LiveGameSnapshot, color: ChessColor, nowMs: number, serverOffsetMs: number) {
   const base = color === "white" ? game.clocks.whiteMs : game.clocks.blackMs;
@@ -221,6 +222,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
 
   useEffect(() => {
     if (game?.status === "active") return;
+    if (game?.status === "completed") refreshCelebrations();
     setPremove(null);
     setPendingPromotion(null);
   }, [game?.status]);
@@ -521,8 +523,8 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
 
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
 
-      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)] xl:gap-x-16">
-        <div className="mx-auto min-w-0 space-y-2" style={boardColumnStyle}>
+      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,700px)_minmax(300px,1fr)] xl:gap-x-16">
+        <BoardViewport maxWidth={700}>
           <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${isCorrespondence ? "3 days per move" : game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} portrait={opponent?.portrait} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} />
           <div className="relative">
             <div className="mb-2 flex justify-end sm:absolute sm:left-[calc(100%+0.5rem)] sm:top-0 sm:z-30 sm:mb-0"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
@@ -532,7 +534,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
             </div>
           </div>
           <PlayerPanel name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}${isCorrespondence ? " · 3 days per move" : ""}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} avatar={viewer?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />
-        </div>
+        </BoardViewport>
 
         <aside className="space-y-4 xl:sticky xl:top-20">
       {resultOpen && game.status === "completed" && game.arenaTournamentId ? (

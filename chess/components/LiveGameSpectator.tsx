@@ -1,5 +1,7 @@
 "use client";
 
+import { BoardViewport } from "@/chess/components/BoardViewport";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
 import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles";
@@ -20,9 +22,6 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 
 type GameResponse = { ok?: boolean; game?: TeacherLiveGameSnapshot; error?: string };
 
-const boardColumnStyle = {
-  width: "min(100%, 700px, max(220px, calc(100svh - 25rem)))"
-};
 
 function clockValue(game: TeacherLiveGameSnapshot, color: ChessColor, nowMs: number, serverOffsetMs: number) {
   const base = color === "white" ? game.clocks.whiteMs : game.clocks.blackMs;
@@ -194,8 +193,8 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
     <div className="space-y-4">
       {(game.berserk?.white || game.berserk?.black) && <p className="rounded-md border border-orange-300/30 bg-orange-300/10 p-3 text-sm font-bold text-orange-100" role="status">⚔ Berserk: {[game.berserk?.white ? game.players.white.name : null, game.berserk?.black ? game.players.black.name : null].filter(Boolean).join(" & ")} · no increment</p>}
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
-      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
-        <div className="mx-auto min-w-0 space-y-2" style={boardColumnStyle}>
+      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
+        <BoardViewport maxWidth={700}>
           <PlayerPanel name={game.players[topColor].name} subtitle={`Playing ${topColor}`} clockMs={displayedClocks[topColor]} active={game.status === "active" && game.activeColor === topColor} portrait={game.players[topColor].portrait} avatar={game.players[topColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, topColor)} />
           <div className="relative">
             <div className="mb-2 flex justify-end sm:absolute sm:left-[calc(100%+0.5rem)] sm:top-0 sm:z-30 sm:mb-0"><BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} /></div>
@@ -205,7 +204,7 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
             </div>
           </div>
           <PlayerPanel name={game.players[bottomColor].name} subtitle={`Playing ${bottomColor}`} clockMs={displayedClocks[bottomColor]} active={game.status === "active" && game.activeColor === bottomColor} portrait={game.players[bottomColor].portrait} avatar={game.players[bottomColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, bottomColor)} />
-        </div>
+        </BoardViewport>
 
         <aside className="space-y-4 xl:sticky xl:top-4">
           <Card className="p-4 sm:p-5">

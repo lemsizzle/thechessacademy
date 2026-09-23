@@ -1,5 +1,7 @@
 "use client";
 
+import { BoardViewport } from "@/chess/components/BoardViewport";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Chess } from "chess.js";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
@@ -22,9 +24,6 @@ import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
 
 type Confirmation = "resign" | "new-game" | null;
 
-const boardColumnStyle = {
-  width: "min(100%, 700px, max(220px, calc(100svh - 27.5rem)))"
-};
 
 export function VsComputerGame({ studentName, studentAvatar, avatarItems, initialUnlockedBotIds }: { studentName: string; studentAvatar: StudentAvatarConfig; avatarItems: AvatarItem[]; initialUnlockedBotIds: string[] }) {
   const [unlockedBotIds, setUnlockedBotIds] = useState(initialUnlockedBotIds);
@@ -114,12 +113,8 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
 
   return (
     <div className="space-y-4">
-      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
-        <div
-          className="mx-auto min-w-0 space-y-3"
-          data-testid="game-board-column"
-          style={boardColumnStyle}
-        >
+      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
+        <BoardViewport className="space-y-3">
           <PlayerPanel
             name={config.bot.name}
             subtitle={config.bot.title}
@@ -164,7 +159,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
             avatarItems={avatarItems}
             materialAdvantage={materialAdvantageForColor(materialBalance, config.humanColor)}
           />
-        </div>
+        </BoardViewport>
 
         <aside className="space-y-4 xl:sticky xl:top-20">
       {game.outcome && game.resultOpen && (

@@ -1,5 +1,7 @@
 "use client";
 
+import { refreshCelebrations } from "@/lib/celebrations";
+
 import { Chess } from "chess.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createBotThinkingDelay } from "@/chess/bots/thinkingDelay";
@@ -340,6 +342,7 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
       if (body.unlockedBotIds) onProgressionUpdate?.(body.unlockedBotIds);
       setSavedGameId(body.gameId);
       setSaveStatus("saved");
+        refreshCelebrations();
       setSaveMessage("Game saved to your academy record.");
     }).catch((error) => {
       setSaveStatus("failed");

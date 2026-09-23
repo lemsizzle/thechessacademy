@@ -1,5 +1,7 @@
 "use client";
 
+import { BoardViewport } from "@/chess/components/BoardViewport";
+
 import { Chess } from "chess.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
@@ -428,8 +430,8 @@ export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle
 
       {!mistakeReviewActive ? reviewPanel : null}
 
-      <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,720px)_minmax(360px,520px)] xl:justify-center">
-        <div className="mx-auto w-full max-w-[720px] min-w-0 space-y-3">
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,720px)_minmax(360px,520px)] xl:justify-center">
+        <BoardViewport maxWidth={720}>
           <div className="flex items-center justify-between gap-2">
           <Button type="button" variant="ghost" aria-expanded={showBoardTools} aria-controls="analysis-board-tools" onClick={() => {
             if (showBoardTools) {
@@ -523,7 +525,7 @@ export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle
             <Button type="button" variant="ghost" onClick={() => selectPosition(nextNodeId(tree, activeId))} aria-label="Next move">&gt;</Button>
             <Button type="button" variant="ghost" onClick={() => selectPosition(lastMainlineNodeId(tree))} aria-label="Last main-line position">&gt;|</Button>
           </div>
-        </div>
+        </BoardViewport>
 
         <aside className="min-w-0 space-y-4 xl:sticky xl:top-4">
           {mistakeReviewActive ? reviewPanel : null}

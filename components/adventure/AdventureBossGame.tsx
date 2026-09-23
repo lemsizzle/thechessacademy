@@ -1,5 +1,7 @@
 "use client";
 
+import { BoardViewport } from "@/chess/components/BoardViewport";
+
 import { Chess } from "chess.js";
 import { useEffect, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
@@ -101,9 +103,9 @@ export function AdventureBossGame({ onFinishChapter, onCheckmate, onRetreat }: {
         <span className="w-fit rounded-full border border-rose-200/25 bg-rose-300/10 px-3 py-1 text-xs font-bold text-rose-100">♛ Kingpin · beginner boss</span>
       </div>
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="mx-auto aspect-square w-full max-w-[650px] overflow-hidden rounded-xl border border-rose-100/20 bg-slate-900 p-1 sm:p-2">
+        <BoardViewport maxWidth={650} className="relative aspect-square overflow-hidden rounded-xl border border-rose-100/20 bg-slate-900 p-1 sm:p-2">
           <AcademyChessboard fen={fen} orientation="white" humanColor="white" interactive={!result && !thinking} lastMove={lastMove} onMove={move} boardId="adventure-kingpin" />
-        </div>
+        </BoardViewport>
         <aside className="space-y-4">
           <div className={`rounded-xl border p-4 text-sm leading-6 ${engineError ? "border-rose-300/35 bg-rose-300/10 text-rose-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">
             <p className="text-xs font-black uppercase tracking-wider text-amber-200">Battle status</p>

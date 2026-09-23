@@ -1,3 +1,5 @@
+import { AchievementCelebrations } from "../../components/student/AchievementCelebrations";
+import { celebrate } from "../../lib/celebrations";
 // Actual UI components with isolated API responses. No production writes.
 import { StockfishService } from '../../chess/engine/StockfishService';
 import { BOT_DIFFICULTIES } from '../../chess/game/config';
@@ -29,7 +31,8 @@ window.fetch = async (url, options = {}) => {
     const path = String(url), body = options.body ? JSON.parse(options.body) : {};
     requests.push({ path, body, method: options.method || 'GET' });
     let data = {};
-    if (path.includes('adaptive-review'))
+    if (path.includes("/celebrations")) data = {cursor: new Date().toISOString(), events: []};
+    else if (path.includes('adaptive-review'))
         data = options.method === 'POST' ? { outcome: 'correct', bestMoveSan: 'e4', bestMoveUci: 'e2e4', solutionExplanation: 'Control the center.', bestLineSan: 'e4 e5' } : { items: [{ id: 'review', fen: initial, color: 'white', severity: 'mistake', sourceKind: 'survival', playedMoveUci: 'a2a3', playedMoveSan: 'a3', explanation: 'Improve the center.' }], summary: { total: 1, due: 1, learning: 1, review: 0, mastered: 0, attempts: 0, correct: 0, accuracy: 0 } };
     else if (path.includes('/puzzle-training/puzzle'))
         data = { puzzle: { id: 'fixture', displayFen: initial, orientation: 'white', sideToMove: 'White', prompt: 'Play e4', sourceKind: 'lichess', token: 'fixture', daily: null } };
@@ -66,7 +69,8 @@ window.audit.challenge = challenge;
 window.audit.starSolution = () => { const p = starWarsPuzzleForScore(0, 0); return findStarWarsSolution(initialStarWarsState(p)); };
 window.audit.safeSquares = calculateHideAndSeekSafeSquares(pieces);
 const areas = { analysis: <AnalysisWorkspace initialTree={tree} title="Analysis fixture" onTreeChange={t => window.audit.tree = t}/>, promotion: <AnalysisWorkspace initialTree={tree} title="Promotion fixture" onTreeChange={t => window.audit.tree = t}/>, review: <AdaptiveReviewTrainer autoStart/>, star: <StarWarsTraining onExit={noop}/>, hide: <HideAndSeekTraining onExit={noop}/>, puzzle: <PuzzleSurvival initialOverview={emptyPuzzleTrainingOverview}/>, adventure: <AdventureBoardChallenge challenge={challenge} onComplete={() => window.audit.complete = true}/>, boss: <AdventureBossGame onFinishChapter={noop} onCheckmate={noop} onRetreat={noop}/>, bot: <VsComputerGame studentName="Fixture" studentAvatar={null} avatarItems={[]} initialUnlockedBotIds={[]}/>, spectator: <LiveGameSpectator gameId="fixture"/>, arena: <LiveGameSpectator gameId="fixture" role="student" tournamentId="fixture"/> };
-createRoot(document.getElementById('root')).render(areas[mode]);
+const tablet = new URLSearchParams(location.search).has('tablet');
+createRoot(document.getElementById('root')).render(tablet ? <><AchievementCelebrations studentId="tablet-fixture"/><header className="h-40 border-b border-white/10 mb-6"><h1 className="text-2xl font-bold">Chess Quest · tablet layout check</h1><p className="mt-3">Representative page header and navigation space</p><div className="mt-4 flex gap-3"><button onClick={()=>celebrate({id:'badge:tablet',kind:'badge',name:'Puzzle Streaker'})}>Test badge</button><button onClick={()=>celebrate({id:'quest:tablet',kind:'quest',name:'Complete your first adventure'})}>Test quest</button></div></header>{areas[mode]}</> : areas[mode]);
 window.audit.engineMove = async () => { const service = new StockfishService(); try {
     const move = await service.requestMove(initial, BOT_DIFFICULTIES[0], { moveHistory: [] });
     const chess = new Chess(initial);
