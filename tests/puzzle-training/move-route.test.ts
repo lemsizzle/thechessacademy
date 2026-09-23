@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPuzzleSessionToken, readPuzzleSessionToken } from "@/lib/puzzle-training/sessionToken";
 import { multiMovePuzzle } from "@/tests/fixtures/lichessPuzzles";
 import { forkPuzzle } from "@/tests/fixtures/lichessPuzzles";
+import { preparePublicTrainingPuzzle } from "@/lib/puzzle-training/publicPuzzle";
 
 const serverMocks = vi.hoisted(() => ({
   awardDailyTrainingPuzzle: vi.fn(),
@@ -61,6 +62,28 @@ describe("puzzle move route", () => {
     serverMocks.requirePuzzleStudent.mockResolvedValue({ studentId });
     serverMocks.saveTrainingAttempt.mockResolvedValue({ elapsedSeconds: 12, firstTryCorrect: true });
     adaptiveReviewMocks.saveSurvivalReviewMistake.mockResolvedValue(undefined);
+  });
+
+  it("activates a prepared next board without another database selection and starts its clock after saving", async () => {
+    const payload = basePayload();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const token = createPuzzleSessionToken({ ...payload, version: 2, nextMoveIndex: 3, expiresAt, puzzle: multiMovePuzzle });
+    const prepared = preparePublicTrainingPuzzle({ puzzle: forkPuzzle, studentId, sessionId, selectedTheme: "mixed", trainingMode: "woodpecker", woodpeckerRunId, woodpeckerCycleNumber: 2 });
+    const old = readPuzzleSessionToken(prepared.token);
+    prepared.token = createPuzzleSessionToken({ ...old, startedAt: new Date(Date.now() - 60_000).toISOString(), expiresAt });
+    let release!: (value: unknown) => void;
+    serverMocks.saveTrainingAttempt.mockImplementation(() => new Promise(resolve => { release = resolve; }));
+    const pending = POST(requestWithToken(token, { from: "f7", to: "f8" }, { requestNextPuzzle: true, nextPuzzleToken: prepared.token, nextLevel: "improver" }));
+    await vi.waitFor(() => expect(serverMocks.saveTrainingAttempt).toHaveBeenCalledOnce());
+    const savedAt = Date.now();
+    release({ elapsedSeconds: 12, firstTryCorrect: true });
+    const result = await (await pending).json();
+    expect(result.preparedNextPuzzle.id).toBe(forkPuzzle.id);
+    const next = readPuzzleSessionToken(result.preparedNextPuzzle.token);
+    expect(Date.parse(next.startedAt)).toBeGreaterThanOrEqual(savedAt);
+    expect(next).toMatchObject({ expiresAt, woodpeckerRunId, woodpeckerCycleNumber: 2 });
+    expect(serverMocks.selectTrainingPuzzle).not.toHaveBeenCalled();
+    expect(serverMocks.getTrainingPuzzle).not.toHaveBeenCalled();
   });
 
   it("returns trusted Survival badge awards with the completed puzzle", async () => {

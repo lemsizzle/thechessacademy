@@ -2,6 +2,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { saveSurvivalReviewMistake } from "@/chess/training/adaptiveReviewServer";
 import { validatePuzzleMove } from "@/lib/puzzle-training/engine";
 import { preparePublicTrainingPuzzle } from "@/lib/puzzle-training/publicPuzzle";
+import { activatePreparedNextPuzzle, readPreparedNextPuzzle } from "@/lib/puzzle-training/preparedNextPuzzle";
 import { assertPuzzleTokenStudent, createPuzzleSessionToken, readPuzzleSessionToken } from "@/lib/puzzle-training/sessionToken";
 import {
   awardDailyTrainingPuzzle,
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
       move?: PuzzleMoveInput;
       requestNextPuzzle?: boolean;
       nextPuzzleId?: string;
+      nextPuzzleToken?: string;
       nextLevel?: string;
       excludePuzzleIds?: string[];
     };
@@ -128,7 +130,10 @@ export async function POST(request: NextRequest) {
       const savePromise = saveTrainingAttempt(attemptInput);
       const canChainAuthorization = payload.version === 1
         || Date.parse(payload.expiresAt) - Date.now() > MINIMUM_CHAINED_AUTHORIZATION_MS;
-      const nextPuzzlePromise = body.requestNextPuzzle && !payload.dailyDate && canChainAuthorization
+      const preparedNext = body.requestNextPuzzle && canChainAuthorization
+        ? readPreparedNextPuzzle(body.nextPuzzleToken, payload, parsePuzzleLevel(body.nextLevel ?? null), body.nextPuzzleId)
+        : null;
+      const nextPuzzlePromise = body.requestNextPuzzle && !preparedNext && !payload.dailyDate && canChainAuthorization
         ? (body.nextPuzzleId
           ? getTrainingPuzzle(body.nextPuzzleId)
           : selectTrainingPuzzle(
@@ -208,7 +213,8 @@ export async function POST(request: NextRequest) {
           elapsedSeconds: saved.elapsedSeconds,
           badgeAwards: saved.badgeAwards
         },
-        nextPuzzle
+        nextPuzzle,
+        preparedNextPuzzle: preparedNext ? activatePreparedNextPuzzle(preparedNext, payload) : undefined
       });
       const totalMs = performance.now() - requestStartedAt;
       response.headers.set("Server-Timing", `total;dur=${totalMs.toFixed(1)}`);
@@ -220,7 +226,7 @@ export async function POST(request: NextRequest) {
           completed: true,
           totalMs: Math.round(totalMs),
           saveStatus: "fulfilled",
-          prefetchStatus: nextPuzzleResult?.status ?? "not-requested",
+          prefetchStatus: preparedNext ? "prepared" : nextPuzzleResult?.status ?? "not-requested",
           prefetchError: nextPuzzleResult?.status === "rejected" ? errorMessage(nextPuzzleResult.error) : undefined
         }));
       }

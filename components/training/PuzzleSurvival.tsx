@@ -28,7 +28,7 @@ import { parsePuzzleLevel, parsePuzzleTheme, puzzleThemeOptions, type PublicTrai
 const STARTING_LIVES = 3;
 // Release input when the shared board animation finishes, not 420ms afterwards.
 const OPPONENT_REPLY_DELAY_MS = BOARD_MOTION_OPTIONS.animationDurationInMs;
-const AUTO_ADVANCE_DELAY_MS = 140;
+const AUTO_ADVANCE_DELAY_MS = 50;
 const WOODPECKER_AUTO_ADVANCE_DELAY_MS = 50;
 const MOVE_REQUEST_TIMEOUT_MS = 12_000;
 const PUZZLE_LOAD_TIMEOUT_MS = 12_000;
@@ -106,6 +106,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   const [trainingMode, setTrainingMode] = useState<TrainingMode>("survival");
   const [woodpeckerSetSize, setWoodpeckerSetSize] = useState<number>(WOODPECKER_SET_SIZE);
   const [autoAdvance, setAutoAdvance] = useState(false);
+  const autoAdvanceRef = useRef(false);
   const [phase, setPhase] = useState<TrainerPhase>("select");
   const [puzzle, setPuzzle] = useState<PublicTrainingPuzzle | null>(null);
   const [positionFen, setPositionFen] = useState("");
@@ -150,6 +151,8 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   const currentWoodpeckerCycleSaveOperationRef = useRef(0);
   const requestedPuzzleIdRef = useRef<string | null>(null);
   const prefetchedNextPuzzleRef = useRef<PublicTrainingPuzzle | null>(null);
+  const preparedNextPuzzleRef = useRef<{ sourceId: string; puzzle: PublicTrainingPuzzle } | null>(null);
+  const activePrefetchControllerRef = useRef<AbortController | null>(null);
   const [woodpeckerCycle, setWoodpeckerCycle] = useState(1);
   const [woodpeckerIndex, setWoodpeckerIndex] = useState(0);
   const [woodpeckerCycleSolved, setWoodpeckerCycleSolved] = useState(0);
@@ -184,7 +187,8 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
 
   useEffect(() => {
     mountedRef.current = true;
-    setAutoAdvance(window.localStorage.getItem(AUTO_ADVANCE_STORAGE_KEY) === "true");
+    autoAdvanceRef.current = window.localStorage.getItem(AUTO_ADVANCE_STORAGE_KEY) === "true";
+    setAutoAdvance(autoAdvanceRef.current);
     return () => {
       mountedRef.current = false;
       sessionGenerationRef.current += 1;
@@ -195,12 +199,52 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
       currentWoodpeckerCycleSaveOperationRef.current = 0;
       activeMoveControllerRef.current?.abort();
       activePuzzleLoadControllerRef.current?.abort();
+      activePrefetchControllerRef.current?.abort();
       activeMoveControllerRef.current = null;
       activePuzzleLoadControllerRef.current = null;
       if (replyTimer.current) clearTimeout(replyTimer.current);
       if (advanceTimer.current) clearTimeout(advanceTimer.current);
     };
   }, []);
+
+  const shouldPrepareNext = autoAdvance && (phase === "turn" || phase === "reply") && trainingMode !== "daily";
+  useEffect(() => {
+    preparedNextPuzzleRef.current = null;
+    if (!shouldPrepareNext || !puzzle) return;
+    const sourceId = puzzle.id;
+    const generation = sessionGenerationRef.current;
+    const mode = trainingMode;
+    const target = mode === "woodpecker" ? nextWoodpeckerPuzzleTarget({
+      cycle: woodpeckerCycleRef.current, puzzleIndex: woodpeckerIndexRef.current,
+      puzzleIds: woodpeckerPuzzleIds.current, setSize: activeWoodpeckerSetSize.current,
+      reviewing: woodpeckerReviewingRef.current, reviewPuzzleIds: woodpeckerReviewPuzzleIdsRef.current,
+      reviewIndex: woodpeckerReviewIndexRef.current
+    }) : null;
+    if ((mode === "woodpecker" && !target) || (mode === "survival" && completed + 1 >= SURVIVAL_PUZZLE_LIMIT)) return;
+    const level = mode === "survival" ? survivalDifficultyForPuzzle(completed + 2).level : selectedLevel;
+    const query = new URLSearchParams({ theme: selectedTheme, level, sessionId: sessionId.current, mode });
+    if (target?.kind === "exact") query.set("puzzleId", target.puzzleId);
+    else query.set("exclude", (mode === "woodpecker" ? woodpeckerPuzzleIds.current : recentPuzzleIds.current).join(","));
+    if (mode === "woodpecker" && !woodpeckerReviewingRef.current && woodpeckerRunIdRef.current) {
+      query.set("woodpeckerRunId", woodpeckerRunIdRef.current);
+      query.set("woodpeckerCycleNumber", String(woodpeckerCycleRef.current));
+    }
+    const controller = new AbortController();
+    activePrefetchControllerRef.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), PUZZLE_LOAD_TIMEOUT_MS);
+    void fetch(`/api/student/puzzle-training/puzzle?${query}`, { cache: "no-store", signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) return;
+        const data = await response.json() as { puzzle?: PublicTrainingPuzzle };
+        if (data.puzzle && !controller.signal.aborted && mountedRef.current
+          && generation === sessionGenerationRef.current && activePuzzleIdRef.current === sourceId) {
+          preparedNextPuzzleRef.current = { sourceId, puzzle: data.puzzle };
+        }
+      }).catch(() => { /* Current puzzle stays playable; completion retains its fallback. */ })
+      .finally(() => window.clearTimeout(timeout));
+    return () => { controller.abort(); window.clearTimeout(timeout); preparedNextPuzzleRef.current = null; };
+    // One preload per displayed puzzle, never on each move or timer tick.
+  }, [puzzle?.id, shouldPrepareNext, trainingMode]);
 
   function clearReplyTimer() {
     if (!replyTimer.current) return;
@@ -228,6 +272,8 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   }
 
   function invalidatePuzzleWork() {
+    activePrefetchControllerRef.current?.abort();
+    preparedNextPuzzleRef.current = null;
     puzzleGenerationRef.current += 1;
     activePuzzleIdRef.current = null;
     abortActiveMoveRequest();
@@ -265,6 +311,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   }
 
   function updateAutoAdvance(enabled: boolean) {
+    autoAdvanceRef.current = enabled;
     setAutoAdvance(enabled);
     window.localStorage.setItem(AUTO_ADVANCE_STORAGE_KEY, String(enabled));
     if (!enabled) cancelScheduledAdvance();
@@ -603,10 +650,10 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
     void loadPuzzle("woodpecker", requestedPuzzleId);
   }
 
-  function advanceTrainingPuzzle(expectedPuzzleId = puzzle?.id) {
+  function advanceTrainingPuzzle(expectedPuzzleId = puzzle?.id, survivalPuzzleNumber = completed + 1) {
     if (!claimPuzzleTransition(expectedPuzzleId)) return;
     if (trainingMode !== "woodpecker") {
-      void loadPuzzle(trainingMode);
+      void loadPuzzle(trainingMode, undefined, survivalPuzzleNumber);
       return;
     }
 
@@ -834,6 +881,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
         })
         : null;
       const requestSurvivalPuzzle = autoAdvance && trainingMode === "survival" && completed + 1 < SURVIVAL_PUZZLE_LIMIT;
+      const preparedNext = preparedNextPuzzleRef.current?.sourceId === submittedPuzzleId ? preparedNextPuzzleRef.current.puzzle : null;
       const response = await fetch("/api/student/puzzle-training/move", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -843,6 +891,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
           move: { from, to },
           requestNextPuzzle: requestSurvivalPuzzle || Boolean(woodpeckerTarget),
           nextPuzzleId: woodpeckerTarget?.kind === "exact" ? woodpeckerTarget.puzzleId : undefined,
+          nextPuzzleToken: preparedNext?.token,
           nextLevel: trainingMode === "survival" ? survivalDifficultyForPuzzle(completed + 2).level : selectedLevel,
           excludePuzzleIds: woodpeckerTarget?.kind === "random" ? woodpeckerPuzzleIds.current : recentPuzzleIds.current
         })
@@ -851,7 +900,9 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
       if (!isCurrentMoveRequest()) return false;
       if (!response.ok) throw new Error(result.error ?? "Move could not be checked.");
       setToken(result.token);
-      if (result.completed) prefetchedNextPuzzleRef.current = result.nextPuzzle ?? null;
+      const nextPuzzle = result.nextPuzzle ?? (preparedNext && result.preparedNextPuzzle?.id === preparedNext.id
+        ? { ...preparedNext, token: result.preparedNextPuzzle.token } : null);
+      if (result.completed) prefetchedNextPuzzleRef.current = nextPuzzle;
 
       if (!result.accepted) {
         resetPremoveHandoff();
@@ -903,7 +954,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
           setPhase("solved");
           setMessage("Review puzzle solved.");
           moveLocked.current = false;
-          if (autoAdvance) {
+          if (autoAdvanceRef.current) {
             setMessage("Review puzzle solved. Loading the next mistake...");
             schedulePuzzleAdvance(
               () => advanceTrainingPuzzle(submittedPuzzleId),
@@ -982,14 +1033,14 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
           || (trainingMode === "woodpecker" && woodpeckerCycleRef.current >= WOODPECKER_CYCLE_COUNT && woodpeckerCycleFinished);
         setPhase(sessionFinished ? "summary" : "solved");
         moveLocked.current = false;
-        if (!sessionFinished && autoAdvance) {
+        if (!sessionFinished && autoAdvanceRef.current) {
           setMessage("Correct! Loading the next puzzle...");
           schedulePuzzleAdvance(() => {
-            if (trainingMode === "survival" && result.nextPuzzle) {
+            if (trainingMode === "survival" && nextPuzzle) {
               if (!claimPuzzleTransition(submittedPuzzleId)) return;
-              showPuzzle(result.nextPuzzle, "survival");
+              showPuzzle(nextPuzzle, "survival");
             } else {
-              advanceTrainingPuzzle(submittedPuzzleId);
+              advanceTrainingPuzzle(submittedPuzzleId, nextCompleted + 1);
             }
           }, trainingMode === "woodpecker" ? WOODPECKER_AUTO_ADVANCE_DELAY_MS : AUTO_ADVANCE_DELAY_MS);
         }

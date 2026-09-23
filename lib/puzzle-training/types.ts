@@ -140,6 +140,7 @@ export type PuzzleMoveResult = {
   opponentMove?: string;
   completion?: PuzzleCompletionDetails;
   nextPuzzle?: PublicTrainingPuzzle;
+  preparedNextPuzzle?: { id: string; token: string };
   message: string;
 };
 
