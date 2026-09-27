@@ -42,6 +42,8 @@ export function useArenaQueue(tournamentId?: string | null, gameId?: string, nav
   useEffect(() => {
     mounted.current = true;
     setQueue(null); navigated.current = "";
+    // Ordinary games and teacher views have no Arena presence to maintain.
+    if (!tournamentId) return;
     let lastPoll = 0;
     const heartbeat = () => {
       if (document.visibilityState !== "visible" || Date.now() - lastPoll < pollDelay.current) return;
@@ -53,7 +55,7 @@ export function useArenaQueue(tournamentId?: string | null, gameId?: string, nav
     document.addEventListener("visibilitychange", heartbeat);
     window.addEventListener("online", heartbeat);
     return () => { mounted.current = false; ++requestId.current; loading.current = false; clearInterval(timer); document.removeEventListener("visibilitychange", heartbeat); window.removeEventListener("online", heartbeat); };
-  }, [update, navigate]);
+  }, [update, navigate, tournamentId]);
 
   useEffect(() => {
     if (!navigate || pending || !queue?.gameId || queue.gameId === gameId || navigated.current === queue.gameId) return;
