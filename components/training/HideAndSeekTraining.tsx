@@ -43,6 +43,7 @@ type ActiveSearchRound = {
 };
 
 type SearchResult = {
+  rewardXp?: number;
   mode: HideAndSeekMode;
   score: number;
   totalSafe: number;
@@ -787,7 +788,7 @@ export function HideAndSeekTraining({
                     </div>
                   </fieldset>
                   <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-200">
-                    The board stays covered until you are ready. When you start, tap safe squares to leave a star. Speed can contribute up to 40% of the score.
+                    The board stays covered until you are ready. When you start, tap safe squares to leave a star. Speed can contribute up to 40% of the score. Find every star to earn 10 XP + 10 coins.
                   </div>
                   <Button type="button" onClick={() => void startSearch()} disabled={phase === "preparing"} className="mt-4 min-h-14 w-full text-base">
                     {phase === "preparing"
@@ -864,6 +865,7 @@ export function HideAndSeekTraining({
                     <div className="rounded-lg border border-white/10 bg-white/5 p-3"><dt className="text-slate-400">Wrong guesses</dt><dd className="mt-1 text-xl font-black text-white">{result.wrongCount}</dd></div>
                     <div className="rounded-lg border border-white/10 bg-white/5 p-3"><dt className="text-slate-400">Time</dt><dd className="mt-1 text-xl font-black text-white">{formatDuration(result.elapsedMs)}</dd></div>
                   </dl>
+                  {(result.rewardXp ?? 0) > 0 && <p className="mt-4 rounded-lg border border-amber-200/30 bg-amber-300/10 p-3 text-sm font-black text-amber-100" role="status">All stars found! +{result.rewardXp} XP + {result.rewardXp} coins earned.</p>}
                   <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold">
                     <span className="text-emerald-200">★ Found safely</span>
                     <span className="text-rose-200">× Wrong guess</span>

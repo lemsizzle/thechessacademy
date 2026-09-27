@@ -62,7 +62,7 @@ type StarWarsStartResponse = {
   error?: string;
 };
 type StarWarsProgressResponse = {
-  result?: { score: number; personalBest: number };
+  result?: { score: number; personalBest: number; rewardXp?: number };
   error?: string;
 };
 
@@ -99,6 +99,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   const [runId, setRunId] = useState<string | null>(null);
   const [runVariant, setRunVariant] = useState(0);
   const [score, setScore] = useState(0);
+  const [rewardXp, setRewardXp] = useState(0);
   const [bestScore, setBestScore] = useState(0);
   const [selectedMode, setSelectedMode] = useState<StarWarsMode>("classic");
   const [selectedTimeLimitMs, setSelectedTimeLimitMs] = useState<StarWarsTimeLimitMs>(60_000);
@@ -248,6 +249,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     setElapsedMs(0);
     activeRunIdRef.current = null;
     setScoreSyncState("idle");
+    setRewardXp(0);
     setFeedback("Preparing a verified Star Wars run...");
     try {
       const requestStartedAt = monotonicEpochNow();
@@ -322,6 +324,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       if (!response.ok || !body.result) throw new Error(body.error ?? "Score save failed.");
       if (!mountedRef.current || activeRunIdRef.current !== targetRunId) return;
       latestSavedScoreRef.current = Math.max(latestSavedScoreRef.current, body.result.score);
+      setRewardXp((current) => Math.max(current, body.result?.rewardXp ?? 0));
       saveBest(body.result.personalBest);
       refreshCelebrations();
       if (latestSavedScoreRef.current >= latestSubmittedScoreRef.current) setScoreSyncState("saved");
@@ -458,6 +461,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     setRunId(null);
     setPhase("setup");
     setScore(0);
+    setRewardXp(0);
     setElapsedMs(0);
     setScoreSyncState("idle");
     setFeedback("Choose Classic or a timed score attack.");
@@ -564,6 +568,24 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       return move(sourceSquare, targetSquare);
     }
   };
+
+  const rewardSummary = (<>
+              {scoreSyncState === "error" ? (
+                <div className="mt-3 flex flex-col gap-2 rounded-lg border border-amber-200/30 bg-amber-300/10 p-3 sm:flex-row sm:items-center sm:justify-between" role="alert">
+                  <p className="text-sm font-bold text-amber-100">Your score and rewards need another save attempt. Retry before leaving this run.</p>
+                  <Button type="button" variant="secondary" onClick={() => {
+                    if (runId && completedRoutesRef.current.length) {
+                      void submitProgress(completedRoutesRef.current, runId);
+                    }
+                  }}>Retry Save</Button>
+                </div>
+              ) : scoreSyncState === "saving" ? (
+                <p className="mt-3 text-xs font-bold text-cyan-100" role="status">Saving your score and rewards...</p>
+              ) : scoreSyncState === "saved" ? (
+                <p className="mt-3 text-xs font-bold text-emerald-200" role="status">Leaderboard score saved.</p>
+              ) : null}
+              {rewardXp > 0 && <p className="mt-3 text-sm font-black text-amber-200" role="status">Earned this run: {rewardXp} XP + {rewardXp} coins</p>}
+  </>);
 
   if (phase === "setup") {
     return (
@@ -704,20 +726,8 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
               <div className={`mt-4 rounded-lg border p-4 text-sm font-bold leading-6 ${phase === "failed" ? "border-rose-300/35 bg-rose-300/10 text-rose-100" : phase === "solved" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-white/10 bg-white/5 text-slate-200"}`} role="status" aria-live="polite" aria-atomic="true">
                 {feedback}
               </div>
-              {scoreSyncState === "error" ? (
-                <div className="mt-3 flex flex-col gap-2 rounded-lg border border-amber-200/30 bg-amber-300/10 p-3 sm:flex-row sm:items-center sm:justify-between" role="alert">
-                  <p className="text-sm font-bold text-amber-100">Your run is safe here, but the leaderboard save needs another try.</p>
-                  <Button type="button" variant="secondary" onClick={() => {
-                    if (runId && completedRoutesRef.current.length) {
-                      void submitProgress(completedRoutesRef.current, runId);
-                    }
-                  }}>Retry Save</Button>
-                </div>
-              ) : scoreSyncState === "saving" ? (
-                <p className="mt-3 text-xs font-bold text-cyan-100" role="status">Saving your leaderboard score...</p>
-              ) : scoreSyncState === "saved" ? (
-                <p className="mt-3 text-xs font-bold text-emerald-200" role="status">Leaderboard score saved.</p>
-              ) : null}
+              {phase !== "failed" && phase !== "finished" ? rewardSummary : null}
+              <p className="mt-3 text-xs font-bold text-amber-100">Complete each mission to earn 3 XP + 3 coins.</p>
               <p className="mt-3 text-xs font-bold text-slate-500">Move {Math.min(movesUsed + 1, puzzle.stars.length)} of {puzzle.stars.length} · Missing a star or leaving no reachable star ends the run.</p>
               <p className="mt-2 text-xs text-slate-500">Right-drag to draw arrows or right-click to circle a square. A normal board click clears your marks.</p>
             </div>
@@ -733,6 +743,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
             <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-200">Run Over</p>
             <h3 id="star-wars-failed-title" className="mt-3 text-3xl font-black text-white">Final score: {score}</h3>
             <p className="mt-3 text-sm font-bold leading-6 text-rose-100">{feedback}</p>
+            {rewardSummary}
             {failureRoute.length > 0 && (
               <div className="mt-5 rounded-xl border border-cyan-200/25 bg-cyan-300/5 p-4 text-left">
                 <p className="text-xs font-black uppercase tracking-wide text-cyan-200">One perfect route</p>
@@ -755,6 +766,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
             <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-200">Time Trial Complete</p>
             <h3 id="star-wars-finished-title" className="mt-3 text-3xl font-black text-white">Final score: {score}</h3>
             <p className="mt-3 text-sm font-bold leading-6 text-slate-200">{feedback}</p>
+            {rewardSummary}
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <Button type="button" onClick={startNewRun}>Try Again</Button>
               <Button type="button" variant="secondary" onClick={changeMode}>Change Mode</Button>

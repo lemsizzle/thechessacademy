@@ -39,9 +39,10 @@ export function GameAnalysisLoader({ gameId, basePath, initialPly = 0 }: { gameI
     gameMode
     reviewColor={game.playerColor}
     reviewGameId={basePath === "/student" ? game.id : undefined}
-    title={`You vs ${game.opponentName}`}
+    title={`${basePath === "/admin" ? "Student" : "You"} vs ${game.opponentName}`}
     subtitle={`${new Date(game.completedAt).toLocaleString()} · ${game.result.toUpperCase()} by ${game.resultReason.replaceAll("_", " ")} · ${game.timeControl.name ?? "Game"}`}
     actions={<>
+      {basePath === "/admin" && <Button variant="ghost" href={`/admin/students?student=${encodeURIComponent(game.playerId)}`}>Back to student</Button>}
       <Button type="button" variant="secondary" onClick={() => setAddOpen(true)}>Add to Study</Button>
       <Button variant="ghost" href={`${basePath}/studies`}>All studies</Button>
     </>}

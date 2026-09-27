@@ -1,4 +1,5 @@
 "use client";
+import { InGameTournamentChat } from "@/components/tournaments/InGameTournamentChat";
 
 import { refreshCelebrations } from "@/lib/celebrations";
 
@@ -635,6 +636,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
             ) : null}
           </Card>
 
+          {game.arenaTournamentId && <InGameTournamentChat key={game.arenaTournamentId} tournamentId={game.arenaTournamentId} />}
           <Card className="p-4 sm:p-5">
             <div className="mb-3 flex items-center justify-between"><h2 className="font-black text-white">Moves</h2><span className="text-xs text-slate-500">SAN notation</span></div>
             <MoveHistory moves={game.moves} />

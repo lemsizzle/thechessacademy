@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 
-/** Fit the whole board column, including clocks/tools, without scaling its hit targets. */
+/** Use the available width on portrait phones; fit the board column on wider screens. */
 export function BoardViewport({ children, className = "space-y-2", maxWidth = 700 }: { children: ReactNode; className?: string; maxWidth?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -10,6 +10,12 @@ export function BoardViewport({ children, className = "space-y-2", maxWidth = 70
     if (!column) return;
     let frame = 0;
     const fit = () => {
+      // Phone headers and player panels can consume most of the viewport height.
+      // Keep squares easy to tap; vertical scrolling is preferable to a tiny board.
+      if (window.matchMedia("(max-width: 767px) and (orientation: portrait)").matches) {
+        if (column.style.width !== "100%") column.style.width = "100%";
+        return;
+      }
       const board = column.querySelector<HTMLElement>("[data-chess-board]");
       if (!board) return;
       const rect = column.getBoundingClientRect();

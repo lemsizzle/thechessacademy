@@ -29,6 +29,8 @@ export type ChessHistoryGame = {
   };
 };
 
+export type RecentStudentGames = { games: Omit<ChessHistoryGame, "moveCount">[]; hasMore: boolean };
+
 export type ChessHistorySummary = {
   total: number;
   wins: number;

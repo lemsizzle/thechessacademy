@@ -31,6 +31,24 @@ function client() {
   return supabase;
 }
 
+// Teacher roster: one bounded query, with no PGN, moves, or aggregate counts.
+export async function getRecentStudentGames(studentId: string, page = 1): Promise<import("@/chess/history/types").RecentStudentGames> {
+  const offset = (Math.max(1, Math.min(10000, Math.floor(page) || 1)) - 1) * 20;
+  const { data, error } = await client().from("internal_chess_games")
+    .select("id,game_mode,opponent_type,opponent_name,player_color,result,result_reason,started_at,completed_at,time_control")
+    .eq("player_id", studentId)
+    .order("completed_at", { ascending: false }).order("id", { ascending: false })
+    .range(offset, offset + 20);
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as Omit<HistoryRow, "moves">[];
+  return { hasMore: rows.length > 20, games: rows.slice(0, 20).map((row) => ({
+    id: row.id, gameMode: row.game_mode ?? "live", opponentType: row.opponent_type,
+    opponentName: row.opponent_name, playerColor: row.player_color, result: row.result,
+    resultReason: row.result_reason, startedAt: row.started_at, completedAt: row.completed_at,
+    timeControl: row.time_control ?? {}
+  })) };
+}
+
 function applyFilters<T extends { eq: (column: string, value: string) => T }>(
   query: T,
   filters: Pick<ChessHistoryFilters, "mode" | "result">

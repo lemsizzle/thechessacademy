@@ -463,10 +463,10 @@ export async function updateInternalArenaStatus(tournamentId: string, action: un
   return (await mapArenas([data as ArenaRow]))[0];
 }
 
-async function tournamentAndStudent(tournamentId: string, studentId: string) {
+async function tournamentAndStudent(tournamentId: string, studentId: string, refreshStatuses = true) {
   const id = validId(tournamentId);
   const sid = validId(studentId, "student");
-  await refreshArenaStatuses();
+  if (refreshStatuses) await refreshArenaStatuses();
   const [arenaResult, studentResult] = await Promise.all([
     client().from("internal_arena_tournaments").select("*").eq("id", id).maybeSingle(),
     client().from("students").select("id,display_name,lichess_username,class_group,is_active").eq("id", sid).eq("is_active", true).maybeSingle()
@@ -571,6 +571,21 @@ async function insertArenaChatMessage(input: { tournamentId: string; studentId: 
     message: row.message,
     createdAt: row.created_at
   } satisfies InternalArenaChatMessage;
+}
+
+export async function getStudentInternalArenaChat(tournamentId: string, studentId: string) {
+  const { arena, studentId: sid } = await tournamentAndStudent(tournamentId, studentId, false);
+  const entry = await client().from("internal_arena_entries").select("id").eq("tournament_id", arena.id).eq("student_id", sid).maybeSingle();
+  if (entry.error) throw new InternalArenaServerError(entry.error.message, 500);
+  if (!entry.data) throw new InternalArenaServerError("Join this Arena before using tournament chat.", 403);
+  const { data, error } = await client().from("internal_arena_chat_messages")
+    .select("id,student_id,sender_role,sender_name,message,created_at")
+    .eq("tournament_id", arena.id).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(50);
+  if (error) throw new InternalArenaServerError(error.message, 500);
+  return { canChat: arena.status !== "cancelled", messages: ((data ?? []) as ChatRow[]).reverse().map((row) => ({
+    id: row.id, studentId: row.student_id, senderRole: row.sender_role,
+    senderName: row.sender_name, message: row.message, createdAt: row.created_at
+  })) };
 }
 
 export async function postStudentInternalArenaChat(tournamentId: string, studentId: string, message: unknown) {

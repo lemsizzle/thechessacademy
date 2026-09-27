@@ -63,12 +63,13 @@ function roundToken(roundId: string, seed: string, mode: HideAndSeekMode = "clas
 
 function createAttemptClient() {
   const rows = new Map<string, Record<string, unknown>>();
-  const insert = vi.fn(async (record: Record<string, unknown>) => {
+  const insert = vi.fn((record: Record<string, unknown>) => ({ select: () => ({ single: async () => {
     const key = `${record.student_id}:${record.round_id}`;
     if (rows.has(key)) return { error: { code: "23505", message: "duplicate" } };
-    rows.set(key, record);
-    return { error: null };
-  });
+    const reward_xp = record.correct_count === record.safe_square_count && !(record.mode === "hard" && Number(record.wrong_count) > 0) ? 10 : 0;
+    rows.set(key, { ...record, reward_xp });
+    return { data: { reward_xp }, error: null };
+  } }) }));
 
   const from = vi.fn(() => {
     let selectedColumns = "";
@@ -238,6 +239,19 @@ describe("Hide and Seek server persistence", () => {
     });
 
     expect(retried).toEqual(first);
+    expect(client.insert).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["classic", "time_trial", "hard"] as const)("returns saved all-star rewards in %s, including retries", async (mode) => {
+    const client = createAttemptClient();
+    mocks.getSupabaseServiceClient.mockReturnValue(client);
+    const seed = acceptedSeed();
+    const board = generateHideAndSeekBoard(seed);
+    const token = roundToken("30000000-0000-4000-8000-000000000009", seed, mode);
+    const first = await finishHideAndSeekRound({ studentId, token, selectedSquares: board.safeSquares, nowMs: startedAtMs + 5000 });
+    expect(first.rewardXp).toBe(10);
+    const retry = await finishHideAndSeekRound({ studentId, token, selectedSquares: [], nowMs: startedAtMs + 6000 });
+    expect(retry.rewardXp).toBe(10);
     expect(client.insert).toHaveBeenCalledTimes(1);
   });
 

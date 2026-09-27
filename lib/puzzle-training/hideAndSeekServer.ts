@@ -48,6 +48,7 @@ export type HideAndSeekStartResponse = {
 };
 
 export type HideAndSeekFinishResult = {
+  rewardXp: number;
   mode: HideAndSeekMode;
   score: number;
   totalSafe: number;
@@ -64,6 +65,7 @@ export type HideAndSeekFinishResult = {
 };
 
 type HideAndSeekAttemptRow = {
+  reward_xp?: number;
   student_id: string;
   round_id: string;
   mode?: string | null;
@@ -75,7 +77,7 @@ type HideAndSeekAttemptRow = {
 };
 
 const MAX_BOARD_GENERATION_ATTEMPTS = 16;
-const ATTEMPT_SELECT = "student_id,round_id,mode,generator_version,seed,selected_squares,elapsed_ms,completed_at";
+const ATTEMPT_SELECT = "student_id,round_id,mode,generator_version,seed,selected_squares,elapsed_ms,completed_at,reward_xp";
 
 function serviceClient() {
   const client = getSupabaseServiceClient();
@@ -182,7 +184,8 @@ function resultFor(
   elapsedMs: number,
   personalBest: number,
   completedAt: string,
-  mode: HideAndSeekMode
+  mode: HideAndSeekMode,
+  rewardXp = 0
 ): HideAndSeekFinishResult {
   const score = calculateHideAndSeekScore({
     safeSquares: board.safeSquares,
@@ -191,6 +194,7 @@ function resultFor(
     mode
   });
   return {
+    rewardXp,
     mode,
     score: score.score,
     totalSafe: score.totalSafe,
@@ -251,7 +255,8 @@ export async function finishHideAndSeekRound(input: {
       Math.max(0, Number(existing.elapsed_ms)),
       personalBest,
       completedAt.toISOString(),
-      isHideAndSeekMode(existing.mode) ? existing.mode : "classic"
+      isHideAndSeekMode(existing.mode) ? existing.mode : "classic",
+      existing.reward_xp ?? 0
     );
   }
 
@@ -290,9 +295,11 @@ export async function finishHideAndSeekRound(input: {
     started_at: payload.startedAt,
     completed_at: completedAt
   };
-  const { error } = await serviceClient()
+  const { data: saved, error } = await serviceClient()
     .from("student_hide_and_seek_attempts")
-    .insert(record);
+    .insert(record)
+    .select("reward_xp")
+    .single();
 
   if (error) {
     if (error.code !== "23505") throw new Error(error.message);
@@ -308,11 +315,12 @@ export async function finishHideAndSeekRound(input: {
       Math.max(0, Number(racedAttempt.elapsed_ms)),
       personalBest,
       racedCompletedAt.toISOString(),
-      isHideAndSeekMode(racedAttempt.mode) ? racedAttempt.mode : "classic"
+      isHideAndSeekMode(racedAttempt.mode) ? racedAttempt.mode : "classic",
+      racedAttempt.reward_xp ?? 0
     );
   }
 
-  return { ...result, personalBest: await getPersonalBest(input.studentId) };
+  return { ...result, rewardXp: saved?.reward_xp ?? 0, personalBest: await getPersonalBest(input.studentId) };
 }
 
 export function isHideAndSeekAuthenticationError(error: unknown) {

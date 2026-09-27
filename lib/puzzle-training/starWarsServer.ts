@@ -37,9 +37,11 @@ export type StarWarsStartResult = {
 export type StarWarsProgressResult = {
   score: number;
   personalBest: number;
+  rewardXp: number;
 };
 
 type StarWarsRunRow = {
+  reward_xp: number | string;
   generator_version: number | string;
   run_variant: number | string;
   score: number | string;
@@ -157,7 +159,7 @@ async function getPersonalBest(studentId: string) {
 async function getRun(studentId: string, runId: string) {
   const { data, error } = await serviceClient()
     .from("student_star_wars_runs")
-    .select("generator_version,run_variant,score,mode,time_limit_ms,started_at")
+    .select("generator_version,run_variant,score,mode,time_limit_ms,started_at,reward_xp")
     .eq("student_id", studentId)
     .eq("run_id", runId)
     .maybeSingle();
@@ -264,7 +266,11 @@ export async function saveStarWarsProgress(input: {
   const authoritative = await getRun(input.studentId, input.runId);
   const score = numberInRange(authoritative.score, 0, MAX_STAR_WARS_SCORE);
   if (score === null) throw new Error("The saved Star Wars score is invalid.");
-  return { score, personalBest: Math.max(score, await getPersonalBest(input.studentId)) };
+  return {
+    score,
+    personalBest: Math.max(score, await getPersonalBest(input.studentId)),
+    rewardXp: numberInRange(authoritative.reward_xp, 0, MAX_STAR_WARS_SCORE * 3) ?? 0
+  };
 }
 
 export async function requireStarWarsStudent() {

@@ -1,4 +1,5 @@
 "use client";
+import { AdminStudentRecentGames } from "@/components/admin/AdminStudentRecentGames";
 
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { Button } from "@/components/Button";
@@ -1411,6 +1412,7 @@ export function AdminPanel({
       </div>
       {currentStudent ? (
         <>
+      <AdminStudentRecentGames key={currentStudent.id} studentId={currentStudent.id} studentName={currentStudent.name} actionToken={adminActionToken} />
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="grid gap-1 text-xs font-bold text-slate-300">Name
           <input className={fieldClass()} value={currentStudent.name} onChange={(event) => updateStudent({ name: event.target.value })} />
