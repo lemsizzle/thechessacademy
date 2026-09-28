@@ -43,12 +43,8 @@ Chromium and WebKit. Screenshots and failure details go to `work/gameplay-audit`
   restrictions, Woodpecker, daily puzzles, and the actual Stockfish WASM worker.
 
 The screen fixture uses deterministic simulated API responses and bot replies.
-For phone board sizing, open `?area=bot&tablet`, start Pawny, and check portrait
-viewports at 375×667 and 390×844. The board should fill its available column
-(roughly 319px and 333px with a scrollbar), rather than shrink to fit the page
-header and both player panels. Play a move, rotate to tablet/landscape and back,
-and confirm portrait width is restored without horizontal overflow. Tablet and
-landscape layouts retain the existing height-fitting behavior.
+For bot board sizing, open `?area=bot&viewport` and start Pawny. This adds representative sticky navigation, mobile bottom navigation, desktop sidebar spacing, and a page heading. Check 375×667, 390×844, 768×1024, 1024×768, 1440×900, 1920×1080, and 844×390. The bot board uses the available width up to the visible height budget, with room for navigation and player panels. Short landscape screens prioritize the board itself; panels remain reachable by scrolling. Starting a game brings the board into view. Tablet controls stay below the board. Check no horizontal overflow, both board edges, rotation, and an actual move/reply. Other game modes retain their existing sizing.
+
 The separate `engineMove` check loads the real bundled Stockfish worker. These
 checks do not certify multiplayer delivery, database writes, rewards, every
 lesson, or physical iPad/iPhone behavior.

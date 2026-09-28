@@ -113,8 +113,8 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
 
   return (
     <div className="space-y-4">
-      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
-        <BoardViewport className="space-y-3">
+      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <BoardViewport className="space-y-3" maxWidth={1200} fitToScreen>
           <PlayerPanel
             name={config.bot.name}
             subtitle={config.bot.title}
