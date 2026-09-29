@@ -293,11 +293,6 @@ export function PuzzleModeSetup({
     }
 
     hasOpened.current = true;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
   }, [launcher.open]);
 
   useEffect(() => {
@@ -327,28 +322,7 @@ export function PuzzleModeSetup({
       dispatch(puzzleLauncherDismissAction(launcher.screen));
       return;
     }
-    if (event.key !== "Tab") return;
-
-    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    );
-    if (!focusable?.length) {
-      event.preventDefault();
-      return;
-    }
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const activeIndex = Array.from(focusable).indexOf(document.activeElement as HTMLElement);
-    if (activeIndex === -1) {
-      event.preventDefault();
-      (event.shiftKey ? last : first).focus();
-    } else if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
+    // This picker is non-modal: Tab can reach the persistent navigation.
   }
 
   return (
@@ -375,19 +349,19 @@ export function PuzzleModeSetup({
       ) : null}
 
       {launcher.open ? (
-        <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/88 p-3 backdrop-blur-md sm:p-6">
+        <div className="student-hub-overlay fixed inset-0 z-20 overflow-y-auto bg-slate-950/88 p-3 backdrop-blur-md sm:p-6">
           <div className="flex min-h-full items-center justify-center">
             <div
               ref={dialogRef}
               role="dialog"
-              aria-modal="true"
+              aria-modal="false"
               aria-labelledby="puzzle-training-dialog-title"
               aria-describedby="puzzle-training-dialog-description"
               tabIndex={-1}
               onKeyDown={handleDialogKeyDown}
               className="w-full max-w-6xl"
             >
-              <Card className="max-h-[calc(100vh-1.5rem)] overflow-hidden border-cyan-200/25 bg-slate-950/95 shadow-[0_24px_100px_rgba(0,0,0,0.72)] sm:max-h-[calc(100vh-3rem)]">
+              <Card className="overflow-hidden border-cyan-200/25 bg-slate-950/95 shadow-[0_24px_100px_rgba(0,0,0,0.72)]">
                 <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-gradient-to-r from-cyan-300/10 via-slate-950 to-amber-300/10 px-4 py-4 sm:px-6 sm:py-5">
                   <div className="min-w-0">
                     {launcher.screen !== "choices" ? (
@@ -429,7 +403,7 @@ export function PuzzleModeSetup({
                   </button>
                 </div>
 
-                <div className="max-h-[calc(100vh-11rem)] overflow-y-auto p-4 sm:max-h-[calc(100vh-12rem)] sm:p-6">
+                <div className="p-4 sm:p-6">
                   {launcher.screen === "choices" ? (
                     <>
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Puzzle training modes">

@@ -28,7 +28,7 @@ createServer(async (req, res) => {
     if (req.method === "GET") return json({ state: state(id) });
     let raw = ""; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw || "{}");
-    if (body.action === "heartbeat") return json({ result: null });
+    if (body.action === "heartbeat") return json({ result: null, ...(body.includeState ? { state: state(id) } : {}) });
     if (body.action === "challenge") {
       const c = { id: crypto.randomUUID(), challengerId: id, recipientId: body.recipientId, timeControlId: body.timeControlId, status: "pending", gameId: null, expiresAt: new Date(Date.now() + 120000).toISOString() };
       challenges.push(c); return json({ result: c.id });
@@ -43,4 +43,4 @@ createServer(async (req, res) => {
   if (req.url === "/bundle.js") { res.setHeader("content-type", "text/javascript"); return res.end(bundle.outputFiles[0].contents); }
   res.setHeader("content-type", "text/html");
   res.end(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css.css}</style></head><body style="background:#0f172a"><div id="root"></div><script src="/bundle.js"></script></body></html>`);
-}).listen(9418, "127.0.0.1", () => console.log("Online-play fixture: http://127.0.0.1:9418/?student=a and ?student=b"));
+}).listen(Number(process.env.PORT || 9418), "127.0.0.1", () => console.log(`Online-play fixture: http://127.0.0.1:${process.env.PORT || 9418}/?student=a and ?student=b`));

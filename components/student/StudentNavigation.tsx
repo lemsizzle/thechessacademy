@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { StudentMenuLink as Link } from "@/components/student/StudentMenuNavigation";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
@@ -80,6 +80,7 @@ function StudentNavigationContent({ studentName, onLogout }: { studentName: stri
   const accountButtonRef = useRef<HTMLButtonElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const tabletMenuButtonRef = useRef<HTMLButtonElement>(null);
   const moreDialogRef = useRef<HTMLElement>(null);
   const moreRouteActive = standaloneMoreLinks.some((link) => isRouteWithin(pathname, link.href));
   const initial = studentName.trim().charAt(0).toUpperCase() || "S";
@@ -90,7 +91,10 @@ function StudentNavigationContent({ studentName, onLogout }: { studentName: stri
     if (!restoreFocus) return;
     window.requestAnimationFrame(() => {
       if (previousMenu === "account") accountButtonRef.current?.focus();
-      if (previousMenu === "more") moreButtonRef.current?.focus();
+      if (previousMenu === "more") {
+        const trigger = tabletMenuButtonRef.current?.getClientRects().length ? tabletMenuButtonRef.current : moreButtonRef.current;
+        trigger?.focus({ preventScroll: true });
+      }
     });
   }
 
@@ -99,10 +103,12 @@ function StudentNavigationContent({ studentName, onLogout }: { studentName: stri
   }, [pathname, search]);
 
   useEffect(() => {
-    const desktop = window.matchMedia("(min-width: 768px)");
-    const closeMobileMenu = () => { if (desktop.matches) setOpenMenu(null); };
-    desktop.addEventListener("change", closeMobileMenu);
-    return () => desktop.removeEventListener("change", closeMobileMenu);
+    const closeHiddenMenu = () => {
+      // Rotation can restore the sidebar while the tablet Menu is open.
+      if (moreDialogRef.current && !moreDialogRef.current.getClientRects().length) setOpenMenu(null);
+    };
+    window.addEventListener("resize", closeHiddenMenu);
+    return () => window.removeEventListener("resize", closeHiddenMenu);
   }, []);
 
   useEffect(() => {
@@ -154,6 +160,9 @@ function StudentNavigationContent({ studentName, onLogout }: { studentName: stri
     <>
       <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/90 px-4 py-3 backdrop-blur lg:px-6">
         <div className="flex items-center justify-between gap-3">
+          <button ref={tabletMenuButtonRef} type="button" data-tablet-board-menu className="hidden min-h-10 items-center gap-2 rounded-md border border-white/15 px-3 text-sm font-bold focus-visible:outline-cyan-200" aria-expanded={openMenu === "more"} aria-controls="student-more-navigation" onClick={() => setOpenMenu((current) => current === "more" ? null : "more")}>
+            <span aria-hidden="true">☰</span> Menu
+          </button>
           <Link href="/student" className="min-w-0 font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80">
             <span className="sm:hidden">⌂ Home</span>
             <span className="hidden sm:inline">⌂ Academy Home</span>
@@ -223,7 +232,7 @@ function StudentNavigationContent({ studentName, onLogout }: { studentName: stri
       </nav>
 
       {openMenu === "more" ? (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div data-student-more-overlay className="fixed inset-0 z-50 md:hidden">
           <button type="button" aria-label="Close more navigation" className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => closeMenu()} />
           <section
             ref={moreDialogRef}
@@ -239,6 +248,9 @@ function StudentNavigationContent({ studentName, onLogout }: { studentName: stri
               <button type="button" onClick={() => closeMenu()} aria-label="Close more navigation" className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/5 text-xl text-slate-300 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/80">×</button>
             </div>
             <div className="space-y-4">
+              <div data-tablet-board-links className="hidden grid-cols-2 gap-2">
+                {primaryLinks.map((link) => <MobileLink key={link.href} link={link} active={isRouteWithin(pathname, link.href)} onSelect={() => closeMenu({ restoreFocus: false })} />)}
+              </div>
               {moreGroups.map((group) => (
                 <div key={group.title}>
                   <p className="mb-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">{group.title}</p>

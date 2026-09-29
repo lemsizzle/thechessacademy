@@ -19,7 +19,12 @@ export async function POST(request: Request) {
     const origin = request.headers.get("origin");
     if (origin && origin !== new URL(request.url).origin) throw new OnlinePlayError("Request origin is not allowed.", 403);
     const student = await requireActiveStudent();
-    const result = await performOnlineAction(student.studentId, await request.json().catch(() => null));
+    const body = await request.json().catch(() => null);
+    const result = await performOnlineAction(student.studentId, body);
+    // Opt in so older clients do not pay for a list they will immediately fetch again.
+    if (body?.action === "heartbeat" && body.includeState === true) {
+      return NextResponse.json({ result, state: await getOnlinePlay(student.studentId) }, { headers: { "Cache-Control": "no-store" } });
+    }
     return NextResponse.json({ result }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return failure(error); }
 }

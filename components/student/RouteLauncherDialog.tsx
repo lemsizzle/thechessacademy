@@ -1,5 +1,7 @@
 "use client";
 
+import { useStudentMenuDestination } from "./StudentMenuNavigation";
+
 import {
   createContext,
   useCallback,
@@ -13,13 +15,6 @@ import {
 
 const RouteLauncherContext = createContext<(() => void) | null>(null);
 
-function focusableElements(container: HTMLElement | null) {
-  if (!container) return [];
-  return Array.from(container.querySelectorAll<HTMLElement>(
-    'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-  ));
-}
-
 export function useCloseRouteLauncher() {
   const closeLauncher = useContext(RouteLauncherContext);
   if (!closeLauncher) throw new Error("useCloseRouteLauncher must be used inside RouteLauncherDialog.");
@@ -28,6 +23,7 @@ export function useCloseRouteLauncher() {
 
 export function RouteLauncherDialog({
   id,
+  navigationHref,
   eyebrow,
   title,
   description,
@@ -36,6 +32,7 @@ export function RouteLauncherDialog({
   children
 }: {
   id: string;
+  navigationHref: string;
   eyebrow: string;
   title: string;
   description: string;
@@ -47,47 +44,25 @@ export function RouteLauncherDialog({
   const dialogRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeLauncher = useCallback(() => setOpen(false), []);
+  useStudentMenuDestination(navigationHref, () => setOpen(true));
 
   useEffect(() => {
     if (!open) return;
 
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const frame = window.requestAnimationFrame(() => dialogRef.current?.focus());
 
-    function handleEscape(event: globalThis.KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      closeLauncher();
-    }
-
-    document.addEventListener("keydown", handleEscape);
     return () => {
       window.cancelAnimationFrame(frame);
-      document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = previousOverflow;
       if (previouslyFocused && previouslyFocused !== document.body) previouslyFocused.focus();
       else window.requestAnimationFrame(() => triggerRef.current?.focus());
     };
   }, [closeLauncher, open]);
 
-  function trapFocus(event: KeyboardEvent<HTMLElement>) {
-    if (event.key !== "Tab") return;
-    const focusable = focusableElements(dialogRef.current);
-    if (focusable.length === 0) {
+  function handleDialogKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
       event.preventDefault();
-      return;
-    }
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
+      closeLauncher();
     }
   }
 
@@ -115,7 +90,7 @@ export function RouteLauncherDialog({
 
       {open ? (
         <div
-          className="fixed inset-0 z-[100] overflow-hidden bg-slate-950/90 backdrop-blur-md sm:p-6"
+          className="student-hub-overlay fixed inset-0 z-20 overflow-y-auto bg-slate-950/90 backdrop-blur-md sm:p-6"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeLauncher();
           }}
@@ -125,12 +100,12 @@ export function RouteLauncherDialog({
               ref={dialogRef}
               id={id}
               role="dialog"
-              aria-modal="true"
+              aria-modal="false"
               aria-labelledby={`${id}-title`}
               aria-describedby={`${id}-description`}
               tabIndex={-1}
-              onKeyDown={trapFocus}
-              className="flex h-[100dvh] w-full max-w-6xl flex-col overflow-hidden border-white/10 bg-slate-950 shadow-[0_28px_110px_rgba(0,0,0,0.75)] outline-none sm:h-auto sm:max-h-[calc(100dvh-3rem)] sm:rounded-xl sm:border"
+              onKeyDown={handleDialogKeyDown}
+              className="flex w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-white/10 bg-slate-950 shadow-[0_28px_110px_rgba(0,0,0,0.75)] outline-none"
             >
               <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-gradient-to-r from-cyan-300/10 via-slate-950 to-amber-300/10 px-4 py-4 sm:px-6 sm:py-5">
                 <div>

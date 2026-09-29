@@ -1,6 +1,7 @@
 "use client";
 
 import { celebrate, refreshCelebrations } from "@/lib/celebrations";
+import { useStudentMenuDestination } from "@/components/student/StudentMenuNavigation";
 
 import { BoardViewport } from "@/chess/components/BoardViewport";
 
@@ -112,6 +113,11 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   const [autoAdvance, setAutoAdvance] = useState(false);
   const autoAdvanceRef = useRef(false);
   const [phase, setPhase] = useState<TrainerPhase>("select");
+  const [setupRevision, setSetupRevision] = useState(0);
+  useStudentMenuDestination("/student/training", () => {
+    returnToPuzzleSetup();
+    setSetupRevision(current => current + 1);
+  });
   const [puzzle, setPuzzle] = useState<PublicTrainingPuzzle | null>(null);
   const [positionFen, setPositionFen] = useState("");
   const [token, setToken] = useState("");
@@ -1280,6 +1286,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   if (phase === "select") {
     return (
       <PuzzleModeSetup
+        key={setupRevision}
         selectedTheme={selectedTheme}
         onThemeChange={chooseTheme}
         selectedLevel={selectedLevel}

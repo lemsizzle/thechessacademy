@@ -13,6 +13,7 @@ type TournamentCache = {
 };
 
 let cache: TournamentCache | undefined;
+let inFlight: { teamId: string; promise: Promise<TournamentCache> } | undefined;
 
 function getTeamId() {
   return process.env.LICHESS_TEAM_ID || "outschool-battleground";
@@ -50,6 +51,20 @@ export async function syncTeamTournaments({ force = false } = {}) {
     if (cached) return cached;
   }
 
+  // Fluid Compute can serve several requests in one process. Share the current
+  // refresh instead of downloading/parsing the same tournaments concurrently.
+  // A forced sync still bypasses a completed cache, but can join a fresh fetch.
+  if (inFlight?.teamId === teamId) return inFlight.promise;
+  const pending = { teamId, promise: refreshTeamTournaments(teamId) };
+  inFlight = pending;
+  try {
+    return await pending.promise;
+  } finally {
+    if (inFlight === pending) inFlight = undefined;
+  }
+}
+
+async function refreshTeamTournaments(teamId: string): Promise<TournamentCache> {
   try {
     const arena = await fetchTeamArenaTournaments(teamId);
     const tournaments = sortTournaments(arena.map((raw) => normalizeArenaTournament(raw, { teamId, source: "team_sync", isPublic: true })));

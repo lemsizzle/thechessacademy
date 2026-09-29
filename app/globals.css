@@ -10,6 +10,46 @@
   .student-play-area:has([data-chess-board]) [data-page-heading] h1 { font-size: 1.25rem; margin-top: 0; }
 }
 
+/* Mode pickers cover only the content; all navigation remains interactive. */
+.student-portal-shell { --student-sidebar-width: 0px; --student-menu-bottom: 5rem; }
+.student-portal-shell .student-hub-overlay { top: 65px; left: var(--student-sidebar-width); bottom: var(--student-menu-bottom); }
+@media (min-width: 768px) {
+  .student-portal-shell { --student-sidebar-width: 14rem; --student-menu-bottom: 0px; }
+}
+@media (min-width: 1024px) {
+  .student-portal-shell { --student-sidebar-width: 16rem; }
+}
+.student-portal-shell:has([data-sidebar-collapsed="true"]) { --student-sidebar-width: 5rem; }
+@media (max-width: 767px) {
+  .student-portal-shell:has([data-sidebar-collapsed="true"]) { --student-sidebar-width: 0px; }
+}
+
+/* Landscape tablets need their height for the board, with players beside it. */
+@media (min-width: 768px) and (max-width: 1366px) and (orientation: landscape) {
+  .student-portal-shell:has([data-board-fit-screen]) [data-sidebar="student"] { display: block; width: 5rem; padding: .5rem; }
+  .student-portal-shell:has([data-board-fit-screen]) { --student-sidebar-width: 5rem; }
+  .student-portal-shell:has([data-board-fit-screen]) [data-sidebar="student"] [data-sidebar-label] { @apply sr-only; }
+  .student-portal-shell:has([data-board-fit-screen]) [data-sidebar="student"] nav a,
+  .student-portal-shell:has([data-board-fit-screen]) [data-sidebar="student"] nav button { justify-content: center; gap: 0; padding: .5rem; }
+  .student-portal-shell:has([data-board-fit-screen]) [data-sidebar-branches] { margin-left: 0; padding-left: 0; border-left: 0; }
+  .student-portal-shell:has([data-board-fit-screen]) [data-sidebar-brand] { padding: .25rem; text-align: center; }
+  .student-portal-shell:has([data-board-fit-screen]) [data-sidebar-brand] p { display: none; }
+  .student-portal-shell:has([data-board-fit-screen]) [data-sidebar-collapsed="false"] [data-sidebar-brand]::before { content: "\2654"; }
+  .student-portal-shell:has([data-board-fit-screen]) [data-sidebar="student"] > div > button { display: none; }
+  .student-portal-shell:has([data-board-fit-screen]) [data-tablet-board-menu] { display: inline-flex; }
+  .student-portal-shell:has([data-board-fit-screen]) [data-student-more-overlay] { display: block; }
+  .student-portal-shell:has([data-board-fit-screen]) .student-play-area { padding-top: 8px; }
+  .student-portal-shell:has([data-board-fit-screen]) [data-page-heading] { display: none; }
+  .student-play-area .bot-game-layout { grid-template-columns: minmax(0, 1fr) 260px; }
+  .bot-game-board-column { position: sticky; top: 74px; }
+  .bot-game-board-column > [data-bot-player-row] { display: none; }
+  .bot-game-layout .bot-game-board-column.space-y-3 > * { margin-top: 0; margin-bottom: 0; }
+  .bot-game-board-column [data-bot-settings-row] { display: none; }
+  .bot-game-landscape-players { display: block; }
+  .student-portal-shell:has([data-board-fit-screen]) [data-tablet-board-links] { display: grid; }
+  .bot-game-layout .bot-game-controls { position: sticky; top: 74px; }
+}
+
 :root {
   color-scheme: dark;
   background: #0b1020;

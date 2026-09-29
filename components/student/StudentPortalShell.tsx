@@ -1,6 +1,7 @@
 "use client";
 
 import { Sidebar } from "@/components/Sidebar";
+import { StudentMenuNavigation, StudentMenuPage } from "@/components/student/StudentMenuNavigation";
 import { AchievementCelebrations } from "@/components/student/AchievementCelebrations";
 import { ActiveLiveGameBanner } from "@/components/student/ActiveLiveGameBanner";
 import { TopNav } from "@/components/TopNav";
@@ -147,7 +148,8 @@ export function StudentPortalShell({
     <CorrespondenceProvider studentId={user.studentId}>
       <BoardAppearanceProvider studentId={user.studentId}>
       <AchievementCelebrations key={user.studentId} studentId={user.studentId} />
-      <div className="academy-grid min-h-screen">
+      <StudentMenuNavigation>
+      <div className="student-portal-shell academy-grid min-h-screen">
         <div className="flex min-h-screen">
           <Sidebar variant="student" />
           <div className="min-w-0 flex-1">
@@ -166,11 +168,12 @@ export function StudentPortalShell({
                 <a className="mt-2 inline-block font-bold text-cyan-200 underline" href="/api/auth/lichess/start?link=1&returnTo=%2Fstudent">Connect Lichess for Lichess progress</a>
                 {linkFailed && <p role="alert" className="mt-2 text-amber-200">Lichess was not connected. Use the account assigned by your teacher, or ask your teacher for help.</p>}
               </div>}
-              {children}
+              <StudentMenuPage>{children}</StudentMenuPage>
             </main>
           </div>
         </div>
       </div>
+      </StudentMenuNavigation>
       </BoardAppearanceProvider>
     </CorrespondenceProvider>
     </OnlinePlayProvider>

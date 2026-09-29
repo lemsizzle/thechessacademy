@@ -111,22 +111,33 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
     setConfirmation(null);
   }
 
+  const opponentPanel = <PlayerPanel
+    name={config.bot.name}
+    subtitle={config.bot.title}
+    portrait={config.bot.portrait}
+    clockMs={opponentClock}
+    active={game.activeColor === opponentColor}
+    thinking={game.thinking}
+    materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)}
+  />;
+  const studentPanel = <PlayerPanel
+    name={studentName}
+    subtitle={`Playing ${config.humanColor} · ${config.timeControl.name}`}
+    clockMs={playerClock}
+    active={game.activeColor === config.humanColor}
+    avatar={studentAvatar}
+    avatarItems={avatarItems}
+    materialAdvantage={materialAdvantageForColor(materialBalance, config.humanColor)}
+  />;
+
   return (
     <div className="space-y-4">
-      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <BoardViewport className="space-y-3" maxWidth={1200} fitToScreen>
-          <PlayerPanel
-            name={config.bot.name}
-            subtitle={config.bot.title}
-            portrait={config.bot.portrait}
-            clockMs={opponentClock}
-            active={game.activeColor === opponentColor}
-            thinking={game.thinking}
-            materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)}
-          />
+      <div className="bot-game-layout grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <BoardViewport className="bot-game-board-column space-y-3" maxWidth={1200} fitToScreen>
+          <div data-bot-player-row>{opponentPanel}</div>
 
           <div className="relative">
-          <div className="mb-2 flex justify-end"><BoardSettings muted={game.muted} onToggleMuted={() => game.setMuted((value) => !value)} /></div>
+          <div data-bot-settings-row className="mb-2 flex justify-end"><BoardSettings muted={game.muted} onToggleMuted={() => game.setMuted((value) => !value)} /></div>
           <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
             <AcademyChessboard
               fen={game.fen}
@@ -150,18 +161,15 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
           </div>
           </div>
 
-          <PlayerPanel
-            name={studentName}
-            subtitle={`Playing ${config.humanColor} · ${config.timeControl.name}`}
-            clockMs={playerClock}
-            active={game.activeColor === config.humanColor}
-            avatar={studentAvatar}
-            avatarItems={avatarItems}
-            materialAdvantage={materialAdvantageForColor(materialBalance, config.humanColor)}
-          />
+          <div data-bot-player-row>{studentPanel}</div>
         </BoardViewport>
 
-        <aside className="space-y-4 xl:sticky xl:top-20">
+        <aside className="bot-game-controls min-w-0 space-y-4 xl:sticky xl:top-20">
+          <div className="bot-game-landscape-players hidden space-y-3">
+            <BoardSettings muted={game.muted} onToggleMuted={() => game.setMuted((value) => !value)} />
+            {opponentPanel}
+            {studentPanel}
+          </div>
       {game.outcome && game.resultOpen && (
         <>
           <GameDialog inline             tone={game.outcome.result === "loss" ? "loss" : "default"}

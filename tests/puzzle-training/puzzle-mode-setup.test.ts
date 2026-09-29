@@ -38,7 +38,8 @@ describe("puzzle mode setup", () => {
     const html = renderSetup();
 
     expect(html).toContain('role="dialog"');
-    expect(html).toContain('aria-modal="true"');
+    // The mode chooser must allow the persistent navigation to remain usable.
+    expect(html).toContain('aria-modal="false"');
     expect(html).toContain("Choose a puzzle mode");
     expect(html).toContain("Survival");
     expect(html).toContain("Woodpecker Method");

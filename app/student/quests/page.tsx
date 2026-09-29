@@ -8,6 +8,7 @@ export default function StudentQuestsPage() {
     <StudentPortalShell title="Quests" subtitle="Choose a challenge and track your rewards.">
       <RouteLauncherDialog
         id="student-quest-launcher"
+        navigationHref="/student/quests"
         eyebrow="Quest Board"
         title="Your quests"
         description="Started, completed, and available challenges in one place."

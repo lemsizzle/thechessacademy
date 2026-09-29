@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { StudentMenuLink as Link } from "@/components/student/StudentMenuNavigation";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import {
@@ -30,11 +30,11 @@ function SidebarLink({
     <Link
       href={link.href}
       aria-current={active ? "page" : undefined}
-      title={collapsed ? link.label : undefined}
+      title={link.label}
       className={`relative flex items-center rounded-md font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${collapsed ? "min-h-10 justify-center px-1 py-2 text-sm" : branch ? "min-h-9 gap-2 px-2 py-1.5 text-xs" : "min-h-11 gap-3 border px-3 py-2.5 text-sm"} ${active ? "border-cyan-200/30 bg-cyan-200/12 text-cyan-100" : branch ? "text-slate-400 hover:bg-white/[0.08] hover:text-white" : "border-white/[0.08] bg-white/[0.035] text-slate-200 hover:border-white/15 hover:bg-white/10 hover:text-white"}`}
     >
       {link.icon ? <span aria-hidden="true" className="flex w-6 justify-center text-base">{link.icon}</span> : null}
-      <span className={collapsed ? "sr-only" : undefined}>{link.label}</span>
+      <span data-sidebar-label className={collapsed ? "sr-only" : undefined}>{link.label}</span>
       {link.href.endsWith("/tournaments") ? <TournamentLiveIndicator compact={collapsed} /> : null}
     </Link>
   );
@@ -87,10 +87,11 @@ function SidebarContent({ variant = "public" }: { variant?: NavVariant }) {
   }
 
   return (
-    <aside className={`scrollbar-soft sticky top-0 hidden h-screen shrink-0 overflow-y-auto border-r border-white/10 bg-slate-950/70 transition-[width,padding] duration-200 md:block ${collapsed ? "w-20 p-2" : "w-56 p-3 lg:w-64 lg:p-4"}`}>
+    <aside data-sidebar={variant} data-sidebar-collapsed={collapsed} className={`scrollbar-soft sticky top-0 hidden h-screen shrink-0 overflow-y-auto border-r border-white/10 bg-slate-950/70 transition-[width,padding] duration-200 md:block ${collapsed ? "w-20 p-2" : "w-56 p-3 lg:w-64 lg:p-4"}`}>
       <div className={`flex items-start ${collapsed ? "justify-center gap-1" : "gap-1.5"}`}>
         <Link
           href={homeHref}
+          data-sidebar-brand
           aria-label="Chess Academy Quest Board"
           title={collapsed ? "Quest Board" : undefined}
           className={`rounded-lg border border-amber-300/20 bg-amber-300/10 ${collapsed ? "grid size-8 shrink-0 place-items-center text-amber-100" : "min-w-0 flex-1 p-4"}`}
@@ -122,7 +123,7 @@ function SidebarContent({ variant = "public" }: { variant?: NavVariant }) {
               <div key={hub.href} className={collapsed ? undefined : "space-y-1.5"}>
                 <SidebarLink link={hub} collapsed={collapsed} active={isRouteWithin(pathname, hub.href) || hub.branches.some((branch) => isRouteWithin(pathname, branch.href))} />
                 {!collapsed && hub.branches.length > 0 ? (
-                  <div className="ml-5 space-y-1 border-l border-white/10 pl-2" aria-label={`${hub.label} pages`}>
+                  <div data-sidebar-branches className="ml-5 space-y-1 border-l border-white/10 pl-2" aria-label={`${hub.label} pages`}>
                     {hub.branches.map((branch) => (
                       <SidebarLink key={branch.href} link={branch} collapsed={false} branch active={isRouteWithin(pathname, branch.href)} />
                     ))}
@@ -150,11 +151,11 @@ function SidebarContent({ variant = "public" }: { variant?: NavVariant }) {
                   className={`flex min-h-10 w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${studentMoreActive ? "bg-cyan-200/12 text-cyan-100" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}
                 >
                   <span aria-hidden="true" className="flex w-6 justify-center tracking-widest">•••</span>
-                  <span>More</span>
-                  <span aria-hidden="true" className="ml-auto text-xs">{studentMoreOpen ? "▲" : "▼"}</span>
+                  <span data-sidebar-label>More</span>
+                  <span data-sidebar-label aria-hidden="true" className="ml-auto text-xs">{studentMoreOpen ? "▲" : "▼"}</span>
                 </button>
                 {studentMoreOpen ? (
-                  <div id="student-sidebar-more" className="mt-1 ml-5 space-y-1 border-l border-white/10 pl-2">
+                  <div data-sidebar-branches id="student-sidebar-more" className="mt-1 ml-5 space-y-1 border-l border-white/10 pl-2">
                     {studentMoreLinks.map((link) => (
                       <SidebarLink key={link.href} link={link} collapsed={false} branch active={isRouteWithin(pathname, link.href)} />
                     ))}

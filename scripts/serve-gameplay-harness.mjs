@@ -1,12 +1,13 @@
 // Start a standalone, mocked browser fixture; never contacts production APIs.
 import { build } from "esbuild";
 import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve, extname } from "node:path";
 import postcss from "postcss";
 import tailwindcss from "tailwindcss";
 
 const mocks = {
-  "next/navigation": "export const useRouter = () => ({push(){},replace(){},refresh(){}}); export const useSearchParams=()=>new URLSearchParams(location.search);",
+  "next/navigation": "export const useRouter = () => ({push(){},replace(){},refresh(){}}); export const useSearchParams=()=>new URLSearchParams(location.search); export const usePathname=()=>'/student/play/computer';",
   "next/link": "import React from 'react'; export default function Link({children,...props}) { return React.createElement('a',props,children); }",
   "next/image": "import React from 'react'; export default function Image({fill,priority,unoptimized,...props}) { return React.createElement('img',props); }",
   "@/lib/supabase/client": "export const getSupabaseClient = () => null;",
@@ -16,6 +17,9 @@ const mocks = {
 if (process.env.GAMEPLAY_MOCK_ENGINE === "1") {
   mocks["@/chess/hooks/useStockfish"] = "import {Chess} from 'chess.js'; const noop=()=>{}; const requestMove=async(fen)=>{const m=new Chess(fen).moves({verbose:true})[0]; return m ? m.from+m.to+(m.promotion||'') : null}; export const useStockfish=()=>({requestMove,thinking:false,engineError:'',stop:noop,clearEngineError:noop});";
   mocks["@/chess/hooks/useAnalysisEngine"] = "const noop=()=>{}; const state={lines:[],loading:false,error:'',analyze:noop,stop:noop,clear:noop}; export const useAnalysisEngine=()=>state;";
+}
+if (process.env.GAMEPLAY_NAVIGATION === "1") {
+  mocks["next/navigation"] = "const router={push(url){location.assign(url)},replace(url){history.replaceState(null,'',url)},refresh(){}}; export const useRouter=()=>router; export const useSearchParams=()=>new URLSearchParams(location.search); export const usePathname=()=>location.pathname;";
 }
 const result = await build({
   entryPoints: [process.env.GAMEPLAY_FIXTURE || "tests/browser/gameplay-harness.jsx"], outfile: "bundle.js", bundle: true, write: false, format: "iife", jsx: "automatic",
@@ -31,6 +35,16 @@ const js = result.outputFiles.find((file) => file.path.endsWith(".js")).contents
 const boardCss = result.outputFiles.find((file) => file.path.endsWith(".css"))?.text ?? "";
 const html = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/bundle.css"></head><body><main class="mx-auto max-w-7xl p-4"><div id="root"></div></main><script src="/bundle.js"></script></body></html>';
 createServer((req, res) => {
+  const assetPath = resolve('public', '.' + new URL(req.url, 'http://localhost').pathname);
+  const imageTypes = { '.webp': 'image/webp', '.png': 'image/png', '.svg': 'image/svg+xml' };
+  if (assetPath.startsWith(resolve('public') + '/') || assetPath.startsWith(resolve('public') + '\\')) {
+    const contentType = imageTypes[extname(assetPath)];
+    if (contentType && existsSync(assetPath)) {
+      res.setHeader('Content-Type', contentType);
+      res.end(readFileSync(assetPath));
+      return;
+    }
+  }
   if (req.url === "/badges/survival-adamantium-placeholder.svg" || /^\/badges\/game-achievements\/[a-z0-9-]+\.svg$/.test(req.url)) {
     res.setHeader("Content-Type", "image/svg+xml");
     res.end(readFileSync("public" + req.url));
@@ -48,5 +62,7 @@ createServer((req, res) => {
   const isJs = req.url === "/bundle.js";
   const isCss = req.url === "/bundle.css";
   res.setHeader("Content-Type", isJs ? "text/javascript" : isCss ? "text/css" : "text/html");
-  res.end(isJs ? js : isCss ? css.css + "\n" + boardCss : html);
+  const page = process.env.GAMEPLAY_NAVIGATION === "1" || new URL(req.url, 'http://localhost').searchParams.has('viewport')
+    ? html.replace('<main class="mx-auto max-w-7xl p-4">', '<main>') : html;
+  res.end(isJs ? js : isCss ? css.css + "\n" + boardCss : page);
 }).listen(Number(process.env.GAMEPLAY_PORT || 9417), "127.0.0.1", () => console.log("Gameplay fixture ready (mocked data only)"));

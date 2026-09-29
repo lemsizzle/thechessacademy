@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/Button";
 import { onlinePlayPollMs } from "@/lib/pollingPolicy";
+import { fetchOnlinePlayState } from "@/lib/onlinePlay/client";
 import { challengeIsPending, EMPTY_ONLINE_PLAY, ONLINE_CLOCKS, type DirectChallenge, type OnlinePlayState } from "@/lib/onlinePlay/types";
 
 type Action = { action: "challenge"; recipientId: string; timeControlId: string } | { action: "accept" | "decline" | "cancel"; challengeId: string };
@@ -28,14 +29,11 @@ export function OnlinePlayProvider({ studentId, children }: { studentId: string;
   const pollDelay = useRef(15_000);
   pollDelay.current = onlinePlayPollMs([...state.incoming, ...state.outgoing].some(challengeIsPending));
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (heartbeat = false) => {
     const sequence = ++generation.current;
     try {
-      const response = await fetch("/api/student/online-play", { cache: "no-store" });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "Online play could not be loaded.");
+      const next = await fetchOnlinePlayState(heartbeat, () => { heartbeatAt.current = Date.now(); });
       if (!mounted.current || sequence !== generation.current) return;
-      const next = body.state as OnlinePlayState;
       setState(current => JSON.stringify(current) === JSON.stringify(next) ? current : next); setError("");
       setNotice((current) => {
         const nextNotice = current && next.incoming.find((c) => c.id === current.id && challengeIsPending(c)) || null;
@@ -65,13 +63,7 @@ export function OnlinePlayProvider({ studentId, children }: { studentId: string;
       if (polling || document.visibilityState !== "visible" || Date.now() - lastPoll < pollDelay.current) return;
       lastPoll = Date.now();
       polling = true;
-      try {
-        if (Date.now() - heartbeatAt.current >= 30_000) {
-          const response = await fetch("/api/student/online-play", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "heartbeat" }) });
-          if (response.ok) heartbeatAt.current = Date.now();
-        }
-      } catch { /* Still refresh below so failures do not leave a stale online list. */ }
-      try { await refresh(); } finally { polling = false; }
+      try { await refresh(Date.now() - heartbeatAt.current >= 30_000); } finally { polling = false; }
     };
     void tick();
     const timer = window.setInterval(() => void tick(), 5_000);

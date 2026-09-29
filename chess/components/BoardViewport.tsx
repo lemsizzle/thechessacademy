@@ -10,6 +10,7 @@ export function BoardViewport({ children, className = "space-y-2", maxWidth = 70
     if (!column) return;
     let frame = 0;
     let focusFrame = 0;
+    let previousWidth = window.innerWidth;
     const fit = () => {
       if (fitToScreen) {
         const board = column.querySelector<HTMLElement>("[data-chess-board]");
@@ -23,8 +24,11 @@ export function BoardViewport({ children, className = "space-y-2", maxWidth = 70
         board.style.scrollMarginTop = `${topSpace + 8}px`;
         // Page headings can scroll away. Reserve only visible navigation and the
         // clocks/panels; short landscape screens prioritize the board itself.
+        // Width sizes the outer square, so subtract only non-square content.
+        // Subtracting the inner board height counts its frame padding twice.
+        const rect = column.getBoundingClientRect();
         const chrome = height < 600 && window.innerWidth > height
-          ? 0 : Math.max(0, column.getBoundingClientRect().height - board.getBoundingClientRect().height);
+          ? 0 : Math.max(0, rect.height - rect.width);
         const size = Math.floor(Math.min(maxWidth, Math.max(0, height - topSpace - bottomSpace - chrome - 16)));
         const width = `min(100%, ${size}px)`;
         if (column.style.width !== width) column.style.width = width;
@@ -49,9 +53,7 @@ export function BoardViewport({ children, className = "space-y-2", maxWidth = 70
       if (column.style.width !== width) column.style.width = width;
     };
     const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(fit); };
-    const resize = () => {
-      schedule();
-      if (!fitToScreen) return;
+    const focusBoard = () => {
       cancelAnimationFrame(focusFrame);
       focusFrame = requestAnimationFrame(() => {
         fit();
@@ -59,6 +61,14 @@ export function BoardViewport({ children, className = "space-y-2", maxWidth = 70
         const target = height < 600 && window.innerWidth > height ? column.querySelector<HTMLElement>("[data-chess-board]") : column;
         target?.scrollIntoView({ block: "start", behavior: "instant" });
       });
+    };
+    const resize = () => {
+      schedule();
+      const widthChanged = Math.abs(window.innerWidth - previousWidth) > 1;
+      previousWidth = window.innerWidth;
+      // Tablet browser bars change height while scrolling. Only reposition on
+      // a width change (rotation/split view), never on those height-only events.
+      if (fitToScreen && widthChanged) focusBoard();
     };
     const observer = new ResizeObserver(schedule);
     observer.observe(column);
@@ -70,8 +80,8 @@ export function BoardViewport({ children, className = "space-y-2", maxWidth = 70
     window.addEventListener("resize", resize);
     window.visualViewport?.addEventListener("resize", schedule);
     fit();
-    if (fitToScreen) resize();
+    if (fitToScreen) focusBoard();
     return () => { cancelAnimationFrame(focusFrame); cancelAnimationFrame(frame); observer.disconnect(); mutations.disconnect(); window.removeEventListener("resize", resize); window.visualViewport?.removeEventListener("resize", schedule); };
   }, [maxWidth, fitToScreen]);
-  return <div ref={ref} data-board-column className={`mx-auto w-full min-w-0 ${className}`} style={{ maxWidth }}>{children}</div>;
+  return <div ref={ref} data-board-column data-board-fit-screen={fitToScreen || undefined} className={`mx-auto w-full min-w-0 ${className}`} style={{ maxWidth }}>{children}</div>;
 }

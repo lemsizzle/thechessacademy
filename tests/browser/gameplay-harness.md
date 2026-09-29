@@ -43,7 +43,16 @@ Chromium and WebKit. Screenshots and failure details go to `work/gameplay-audit`
   restrictions, Woodpecker, daily puzzles, and the actual Stockfish WASM worker.
 
 The screen fixture uses deterministic simulated API responses and bot replies.
-For bot board sizing, open `?area=bot&viewport` and start Pawny. This adds representative sticky navigation, mobile bottom navigation, desktop sidebar spacing, and a page heading. Check 375×667, 390×844, 768×1024, 1024×768, 1440×900, 1920×1080, and 844×390. The bot board uses the available width up to the visible height budget, with room for navigation and player panels. Short landscape screens prioritize the board itself; panels remain reachable by scrolling. Starting a game brings the board into view. Tablet controls stay below the board. Check no horizontal overflow, both board edges, rotation, and an actual move/reply. Other game modes retain their existing sizing.
+For bot board sizing, open `?area=bot&viewport` and start Pawny. This uses the actual Sidebar and StudentNavigation components inside StudentPortalShell's layout (without its account/network providers). The sidebar starts at **768px**, and this fixture has no extra outer padding. Bot portraits are served from the local public assets.
+
+Check portrait/landscape pairs: 768×1024 → 1024×768, 820×1180 → 1180×820, and 1024×1366 → 1366×1024, plus phone 390×844 and desktop 1440×900. On landscape tablets, player panels and controls move beside the board, and a header Menu exposes all navigation. Portrait keeps the original sidebar and player placement. The board stays visible while scrolling the controls. Check square proportions, all eight ranks, no horizontal overflow, an actual move/reply, running clocks, board settings, and returning to portrait. Open Menu before rotating back and verify it closes without leaving scrolling locked. Resize height alone to simulate browser chrome and verify it does not reset scroll position. Other game modes retain their existing sizing.
+
+September 28 verification used the browser tool with this fixture: the 1024×768 board increased from approximately 436px to 663px; 768×1024 portrait stayed 479px. Actual moves and deterministic bot replies, visible clocks, menu links, rotation, and height-only resizing were exercised. API responses and the bot engine are simulated; this is not a physical Safari/iPad test.
+
+September 29 navigation update: landscape gameplay now retains an 80px sidebar
+rail as well as the header Menu. At 1024×768 the full board is about 583px square.
+This reserves visible navigation space while retaining the landscape layout.
+See `navigation-harness.md` for menu interaction checks.
 
 The separate `engineMove` check loads the real bundled Stockfish worker. These
 checks do not certify multiplayer delivery, database writes, rewards, every

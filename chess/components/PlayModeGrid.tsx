@@ -53,6 +53,7 @@ export function PlayModeGrid() {
   return (
     <RouteLauncherDialog
       id="student-play-launcher"
+      navigationHref="/student/play"
       eyebrow="Play"
       title="Choose an opponent"
       description="Play a bot or challenge a classmate."
