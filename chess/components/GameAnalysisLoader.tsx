@@ -29,7 +29,7 @@ export function GameAnalysisLoader({ gameId, basePath, initialPly = 0 }: { gameI
     return () => { cancelled = true; };
   }, [gameId]);
 
-  if (error && !game) return <Card className="p-6 text-rose-100">{error} <Button className="ml-3" variant="ghost" href={`${basePath}/studies`}>Back to studies</Button></Card>;
+  if (error && !game) return <Card className="p-6 text-rose-100">{error} <Button className="ml-3" variant="ghost" href={basePath === "/student" ? "/student/play/history" : "/admin/studies"}>{basePath === "/student" ? "Back to Game History" : "Back to studies"}</Button></Card>;
   if (!game || !analysisTree) return <Card className="p-6 text-sm text-slate-300">Loading replay and move history…</Card>;
 
   return <><AnalysisWorkspace
@@ -42,6 +42,7 @@ export function GameAnalysisLoader({ gameId, basePath, initialPly = 0 }: { gameI
     title={`${basePath === "/admin" ? "Student" : "You"} vs ${game.opponentName}`}
     subtitle={`${new Date(game.completedAt).toLocaleString()} · ${game.result.toUpperCase()} by ${game.resultReason.replaceAll("_", " ")} · ${game.timeControl.name ?? "Game"}`}
     actions={<>
+      {basePath === "/student" && <Button variant="secondary" href="/student/play/history">Back to Game History</Button>}
       {basePath === "/admin" && <Button variant="ghost" href={`/admin/students?student=${encodeURIComponent(game.playerId)}`}>Back to student</Button>}
       <Button type="button" variant="secondary" onClick={() => setAddOpen(true)}>Add to Study</Button>
       <Button variant="ghost" href={`${basePath}/studies`}>All studies</Button>

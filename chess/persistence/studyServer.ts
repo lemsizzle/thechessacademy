@@ -57,7 +57,18 @@ export async function getCompletedGame(actor: ChessActor, gameId: string) {
     .select("id,game_mode,player_id,opponent_name,player_color,result,result_reason,initial_fen,final_fen,pgn,moves,started_at,completed_at,time_control")
     .eq("id", gameId);
   if (actor.kind === "student") query = query.eq("player_id", actor.studentId);
-  const { data, error } = await query.maybeSingle();
+  let { data, error } = await query.maybeSingle();
+  // A finished live match has one saved replay per student, each with its own ID.
+  // Only resolve a match ID within the requesting student's own records.
+  if (!error && !data && actor.kind === "student") {
+    const replay = await client().from("internal_chess_games")
+      .select("id,game_mode,player_id,opponent_name,player_color,result,result_reason,initial_fen,final_fen,pgn,moves,started_at,completed_at,time_control")
+      .eq("source_live_game_id", gameId)
+      .eq("player_id", actor.studentId)
+      .maybeSingle();
+    data = replay.data;
+    error = replay.error;
+  }
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Completed game not found.");
   return mapGame(data as Record<string, unknown>);

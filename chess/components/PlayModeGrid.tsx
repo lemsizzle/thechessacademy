@@ -45,6 +45,13 @@ function PlayChoices() {
         <span><span aria-hidden="true" className="mr-2">↻</span>Continue a game</span>
         <span aria-hidden="true" className="text-slate-500">→</span>
       </Link>
+      <Link
+        href="/student/play/history"
+        className="block rounded-lg border border-cyan-200/25 bg-cyan-300/10 px-4 py-3 transition hover:bg-cyan-300/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+      >
+        <span className="block font-black text-white">Game History</span>
+        <span className="mt-1 block text-sm text-slate-300">Open past games on the analysis board and try different moves.</span>
+      </Link>
     </div>
   );
 }
@@ -58,7 +65,7 @@ export function PlayModeGrid() {
       title="Choose an opponent"
       description="Play a bot or challenge a classmate."
       triggerLabel="Choose how to play"
-      triggerDescription="Computer, classmate, or continue a game."
+      triggerDescription="Computer, classmate, continue a game, or view Game History."
     >
       <PlayChoices />
     </RouteLauncherDialog>

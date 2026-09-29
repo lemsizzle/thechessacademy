@@ -131,6 +131,7 @@ export function ChessHistoryDashboard() {
             <div>
               <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Completed games</p>
               <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Your game record</h2>
+              <p className="mt-2 text-sm text-slate-300">Your completed Chess Quest games are saved here, newest first. Choose Analyze game to replay moves and explore alternatives.</p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:w-auto">
               <label className="text-xs font-bold text-slate-300">
@@ -190,7 +191,7 @@ export function ChessHistoryDashboard() {
                       </p>
                     </div>
                     <Button href={`/student/play/game/${encodeURIComponent(game.id)}/analysis`} variant="secondary" className="w-full sm:w-auto">
-                      Review key moments
+                      Analyze game
                     </Button>
                   </li>
                 ))}
@@ -200,6 +201,7 @@ export function ChessHistoryDashboard() {
             <div className="flex min-h-64 flex-col items-center justify-center gap-2 p-6 text-center">
               <p className="text-lg font-black text-white">No games match these filters.</p>
               <p className="max-w-md text-sm text-slate-400">Complete a computer or live game, or change the filters to see more of your record.</p>
+              <Button className="mt-3" href="/student/play">Play a game</Button>
             </div>
           )}
         </div>

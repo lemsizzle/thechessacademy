@@ -1,7 +1,5 @@
 "use client";
 
-import { BoardViewport } from "@/chess/components/BoardViewport";
-
 import { Chess } from "chess.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
@@ -415,32 +413,68 @@ export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle
   /> : null;
 
   return (
-    <div className="min-w-0 space-y-4">
-      <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-slate-950/60 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-wider text-cyan-200">{gameMode ? "Game review" : "Analysis board"}</p>
-          <h2 className="truncate text-xl font-black text-white">{title}</h2>
-          {subtitle && <p className="mt-1 text-sm text-slate-400">{subtitle}</p>}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {saveStatus !== "idle" && <span className={`text-xs font-bold ${saveStatus === "error" ? "text-rose-200" : saveStatus === "saved" ? "text-emerald-200" : "text-slate-400"}`}>{saveStatus === "saving" ? "Saving…" : saveMessage || "Saved"}</span>}
-          {actions}
-        </div>
-      </div>
+    <div className="analysis-workspace min-w-0">
+      <div className="analysis-layout">
+        <div className="analysis-board-column">
+          <div className="analysis-board-stage space-y-2">
+            <div className="flex items-center justify-between gap-2">
+            <Button type="button" variant="ghost" aria-expanded={showBoardTools} aria-controls="analysis-board-tools" onClick={() => {
+              if (showBoardTools) {
+                setAnnotationMode(null);
+                setAnnotationStart(null);
+              }
+              setShowBoardTools(!showBoardTools);
+            }}>{showBoardTools ? "Hide board tools" : "Board tools"}</Button>
+            <BoardSettings />
+            </div>
 
-      {!mistakeReviewActive ? reviewPanel : null}
-
-      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,720px)_minmax(360px,520px)] xl:justify-center">
-        <BoardViewport maxWidth={720}>
-          <div className="flex items-center justify-between gap-2">
-          <Button type="button" variant="ghost" aria-expanded={showBoardTools} aria-controls="analysis-board-tools" onClick={() => {
-            if (showBoardTools) {
-              setAnnotationMode(null);
-              setAnnotationStart(null);
-            }
-            setShowBoardTools(!showBoardTools);
-          }}>{showBoardTools ? "Hide board tools" : "Board tools"}</Button>
-          <BoardSettings />
+            <div className="flex min-w-0 overflow-hidden rounded-lg border border-[#3b3936] bg-[#1f1e1b] p-1 shadow-2xl sm:p-2">
+              {engineOn && (
+                <div className="relative mr-1 w-7 shrink-0 overflow-hidden rounded bg-slate-800" aria-label={`Evaluation ${scoreLabel(topLine?.scoreWhiteCp ?? null, topLine?.mateWhite ?? null)}`}>
+                  <div className="absolute inset-x-0 bottom-0 bg-slate-100 transition-[height] duration-300" style={{ height: `${whitePercent}%` }} />
+                  <span className="absolute inset-x-0 top-1 z-10 text-center text-[9px] font-black text-amber-300 [text-shadow:0_1px_2px_#000]">{scoreLabel(topLine?.scoreWhiteCp ?? null, topLine?.mateWhite ?? null)}</span>
+                </div>
+              )}
+              <div className="aspect-square min-w-0 flex-1">
+                <AcademyChessboard
+                  key={`${activeId}-${guidedResult?.status ?? "ready"}`}
+                  boardId="academy-analysis-board"
+                  fen={displayFen}
+                  orientation={orientation}
+                  humanColor={moveColor}
+                  interactive={mistakeReviewActive ? mistakeReview.result?.status !== "revealed" : guidedExercise ? guidedResult?.status !== "correct" && !guidedBusy : editable}
+                  lastMove={lastMove}
+                  onMove={makeMove}
+                  arrows={boardArrows}
+                  circles={circles}
+                  annotationMode={annotationMode}
+                  onAnnotationSquare={annotationSquare}
+                  allowDrawingArrows={editable}
+                  onArrowsChange={(next) => {
+                    const userArrows = mistakeReviewActive
+                      ? next.filter((arrow) => !mistakeArrow.some((locked) => locked.startSquare === arrow.startSquare && locked.endSquare === arrow.endSquare && locked.color === arrow.color))
+                      : next;
+                    updateShapes([
+                      ...node.shapes.filter((shape) => shape.type !== "arrow"),
+                      ...userArrows.map((arrow) => ({
+                        type: "arrow" as const,
+                        from: arrow.startSquare,
+                        to: arrow.endSquare,
+                        style: annotationStyleForColor(arrow.color)
+                      }))
+                    ]);
+                  }}
+                  onCircleToggle={editable ? (square, color) => toggleCircle(square, annotationStyleForColor(color)) : undefined}
+                  onClearAnnotations={editable ? clearBoardAnnotations : undefined}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              <Button type="button" variant="ghost" onClick={() => selectPosition(firstNodeId(tree))} aria-label="First position">|&lt;</Button>
+              <Button type="button" variant="ghost" onClick={() => selectPosition(previousNodeId(tree, activeId))} aria-label="Previous move">&lt;</Button>
+              <Button type="button" variant="ghost" onClick={() => selectPosition(nextNodeId(tree, activeId))} aria-label="Next move">&gt;</Button>
+              <Button type="button" variant="ghost" onClick={() => selectPosition(lastMainlineNodeId(tree))} aria-label="Last main-line position">&gt;|</Button>
+            </div>
           </div>
           {showBoardTools ? <div id="analysis-board-tools" className="space-y-2 rounded-lg border border-white/10 bg-slate-950/50 p-3">
             <div className="flex flex-wrap gap-2" aria-label="Board tools">
@@ -466,6 +500,21 @@ export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle
             <p className="text-xs text-slate-400">Right-click for a circle or right-drag for an arrow. Shift/Ctrl draws red, Alt/Command blue, and both groups yellow.</p>
             {annotationMode ? <p className="text-xs text-cyan-100">{annotationMode === "arrow" ? annotationStart ? "Tap the destination square." : "Tap an arrow’s start square, then its destination. Right-drag also works with a mouse." : "Tap a square to add or remove a circle."}</p> : null}
           </div> : null}
+
+        </div>
+
+        <aside aria-label="Analysis details and tools" className="analysis-details min-w-0 space-y-3">
+          <div className="space-y-3 rounded-lg border border-white/10 bg-slate-950/60 p-4">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-wider text-cyan-200">{gameMode ? "Game review" : "Analysis board"}</p>
+              <h2 className="truncate text-xl font-black text-white">{title}</h2>
+              {subtitle && <p className="mt-1 text-sm text-slate-400">{subtitle}</p>}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {saveStatus !== "idle" && <span className={`text-xs font-bold ${saveStatus === "error" ? "text-rose-200" : saveStatus === "saved" ? "text-emerald-200" : "text-slate-400"}`}>{saveStatus === "saving" ? "Saving…" : saveMessage || "Saved"}</span>}
+              {actions}
+            </div>
+          </div>
           {guidedExercise && <Card className="border-violet-200/25 bg-violet-300/10 p-4">
             <p className="text-xs font-black uppercase tracking-wide text-violet-200">Guess the move</p>
             <p className="mt-1 font-bold leading-6 text-white">{guidedExercise.prompt}</p>
@@ -478,57 +527,7 @@ export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle
             </div>
             {(guidedResult || guidedError) && <button type="button" className="mt-3 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-slate-200 hover:bg-white/10" onClick={() => { setGuidedResult(null); setGuidedFen(null); setGuidedError(""); }}>Reset attempt</button>}
           </Card>}
-          <div className="flex min-w-0 overflow-hidden rounded-lg border border-[#3b3936] bg-[#1f1e1b] p-1 shadow-2xl sm:p-2">
-            {engineOn && (
-              <div className="relative mr-1 w-7 shrink-0 overflow-hidden rounded bg-slate-800" aria-label={`Evaluation ${scoreLabel(topLine?.scoreWhiteCp ?? null, topLine?.mateWhite ?? null)}`}>
-                <div className="absolute inset-x-0 bottom-0 bg-slate-100 transition-[height] duration-300" style={{ height: `${whitePercent}%` }} />
-                <span className="absolute inset-x-0 top-1 z-10 text-center text-[9px] font-black text-amber-300 [text-shadow:0_1px_2px_#000]">{scoreLabel(topLine?.scoreWhiteCp ?? null, topLine?.mateWhite ?? null)}</span>
-              </div>
-            )}
-            <div className="aspect-square min-w-0 flex-1">
-              <AcademyChessboard
-                key={`${activeId}-${guidedResult?.status ?? "ready"}`}
-                boardId="academy-analysis-board"
-                fen={displayFen}
-                orientation={orientation}
-                humanColor={moveColor}
-                interactive={mistakeReviewActive ? mistakeReview.result?.status !== "revealed" : guidedExercise ? guidedResult?.status !== "correct" && !guidedBusy : editable}
-                lastMove={lastMove}
-                onMove={makeMove}
-                arrows={boardArrows}
-                circles={circles}
-                annotationMode={annotationMode}
-                onAnnotationSquare={annotationSquare}
-                allowDrawingArrows={editable}
-                onArrowsChange={(next) => {
-                  const userArrows = mistakeReviewActive
-                    ? next.filter((arrow) => !mistakeArrow.some((locked) => locked.startSquare === arrow.startSquare && locked.endSquare === arrow.endSquare && locked.color === arrow.color))
-                    : next;
-                  updateShapes([
-                    ...node.shapes.filter((shape) => shape.type !== "arrow"),
-                    ...userArrows.map((arrow) => ({
-                      type: "arrow" as const,
-                      from: arrow.startSquare,
-                      to: arrow.endSquare,
-                      style: annotationStyleForColor(arrow.color)
-                    }))
-                  ]);
-                }}
-                onCircleToggle={editable ? (square, color) => toggleCircle(square, annotationStyleForColor(color)) : undefined}
-                onClearAnnotations={editable ? clearBoardAnnotations : undefined}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            <Button type="button" variant="ghost" onClick={() => selectPosition(firstNodeId(tree))} aria-label="First position">|&lt;</Button>
-            <Button type="button" variant="ghost" onClick={() => selectPosition(previousNodeId(tree, activeId))} aria-label="Previous move">&lt;</Button>
-            <Button type="button" variant="ghost" onClick={() => selectPosition(nextNodeId(tree, activeId))} aria-label="Next move">&gt;</Button>
-            <Button type="button" variant="ghost" onClick={() => selectPosition(lastMainlineNodeId(tree))} aria-label="Last main-line position">&gt;|</Button>
-          </div>
-        </BoardViewport>
-
-        <aside className="min-w-0 space-y-4 xl:sticky xl:top-4">
-          {mistakeReviewActive ? reviewPanel : null}
+          {reviewPanel}
           {gameMode ? <Card className="overflow-hidden p-0">
             <button
               type="button"

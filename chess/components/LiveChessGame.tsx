@@ -14,6 +14,7 @@ import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles"
 import { BoardSettings as BoardSoundSettings } from "@/chess/components/BoardSettings";
 import { BOARD_ANNOTATION_COLORS } from "@/chess/components/boardAnnotations";
 import { GameDialog } from "@/chess/components/GameDialog";
+import { CompletedGameActions } from "@/chess/components/CompletedGameActions";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
@@ -547,7 +548,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           secondaryLabel={arenaQueue.queue && ["finished", "cancelled"].includes(arenaQueue.queue.tournamentStatus) ? "Close" : arenaQueue.pending ? "Updating…" : arenaQueue.queue?.queueEnabled === false ? "Rejoin queue" : "Take a break"}
           onSecondary={() => arenaQueue.queue && ["finished", "cancelled"].includes(arenaQueue.queue.tournamentStatus) ? setResultOpen(false) : void arenaQueue.update(arenaQueue.queue?.queueEnabled === false ? "join" : "pause")}
         >
-          <Button className="mt-4 w-full" href={`/student/play/game/${encodeURIComponent(game.id)}/analysis`}>Review my three key moments</Button>
+          <CompletedGameActions gameId={game.id} />
           <p className="mt-3 text-xl font-black text-amber-200">{arenaQueue.queue?.points !== null && arenaQueue.queue?.points !== undefined ? `+${arenaQueue.queue.points} tournament points` : "Recording your result…"}</p>
           <p className="mt-2 text-sm font-bold text-cyan-100" role="status">{arenaQueue.error || (arenaQueue.queue ? arenaQueueLabel(arenaQueue.queue) : "Checking your next pairing…")}</p>
         </GameDialog>
@@ -561,7 +562,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           secondaryLabel={opponentRequestedRematch && !isCorrespondence ? "Decline & Return to Play" : "Close"}
           onSecondary={opponentRequestedRematch && !isCorrespondence ? declineRematch : () => setResultOpen(false)}
         >
-          <Button className="mt-4 w-full" href={`/student/play/game/${encodeURIComponent(game.id)}/analysis`}>Review my three key moments</Button>
+          <CompletedGameActions gameId={game.id} />
           <p className="mt-3 text-sm font-bold text-slate-300">
             {isCorrespondence
               ? challengeAgainSent ? "Your challenge is waiting in the other student's inbox." : "Want another slow game? Send a new correspondence challenge."
@@ -604,6 +605,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
                 Coach is spectating
               </p>
             ) : null}
+            {game.status === "completed" && !resultOpen && <CompletedGameActions gameId={game.id} />}
             {game.status === "completed" && game.arenaTournamentId ? (
               <div className="mt-3 rounded-md border border-emerald-300/30 bg-emerald-300/10 p-3">
                 <p className="text-xs font-black uppercase tracking-wider text-emerald-200">Arena game complete</p>

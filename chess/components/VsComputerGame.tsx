@@ -9,6 +9,7 @@ import { BoardSettings } from "@/chess/components/BoardSettings";
 import { BoardCaptureParticles } from "@/chess/components/BoardCaptureParticles";
 import { GameControls } from "@/chess/components/GameControls";
 import { GameDialog } from "@/chess/components/GameDialog";
+import { CompletedGameActions } from "@/chess/components/CompletedGameActions";
 import { GameSetup } from "@/chess/components/GameSetup";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
@@ -180,7 +181,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
             secondaryLabel="Review Board"
             onSecondary={() => game.setResultOpen(false)}
           >
-            {game.savedGameId && <Button className="mt-4 w-full" href={`/student/play/game/${game.savedGameId}/analysis`}>Review my three key moments</Button>}
+            <CompletedGameActions gameId={game.savedGameId} saveFailed={game.saveStatus === "failed"} />
             <div className={`mt-4 rounded-lg border p-4 text-center ${game.outcome.result === "win" ? "border-emerald-300/35 bg-emerald-300/10" : game.outcome.result === "loss" ? "border-rose-300/35 bg-rose-300/10" : "border-cyan-200/35 bg-cyan-300/10"}`}>
               <p className="text-3xl font-black text-white">{game.outcome.result === "win" ? "Victory!" : game.outcome.result === "loss" ? "Defeat — good effort" : "Draw"}</p>
             </div>
@@ -212,6 +213,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
                 {game.saveStatus === "saving" ? "Saving completed game..." : game.saveMessage}
               </p>
             )}
+            {game.outcome && !game.resultOpen && <CompletedGameActions gameId={game.savedGameId} saveFailed={game.saveStatus === "failed"} />}
           </Card>
 
           <Card className="p-4 sm:p-5">

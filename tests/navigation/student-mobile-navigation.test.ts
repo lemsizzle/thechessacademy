@@ -23,7 +23,7 @@ describe("student mobile navigation", () => {
     expect(hubs.map((hub) => hub.label)).toEqual(["Train", "Play", "Quests", "Avatar Store"]);
     expect(hubs.map((hub) => hub.branches.map((branch) => branch.label))).toEqual([
       [],
-      ["Correspondence", "Tournaments"],
+      ["Game History", "Correspondence", "Tournaments"],
       [],
       []
     ]);
@@ -32,7 +32,7 @@ describe("student mobile navigation", () => {
     expect(groups.map((group) => group.title)).toEqual(["Train", "Play", "Quests", "Avatar Store", "More"]);
     expect(groups.at(-1)?.links.map((link) => link.label)).toEqual(["Badges", "Game Achievements", "Studies", "Submit Work", "Stats", "Leaderboard", "Resources FAQ"]);
     expect(groups.flatMap((group) => group.links).some((link) => link.href === "/student")).toBe(false);
-    expect(groups.flatMap((group) => group.links).some((link) => link.href === "/student/play/history")).toBe(false);
+    expect(groups.flatMap((group) => group.links).some((link) => link.href === "/student/play/history")).toBe(true);
     expect(groups.flatMap((group) => group.links).some((link) => link.href === "/student/adventure")).toBe(false);
   });
 

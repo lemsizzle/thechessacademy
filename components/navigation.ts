@@ -45,6 +45,7 @@ const studentNavigationHubs: StudentNavHub[] = [
     label: "Play",
     icon: "\u25B6\uFE0F",
     branches: [
+      { href: "/student/play/history", label: "Game History", icon: "\u{1F4D6}" },
       { href: "/student/play/correspondence", label: "Correspondence", icon: "\u2709\uFE0F" },
       { href: "/student/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" }
     ]
