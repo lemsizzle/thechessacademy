@@ -31,7 +31,7 @@ function request(path: string) {
   });
 }
 
-describe("teacher-only Lichess route guards", () => {
+describe("retired Lichess activity routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.cookies.mockResolvedValue({
@@ -65,12 +65,12 @@ describe("teacher-only Lichess route guards", () => {
       handler: importTournament,
       protectedOperation: mocks.importArenaTournament
     }
-  ])("rejects unauthorized $name before starting work", async ({ path, handler, protectedOperation }) => {
+  ])("disables $name before starting work", async ({ path, handler, protectedOperation }) => {
     const response = await handler(request(path));
 
-    expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: "Teacher log in required." });
-    expect(mocks.isAuthorizedAdminRequest).toHaveBeenCalledWith("session-cookie", "action-token");
+    expect(response.status).toBe(410);
+    await expect(response.json()).resolves.toMatchObject({ code: "LICHESS_ACTIVITY_RETIRED" });
+    expect(mocks.isAuthorizedAdminRequest).not.toHaveBeenCalled();
     expect(protectedOperation).not.toHaveBeenCalled();
   });
 });

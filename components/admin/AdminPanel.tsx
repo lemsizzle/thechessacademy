@@ -1,15 +1,15 @@
 "use client";
 import { AdminStudentRecentGames } from "@/components/admin/AdminStudentRecentGames";
 
+import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { StudentActivityTimeline } from "@/components/StudentActivityTimeline";
-import { BadgeGeneratorPanel } from "@/components/admin/BadgeGeneratorPanel";
 import { AdminStudentAvatarRewards } from "@/components/admin/AdminStudentAvatarRewards";
-import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { BadgeGeneratorPanel } from "@/components/admin/BadgeGeneratorPanel";
 import { activity } from "@/data/activity";
-import { allBadges as seedBadges, conceptThemes, tacticThemes } from "@/data/badges";
+import { conceptThemes, allBadges as seedBadges, tacticThemes } from "@/data/badges";
 import { classGroups as seedClassGroups } from "@/data/classGroups";
 import { gameReviewSubmissions as seedGameReviewSubmissions } from "@/data/gameReviewSubmissions";
 import { lichessConnections as seedLichessConnections, lichessSyncLogs as seedLichessSyncLogs, pendingAwards as seedPendingAwards, studentLichessAccounts as seedStudentLichessAccounts } from "@/data/lichessSync";
@@ -17,38 +17,22 @@ import { quests as seedQuests } from "@/data/quests";
 import { studentTacticProgress as seedTacticProgress } from "@/data/studentTacticProgress";
 import { students as seedStudents } from "@/data/students";
 import { mockArenaTournamentResults } from "@/data/tournamentResults";
-import { ADMIN_STORE_KEY, readAdminStore, updateAdminStore } from "@/lib/mockStorage";
-import { buildDefaultBadgeImagePrompt } from "@/lib/badges";
 import { persistStudentXpChange } from "@/lib/adminXpClient";
+import { buildDefaultBadgeImagePrompt } from "@/lib/badges";
 import { ALL_CLASSES, UNASSIGNED_CLASS, getClassGroupNames, getClassRoster, getClassStudentCount } from "@/lib/classes";
-import { getTacticProgressCount } from "@/lib/lichess";
-import { getStudentXpWithLichess, withLichessActivityBaseline } from "@/lib/lichessXp";
-import { getStudentArenaPoints } from "@/lib/tournaments/getStudentArenaPoints";
-import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, isAutomatedQuestSource, questSources, questTacticThemes, questTimeWindows, requiresComputerOpponentSelection } from "@/lib/quests/questOptions";
-import { formatCountdown, isQuestAttemptActive } from "@/lib/quests/questAttempts";
+import { getStudentXpWithLichess } from "@/lib/lichessXp";
+import { ADMIN_STORE_KEY, readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { formatQuestEvidence } from "@/lib/quests/formatQuestEvidence";
-import { mergeQuestProgress } from "@/lib/quests/mergeQuestProgress";
 import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
+import { formatCountdown, isQuestAttemptActive } from "@/lib/quests/questAttempts";
+import { getConditionsForSource, getQuestConditionLabel, getQuestCountLabel, getQuestSourceLabel, isAutomatedQuestSource, questSources, questTacticThemes, questTimeWindows, requiresComputerOpponentSelection } from "@/lib/quests/questOptions";
 import { findAttemptForPeriod, selectPendingQuestAward, selectQuestCompletion, selectQuestProgress } from "@/lib/quests/selectQuestProgress";
-import { DEFAULT_QUEST_TIMEZONE } from "@/lib/quests/timeWindows";
 import { buildStudentActivityItems } from "@/lib/studentActivity";
 import type { ArenaTournamentResult, AvatarItem, Badge, BadgeCategory, BadgeTier, ClassGroup, CoinTransaction, ConceptTheme, GameReviewSubmission, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, Quest, QuestCompletionEvent, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, Student, StudentLichessAccount, StudentQuestAttempt, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
 type AdminMode = "overview" | "students" | "classes" | "badges" | "xp" | "quests" | "activity" | "resources";
 type DeleteStudentAction = (input: { id: string; slug?: string; lichessUsername?: string; actionToken?: string }) => Promise<{ ok: boolean; error?: string; deleted?: boolean; skipped?: boolean; count?: number; mode?: "local-only" }>;
-type QuestEvaluationResponse = {
-  evaluations?: Array<{
-    studentId: string;
-    progress?: LichessQuestProgress[];
-    newAwards?: PendingQuestAward[];
-    autoApprovedAwards?: PendingQuestAward[];
-    autoCompletions?: QuestCompletionEvent[];
-    account?: StudentLichessAccount;
-    lichessCoinsAwarded?: number;
-  }>;
-  error?: string;
-};
 const badgeCategories: BadgeCategory[] = ["Tactics", "Concepts", "Checkmates", "Openings", "Endgames", "Tournament", "Sportsmanship", "Creativity", "Boss Achievements"];
 const badgeTiers: BadgeTier[] = ["Bronze", "Silver", "Gold", "Platinum", "Adamantium"];
 const questTypes: QuestType[] = ["weekly", "boss"];
@@ -142,31 +126,6 @@ function newestByDate<T>(items: T[], getDate: (item: T) => string | undefined) {
   return [...items].sort((a, b) => (getDate(b) ?? "").localeCompare(getDate(a) ?? ""))[0];
 }
 
-function createPendingBadgeAwardsFromProgress(student: Student, progress: StudentTacticProgress[], existingPendingAwards: PendingAward[], badgeSource: Badge[]) {
-  return progress.flatMap((item) => {
-    if (item.studentId !== student.id) return [];
-    return badgeSource
-      .filter((badge) => (
-        badge.tacticTheme === item.tacticTheme &&
-        (badge.requiredPuzzleCount ?? Number.POSITIVE_INFINITY) <= getTacticProgressCount(item) &&
-        !student.badgeIds.includes(badge.id) &&
-        !existingPendingAwards.some((award) => award.studentId === student.id && award.badgeId === badge.id && award.status !== "rejected")
-      ))
-      .map((badge): PendingAward => ({
-        id: `pending-lichess-${student.id}-${badge.id}`,
-        studentId: student.id,
-        source: "lichess",
-        tacticTheme: item.tacticTheme,
-        badgeId: badge.id,
-        badgeName: badge.name,
-        xpValue: badge.xpValue,
-        puzzlesSolved: getTacticProgressCount(item),
-        status: "pending",
-        createdAt: new Date().toISOString().slice(0, 10)
-      }));
-  });
-}
-
 export function AdminPanel({
   mode = "overview",
   requestedStudent,
@@ -195,7 +154,7 @@ export function AdminPanel({
   const [lichessConnections, setLichessConnections] = useState<LichessConnection[]>(seedLichessConnections);
   const [studentLichessAccounts, setStudentLichessAccounts] = useState<StudentLichessAccount[]>(initialStudentLichessAccounts ?? seedStudentLichessAccounts);
   const [currentStudentCoinTransactions, setCurrentStudentCoinTransactions] = useState<CoinTransaction[]>([]);
-  const [arenaTournamentResults, setArenaTournamentResults] = useState<ArenaTournamentResult[]>(mockArenaTournamentResults);
+  const [, setArenaTournamentResults] = useState<ArenaTournamentResult[]>(mockArenaTournamentResults);
   const [gameReviewSubmissions, setGameReviewSubmissions] = useState<GameReviewSubmission[]>(seedGameReviewSubmissions);
   const [pendingAwards, setPendingAwards] = useState<PendingAward[]>(seedPendingAwards);
   const [lichessSyncLogs, setLichessSyncLogs] = useState<LichessSyncLog[]>(seedLichessSyncLogs);
@@ -227,7 +186,6 @@ export function AdminPanel({
   const [badgeSaving, setBadgeSaving] = useState(false);
   const [questSaving, setQuestSaving] = useState(false);
   const [questActivationPending, setQuestActivationPending] = useState<string | null>(null);
-  const [syncingAllLichess, setSyncingAllLichess] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -378,7 +336,7 @@ export function AdminPanel({
     ? students.find((student) => student.id === selectedStudent) ?? classRoster[0] ?? students[0]
     : classRoster.find((student) => student.id === selectedStudent) ?? classRoster[0];
   const currentBadge = badges.find((badge) => badge.id === selectedBadge) ?? badges[0];
-  const currentQuest = quests.find((quest) => quest.id === selectedQuest) ?? quests[0];
+  const currentQuest = quests.find((quest) => quest.id === selectedQuest && !quest.source?.startsWith("lichess_")) ?? quests.find((quest) => !quest.source?.startsWith("lichess_"));
   const filteredBadges = useMemo(() => badges.filter((badge) => (
     (showLegacyBadges ? true : badge.isLegacy !== true && badge.isActive !== false) &&
     (badgeCategoryFilter === "All" || badge.category === badgeCategoryFilter) &&
@@ -386,22 +344,8 @@ export function AdminPanel({
     (badgeConceptFilter === "All" || badge.conceptTheme === badgeConceptFilter) &&
     (badgeTierFilter === "All" || badge.tier === badgeTierFilter)
   )), [badgeCategoryFilter, badgeConceptFilter, badgeThemeFilter, badgeTierFilter, badges, showLegacyBadges]);
-  const currentStudentLichessProgress = tacticProgress.filter((item) => item.studentId === currentStudent?.id);
-  const currentStudentConnection = lichessConnections.find((item) => item.studentId === currentStudent?.id);
   const currentStudentLichessAccount = studentLichessAccounts.find((item) => item.studentId === currentStudent?.id);
-  const currentStudentLichessHandle = cleanLichessUsername(currentStudent?.lichessUsername ?? "");
-  const currentStudentLichessStatus = currentStudentConnection?.status
-    ?? currentStudentLichessAccount?.syncStatus
-    ?? (currentStudentLichessAccount ? "connected" : currentStudentLichessHandle ? "linked" : "not linked");
-  const currentStudentLichessStatusDetail = currentStudentLichessAccount
-    ? "stats synced"
-    : currentStudentLichessHandle
-      ? "waiting for first stats sync"
-      : "student needs Lichess login";
-  const currentStudentArenaPoints = getStudentArenaPoints(currentStudentLichessAccount, arenaTournamentResults);
   const currentStudentXp = currentStudent ? getStudentXpWithLichess(currentStudent, currentStudentLichessAccount) : undefined;
-  const currentStudentPendingAwards = pendingAwards.filter((award) => award.studentId === currentStudent?.id && award.status === "pending");
-  const currentStudentLichessPuzzleTotal = currentStudentLichessProgress.reduce((total, item) => total + getTacticProgressCount(item), 0);
   const currentStudentQuestAttempts = studentQuestAttempts.filter((item) => item.studentId === currentStudent?.id);
   const currentStudentQuestProgress = lichessQuestProgress.filter((item) => item.studentId === currentStudent?.id);
   const currentStudentQuestAwards = pendingQuestAwards.filter((item) => item.studentId === currentStudent?.id);
@@ -419,11 +363,11 @@ export function AdminPanel({
     questProgress: currentStudentQuestProgress,
     questCompletions: currentStudentQuestCompletions,
     questAttempts: currentStudentQuestAttempts,
-    lichessAccount: currentStudentLichessAccount,
+    lichessAccount: undefined,
     coinTransactions: currentStudentCoinTransactions,
     limit: 10
   }) : [];
-  const trackedLichessQuests = quests.filter((quest) => quest.source?.startsWith("lichess_") && quest.isActive !== false);
+  const trackedActivityQuests = quests.filter((quest) => (quest.source === "internal_games" || quest.source === "internal_puzzles") && quest.isActive !== false);
 
   useEffect(() => {
     if (currentQuest) setQuestDraft({ ...currentQuest });
@@ -455,10 +399,6 @@ export function AdminPanel({
   }, [classRoster, selectedClassGroup, selectedStudent, students.length]);
 
   const pushLog = (message: string) => setLog((items) => [`${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${message}`, ...items].slice(0, 10));
-  const pushSyncLog = (message: string, level: LichessSyncLog["level"] = "info", studentId?: string) => {
-    setLichessSyncLogs((items) => [{ id: `lichess-log-${Date.now()}`, studentId, level, message, createdAt: new Date().toISOString().slice(0, 10) }, ...items].slice(0, 20));
-  };
-
   function updateStudent(patch: Partial<Student>) {
     if (!currentStudent) return;
     setStudents((items) => items.map((student) => student.id === currentStudent.id ? { ...student, ...patch } : student));
@@ -736,263 +676,6 @@ export function AdminPanel({
     pushLog(`Removed ${badge.name} from ${currentStudent.name}${hadBadge ? ` and subtracted ${badge.xpValue} XP` : ""}.`);
   }
 
-  async function syncAllLichessProgress() {
-    const selectedStudentBeforeSync = selectedStudent;
-    const studentsToSync = students.filter((student) => student.lichessUsername?.trim());
-    if (!studentsToSync.length) {
-      window.alert("No students have Lichess usernames yet.");
-      return;
-    }
-
-    setSyncingAllLichess(true);
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      let nextAccounts = [...studentLichessAccounts];
-      const nextConnections: LichessConnection[] = [];
-      let ratingSyncCount = 0;
-
-      for (const student of studentsToSync) {
-        const username = cleanLichessUsername(student.lichessUsername || "");
-        if (!username) continue;
-        try {
-          const response = await fetch("/api/lichess/sync", {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-              ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
-            },
-            body: JSON.stringify({
-              username,
-              studentId: student.id,
-              includePuzzles: false,
-              previousAccount: nextAccounts.find((item) => item.studentId === student.id)
-            })
-          });
-          const result = await response.json() as {
-            mode?: "mock" | "connected";
-            ratings?: StudentLichessAccount;
-            message?: string;
-          };
-          if (!response.ok || !result.ratings) continue;
-
-          const previousAccount = nextAccounts.find((item) => item.studentId === student.id);
-          const nextAccount = withLichessActivityBaseline({ ...result.ratings, studentId: student.id, lastGameSyncAt: today }, previousAccount);
-          nextAccounts = [
-            nextAccount,
-            ...nextAccounts.filter((item) => (
-              item.studentId !== student.id
-              && item.lichessUsername.toLowerCase() !== nextAccount.lichessUsername.toLowerCase()
-              && item.lichessUserId.toLowerCase() !== nextAccount.lichessUserId.toLowerCase()
-            ))
-          ];
-          nextConnections.push({
-            studentId: student.id,
-            lichessUsername: username,
-            connectedAt: lichessConnections.find((item) => item.studentId === student.id)?.connectedAt ?? today,
-            lastSyncedAt: today,
-            status: result.mode ?? "connected"
-          });
-          ratingSyncCount += 1;
-        } catch {
-          pushSyncLog(`Could not sync ${student.name}.`, "warning", student.id);
-        }
-      }
-
-      setStudentLichessAccounts(nextAccounts);
-      setLichessConnections((items) => [
-        ...nextConnections,
-        ...items.filter((item) => !nextConnections.some((next) => next.studentId === item.studentId))
-      ]);
-
-      const lichessQuestRules = quests.filter((quest) => quest.isActive !== false && quest.source?.startsWith("lichess_"));
-      let questAttemptsForEvaluation = studentQuestAttempts;
-      let questProgressForMerge = lichessQuestProgress;
-      let questCompletionsForEvaluation = questCompletionEvents;
-      try {
-        const trackingResponse = await fetch("/api/quest-progress", {
-          cache: "no-store",
-          credentials: "include",
-          headers: {
-            ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
-          }
-        });
-        const trackingData = await trackingResponse.json() as {
-          attempts?: StudentQuestAttempt[];
-          progress?: LichessQuestProgress[];
-          completions?: QuestCompletionEvent[];
-        };
-        if (trackingResponse.ok) {
-          questAttemptsForEvaluation = mergeQuestAttempts(trackingData.attempts ?? [], studentQuestAttempts);
-          questProgressForMerge = mergeLichessQuestProgress(trackingData.progress ?? [], lichessQuestProgress);
-          questCompletionsForEvaluation = mergeQuestCompletions(trackingData.completions ?? [], questCompletionEvents);
-          setStudentQuestAttempts(questAttemptsForEvaluation);
-          setLichessQuestProgress(questProgressForMerge);
-          setQuestCompletionEvents(questCompletionsForEvaluation);
-        }
-      } catch {
-        // Continue with the latest in-browser tracking if shared tracking is unavailable.
-      }
-      const evaluationResponse = await fetch("/api/lichess/quests/evaluate/all", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
-        },
-        body: JSON.stringify({
-          students: studentsToSync.map((student) => ({
-            studentId: student.id,
-            username: cleanLichessUsername(student.lichessUsername || ""),
-            account: nextAccounts.find((account) => account.studentId === student.id),
-            arenaResults: arenaTournamentResults.filter((result) => result.studentId === student.id)
-          })),
-          quests: lichessQuestRules,
-          existingAwards: pendingQuestAwards,
-          completionEvents: questCompletionsForEvaluation,
-          questAttempts: questAttemptsForEvaluation,
-          timeZone: DEFAULT_QUEST_TIMEZONE
-        })
-      });
-      const evaluationData = await evaluationResponse.json() as QuestEvaluationResponse;
-      if (!evaluationResponse.ok || !evaluationData.evaluations) {
-        throw new Error(evaluationData.error ?? "Could not evaluate synced quests.");
-      }
-
-      const incomingProgress = evaluationData.evaluations.flatMap((evaluation) => evaluation.progress ?? []);
-      for (const evaluation of evaluationData.evaluations) {
-        if (!evaluation.account) continue;
-        nextAccounts = [
-          evaluation.account,
-          ...nextAccounts.filter((account) => account.studentId !== evaluation.studentId)
-        ];
-      }
-      setStudentLichessAccounts(nextAccounts);
-      const newAwards = evaluationData.evaluations.flatMap((evaluation) => evaluation.newAwards ?? []);
-      const autoApprovedAwards = evaluationData.evaluations.flatMap((evaluation) => evaluation.autoApprovedAwards ?? []);
-      const autoCompletions = evaluationData.evaluations.flatMap((evaluation) => evaluation.autoCompletions ?? []);
-      const mergedProgress = mergeQuestProgress(questProgressForMerge, incomingProgress, lichessQuestRules);
-      const badgeById = new Map(badges.map((badge) => [badge.id, badge]));
-      let nextStudents = students.map((student) => {
-        const awardsForStudent = autoApprovedAwards.filter((award) => award.studentId === student.id);
-        if (!awardsForStudent.length) return student;
-        return awardsForStudent.reduce((next, award) => ({
-          ...next,
-          totalXp: next.totalXp + award.xpAmount,
-          badgeIds: award.badgeId && badgeById.has(award.badgeId) ? Array.from(new Set([...next.badgeIds, award.badgeId])) : next.badgeIds,
-          completedQuestIds: Array.from(new Set([...(next.completedQuestIds ?? []), award.questId]))
-        }), student);
-      });
-      const persistedQuestXpEvents: XpEvent[] = [];
-      for (const award of autoApprovedAwards) {
-        const student = nextStudents.find((item) => item.id === award.studentId);
-        if (!student) continue;
-        try {
-          const result = await persistStudentXpChange(student, award.xpAmount, award.title, adminActionToken);
-          if (result.student) {
-            nextStudents = nextStudents.map((item) => item.id === award.studentId ? { ...item, totalXp: result.student!.totalXp } : item);
-          }
-          if (result.event) persistedQuestXpEvents.push(result.event);
-        } catch {
-          pushSyncLog(`Quest XP for ${student.name} stayed local because Supabase could not save it.`, "warning", student.id);
-        }
-      }
-      const pendingAwardsWithQuestChanges = pendingAwards;
-      const badgeAwardsFromSavedProgress = nextStudents.flatMap((student) => (
-        createPendingBadgeAwardsFromProgress(student, tacticProgress, pendingAwardsWithQuestChanges, badges)
-      ));
-      const nextPendingAwards = [...badgeAwardsFromSavedProgress, ...pendingAwardsWithQuestChanges];
-      const nextPendingQuestAwards = [...newAwards, ...pendingQuestAwards];
-      const nextQuestCompletionEvents = mergeQuestCompletions(autoCompletions, questCompletionsForEvaluation);
-      const nextQuestAttempts = questAttemptsForEvaluation.map((attempt) => (
-        autoCompletions.some((completion) => (
-          completion.studentId === attempt.studentId
-          && completion.questId === attempt.questId
-          && completion.sourcePeriodEnd === attempt.expiresAt
-        ))
-          ? { ...attempt, status: "completed" as const }
-          : attempt
-      ));
-
-      setStudents(nextStudents);
-      setLichessQuestProgress(mergedProgress);
-      setPendingAwards(nextPendingAwards);
-      setPendingQuestAwards(nextPendingQuestAwards);
-      setQuestCompletionEvents(nextQuestCompletionEvents);
-      setStudentQuestAttempts(nextQuestAttempts);
-      setSelectedStudent(nextStudents.some((student) => student.id === selectedStudentBeforeSync) ? selectedStudentBeforeSync : nextStudents[0]?.id ?? "");
-      updateAdminStore({
-        students: nextStudents,
-        studentLichessAccounts: nextAccounts,
-        lichessQuestProgress: mergedProgress,
-        studentQuestAttempts: nextQuestAttempts,
-        pendingAwards: nextPendingAwards,
-        pendingQuestAwards: nextPendingQuestAwards,
-        questCompletionEvents: nextQuestCompletionEvents,
-        xpEvents: [...persistedQuestXpEvents, ...(readAdminStore().xpEvents ?? [])],
-        questXpEvents: [...autoApprovedAwards.map((award) => ({ id: `xp-${award.id}`, studentId: award.studentId, amount: award.xpAmount, reason: award.title, createdAt: today })), ...(readAdminStore().questXpEvents ?? [])]
-      });
-      void fetch("/api/quest-progress", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
-        },
-        body: JSON.stringify({
-          attempts: nextQuestAttempts,
-          progress: incomingProgress,
-          completions: autoCompletions
-        })
-      });
-
-      const message = `Synced ${ratingSyncCount} Lichess profile${ratingSyncCount === 1 ? "" : "s"} and checked ${incomingProgress.length} quest progress record${incomingProgress.length === 1 ? "" : "s"}. ${autoCompletions.length} quest${autoCompletions.length === 1 ? "" : "s"} auto-completed with XP, ${badgeAwardsFromSavedProgress.length} badge award${badgeAwardsFromSavedProgress.length === 1 ? "" : "s"} sent for approval.`;
-      pushSyncLog(message, "info");
-      pushLog(message);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not sync all Lichess progress.";
-      window.alert(message);
-      pushSyncLog(message, "error");
-    } finally {
-      setSyncingAllLichess(false);
-    }
-  }
-
-  function unlinkCurrentStudentLichess() {
-    if (!currentStudent) return;
-    if (!window.confirm(`Unlink Lichess for ${currentStudent.name}?`)) return;
-    setStudentLichessAccounts((items) => items.filter((item) => item.studentId !== currentStudent.id));
-    setLichessConnections((items) => items.filter((item) => item.studentId !== currentStudent.id));
-    setStudents((items) => items.map((student) => student.id === currentStudent.id ? { ...student, lichessUsername: "" } : student));
-    pushLog(`Unlinked Lichess from ${currentStudent.name}.`);
-  }
-
-  function resetCurrentStudentOnboarding() {
-    if (!currentStudent) return;
-    setStudents((items) => items.map((student) => student.id === currentStudent.id ? { ...student, onboardingCompleted: false } : student));
-    pushLog(`Reset onboarding for ${currentStudent.name}.`);
-  }
-
-  async function approvePendingAward(awardId: string) {
-    const award = pendingAwards.find((item) => item.id === awardId);
-    if (!award) return;
-    const student = students.find((item) => item.id === award.studentId);
-    if (!student) return;
-    const alreadyHasBadge = student.badgeIds.includes(award.badgeId);
-    if (!alreadyHasBadge) await recordXpChange(student, award.xpValue, `Badge awarded: ${award.badgeName}`);
-    setStudents((items) => items.map((item) => item.id === award.studentId ? {
-      ...item,
-      badgeIds: alreadyHasBadge ? item.badgeIds : [...item.badgeIds, award.badgeId]
-    } : item));
-    setPendingAwards((items) => items.map((item) => item.id === awardId ? { ...item, status: "approved" } : item));
-    pushSyncLog(`${alreadyHasBadge ? "Skipped duplicate" : "Approved"} ${award.badgeName} for ${student.name}.`, "info", student.id);
-  }
-
-  function rejectPendingAward(awardId: string) {
-    const award = pendingAwards.find((item) => item.id === awardId);
-    setPendingAwards((items) => items.map((item) => item.id === awardId ? { ...item, status: "rejected" } : item));
-    if (award) pushSyncLog(`Rejected ${award.badgeName}.`, "warning", award.studentId);
-  }
-
   function updateBadgeDraft(patch: Partial<Badge>) {
     setBadgeDraft((badge) => ({ ...badge, ...patch }));
   }
@@ -1099,7 +782,7 @@ export function AdminPanel({
     }));
   }
 
-  function applyQuestPreset(preset: "academy-game" | "academy-puzzles" | "rated-win" | "blitz-play" | "ten-puzzles") {
+  function applyQuestPreset(preset: "academy-game" | "academy-puzzles") {
     if (preset === "academy-game") {
       setQuestDraft((quest) => ({
         ...quest,
@@ -1144,68 +827,6 @@ export function AdminPanel({
       return;
     }
 
-    if (preset === "rated-win") {
-      setQuestDraft((quest) => ({
-        ...quest,
-        title: quest.title.startsWith("New Quest") ? "Win 1 Rated Game" : quest.title,
-        description: "Win 1 rated Lichess game after logging in. Games under 10 moves do not count.",
-        source: "lichess_games",
-        conditionType: "rated_win_count",
-        category: "Lichess",
-        status: "in-progress",
-        isLive: true,
-        completionUrl: "https://lichess.org/",
-        timeWindow: "weekly",
-        requiredCount: 1,
-        xpReward: quest.xpReward || 100,
-        approvalRequired: true,
-        isActive: true,
-        isRepeatable: true,
-        cooldownDays: 1
-      }));
-      return;
-    }
-
-    if (preset === "blitz-play") {
-      setQuestDraft((quest) => ({
-        ...quest,
-        title: quest.title.startsWith("New Quest") ? "Play 5 Blitz Games" : quest.title,
-        description: "Play 5 rated blitz games after logging in. Games under 10 moves do not count.",
-        source: "lichess_games",
-        conditionType: "blitz_games_played_count",
-        category: "Lichess",
-        status: "in-progress",
-        isLive: true,
-        completionUrl: "https://lichess.org/",
-        timeWindow: "weekly",
-        requiredCount: 5,
-        xpReward: quest.xpReward || 100,
-        approvalRequired: true,
-        isActive: true,
-        isRepeatable: true,
-        cooldownDays: 7
-      }));
-      return;
-    }
-
-    setQuestDraft((quest) => ({
-      ...quest,
-      title: quest.title.startsWith("New Quest") ? "Solve 10 Puzzles" : quest.title,
-      description: "Solve 10 Lichess puzzles after logging in.",
-      source: "lichess_puzzles",
-      conditionType: "puzzle_solved_count",
-      category: "Lichess",
-      status: "in-progress",
-      isLive: true,
-      completionUrl: "https://lichess.org/training",
-      timeWindow: "weekly",
-      requiredCount: 10,
-      xpReward: quest.xpReward || 100,
-      approvalRequired: true,
-      isActive: true,
-      isRepeatable: true,
-      cooldownDays: 1
-    }));
   }
 
   async function saveQuest() {
@@ -1343,20 +964,6 @@ export function AdminPanel({
     setLog(["Admin mock workspace reset to seed data."]);
   }
 
-  const studentSyncAllPanel = (
-    <Card className="border-cyan-300/20 bg-cyan-300/[0.06] p-3">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="font-black text-white">Sync Roster</h2>
-          <p className="mt-1 text-sm text-slate-400">Refresh Lichess stats, quest progress, auto-completions, and pending awards.</p>
-        </div>
-        <Button variant="secondary" onClick={syncAllLichessProgress} disabled={syncingAllLichess}>
-          {syncingAllLichess ? "Syncing All..." : "Sync All Lichess"}
-        </Button>
-      </div>
-    </Card>
-  );
-
   const studentEditor = (
     <Card className="p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1417,7 +1024,7 @@ export function AdminPanel({
         <label className="grid gap-1 text-xs font-bold text-slate-300">Name
           <input className={fieldClass()} value={currentStudent.name} onChange={(event) => updateStudent({ name: event.target.value })} />
         </label>
-        <label className="grid gap-1 text-xs font-bold text-slate-300">Lichess Username
+        <label className="grid gap-1 text-xs font-bold text-slate-300">Lichess Login Username
           <input
             className={fieldClass()}
             value={currentStudent.lichessUsername ?? ""}
@@ -1455,7 +1062,7 @@ export function AdminPanel({
         </div>
         <p className="mt-3 text-xs text-amber-100/80">
           Current XP: {currentStudentXp?.totalXp.toLocaleString() ?? currentStudent.totalXp.toLocaleString()}
-          {currentStudentXp?.lichessXp ? ` (${currentStudent.totalXp.toLocaleString()} base + ${currentStudentXp.lichessXp.toLocaleString()} Lichess)` : ""}
+          {currentStudentXp?.lichessXp ? ` (${currentStudent.totalXp.toLocaleString()} base + ${currentStudentXp.lichessXp.toLocaleString()} previously earned)` : ""}
         </p>
       </div>
       <div className="mt-5 rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4">
@@ -1498,7 +1105,7 @@ export function AdminPanel({
         </span>
       </div>
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        {trackedLichessQuests.map((quest) => {
+        {trackedActivityQuests.map((quest) => {
           const attemptsForQuest = currentStudentQuestAttempts.filter((attempt) => attempt.questId === quest.id);
           const activeAttempt = newestByDate(attemptsForQuest.filter((attempt) => isQuestAttemptActive(attempt)), (attempt) => attempt.startedAt);
           const latestCompletionForQuest = newestByDate(currentStudentQuestCompletions.filter((item) => item.questId === quest.id), (item) => item.completedAt);
@@ -1562,8 +1169,8 @@ export function AdminPanel({
             </div>
           );
         })}
-        {trackedLichessQuests.length === 0 && (
-          <p className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-slate-300">No Lichess-tracked quests are active yet.</p>
+        {trackedActivityQuests.length === 0 && (
+          <p className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-slate-300">No Chess Quest activity quests are active yet.</p>
         )}
       </div>
     </Card>
@@ -1574,7 +1181,7 @@ export function AdminPanel({
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-black text-white">Selected Student Activity</h2>
-          <p className="mt-1 text-sm text-slate-400">Recent XP, Lichess activity, quest completions, and badge unlocks for {currentStudent.name}.</p>
+          <p className="mt-1 text-sm text-slate-400">Recent XP, quest completions, and badge unlocks for {currentStudent.name}.</p>
         </div>
         <span className="rounded bg-cyan-300/10 px-2 py-1 text-xs font-black text-cyan-100">{currentStudentActivityItems.length} updates</span>
       </div>
@@ -1604,114 +1211,6 @@ export function AdminPanel({
         <Button variant="ghost" onClick={removeBadge}>Remove Badge</Button>
       </div>
       <p className="mt-3 text-xs text-slate-400">Current badges: {currentStudent.badgeIds.length ? currentStudent.badgeIds.map((id) => badges.find((badge) => badge.id === id)?.name ?? id).join(", ") : "None yet"}</p>
-    </Card>
-  );
-
-  const lichessSyncPanel = currentStudent && (
-    <Card className="p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="font-black text-white">Lichess Summary</h2>
-          <p className="text-sm text-slate-400">Ratings, puzzle progress, and pending badge awards for {currentStudent.lichessUsername ?? currentStudent.slug}. Use Sync All at the top of this page to refresh roster activity.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={resetCurrentStudentOnboarding} variant="ghost">Reset Onboarding</Button>
-          <Button onClick={unlinkCurrentStudentLichess} variant="ghost">Unlink</Button>
-        </div>
-      </div>
-
-      <div className="mt-4 rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="font-black text-white">Lichess Ratings & Puzzles</h3>
-            <p className="text-sm text-cyan-50/80">
-              {currentStudent.lichessUsername || currentStudent.slug} - {currentStudentLichessStatus} - {currentStudent.onboardingCompleted === false ? "onboarding needed" : "onboarded"}
-            </p>
-            <p className="mt-1 text-xs text-slate-400">{currentStudentLichessStatusDetail}</p>
-          </div>
-          <p className="text-xs font-bold text-slate-300">Last sync: {currentStudentConnection?.lastSyncedAt ?? currentStudentLichessAccount?.lastRatingSyncAt ?? "Never"}</p>
-        </div>
-
-        <div className="mt-4 grid gap-4 xl:grid-cols-[420px_1fr]">
-          <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-            <p className="text-xs font-bold uppercase text-slate-400">Ratings</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-md border border-white/10 bg-white/5 p-3">
-                <p className="text-xs font-bold text-slate-400">Blitz</p>
-                <p className="mt-1 text-xl font-black text-white">{currentStudentLichessAccount?.blitzRating ?? "Not synced"}</p>
-                <p className="mt-1 text-xs text-slate-400">{currentStudentLichessAccount?.blitzGames ?? 0} games</p>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/5 p-3">
-                <p className="text-xs font-bold text-slate-400">Rapid</p>
-                <p className="mt-1 text-xl font-black text-white">{currentStudentLichessAccount?.rapidRating ?? "Not synced"}</p>
-                <p className="mt-1 text-xs text-slate-400">{currentStudentLichessAccount?.rapidGames ?? 0} games</p>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/5 p-3">
-                <p className="text-xs font-bold text-slate-400">Puzzle</p>
-                <p className="mt-1 text-xl font-black text-white">{currentStudentLichessAccount?.puzzleRating ?? "Not synced"}</p>
-                <p className="mt-1 text-xs text-slate-400">{currentStudentLichessAccount?.puzzleGames ?? 0} puzzles</p>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/5 p-3">
-                <p className="text-xs font-bold text-slate-400">Arena Points</p>
-                <p className="mt-1 text-xl font-black text-white">{currentStudentArenaPoints.totalPoints}</p>
-                <p className="mt-1 text-xs text-slate-400">{currentStudentArenaPoints.tournamentsPlayed} tournaments after first login</p>
-              </div>
-            </div>
-            <div className="mt-3 text-xs text-slate-300">
-              <p><span className="font-bold text-cyan-100">{currentStudentPendingAwards.length}</span> pending awards</p>
-              <p><span className="font-bold text-cyan-100">{currentStudentXp?.lichessXp.toLocaleString() ?? 0}</span> Lichess XP added to level</p>
-              <p>Rating XP: Blitz {currentStudentXp?.lichess.blitzRatingXp ?? 0}, Rapid {currentStudentXp?.lichess.rapidRatingXp ?? 0}, Puzzle {currentStudentXp?.lichess.puzzleRatingXp ?? 0}</p>
-              <p>{currentStudentXp?.lichess.ratedGamesAfterLogin ?? 0} rated games and {currentStudentXp?.lichess.puzzlesAfterLogin ?? 0} puzzles counted after first login</p>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-white/10 bg-black/20 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-bold uppercase text-slate-400">Puzzle / Tactic Progress</p>
-              <p className="text-xs font-bold text-cyan-100">{currentStudentLichessPuzzleTotal} counted</p>
-            </div>
-            <div className="mt-3 grid gap-2 text-sm text-slate-300 md:grid-cols-2">
-              {currentStudentLichessProgress.map((item) => (
-                <div key={`${item.studentId}-${item.tacticTheme}`} className="flex items-center justify-between rounded-md border border-white/10 bg-white/5 px-3 py-2">
-                  <span>{item.tacticTheme}</span>
-                  <span className="font-bold text-cyan-100">{getTacticProgressCount(item)}</span>
-                </div>
-              ))}
-              {currentStudentLichessProgress.length === 0 && <p>No synced puzzle progress yet.</p>}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <div>
-          <h3 className="font-black text-white">Pending Badge Awards</h3>
-          <div className="mt-3 space-y-2">
-            {currentStudentPendingAwards.map((award) => (
-              <div key={award.id} className="rounded-md border border-amber-300/20 bg-amber-300/10 p-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-bold text-white">{award.badgeName}</p>
-                    <p className="text-xs text-amber-100">{award.puzzlesSolved} {award.tacticTheme} puzzles - {award.xpValue} XP</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="secondary" onClick={() => approvePendingAward(award.id)}>Approve</Button>
-                    <Button variant="ghost" onClick={() => rejectPendingAward(award.id)}>Reject</Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {currentStudentPendingAwards.length === 0 && <p className="text-sm text-slate-300">No pending awards for this student.</p>}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-3">
-        <h3 className="font-black text-white">Sync Logs</h3>
-        <div className="mt-2 space-y-1 text-xs text-slate-300">
-          {lichessSyncLogs.slice(0, 6).map((item) => <p key={item.id}>{item.createdAt} - {item.level}: {item.message}</p>)}
-        </div>
-      </div>
     </Card>
   );
 
@@ -1899,7 +1398,7 @@ export function AdminPanel({
         <h3 className="text-xs font-black uppercase tracking-wide text-slate-400">All Quests</h3>
         <p className="mt-1 text-xs text-slate-500">Disable a quest to hide it from students without removing its settings or completion history.</p>
         <div className="mt-3 grid max-h-[420px] gap-2 overflow-y-auto pr-1 lg:grid-cols-2">
-          {quests.map((quest) => {
+          {quests.filter((quest) => !quest.source?.startsWith("lichess_")).map((quest) => {
             const isSelected = quest.id === selectedQuest;
             const isUnsaved = quest.id.startsWith("local-quest-");
             const rewardBadge = badges.find((badge) => badge.id === quest.badgeRewardId);
@@ -1949,7 +1448,7 @@ export function AdminPanel({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-black text-white">Edit Selected Quest</h3>
-            <p className="mt-1 text-xs text-slate-400">Manual quests are completed by you. Automated quests verify saved Academy or Lichess activity inside each student's started quest window.</p>
+            <p className="mt-1 text-xs text-slate-400">Manual quests are completed by you. Automated quests verify saved Chess Quest activity inside each student's started quest window.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={saveQuest} disabled={questSaving || questActivationPending === currentQuest.id || (requiresComputerOpponentSelection(questDraft.conditionType) && !questDraft.requiredOpponentId)}>{questSaving ? "Saving..." : "Save Quest"}</Button>
@@ -1988,9 +1487,6 @@ export function AdminPanel({
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => applyQuestPreset("academy-game")}>Play an Academy Game</Button>
             <Button variant="secondary" onClick={() => applyQuestPreset("academy-puzzles")}>Solve Academy Puzzles</Button>
-            <Button variant="secondary" onClick={() => applyQuestPreset("rated-win")}>Win 1 Rated Game</Button>
-            <Button variant="secondary" onClick={() => applyQuestPreset("blitz-play")}>Play Blitz Games</Button>
-            <Button variant="secondary" onClick={() => applyQuestPreset("ten-puzzles")}>Solve 10 Puzzles</Button>
           </div>
         </div>
         <label className="grid gap-1 text-xs font-bold text-slate-300">Goal
@@ -2060,7 +1556,7 @@ export function AdminPanel({
             className={fieldClass()}
             value={questDraft.completionUrl ?? ""}
             onChange={(event) => updateQuestDraft({ completionUrl: event.target.value })}
-            placeholder="https://lichess.org/training"
+            placeholder="/student/train"
           />
           <span className="text-[11px] font-normal text-slate-500">Optional link students can open to complete this quest.</span>
         </label>
@@ -2112,7 +1608,7 @@ export function AdminPanel({
   );
 
   if (mode === "activity") return <ActivityFeed events={activity} />;
-  if (mode === "students") return <div className="space-y-5">{studentSyncAllPanel}{studentEditor}{studentQuestProgressPanel}{studentActivityPanel}{lichessSyncPanel}{localTools}{logPanel}</div>;
+  if (mode === "students") return <div className="space-y-5">{studentEditor}{studentQuestProgressPanel}{studentActivityPanel}{localTools}{logPanel}</div>;
   if (mode === "classes") return <div className="space-y-5">{outschoolPanel}{localTools}{logPanel}</div>;
   if (mode === "badges") return <div className="space-y-5">{badgeEditor}{localTools}{logPanel}</div>;
   if (mode === "xp") return <div className="space-y-5">{xpEditor}{localTools}{logPanel}</div>;
@@ -2121,7 +1617,7 @@ export function AdminPanel({
   return (
     <div className="space-y-5">
       <div className="grid gap-5 xl:grid-cols-2">
-        {studentSyncAllPanel}
+
         {studentEditor}
         {studentQuestProgressPanel}
         {studentActivityPanel}

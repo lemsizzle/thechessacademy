@@ -1,7 +1,5 @@
-import { NextResponse } from "next/server";
 import { hasLiveInternalArena } from "@/chess/persistence/arenaServer";
-import { syncTeamTournaments } from "@/lib/lichess/syncTeamTournaments";
-import { isTournamentLive } from "@/lib/tournaments/isTournamentLive";
+import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
@@ -19,12 +17,8 @@ export async function GET() {
   try {
     if (await hasLiveInternalArena(new Date(now))) return liveStatusResponse(true);
   } catch {
-    // Lichess can still provide a valid live status if Arena storage is unavailable.
+    // Do not advertise an Arena when its status cannot be verified.
   }
 
-  const lichess = await syncTeamTournaments();
-  const lichessLive = lichess.mode === "connected"
-    && lichess.tournaments.some((tournament) => isTournamentLive(tournament, now));
-
-  return liveStatusResponse(lichessLive);
+  return liveStatusResponse(false);
 }

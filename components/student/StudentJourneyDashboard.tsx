@@ -1,19 +1,19 @@
-import Link from "next/link";
-import type { ReactNode } from "react";
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { BadgeCard } from "@/components/BadgeCard";
-import { groupEarnedBadges } from "@/lib/badges/tacticalMilestones";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { StudentActivityTimeline } from "@/components/StudentActivityTimeline";
 import {
-  ProgressDialogTrigger,
-  StudentJourneyDashboardClient,
-  type ProgressTab
+ProgressDialogTrigger,
+StudentJourneyDashboardClient,
+type ProgressTab
 } from "@/components/student/StudentJourneyDashboardClient";
-import type { StudentDashboardData } from "@/lib/student/dashboard";
-import { getDailyChessQuote } from "@/lib/student/dailyChessQuote";
+import { StudentActivityTimeline } from "@/components/StudentActivityTimeline";
+import { groupEarnedBadges } from "@/lib/badges/tacticalMilestones";
 import { puzzleThemeOptions, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
+import { getDailyChessQuote } from "@/lib/student/dailyChessQuote";
+import type { StudentDashboardData } from "@/lib/student/dashboard";
+import Link from "next/link";
+import type { ReactNode } from "react";
 
 type DestinationKind = "training" | "play" | "quests" | "avatar";
 
@@ -200,7 +200,6 @@ function ProgressBar({ progress }: { progress: StudentDashboardData["progress"] 
 
 function OverviewPanel({ data }: { data: StudentDashboardData }) {
   const walletUnavailable = data.unavailableSections.includes("avatar");
-  const lichessUnavailable = data.unavailableSections.includes("lichess");
 
   return (
     <div className="space-y-5">
@@ -219,53 +218,10 @@ function OverviewPanel({ data }: { data: StudentDashboardData }) {
         <div className="mt-4"><ProgressBar progress={data.progress} /></div>
       </section>
 
-      <section className="rounded-xl border border-white/10 bg-slate-950/55 p-4 sm:p-5" aria-labelledby="lichess-progress-heading">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-200">Lichess</p>
-            <h3 id="lichess-progress-heading" className="mt-1 text-xl font-black text-white">
-              {lichessUnavailable ? "Temporarily unavailable" : data.lichess ? data.lichess.username : "Not connected"}
-            </h3>
-          </div>
-          {data.lichess ? (
-            <a
-              href={data.lichess.profileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-fit rounded-md border border-white/15 bg-white/5 px-3 py-2 text-xs font-black text-cyan-100 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-            >
-              Open Lichess profile
-            </a>
-          ) : null}
-        </div>
-        {lichessUnavailable ? (
-          <p className="mt-3 text-sm text-slate-300">Your saved connection and ratings could not be loaded. Other dashboard features are still ready.</p>
-        ) : data.lichess ? (
-          <>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {data.lichess.ratings.map((rating) => (
-                <div key={rating.key} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-                  <p className="text-xs font-black uppercase text-slate-400">{rating.label}</p>
-                  <p className="mt-1 text-2xl font-black text-white">
-                    {rating.rating?.toLocaleString() ?? "—"}
-                    {rating.provisional ? <span className="ml-1 text-sm text-slate-400">?</span> : null}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {rating.games.toLocaleString()} games
-                    {rating.ratingChange !== null ? (
-                      <span className={rating.ratingChange >= 0 ? "ml-2 text-emerald-200" : "ml-2 text-rose-200"}>
-                        {rating.ratingChange >= 0 ? "+" : ""}{rating.ratingChange}
-                      </span>
-                    ) : null}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-xs text-slate-500">{data.lichess.syncStatus} · Last synced {formatDate(data.lichess.lastSyncedAt)}</p>
-          </>
-        ) : (
-          <p className="mt-3 text-sm text-slate-300">Connect a Lichess account to bring ratings and Academy activity into one place.</p>
-        )}
+      <section className="rounded-xl border border-white/10 bg-slate-950/55 p-4 sm:p-5">
+        <h3 className="font-black text-white">Your Chess Quest journey</h3>
+        <p className="mt-2 text-sm text-slate-300">Play games, solve puzzles, and complete quests here to build your skills and earn rewards.</p>
+        <a href="/student/play/history" className="mt-3 inline-block font-bold text-cyan-200 underline">Review your recent games</a>
       </section>
     </div>
   );

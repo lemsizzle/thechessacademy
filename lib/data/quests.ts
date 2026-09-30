@@ -123,6 +123,11 @@ export function mapSupabaseQuest(row: QuestRow): Quest {
 }
 
 export async function getQuestsResult(): Promise<DataResult<Quest[]>> {
+  const result = await getStoredQuestsResult();
+  return { ...result, data: result.data.filter((quest) => !quest.source?.startsWith("lichess_")) };
+}
+
+async function getStoredQuestsResult(): Promise<DataResult<Quest[]>> {
   const supabase = getSupabaseClient();
   if (!supabase) return mockResult(mockQuests, "Supabase is not configured.");
 

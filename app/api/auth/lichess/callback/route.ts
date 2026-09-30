@@ -1,15 +1,13 @@
-import { LICHESS_OAUTH_CONTEXT_COOKIE, LICHESS_OAUTH_STATE_COOKIE, LICHESS_PKCE_COOKIE, LICHESS_TOKEN_COOKIE } from "@/lib/auth/roles";
 import { findKnownLichessStudent } from "@/lib/auth/knownLichessStudents";
 import { clearLichessOAuthCookies } from "@/lib/auth/lichessOAuth";
+import { linkAcademyLichess } from "@/lib/auth/linkAcademyLichess";
+import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
+import { LICHESS_OAUTH_CONTEXT_COOKIE, LICHESS_OAUTH_STATE_COOKIE, LICHESS_PKCE_COOKIE, LICHESS_TOKEN_COOKIE } from "@/lib/auth/roles";
 import { createStudentSession, setStudentSessionCookie } from "@/lib/auth/session";
 import { fetchAuthenticatedLichessAccount } from "@/lib/lichess/fetchAccount";
-import { encryptLichessToken } from "@/lib/lichess/tokenCrypto";
 import { findStudentByLichess } from "@/lib/students/findStudentByLichess";
-import { findSupabaseStudentByLichess } from "@/lib/students/supabaseStudentProfiles";
+import { findSupabaseStudentById, findSupabaseStudentByLichess } from "@/lib/students/supabaseStudentProfiles";
 import { cookies } from "next/headers";
-import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
-import { linkAcademyLichess } from "@/lib/auth/linkAcademyLichess";
-import { findSupabaseStudentById } from "@/lib/students/supabaseStudentProfiles";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -103,13 +101,8 @@ export async function GET(request: Request) {
       lichessUsername: profile.username,
       onboardingCompleted
     }));
-    response.cookies.set(LICHESS_TOKEN_COOKIE, encryptLichessToken(token.access_token), {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: Math.min(token.expires_in ?? 60 * 60 * 24 * 14, 60 * 60 * 24 * 14)
-    });
+    // The signed app session holds identity; no activity access token is retained.
+    response.cookies.delete(LICHESS_TOKEN_COOKIE);
     clearLichessOAuthCookies(response);
     return response;
   } catch {

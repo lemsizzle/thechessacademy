@@ -115,7 +115,7 @@ export function AdminGameSubmissionsTable({ adminActionToken }: { adminActionTok
                   <p className="mt-2 text-sm text-slate-300">Played as {submission.playedAs}. {submission.gameType || "Game type not listed"}.</p>
                   {submission.notes && <p className="mt-2 text-sm text-slate-400">{submission.notes}</p>}
                   <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
-                    <Link className="rounded border border-white/10 bg-white/5 px-2 py-1 text-slate-200" href={`/admin/game-analyzer?url=${encodeURIComponent(submission.gameUrl)}&student=${encodeURIComponent(submission.studentId)}`}>Send to Game Analyzer</Link>
+                    <Link className="rounded border border-white/10 bg-white/5 px-2 py-1 text-slate-200" href={`/admin/students?student=${encodeURIComponent(submission.studentId)}`}>View Student Games</Link>
                   </div>
                 </div>
                 <div className="space-y-3">

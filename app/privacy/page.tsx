@@ -11,7 +11,7 @@ export default function PrivacyPage() {
     </section>
     <section className="space-y-2 text-slate-300"><h2 className="text-xl font-bold text-white">What other people can see</h2>
       <p>Your student nickname, avatar, class, and learning progress can appear in Academy profiles, leaderboards, games, and teacher views. Choose a nickname rather than a full legal name. Registration email addresses are kept separate from public student profiles.</p>
-      <p>Lichess is optional. Connecting it lets the Academy read the Lichess information and activity described on its consent screen.</p>
+      <p>Lichess is an optional login provider. Chess Quest uses your Lichess account ID and username to sign you in. It does not track your Lichess games, puzzles, ratings, or tournaments.</p>
     </section>
     <section className="space-y-2 text-slate-300"><h2 className="text-xl font-bold text-white">Services and storage</h2>
       <p>Vercel hosts the app. Supabase provides database and authentication services. Resend delivers account confirmation emails. These services process the information needed to operate those features and may keep operational and security logs under their own policies.</p>

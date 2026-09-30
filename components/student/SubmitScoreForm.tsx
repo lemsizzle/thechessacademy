@@ -36,7 +36,7 @@ export function SubmitScoreForm({ compact = false }: { compact?: boolean }) {
     setMessage("Submitting puzzle score...");
     const user = await getSubmittingUser();
     if (!user) {
-      setMessage("Log in with Lichess before submitting a score.");
+      setMessage("Log in before submitting a score.");
       return;
     }
     const result = createScoreSubmission({

@@ -12,6 +12,10 @@ vi.mock("@/lib/supabase/server", () => ({ getSupabaseServiceClient: () => ({
     let rejecting = false;
     const query = {
       select: () => query, eq: () => query, order: () => query,
+      not: (column: string, operator: string, value: unknown) => {
+        expect([column, operator, value]).toEqual(["internal_game_id", "is", null]);
+        return query;
+      },
       update: (patch: unknown) => { rejecting=true; state.reject(patch); return query; },
       is: () => rejecting ? Promise.resolve({error:null}) : query,
       limit: () => { state.fetchPending(); return Promise.resolve({data:state.scans,error:null}); },

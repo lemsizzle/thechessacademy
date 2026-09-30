@@ -8,9 +8,9 @@ import { getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/g
 import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
 import { createStudentQuestAttempt } from "@/lib/quests/questAttempts";
-import { isAutomatedQuestSource } from "@/lib/quests/questOptions";
+import { isInternalQuestSource } from "@/lib/quests/questOptions";
 import { findAttemptForPeriod, selectQuestCompletion, selectQuestLifecycle, selectQuestProgress, selectQuestTrackingForAttempt, selectStartedQuests } from "@/lib/quests/selectQuestProgress";
-import { STUDENT_LICHESS_FULL_SYNC_EVENT, syncStudentLichessEverything } from "@/lib/studentLichessFullSync";
+import { STUDENT_QUEST_REFRESH_EVENT, refreshStudentQuests } from "@/lib/studentQuestRefresh";
 import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent, StudentQuestAttempt, StudentUser } from "@/lib/types";
 import { useEffect, useState } from "react";
 
@@ -21,7 +21,7 @@ export function StudentLichessQuestList() {
   const [completions, setCompletions] = useState<QuestCompletionEvent[]>([]);
   const [attempts, setAttempts] = useState<StudentQuestAttempt[]>([]);
   const [now, setNow] = useState(Date.now());
-  const [message, setMessage] = useState("Refresh once to check saved Academy games, Academy puzzles, and connected Lichess activity.");
+  const [message, setMessage] = useState("Refresh to check your saved Chess Quest games and puzzles.");
   const [syncing, setSyncing] = useState(false);
   const [currentUser, setCurrentUser] = useState<StudentUser | null>(null);
 
@@ -93,7 +93,7 @@ export function StudentLichessQuestList() {
         return localQuest ? { ...localQuest, ...quest, completionUrl: quest.completionUrl ?? localQuest.completionUrl } : quest;
       });
       const visibleQuests = mergedQuests.filter((quest) => (
-        isAutomatedQuestSource(quest.source)
+        isInternalQuestSource(quest.source)
         && quest.isActive !== false
         && (quest.isLive || visibleQuestIds.has(quest.id))
       ));
@@ -126,7 +126,7 @@ export function StudentLichessQuestList() {
     const loadedServerQuests = await refreshServerQuests(visibleQuestIds, localQuests);
     if (!loadedServerQuests) {
       setQuests(localQuests.filter((quest) => (
-        isAutomatedQuestSource(quest.source)
+        isInternalQuestSource(quest.source)
         && quest.isActive !== false
         && (quest.isLive || visibleQuestIds.has(quest.id))
       )));
@@ -141,8 +141,8 @@ export function StudentLichessQuestList() {
   useEffect(() => {
     void load();
     const refresh = () => void load();
-    window.addEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, refresh);
-    return () => window.removeEventListener(STUDENT_LICHESS_FULL_SYNC_EVENT, refresh);
+    window.addEventListener(STUDENT_QUEST_REFRESH_EVENT, refresh);
+    return () => window.removeEventListener(STUDENT_QUEST_REFRESH_EVENT, refresh);
   }, []);
 
   useEffect(() => {
@@ -173,7 +173,7 @@ export function StudentLichessQuestList() {
   async function evaluate() {
     setSyncing(true);
     try {
-      const result = await syncStudentLichessEverything();
+      const result = await refreshStudentQuests();
       setMessage(result.message);
       void load();
     } catch (error) {

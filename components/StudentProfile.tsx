@@ -1,28 +1,24 @@
 "use client";
 
-import { ProfileBadgeCase } from "@/components/ProfileBadgeCase";
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
-import { LichessStudentConnectPanel } from "@/components/LichessStudentConnectPanel";
-import { LichessRatingsSummary } from "@/components/lichess/LichessRatingsSummary";
-import { StudentCallingCard } from "@/components/StudentCallingCard";
+import { ProfileBadgeCase } from "@/components/ProfileBadgeCase";
 import { StudentActivityTimeline } from "@/components/StudentActivityTimeline";
-import { StudentTournamentSummary } from "@/components/tournaments/StudentTournamentSummary";
-import { StudentLichessQuestSummary } from "@/components/quests/StudentLichessQuestSummary";
+import { StudentCallingCard } from "@/components/StudentCallingCard";
 import { XpBar } from "@/components/XpBar";
 import { allBadges } from "@/data/badges";
 import { xpEvents as seedXpEvents } from "@/data/xpEvents";
 import { getTacticProgressCount } from "@/lib/lichess";
 import { findStudentLichessAccount, getStudentXpWithLichess } from "@/lib/lichessXp";
 import { ADMIN_STORE_UPDATED_EVENT, hasAdminSession, readAdminStore } from "@/lib/mockStorage";
-import { buildStudentActivityItems } from "@/lib/studentActivity";
-import { STUDENT_LICHESS_FULL_SYNC_EVENT } from "@/lib/studentLichessFullSync";
-import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
 import { isSafeExternalUrl } from "@/lib/resources";
+import { buildStudentActivityItems } from "@/lib/studentActivity";
+import { STUDENT_LICHESS_SYNC_EVENT } from "@/lib/studentLichessAccountStore";
+import { STUDENT_LICHESS_FULL_SYNC_EVENT } from "@/lib/studentLichessFullSync";
 import { getClosestNextTacticBadge } from "@/lib/tacticProgress";
-import { useMockAdminState } from "@/lib/useMockAdminState";
 import type { AvatarItem, Badge, CoinTransaction, LichessQuestProgress, Quest, QuestCompletionEvent, Student, StudentAvatarConfig, StudentLichessAccount, StudentQuestAttempt, XpEvent } from "@/lib/types";
+import { useMockAdminState } from "@/lib/useMockAdminState";
 import { useEffect, useState, type ReactNode } from "react";
 
 function QuestLogSection({
@@ -62,7 +58,6 @@ function QuestLogSection({
 export function StudentProfile({
   student,
   showAdminControls = true,
-  profileBasePath = "/app/students",
   badges = allBadges,
   xpEvents = seedXpEvents,
   quests: initialQuests,
@@ -113,13 +108,13 @@ export function StudentProfile({
     questProgress: localQuestProgress,
     questCompletions: localQuestCompletions,
     questAttempts: localQuestAttempts,
-    lichessAccount,
+    lichessAccount: undefined,
     coinTransactions,
     limit: 10
   });
   const nextBadge = getClosestNextTacticBadge(effectiveStudent.id);
   const completedQuests = quests.filter((quest) => effectiveStudent.completedQuestIds?.includes(quest.id));
-  const visibleQuests = quests.filter((quest) => quest.isLive || effectiveStudent.completedQuestIds?.includes(quest.id));
+  const visibleQuests = quests.filter((quest) => (!quest.source?.startsWith("lichess_") && quest.isLive) || effectiveStudent.completedQuestIds?.includes(quest.id));
 
   useEffect(() => {
     function loadLocalProfileState() {
@@ -168,7 +163,7 @@ export function StudentProfile({
               <XpBar xp={xp.totalXp} />
               {xp.lichessXp > 0 && (
                 <p className="mt-2 text-xs font-bold text-cyan-100">
-                  Base {xp.baseXp.toLocaleString()} XP + {xp.lichessXp.toLocaleString()} Lichess XP
+                  Base {xp.baseXp.toLocaleString()} XP + {xp.lichessXp.toLocaleString()} previously earned XP
                 </p>
               )}
             </div>
@@ -225,15 +220,6 @@ export function StudentProfile({
           </div>
         </QuestLogSection>
 
-        <QuestLogSection title="Lichess" summary="Ratings, puzzle sync, and teacher review">
-          <div className="space-y-4">
-            <LichessStudentConnectPanel student={effectiveStudent} profileBasePath={profileBasePath} />
-            <LichessRatingsSummary student={effectiveStudent} compact profileBasePath={profileBasePath} />
-            <StudentTournamentSummary student={effectiveStudent} />
-            <StudentLichessQuestSummary student={effectiveStudent} />
-            <Button href="/student/submit" variant="secondary">Submit Games And Scores</Button>
-          </div>
-        </QuestLogSection>
 
         <QuestLogSection title="Recent Activity" summary={`${activityItems.length} recent update${activityItems.length === 1 ? "" : "s"}`} defaultOpen>
           <StudentActivityTimeline items={activityItems} />

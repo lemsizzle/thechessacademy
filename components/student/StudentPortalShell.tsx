@@ -11,7 +11,7 @@ import { BoardAppearanceProvider } from "@/chess/appearance/BoardAppearanceProvi
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { clearCurrentStudentUser, getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/getCurrentUser";
-import { syncStudentLichessEverything } from "@/lib/studentLichessFullSync";
+import { refreshStudentQuests } from "@/lib/studentQuestRefresh";
 import type { StudentUser } from "@/lib/types";
 import { usePathname } from "next/navigation";
 
@@ -19,12 +19,13 @@ export function StudentPortalShell({
   children,
   title,
   subtitle,
-  disableAutomaticLichessSync = false,
+  disableAutomaticLichessSync: disableAutomaticQuestRefresh = false,
   initialUser = null
 }: {
   children: ReactNode;
   title: string;
   subtitle?: string;
+  /** Legacy prop name: now pauses only Chess Quest quest checks on gameplay screens. */
   disableAutomaticLichessSync?: boolean;
   initialUser?: StudentUser | null;
 }) {
@@ -39,16 +40,15 @@ export function StudentPortalShell({
   const allowLocalMockSession = process.env.NODE_ENV !== "production" && !supabaseBackedApp;
   const autoSyncCooldownMs = 10 * 60 * 1000;
 
-  async function syncLichessForLogin(studentUser: StudentUser) {
-    if ((studentUser.authProvider === "academy" || studentUser.authProvider === "supabase") || !studentUser.lichessUsername) return;
+  async function refreshQuestsForSession(studentUser: StudentUser) {
     if (studentUser.onboardingCompleted === false) return;
-    const syncKey = `quest-board-auto-lichess-sync:${studentUser.studentId}`;
+    const syncKey = `quest-board-auto-quest-refresh:${studentUser.studentId}`;
     const lastSyncedAt = Number(window.sessionStorage.getItem(syncKey) ?? 0);
     if (Number.isFinite(lastSyncedAt) && Date.now() - lastSyncedAt < autoSyncCooldownMs) return;
     window.sessionStorage.setItem(syncKey, String(Date.now()));
 
     try {
-      await syncStudentLichessEverything();
+      await refreshStudentQuests();
     } catch {
       window.sessionStorage.setItem(syncKey, String(Date.now() - autoSyncCooldownMs + 30_000));
     }
@@ -70,7 +70,7 @@ export function StudentPortalShell({
           }
           setUser(data.user);
           setChecked(true);
-          if (!disableAutomaticLichessSync) void syncLichessForLogin(data.user);
+          if (!disableAutomaticQuestRefresh) void refreshQuestsForSession(data.user);
           return;
         }
         if (!allowLocalMockSession) {
@@ -101,7 +101,7 @@ export function StudentPortalShell({
         }
         setUser(current);
         setChecked(true);
-        if (!disableAutomaticLichessSync) void syncLichessForLogin(current);
+        if (!disableAutomaticQuestRefresh) void refreshQuestsForSession(current);
         return;
       }
 
@@ -112,12 +112,12 @@ export function StudentPortalShell({
     return () => {
       cancelled = true;
     };
-  }, [disableAutomaticLichessSync, pathname]);
+  }, [disableAutomaticQuestRefresh, pathname]);
 
   useEffect(() => {
-    if (!user || disableAutomaticLichessSync) return;
+    if (!user || disableAutomaticQuestRefresh) return;
     function syncWhenVisible() {
-      if (document.visibilityState === "visible") void syncLichessForLogin(user as StudentUser);
+      if (document.visibilityState === "visible") void refreshQuestsForSession(user as StudentUser);
     }
     window.addEventListener("focus", syncWhenVisible);
     document.addEventListener("visibilitychange", syncWhenVisible);
@@ -125,11 +125,11 @@ export function StudentPortalShell({
       window.removeEventListener("focus", syncWhenVisible);
       document.removeEventListener("visibilitychange", syncWhenVisible);
     };
-  }, [disableAutomaticLichessSync, user?.studentId]);
+  }, [disableAutomaticQuestRefresh, user?.studentId]);
 
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-      if (user) window.sessionStorage.removeItem(`quest-board-auto-lichess-sync:${user.studentId}`);
+      if (user) window.sessionStorage.removeItem(`quest-board-auto-quest-refresh:${user.studentId}`);
       clearCurrentStudentUser();
       window.location.href = "/";
     });

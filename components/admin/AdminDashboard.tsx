@@ -14,7 +14,7 @@ const workflows = [
   },
   {
     title: "Students And Classes",
-    text: "Manage rosters, class groups, Lichess links, XP, badges, and rankings.",
+    text: "Manage rosters, class groups, login accounts, XP, badges, and rankings.",
     primaryHref: "/admin/students",
     primaryLabel: "Manage Students",
     secondaryHref: "/admin/leaderboard",
@@ -30,9 +30,9 @@ const workflows = [
   },
   {
     title: "Analysis Tools",
-    text: "Paste Lichess games for teacher-side tactic review when needed.",
-    primaryHref: "/admin/game-analyzer",
-    primaryLabel: "Open Analyzer",
+    text: "Open a student’s recent Chess Quest games and review them on the analysis board.",
+    primaryHref: "/admin/students",
+    primaryLabel: "Review Student Games",
     secondaryHref: "/admin/resources",
     secondaryLabel: "Resources"
   }

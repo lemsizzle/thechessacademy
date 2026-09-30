@@ -2,8 +2,8 @@ import "server-only";
 
 import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
 import { mapSupabaseQuest, type QuestRow } from "@/lib/data/quests";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isAutomatedQuestSource, requiresComputerOpponentSelection, supportsComputerOpponentFilter } from "@/lib/quests/questOptions";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Quest } from "@/lib/types";
 
 const questSelect = "id,title,description,type,status,is_live,xp_reward,badge_reward_id,completion_url,class_group,category,source,condition_type,time_window,required_count,required_score,required_accuracy,required_theme,required_opponent_id,approval_required,is_active,is_repeatable,cooldown_days,created_at,updated_at";
@@ -38,6 +38,7 @@ function questPayload(quest: Quest) {
 }
 
 function validateQuest(quest: Quest) {
+  if (quest.source?.startsWith("lichess_")) throw new Error("Choose a Chess Quest activity or a manual quest. Lichess is used only for login.");
   if (!quest.id?.trim()) throw new Error("Quest id is required.");
   if (!quest.title?.trim()) throw new Error("Quest title is required.");
   if (isAutomatedQuestSource(quest.source) && !quest.conditionType) {

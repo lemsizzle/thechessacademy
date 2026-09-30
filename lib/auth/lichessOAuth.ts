@@ -16,16 +16,8 @@ export function getLichessClientId() {
   return process.env.LICHESS_CLIENT_ID?.trim() || "the-chess-academy-quest-board-local";
 }
 
-const DEFAULT_LICHESS_OAUTH_SCOPES = [
-  "puzzle:read",
-  "team:read"
-] as const;
-
-export function getLichessOAuthScopes() {
-  const configured = process.env.LICHESS_OAUTH_SCOPES?.trim();
-  if (!configured) return [...DEFAULT_LICHESS_OAUTH_SCOPES];
-  return configured.split(/[\s,]+/).map((scope) => scope.trim()).filter(Boolean);
-}
+// Identity needs no activity permissions, even with a legacy environment override.
+export function getLichessOAuthScopes(): string[] { return []; }
 
 export function getLichessOAuthScopeParam() {
   return getLichessOAuthScopes().join(" ");

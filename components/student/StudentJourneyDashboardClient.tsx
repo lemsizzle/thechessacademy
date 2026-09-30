@@ -136,7 +136,7 @@ function ProgressDialog({
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">My Academy Journey</p>
               <h2 id="student-progress-title" className="mt-1 text-2xl font-black text-white sm:text-3xl">Your progress</h2>
-              <p id="student-progress-description" className="mt-1 text-sm text-slate-300">Training, achievements, ratings, and rewards in one place.</p>
+              <p id="student-progress-description" className="mt-1 text-sm text-slate-300">Your Chess Quest training, achievements, and rewards in one place.</p>
             </div>
             <button
               type="button"

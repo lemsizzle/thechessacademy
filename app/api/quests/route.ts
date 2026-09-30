@@ -5,5 +5,5 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const result = await getQuestsResult();
-  return NextResponse.json(result);
+  return NextResponse.json({ ...result, data: result.data.filter((quest) => !quest.source?.startsWith("lichess_")) });
 }

@@ -1,8 +1,8 @@
-import "server-only";
-import { after } from "next/server";
-import { getSupabaseServiceClient } from "@/lib/supabase/server";
-import { detectGameAchievements, type AchievementGame } from "./detect";
 import type { RawLichessGame } from "@/lib/lichess/fetchStudentGamesForWindow";
+import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { after } from "next/server";
+import "server-only";
+import { detectGameAchievements, type AchievementGame } from "./detect";
 import { lichessAchievementInput } from "./lichess";
 
 function client() { const c=getSupabaseServiceClient();if(!c)throw new Error("Achievement storage unavailable");return c; }
@@ -18,7 +18,7 @@ async function drain(studentId:string) {
   const db=client();
   // Bounded work, ordered to preserve match streaks. Failed jobs remain pending.
   const {data,error}=await db.from("game_achievement_scans").select("source_id,internal_game_id,payload")
-    .eq("student_id",studentId).is("processed_at",null).order("completed_at").order("source_id").limit(12);
+    .eq("student_id",studentId).not("internal_game_id","is",null).is("processed_at",null).order("completed_at").order("source_id").limit(12);
   if(error)throw new Error(error.message);
   for(const scan of (data??[]) as Scan[]) {
     let input=scan.payload;

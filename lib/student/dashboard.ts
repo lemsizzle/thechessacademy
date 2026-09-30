@@ -1,20 +1,19 @@
 import "server-only";
 
-import { getStudentAvatarState, getStudentAvatarDisplayData, listStudentCoinTransactions } from "@/lib/avatar/supabaseAvatar";
+import { getStudentAvatarDisplayData, getStudentAvatarState, listStudentCoinTransactions } from "@/lib/avatar/supabaseAvatar";
 import { listAdminBadges } from "@/lib/badges/supabaseBadges";
 import { getStoredLichessAccount } from "@/lib/lichess/supabaseAccounts";
 import { getStudentPuzzleTrainingOverview } from "@/lib/puzzle-training/overviewServer";
 import { getSupabaseQuestTracking, type QuestTrackingState } from "@/lib/quests/supabaseQuestProgress";
 import { listAdminQuests } from "@/lib/quests/supabaseQuests";
 import {
-  buildStudentDashboardLichess,
-  buildStudentDashboardProgress,
-  emptyStudentDashboardQuestSummary,
-  emptyStudentDashboardTraining,
-  loadOptionalDashboardSection,
-  summarizeStudentDashboardQuests,
-  type StudentDashboardData,
-  type StudentDashboardSection
+buildStudentDashboardProgress,
+emptyStudentDashboardQuestSummary,
+emptyStudentDashboardTraining,
+loadOptionalDashboardSection,
+summarizeStudentDashboardQuests,
+type StudentDashboardData,
+type StudentDashboardSection
 } from "@/lib/student/dashboardProjection";
 import { buildStudentActivityItems } from "@/lib/studentActivity";
 import { findSupabaseStudentById } from "@/lib/students/supabaseStudentProfiles";
@@ -22,13 +21,13 @@ import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import type { XpEvent } from "@/lib/types";
 
 export type {
-  StudentDashboardData,
-  StudentDashboardLichess,
-  StudentDashboardProgress,
-  StudentDashboardQuestProgress,
-  StudentDashboardQuestSummary,
-  StudentDashboardRating,
-  StudentDashboardSection
+StudentDashboardData,
+StudentDashboardLichess,
+StudentDashboardProgress,
+StudentDashboardQuestProgress,
+StudentDashboardQuestSummary,
+StudentDashboardRating,
+StudentDashboardSection
 } from "@/lib/student/dashboardProjection";
 
 const RECENT_ACTIVITY_SOURCE_LIMIT = 10;
@@ -193,7 +192,7 @@ export async function getStudentDashboardData(studentId: string, { readOnly = fa
   const quests = questResult.available && questTrackingResult.available
     ? summarizeStudentDashboardQuests({
       studentId,
-      quests: questResult.value,
+      quests: questResult.value.filter((quest) => !quest.source?.startsWith("lichess_")),
       attempts: questTrackingResult.value.attempts,
       progress: questTrackingResult.value.progress,
       completions: questTrackingResult.value.completions
@@ -202,12 +201,12 @@ export async function getStudentDashboardData(studentId: string, { readOnly = fa
   const activity = buildStudentActivityItems({
     student: studentWithBadges,
     badges: badgesWithAwardDates,
-    quests: questResult.value,
+    quests: questResult.value.filter((quest) => !quest.source?.startsWith("lichess_")),
     xpEvents: xpEventResult.value,
     questAttempts: questTrackingResult.value.attempts,
     questProgress: questTrackingResult.value.progress,
     questCompletions: questTrackingResult.value.completions,
-    lichessAccount: lichessResult.value ?? undefined,
+    lichessAccount: undefined,
     coinTransactions: coinResult.value,
     limit: 10
   });
@@ -229,7 +228,7 @@ export async function getStudentDashboardData(studentId: string, { readOnly = fa
     avatar: avatarResult.value
       ? { items: avatarResult.value.items, config: avatarResult.value.avatar }
       : null,
-    lichess: buildStudentDashboardLichess(lichessResult.value),
+    lichess: null,
     training: trainingResult.value,
     quests,
     badges: earnedBadges,

@@ -3,7 +3,6 @@
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { StudentSubmissionsTable } from "@/components/student/StudentSubmissionsTable";
-import { SubmitGameForm } from "@/components/student/SubmitGameForm";
 import { SubmitScoreForm } from "@/components/student/SubmitScoreForm";
 import { useState } from "react";
 
@@ -26,7 +25,7 @@ export function SubmitWorkHub({ initialMode = "score" }: { initialMode?: SubmitM
           </div>
         </div>
       </Card>
-      {mode === "game" ? <SubmitGameForm compact /> : <SubmitScoreForm compact />}
+      {mode === "game" ? <Card className="p-4"><h2 className="font-black text-white">Review your Chess Quest games</h2><p className="my-3 text-sm text-slate-300">Games played here are saved automatically. Open your history to analyze a game; your teacher can review your recent games too.</p><Button href="/student/play/history">Open game history</Button></Card> : <SubmitScoreForm compact />}
       <StudentSubmissionsTable />
     </div>
   );
