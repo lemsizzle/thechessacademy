@@ -2,6 +2,7 @@ import { BotPortrait } from "@/chess/components/BotPortrait";
 import { ChessClock } from "@/chess/components/ChessClock";
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
+import type { ReactNode } from "react";
 
 type PlayerPanelProps = {
   name: string;
@@ -13,9 +14,10 @@ type PlayerPanelProps = {
   avatar?: StudentAvatarConfig;
   avatarItems?: AvatarItem[];
   materialAdvantage?: number;
+  actions?: ReactNode;
 };
 
-export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrait, avatar, avatarItems = [], materialAdvantage }: PlayerPanelProps) {
+export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrait, avatar, avatarItems = [], materialAdvantage, actions }: PlayerPanelProps) {
   return (
     <div className={`flex min-w-0 items-center justify-between gap-2 rounded-lg border p-2 ${active ? "border-cyan-200/35 bg-cyan-300/8" : "border-white/10 bg-slate-950/55"}`}>
       <div className="flex min-w-0 items-center gap-2">
@@ -39,7 +41,10 @@ export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrai
           </div>
         </div>
       </div>
-      <ChessClock milliseconds={clockMs} active={active} label={name} />
+      <div className="flex shrink-0 items-center gap-2">
+        <ChessClock milliseconds={clockMs} active={active} label={name} />
+        {actions}
+      </div>
     </div>
   );
 }
