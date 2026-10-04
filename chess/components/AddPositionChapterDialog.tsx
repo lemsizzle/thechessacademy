@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { StudyChapter } from "@/chess/analysis/types";
 import { Button } from "@/components/Button";
+import { useGameDialogFocus } from "@/chess/hooks/useGameDialogFocus";
 
 type Mode = "pgn" | "fen";
 
@@ -13,6 +14,7 @@ export function AddPositionChapterDialog({ studyId, onAdded, onClose }: { studyI
   const [fen, setFen] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const dialogRef = useGameDialogFocus(saving ? undefined : onClose);
 
   async function addChapter() {
     setSaving(true);
@@ -35,7 +37,7 @@ export function AddPositionChapterDialog({ studyId, onAdded, onClose }: { studyI
   const ready = mode === "pgn" ? Boolean(pgn.trim()) : Boolean(fen.trim());
 
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm" role="presentation">
-    <section role="dialog" aria-modal="true" aria-labelledby="add-position-title" className="w-full max-w-2xl rounded-xl border border-cyan-200/25 bg-slate-950 p-5 shadow-2xl">
+    <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="add-position-title" className="max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-cyan-200/25 bg-slate-950 p-5 shadow-2xl">
       <h2 id="add-position-title" className="text-2xl font-black text-white">Add study chapter</h2>
       <p className="mt-1 text-sm text-slate-400">Import an annotated PGN or begin from any legal FEN position.</p>
 

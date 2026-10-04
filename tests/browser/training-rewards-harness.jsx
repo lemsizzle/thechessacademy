@@ -9,6 +9,7 @@ const hide = query.has('hide');
 let board;
 for(let n=0;n<1000;n++) { const b=generateHideAndSeekBoard(n.toString(16).padStart(32,'0')); if(b.safeSquares.length>=10&&b.safeSquares.length<=24){board=b;break;} }
 let savedScore=0, mode='classic', hideResult, failSave=query.has('retry');
+window.trainingQA = { finishRequests: [] };
 window.fetch=async(url,options={})=>{
   const path=String(url), body=options.body?JSON.parse(options.body):{};
   await new Promise(r=>setTimeout(r,80));
@@ -21,6 +22,7 @@ window.fetch=async(url,options={})=>{
   }
   if(path.endsWith('/hide-and-seek/start')) { mode=body.mode;hideResult=null;return Response.json({round:{id:'fixture',pieces:board.pieces,mode,timeLimitMs:mode==='time_trial'?60000:null,startedAt:now,expiresAt:new Date(Date.now()+1800000).toISOString()},token:'fixture',serverReceivedAt:now,serverSentAt:now}); }
   if(path.endsWith('/hide-and-seek/finish')) {
+    window.trainingQA.finishRequests.push(body);
     if(failSave){failSave=false;return Response.json({error:'Simulated save failure'},{status:503});}
     const score=calculateHideAndSeekScore({safeSquares:board.safeSquares,selectedSquares:body.selectedSquares,elapsedMs:5000,mode});
     hideResult??={...score,mode,personalBest:score.score,completedAt:now,rewardXp:score.correctCount===score.totalSafe&&!(mode==='hard'&&score.wrongCount>0)?10:0};

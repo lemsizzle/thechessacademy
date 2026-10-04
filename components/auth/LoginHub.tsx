@@ -29,7 +29,9 @@ export function LoginHub({ initialMode = "student", initialMethod = "academy" }:
           .then((sessionResponse) => sessionResponse.json() as Promise<{ authenticated?: boolean }>)
           .catch(() => ({ authenticated: false }));
         if (session.authenticated) {
-          window.localStorage.setItem("quest-board-admin", "true");
+          // The server cookie is authoritative. A full or blocked browser
+          // storage area must not turn a successful teacher login into failure.
+          try { window.localStorage.setItem("quest-board-admin", "true"); } catch { /* Optional legacy marker. */ }
           window.location.href = "/admin";
           return;
         }

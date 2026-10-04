@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AnalysisTree, StudyChapter, StudySummary } from "@/chess/analysis/types";
 import { Button } from "@/components/Button";
+import { useGameDialogFocus } from "@/chess/hooks/useGameDialogFocus";
 
 export function AddToStudyDialog({ gameId, gameTitle, analysisTree, basePath, onClose }: {
   gameId: string;
@@ -21,6 +22,7 @@ export function AddToStudyDialog({ gameId, gameTitle, analysisTree, basePath, on
   const [studyId, setStudyId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const dialogRef = useGameDialogFocus(saving ? undefined : onClose);
 
   useEffect(() => {
     fetch("/api/chess/studies", { cache: "no-store" }).then(async (response) => {
@@ -62,7 +64,7 @@ export function AddToStudyDialog({ gameId, gameTitle, analysisTree, basePath, on
   }
 
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm" role="presentation">
-    <section role="dialog" aria-modal="true" aria-labelledby="add-study-title" className="w-full max-w-lg rounded-xl border border-cyan-200/25 bg-slate-950 p-5 shadow-[0_0_60px_rgba(34,211,238,.2)]">
+    <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="add-study-title" className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-xl border border-cyan-200/25 bg-slate-950 p-5 shadow-[0_0_60px_rgba(34,211,238,.2)]">
       <p className="text-xs font-black uppercase text-cyan-200">Chess notebook</p>
       <h2 id="add-study-title" className="mt-1 text-2xl font-black text-white">Add to Study</h2>
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -75,7 +77,7 @@ export function AddToStudyDialog({ gameId, gameTitle, analysisTree, basePath, on
         <label className="block text-xs font-bold uppercase text-slate-400">Visibility<select value={visibility} onChange={(event) => setVisibility(event.target.value as "private" | "shared")} className="mt-1 w-full rounded-md border border-white/10 bg-slate-900 p-2.5 text-sm font-normal normal-case text-white"><option value="private">Private</option><option value="shared">Teacher + Student</option></select></label>
       </div> : <label className="mt-4 block text-xs font-bold uppercase text-slate-400">Choose Study<select value={studyId} onChange={(event) => setStudyId(event.target.value)} className="mt-1 w-full rounded-md border border-white/10 bg-slate-900 p-2.5 text-sm font-normal normal-case text-white">{studies.map((study) => <option key={study.id} value={study.id}>{study.title}</option>)}</select></label>}
       {error && <p className="mt-3 rounded-md border border-rose-300/30 bg-rose-300/10 p-2 text-xs text-rose-100">{error}</p>}
-      <div className="mt-5 flex justify-end gap-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="button" disabled={saving || !title.trim() || (mode === "existing" && !studyId)} onClick={() => void submit()}>{saving ? "Saving…" : "Continue"}</Button></div>
+      <div className="mt-5 flex justify-end gap-2"><Button type="button" variant="ghost" disabled={saving} onClick={onClose}>Cancel</Button><Button type="button" disabled={saving || !title.trim() || (mode === "existing" && !studyId)} onClick={() => void submit()}>{saving ? "Saving…" : "Continue"}</Button></div>
     </section>
   </div>;
 }

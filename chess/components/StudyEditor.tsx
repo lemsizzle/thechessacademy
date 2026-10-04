@@ -31,6 +31,17 @@ export function StudyEditor({ studyId, basePath, initialChapterId }: { studyId: 
   const timersRef = useRef(new Map<string, number>());
   const inFlightRef = useRef(new Set<string>());
   const versionsRef = useRef(new Map<string, number>());
+  const failedSavesRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!pendingRef.current.size && !inFlightRef.current.size) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +69,7 @@ export function StudyEditor({ studyId, basePath, initialChapterId }: { studyId: 
     if (!pending) return;
     pendingRef.current.delete(chapterId);
     inFlightRef.current.add(chapterId);
+    failedSavesRef.current.delete(chapterId);
     setSaveStatus("saving");
     try {
       const version = versionsRef.current.get(chapterId) ?? pending.version;
@@ -68,13 +80,28 @@ export function StudyEditor({ studyId, basePath, initialChapterId }: { studyId: 
       if (!response.ok || !body.chapter) throw new Error(body.error ?? "Chapter could not be saved.");
       versionsRef.current.set(chapterId, body.chapter.version);
       setChapters((items) => items.map((item) => item.id === chapterId ? { ...item, version: body.chapter!.version, updatedAt: body.chapter!.updatedAt } : item));
-      setSaveStatus("saved");
     } catch (cause) {
-      setSaveStatus("error");
+      // Keep the newest local tree so a transient failure is recoverable even
+      // when the student makes no further edits. Never replace a newer draft.
+      if (!pendingRef.current.has(chapterId)) pendingRef.current.set(chapterId, pending);
+      failedSavesRef.current.add(chapterId);
       setError(cause instanceof Error ? cause.message : "Chapter could not be saved.");
     } finally {
       inFlightRef.current.delete(chapterId);
-      if (pendingRef.current.has(chapterId)) timersRef.current.set(chapterId, window.setTimeout(() => void flush(chapterId), 200));
+      if (failedSavesRef.current.size) setSaveStatus("error");
+      else if (pendingRef.current.size || inFlightRef.current.size) setSaveStatus("saving");
+      else { setSaveStatus("saved"); setError(""); }
+      // Stop on failure: Retry saving (or another edit) retries explicitly.
+      if (pendingRef.current.has(chapterId) && !failedSavesRef.current.has(chapterId)) {
+        timersRef.current.set(chapterId, window.setTimeout(() => void flush(chapterId), 200));
+      }
+    }
+  }
+
+  function retrySaves() {
+    for (const chapterId of pendingRef.current.keys()) {
+      window.clearTimeout(timersRef.current.get(chapterId));
+      void flush(chapterId);
     }
   }
 
@@ -150,7 +177,8 @@ export function StudyEditor({ studyId, basePath, initialChapterId }: { studyId: 
         <div><p className="text-xs font-black uppercase text-cyan-200">{study.accessRole} · {study.visibility}</p><h2 className="text-2xl font-black text-white">{study.title}</h2><p className="mt-1 text-sm text-slate-400">{study.description || "A Chess Academy study."}</p></div>
         <div className="flex flex-wrap gap-2"><Button variant="ghost" href={`${basePath}/studies`}>Library</Button>{basePath === "/admin" && study.accessRole === "owner" ? <><Button type="button" variant="ghost" onClick={() => setMembersOpen(true)}>Manage Access</Button><Button type="button" variant="secondary" onClick={() => setAssignmentsOpen(true)}>Assign Review</Button></> : null}{editable ? <Button type="button" variant="ghost" onClick={renameStudy}>Rename</Button> : null}{study.accessRole === "owner" ? <Button type="button" variant="ghost" onClick={removeStudy}>Delete</Button> : null}</div>
       </div>
-      {error && <p className="mt-3 rounded-md border border-rose-300/30 bg-rose-300/10 p-2 text-xs text-rose-100">{error}</p>}
+      {error && <p role="alert" className="mt-3 rounded-md border border-rose-300/30 bg-rose-300/10 p-2 text-xs text-rose-100">{error}</p>}
+      {saveStatus === "error" && <Button type="button" className="mt-2" variant="secondary" onClick={retrySaves}>Retry saving</Button>}
       <div className="scrollbar-soft mt-4 flex gap-2 overflow-x-auto pb-1">
         {chapters.map((chapter, index) => <div key={chapter.id} className={`flex shrink-0 items-center rounded-md border ${chapter.id === active.id ? "border-cyan-200/50 bg-cyan-300/12" : "border-white/10 bg-white/5"}`}>
           <button type="button" className="px-3 py-2 text-sm font-bold text-white" onClick={() => setActiveChapterId(chapter.id)}>{chapter.title}</button>

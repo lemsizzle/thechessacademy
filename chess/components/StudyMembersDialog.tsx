@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { StudyMember } from "@/chess/analysis/types";
 import type { Student } from "@/lib/types";
 import { Button } from "@/components/Button";
+import { useGameDialogFocus } from "@/chess/hooks/useGameDialogFocus";
 
 export function StudyMembersDialog({ studyId, onChanged, onClose }: { studyId: string; onChanged: () => void; onClose: () => void }) {
   const [members, setMembers] = useState<StudyMember[]>([]);
@@ -13,6 +14,7 @@ export function StudyMembersDialog({ studyId, onChanged, onClose }: { studyId: s
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
+  const dialogRef = useGameDialogFocus(onClose);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,7 +72,7 @@ export function StudyMembersDialog({ studyId, onChanged, onClose }: { studyId: s
   }
 
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm" role="presentation">
-    <section role="dialog" aria-modal="true" aria-labelledby="study-access-title" className="w-full max-w-2xl rounded-xl border border-cyan-200/25 bg-slate-950 p-5 shadow-2xl">
+    <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="study-access-title" className="max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-cyan-200/25 bg-slate-950 p-5 shadow-2xl">
       <h2 id="study-access-title" className="text-2xl font-black text-white">Manage study access</h2>
       <p className="mt-1 text-sm text-slate-400">Editors can change chapters and annotations. Viewers can open the study without changing it.</p>
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { ReviewAnswerVisibility, ReviewAssignment, StudyChapter } from "@/chess/analysis/types";
 import type { Student } from "@/lib/types";
 import { Button } from "@/components/Button";
+import { useGameDialogFocus } from "@/chess/hooks/useGameDialogFocus";
 
 function assignmentStatusStyle(status: ReviewAssignment["status"]) {
   if (status === "approved") return "text-emerald-300";
@@ -29,6 +30,7 @@ export function StudyAssignmentsDialog({ studyId, chapters, onAssigned, onClose 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
+  const dialogRef = useGameDialogFocus(onClose);
 
   useEffect(() => {
     let cancelled = false;
@@ -104,7 +106,7 @@ export function StudyAssignmentsDialog({ studyId, chapters, onAssigned, onClose 
   }
 
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm" role="presentation">
-    <section role="dialog" aria-modal="true" aria-labelledby="study-reviews-title" className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-cyan-200/25 bg-slate-950 p-5 shadow-2xl">
+    <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="study-reviews-title" className="max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto rounded-xl border border-cyan-200/25 bg-slate-950 p-5 shadow-2xl">
       <h2 id="study-reviews-title" className="text-2xl font-black text-white">Assign student review</h2>
       <p className="mt-1 text-sm text-slate-400">Give a student the whole study or one chapter, add a prompt, and choose when the teacher answer appears.</p>
 

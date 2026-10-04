@@ -478,6 +478,7 @@ export function HideAndSeekTraining({
   const [round, setRound] = useState<ActiveSearchRound | null>(null);
   const [token, setToken] = useState("");
   const [selectedSquares, setSelectedSquares] = useState<Set<HideAndSeekSquare>>(() => new Set());
+  const [pendingHardFinish, setPendingHardFinish] = useState<ReadonlySet<HideAndSeekSquare> | null>(null);
   const [explodingSquares, setExplodingSquares] = useState<HideAndSeekSquare[]>([]);
   const [result, setResult] = useState<SearchResult | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -510,12 +511,12 @@ export function HideAndSeekTraining({
   }, []);
 
   useEffect(() => {
-    if (!canMarkHideAndSeekBoard(phase)) return;
+    if (!canMarkHideAndSeekBoard(phase) || pendingHardFinish) return;
     const updateElapsed = () => setElapsedMs(Math.max(0, performance.now() - startedAtPerformanceRef.current));
     updateElapsed();
     const interval = window.setInterval(updateElapsed, round?.mode === "time_trial" ? 200 : 1_000);
     return () => window.clearInterval(interval);
-  }, [phase, round?.mode]);
+  }, [phase, round?.mode, pendingHardFinish]);
 
   useEffect(() => {
     if (phase !== "searching"
@@ -548,6 +549,7 @@ export function HideAndSeekTraining({
     setRound(null);
     setToken("");
     setSelectedSquares(new Set());
+    setPendingHardFinish(null);
     setResult(null);
     setElapsedMs(0);
     setError("");
@@ -598,7 +600,7 @@ export function HideAndSeekTraining({
   }
 
   async function finishSearch(selectionOverride?: ReadonlySet<HideAndSeekSquare>) {
-    const selections = selectionOverride ?? selectedSquares;
+    const selections = selectionOverride ?? pendingHardFinish ?? selectedSquares;
     if (!round || !canScoreHideAndSeekBoard({
       phase,
       token,
@@ -609,6 +611,9 @@ export function HideAndSeekTraining({
     const controller = new AbortController();
     requestRef.current = controller;
     const operation = ++operationRef.current;
+    // A completed hard round stays completed after a failed request. Retrying
+    // must submit the same squares, including the losing square.
+    if (round.mode === "hard") setPendingHardFinish(new Set(selections));
     setElapsedMs(Math.max(0, performance.now() - startedAtPerformanceRef.current));
     setPhase("finishing");
     setError("");
@@ -653,6 +658,7 @@ export function HideAndSeekTraining({
 
   function toggleSquare(square: HideAndSeekSquare) {
     if (!canMarkHideAndSeekBoard(phase)
+      || pendingHardFinish
       || timeTrialExpired
       || !round
       || round.pieces.some((placement) => placement.square === square)) return;
@@ -684,6 +690,7 @@ export function HideAndSeekTraining({
     setRound(null);
     setToken("");
     setSelectedSquares(new Set());
+    setPendingHardFinish(null);
     setResult(null);
     setElapsedMs(0);
     setError("");
@@ -720,7 +727,7 @@ export function HideAndSeekTraining({
             <SearchBoard
               round={round}
               phase={phase}
-              interactive={canMarkHideAndSeekBoard(phase) && !timeTrialExpired}
+              interactive={canMarkHideAndSeekBoard(phase) && !timeTrialExpired && !pendingHardFinish}
               selectedSquares={selectedSquares}
               explodingSquares={explodingSquares}
               result={result}
@@ -829,7 +836,10 @@ export function HideAndSeekTraining({
                     <p className="mt-4 text-sm leading-6 text-slate-300">Click or tap to stamp a square. With a keyboard, use the arrow keys to move and Enter or Space to stamp.</p>
                   )}
                   {activeMode === "hard" ? (
-                    <p className="mt-4 text-center text-xs font-black uppercase tracking-widest text-emerald-200" role="status">{phase === "finishing" ? "Round complete — scoring..." : `${selectedSquares.size} safe ${selectedSquares.size === 1 ? "square" : "squares"} found`}</p>
+                    <div className="mt-4 space-y-3">
+                      <p className="text-center text-xs font-black uppercase tracking-widest text-emerald-200" role="status">{phase === "finishing" ? "Round complete - scoring..." : pendingHardFinish ? "Round complete - score not saved yet" : `${selectedSquares.size} safe ${selectedSquares.size === 1 ? "square" : "squares"} found`}</p>
+                      {pendingHardFinish && error && phase === "searching" ? <Button type="button" className="w-full" onClick={() => void finishSearch()}>Retry Score</Button> : null}
+                    </div>
                   ) : (
                     <div className="mt-4 grid grid-cols-2 gap-2">
                       <Button type="button" variant="ghost" onClick={() => setSelectedSquares(new Set())} disabled={phase === "finishing" || timeTrialExpired || selectedSquares.size === 0}>Clear Marks</Button>

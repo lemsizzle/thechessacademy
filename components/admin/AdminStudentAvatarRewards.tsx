@@ -116,12 +116,12 @@ export function AdminStudentAvatarRewards({
         )}
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <div className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-3">
-          <label className="grid gap-1 text-xs font-black uppercase text-slate-400">
+      <div className="mt-4 grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-2 rounded-md border border-white/10 bg-black/20 p-3">
+          <label className="grid min-w-0 gap-1 text-xs font-black uppercase text-slate-400">
             Cosmetic To Grant
             <select
-              className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white"
+              className="min-w-0 w-full rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white"
               value={itemId}
               onChange={(event) => setItemId(event.target.value)}
               disabled={!items.length || Boolean(submitting)}
@@ -139,11 +139,11 @@ export function AdminStudentAvatarRewards({
           </Button>
         </div>
 
-        <div className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-3">
-          <label className="grid gap-1 text-xs font-black uppercase text-slate-400">
+        <div className="grid min-w-0 gap-2 rounded-md border border-white/10 bg-black/20 p-3">
+          <label className="grid min-w-0 gap-1 text-xs font-black uppercase text-slate-400">
             Coins To Give Or Take
             <input
-              className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white"
+              className="min-w-0 w-full rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white"
               type="number"
               step="1"
               min="1"
