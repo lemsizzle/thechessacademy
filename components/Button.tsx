@@ -21,6 +21,12 @@ export function Button({ href, children, variant = "primary", className = "", ta
   const classes = `inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-bold transition duration-150 ease-out active:translate-y-px active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200/70 disabled:cursor-not-allowed disabled:opacity-45 disabled:active:translate-y-0 disabled:active:scale-100 ${variants[variant]} ${className}`;
 
   if (href) {
+    // Auth handlers set cookies and redirect outside the app. They must only
+    // run on deliberate document navigation, never Next's background prefetch.
+    if (href.startsWith("/api/auth/")) {
+      return <a className={classes} href={href} target={target} rel={rel}>{children}</a>;
+    }
+
     if (isExternalHref(href)) {
       return (
         <a className={classes} href={href} target={target ?? "_blank"} rel={rel ?? "noopener noreferrer"}>
