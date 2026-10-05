@@ -19,6 +19,16 @@ export type StudyDraft = {
 };
 export type DraftStorage = Pick<Storage, "length" | "key" | "getItem" | "setItem" | "removeItem">;
 
+// Postgres jsonb can reorder object keys. Compare content independently of
+// property order, while retaining array order (variations, moves and shapes).
+export function studyTreeSignature(tree: AnalysisTree | undefined): string {
+  return JSON.stringify(tree, (_key, value: unknown) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    const object = value as Record<string, unknown>;
+    return Object.fromEntries(Object.keys(object).sort().map((key) => [key, object[key]]));
+  }) ?? "";
+}
+
 function scope(ownerKey: string, studyId: string) {
   return `${STUDY_DRAFT_PREFIX}${encodeURIComponent(ownerKey)}:${encodeURIComponent(studyId)}:`;
 }

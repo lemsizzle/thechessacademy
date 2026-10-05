@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyAnalysisTree } from "@/chess/analysis/tree";
-import { createStudyDraft, DRAFT_MAX_AGE_MS, draftKey, readStudyDrafts, removeStudyDraft, STUDY_DRAFT_PREFIX, writeStudyDraft, type DraftStorage } from "@/chess/analysis/studyDrafts";
+import { addAnalysisMove, createEmptyAnalysisTree } from "@/chess/analysis/tree";
+import { createStudyDraft, DRAFT_MAX_AGE_MS, draftKey, readStudyDrafts, removeStudyDraft, studyTreeSignature, STUDY_DRAFT_PREFIX, writeStudyDraft, type DraftStorage } from "@/chess/analysis/studyDrafts";
 
 class MemoryStorage implements DraftStorage {
   values = new Map<string, string>();
@@ -13,6 +13,22 @@ class MemoryStorage implements DraftStorage {
 const makeDraft = (ownerKey = "student:one", studyId = "study") => createStudyDraft({ ownerKey, studyId, chapterId: "chapter", chapterTitle: "Practice", baseVersion: 3, tree: createEmptyAnalysisTree() });
 
 describe("durable Study draft storage", () => {
+  it("recognizes an acknowledged tree after a jsonb object-key reorder", () => {
+    const original = createEmptyAnalysisTree();
+    const tree = addAnalysisMove(original, original.rootId, "e2", "e4").tree;
+    const roundTrip = JSON.parse(JSON.stringify(tree, (_key, value) => value && typeof value === "object" && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).reverse()) : value));
+    expect(JSON.stringify(tree)).not.toBe(JSON.stringify(roundTrip));
+    expect(studyTreeSignature(roundTrip)).toBe(studyTreeSignature(tree));
+    roundTrip.nodes[tree.rootId].comment = "Different analysis";
+    expect(studyTreeSignature(roundTrip)).not.toBe(studyTreeSignature(tree));
+  });
+  it("keeps meaningful variation ordering distinct", () => {
+    const original = createEmptyAnalysisTree();
+    const first = addAnalysisMove(original, original.rootId, "e2", "e4").tree;
+    const tree = addAnalysisMove(first, first.rootId, "d2", "d4").tree;
+    const reordered = structuredClone(tree); reordered.nodes[tree.rootId].childrenIds.reverse();
+    expect(studyTreeSignature(reordered)).not.toBe(studyTreeSignature(tree));
+  });
   it("recovers a validated tree only for the authenticated owner and study", () => {
     const storage = new MemoryStorage(); const draft = makeDraft();
     expect(writeStudyDraft(storage, draft)).toBe(true);

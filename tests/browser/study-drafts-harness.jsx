@@ -11,7 +11,7 @@ const serverKey = 'qa-study-drafts-server';
 const chapter = id => { const tree = createEmptyAnalysisTree(); return {id,studyId:'fixture',title:id==='chapter'?'Opening practice':'Endgame practice',sortOrder:id==='chapter'?0:100,initialFen:tree.nodes[tree.rootId].fen,tree,sourceGameId:null,metadata:{},version:1,updatedAt:new Date().toISOString()}; };
 if (!localStorage.getItem(serverKey)) localStorage.setItem(serverKey,JSON.stringify([chapter('chapter'),chapter('second')]));
 const read=()=>JSON.parse(localStorage.getItem(serverKey));
-const write=chapters=>localStorage.setItem(serverKey,JSON.stringify(chapters));
+const write=chapters=>localStorage.setItem(serverKey,JSON.stringify(chapters,params.has('jsonb')?(_key,value)=>value&&typeof value==='object'&&!Array.isArray(value)?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b))):value:undefined));
 window.studyQA={requests:[],fail:params.has('offline'),delay:150,readDelay:0,loseCopyResponse:false,read,logout:clearStudyDraftsOnLogout,sessionLookupFailed:clearCurrentStudentUser,remoteEdit(){const rows=read();rows[0].version++;rows[0].tree.nodes[rows[0].tree.rootId].comment='Saved by another editor';write(rows);}};
 window.fetch=async(url,options={})=>{
  const path=String(url),method=options.method||'GET',body=options.body?JSON.parse(options.body):{};

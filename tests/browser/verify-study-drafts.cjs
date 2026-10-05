@@ -9,11 +9,11 @@ const open=async(context,suffix='')=>{const page=await context.newPage();page.se
   const browser=await(engine==='webkit'?webkit:chromium).launch({headless:true,...(engine==='chromium'&&process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}:{})});
   const cases={
    async navigationAndCrash(context){
-    let page=await open(context,'offline');await move(page,'e2','e4');assert.equal((await snapshots(page)).length,1);
+    let page=await open(context,'jsonb&offline');await move(page,'e2','e4');assert.equal((await snapshots(page)).length,1);
     await page.getByRole('link',{name:'Test library navigation'}).click();await page.getByText('Study library. Use browser Back to reopen.').waitFor();await page.goBack();
     await page.getByRole('region',{name:'Study recovery'}).waitFor();await page.getByRole('button',{name:'Restore draft',exact:true}).click();
     await page.getByRole('button',{name:'Retry saving',exact:true}).waitFor();
-    await page.close({runBeforeUnload:false});page=await open(context);await page.getByRole('region',{name:'Study recovery'}).waitFor();await page.getByRole('button',{name:'Restore draft',exact:true}).click();
+    await page.close({runBeforeUnload:false});page=await open(context,'jsonb');await page.getByRole('region',{name:'Study recovery'}).waitFor();await page.getByRole('button',{name:'Restore draft',exact:true}).click();
     await page.getByText('All changes saved',{exact:true}).waitFor();await page.reload();await page.locator('[data-square="e2"]').waitFor();
     assert.equal(await page.getByRole('region',{name:'Study recovery'}).count(),0);
     assert(await page.evaluate(()=>Object.values(studyQA.read()[0].tree.nodes).some(n=>n.uci==='e2e4')));

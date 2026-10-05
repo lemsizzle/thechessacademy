@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AnalysisTree, StudyChapter } from "@/chess/analysis/types";
-import { browserDraftStorage, createStudyDraft, readStudyDrafts, removeStudyDraft, STUDY_SESSION_EVENT, STUDY_SESSION_KEY, writeStudyDraft, type StudyDraft } from "@/chess/analysis/studyDrafts";
+import { browserDraftStorage, createStudyDraft, readStudyDrafts, removeStudyDraft, studyTreeSignature, STUDY_SESSION_EVENT, STUDY_SESSION_KEY, writeStudyDraft, type StudyDraft } from "@/chess/analysis/studyDrafts";
 
 type Pending = { draft: StudyDraft; stored: StudyDraft | null; recoveredSource?: StudyDraft };
 type Callbacks = {
@@ -50,7 +50,7 @@ export function useStudyDrafts(studyId: string, callbacks: Callbacks) {
     // source until that exact content has been acknowledged by the server.
     const source = entry.recoveredSource;
     const storage = browserDraftStorage();
-    if (source && storage && JSON.stringify(source.tree) === JSON.stringify(savedTree)) removeStudyDraft(storage, source);
+    if (source && storage && studyTreeSignature(source.tree) === studyTreeSignature(savedTree)) removeStudyDraft(storage, source);
   }
   function cancelTimers() { timers.current.forEach(clearTimeout); timers.current.clear(); }
 
@@ -64,8 +64,8 @@ export function useStudyDrafts(studyId: string, callbacks: Callbacks) {
     // snapshot is already on the server and does not need a recovery prompt.
     const seen = new Set<string>();
     setRecoveries(result.drafts.filter((draft) => {
-      const tree = JSON.stringify(draft.tree);
-      if (JSON.stringify(chapters.current.get(draft.chapterId)?.tree) === tree) {
+      const tree = studyTreeSignature(draft.tree);
+      if (studyTreeSignature(chapters.current.get(draft.chapterId)?.tree) === tree) {
         if (storage) removeStudyDraft(storage, draft);
         return false;
       }
