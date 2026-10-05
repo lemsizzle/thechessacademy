@@ -50,6 +50,7 @@ export type PuzzleDashboardData = {
   solvedLevel: number | null;
   seconds: number;
   toReplay: number;
+  replayQueue: string[];
   themes: DashboardSkill[];
   openings: DashboardSkill[];
   history: (DashboardAttempt & { needsReplay: boolean })[];
@@ -82,6 +83,18 @@ export function dashboardHref(query: DashboardQuery, changes: Partial<DashboardQ
   if (next.outcome !== "all") params.set("outcome", next.outcome);
   if (next.page > 1) params.set("page", String(next.page));
   return `/student/training/dashboard?${params}`;
+}
+
+export function puzzleReplayHref(puzzleId: string, query: DashboardQuery) {
+  const params = new URLSearchParams({ period: query.period });
+  if (query.theme) params.set("theme", query.theme);
+  if (query.opening) params.set("opening", query.opening);
+  return `/student/training/replay/${encodeURIComponent(puzzleId)}?${params}`;
+}
+
+export function nextReplayPuzzleId(queue: readonly string[], currentId: string) {
+  const index = queue.indexOf(currentId);
+  return queue[index + 1] ?? null;
 }
 
 export function puzzleTagName(tag: string) {
@@ -146,12 +159,16 @@ export function buildPuzzleDashboard(
       && (query.outcome === "all" || (query.outcome === "clean" ? row.clean : query.outcome === "helped" ? row.solved && !row.clean : !row.solved)));
   const pageCount = Math.max(1, Math.ceil(history.length / DASHBOARD_PAGE_SIZE));
   const page = Math.min(query.page, pageCount);
+  // Navigation spans every page, skips clean/retired puzzles, and keeps theme/opening filters.
+  const replayQueue = [...latest.values()].filter((row) => replayIds.has(row.puzzleId)
+    && (!query.theme || row.themes.includes(query.theme))
+    && (!query.opening || row.openings.includes(query.opening))).map((row) => row.puzzleId);
   return {
     query: { ...query, page }, played: rows.length, uniquePuzzles: latest.size,
     solved: rows.filter((row) => row.solved).length, clean: cleanRows.length,
     accuracy: percent(cleanRows.length, rows.length),
     solvedLevel: cleanRated.length ? Math.round(cleanRated.reduce((sum, row) => sum + row.rating!, 0) / cleanRated.length) : null,
-    seconds: rows.reduce((sum, row) => sum + row.seconds, 0), toReplay: replayIds.size,
+    seconds: rows.reduce((sum, row) => sum + row.seconds, 0), toReplay: replayIds.size, replayQueue,
     themes: skills("themes"), openings: skills("openings"),
     history: history.slice((page - 1) * DASHBOARD_PAGE_SIZE, page * DASHBOARD_PAGE_SIZE).map((row) => ({ ...row, needsReplay: replayIds.has(row.puzzleId) })),
     historyCount: history.length, pageCount, replayAvailable

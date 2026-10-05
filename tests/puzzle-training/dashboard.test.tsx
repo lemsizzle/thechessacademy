@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { PuzzleDashboard } from "@/components/training/PuzzleDashboard";
-import { buildPuzzleDashboard, dashboardHref, dashboardSince, parseDashboardQuery, type DashboardAttempt } from "@/lib/puzzle-training/dashboard";
+import { buildPuzzleDashboard, dashboardHref, dashboardSince, nextReplayPuzzleId, parseDashboardQuery, puzzleReplayHref, type DashboardAttempt } from "@/lib/puzzle-training/dashboard";
 
 const now = Date.parse("2026-10-05T10:00:00Z");
 const query = parseDashboardQuery({});
@@ -60,6 +60,33 @@ describe("puzzle dashboard", () => {
 
   it("does not double count duplicate theme tags", () => {
     expect(buildPuzzleDashboard([attempt(1, { themes: ["fork", "fork"] })], new Map(), query, now).themes[0].played).toBe(1);
+  });
+
+  it("keeps the entire filtered replay queue across pages, excluding cleared and retired puzzles", () => {
+    const rows = Array.from({ length: 27 }, (_, id) => attempt(id, { clean: false }));
+    rows.push(attempt(30, { active: false, clean: false }), attempt(31), attempt(32, { clean: false, themes: ["pin"] }));
+    rows.push(attempt(33, { puzzleId: "p2", clean: false, attemptedAt: "2026-10-03T10:00:00Z" }));
+    const data = buildPuzzleDashboard(rows, new Map([["p0", "2026-10-05T09:00:00Z"]]), {
+      ...query, view: "history", theme: "fork", opening: "Italian_Game", outcome: "clean", page: 2
+    }, now);
+    expect(data.replayQueue).toHaveLength(26);
+    expect(new Set(data.replayQueue).size).toBe(26);
+    expect(data.replayQueue).not.toEqual(expect.arrayContaining(["p0", "p30", "p31", "p32"]));
+    expect(nextReplayPuzzleId(data.replayQueue, data.replayQueue[11])).toBe(data.replayQueue[12]);
+    expect(buildPuzzleDashboard(rows, new Map(), { ...query, opening: "absent" }, now).replayQueue).toEqual([]);
+  });
+
+  it("navigates only forward and stops at the end of the missed-puzzle list", () => {
+    expect(nextReplayPuzzleId(["a", "b", "c"], "a")).toBe("b");
+    expect(nextReplayPuzzleId(["a", "b", "c"], "b")).toBe("c");
+    expect(nextReplayPuzzleId(["a", "b", "c"], "c")).toBeNull();
+    expect(nextReplayPuzzleId(["a", "b"], "already-cleared")).toBe("a");
+    expect(nextReplayPuzzleId([], "a")).toBeNull();
+  });
+
+  it("carries period, theme and opening into replays without carrying history pagination or outcome", () => {
+    expect(puzzleReplayHref("p/1", { ...query, period: "7", theme: "fork", opening: "King's Gambit & test", page: 3, outcome: "clean" }))
+      .toBe("/student/training/replay/p%2F1?period=7&theme=fork&opening=King%27s+Gambit+%26+test");
   });
 
   it("renders accessible chart, learning notes, and safe navigation", () => {

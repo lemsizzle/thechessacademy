@@ -15,6 +15,11 @@ mode picker and existing training statistics also link to it.
   existing adaptive review of the student's own games.
 - Private replay boards with hints, keyboard controls, promotion and annotations.
   Only a complete solve without hints or wrong moves clears a replay.
+- Replays open directly on the playable board. **Next** skips to the next missed
+  or helped puzzle without clearing the current one. Optional **Auto-advance after
+  solving** opens the next puzzle after a short pause and stays enabled through
+  the sequence. Both respect period/theme/opening filters, span list pages, and
+  stop at the end. Turning auto-advance off cancels the pending navigation.
 
 This adapts the useful workflow of the Lichess puzzle dashboard to ChessQuest's
 existing data and child-friendly language; it does not import external account
@@ -64,7 +69,7 @@ not invented zero results.
 
 ## Verification
 
-- Full unit suite: 1,047 tests in 172 files, with four workers.
+- Full unit suite: 1,059 tests in 174 files, with four workers.
 - Repository lint/type check (`next typegen && tsc --noEmit`) and production build pass.
 - Local Postgres-compatible migration checks verify keys, foreign keys, cascade,
   RLS, browser-role denial and service-role upsert.
@@ -74,6 +79,11 @@ not invented zero results.
 - A hinted replay made no progress write. A subsequent clean replay made one
   marker write, reduced the replay count from 13 to 12, and left all 32 original
   attempts unchanged. Normal browser flows had no console warnings/errors.
+- Direct-replay follow-up verified manual skipping, auto-advance on/off, cancelling
+  a pending advance, filter preservation, keyboard solving and stopping at the last
+  puzzle. Phone (390 × 844), tablet (768 × 1024) and desktop checks had no horizontal
+  overflow or console errors. The replay grid aligns its children at the top so a
+  tall instructions panel cannot shrink the board. No additional migration is needed.
 
 Browser fixtures and migration checks are local verification tools under
 `work/puzzle-dashboard/`, not application code or production student records.

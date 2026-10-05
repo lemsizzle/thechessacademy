@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card } from "@/components/Card";
-import { dashboardHref, MIN_THEME_SAMPLE, puzzleDuration, puzzleTagName, type DashboardQuery, type DashboardSkill, type DashboardView, type PuzzleDashboardData } from "@/lib/puzzle-training/dashboard";
+import { dashboardHref, MIN_THEME_SAMPLE, puzzleDuration, puzzleReplayHref, puzzleTagName, type DashboardQuery, type DashboardSkill, type DashboardView, type PuzzleDashboardData } from "@/lib/puzzle-training/dashboard";
 import { puzzleThemeOptions } from "@/lib/puzzle-training/types";
 
 const linkButton = "inline-flex min-h-11 items-center justify-center rounded-lg border border-cyan-200/30 bg-cyan-300/10 px-4 py-2 text-sm font-bold text-cyan-100 transition hover:bg-cyan-300/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200";
@@ -79,7 +79,7 @@ function PuzzleHistory({ data }: { data: PuzzleDashboardData }) {
           <p className="mt-2 break-words text-sm text-slate-300">{row.themes.map(puzzleTagName).join(" · ") || "Mixed tactics"}</p>
           <p className="mt-1 text-xs text-slate-400"><time dateTime={row.attemptedAt}>{historyDate.format(new Date(row.attemptedAt))}</time> · {puzzleDuration(row.seconds)} · {row.mode === "legacy" ? "Practice" : puzzleTagName(row.mode)}</p>
         </div>
-        {row.active && data.replayAvailable ? <Link className={linkButton} href={`/student/training/replay/${row.puzzleId}?period=${query.period}`}>Replay puzzle <span aria-hidden="true" className="ml-2">↗</span></Link> : <span className="text-xs text-slate-500">{row.active ? "Replay coming with update" : "Puzzle retired"}</span>}
+        {row.active && data.replayAvailable ? <Link className={linkButton} href={puzzleReplayHref(row.puzzleId, query)} prefetch={false}>Replay puzzle <span aria-hidden="true" className="ml-2">↗</span></Link> : <span className="text-xs text-slate-500">{row.active ? "Replay coming with update" : "Puzzle retired"}</span>}
       </li>)}
     </ul>}
     <nav aria-label="Puzzle history pages" className="mt-4 flex items-center justify-between gap-3">
