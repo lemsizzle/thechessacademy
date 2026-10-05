@@ -1,8 +1,11 @@
-const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');const assert=require('node:assert/strict');
+const {chromium,webkit}=require(process.env.PLAYWRIGHT_MODULE||'playwright');const assert=require('node:assert/strict');
 (async()=>{
- const b=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE});
+ for(const engine of (process.env.QA_ENGINES||'chromium,webkit').split(',')){
+ await fetch('http://127.0.0.1:9421/__qa/reset',{method:'POST'});
+ const b=await(engine==='webkit'?webkit:chromium).launch({headless:true,...(engine==='chromium'&&process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}:{})});
  const a=await b.newPage({viewport:{width:390,height:844},hasTouch:true});const other=await b.newPage({viewport:{width:1180,height:820},hasTouch:true});
  a.setDefaultTimeout(15000);other.setDefaultTimeout(15000);
+ for(const page of [a,other])await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
  await a.goto('http://127.0.0.1:9421/?student=a');await other.goto('http://127.0.0.1:9421/?student=b');
  await a.getByRole('button',{name:'Challenge Blair',exact:true}).click();
  await a.getByRole('button',{name:'Cancel',exact:true}).click();await a.getByText('Blair: challenge cancelled.',{exact:true}).waitFor();
@@ -15,4 +18,5 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');const asse
  assert(!await a.evaluate(()=>document.documentElement.scrollWidth>innerWidth));
  console.log('PASS: two isolated local sessions; challenge, cancel, rechallenge, decline, accept, game destination at phone/tablet sizes. Transport is fixture HTTP, not production Realtime.');
  await b.close();
+ }
 })().catch(e=>{console.error(e);process.exit(1);});

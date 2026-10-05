@@ -129,8 +129,8 @@ export function StudentPortalShell({
 
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-      if (user) window.sessionStorage.removeItem(`quest-board-auto-quest-refresh:${user.studentId}`);
-      clearCurrentStudentUser();
+      clearCurrentStudentUser({ logout: true });
+      try { if (user) window.sessionStorage.removeItem(`quest-board-auto-quest-refresh:${user.studentId}`); } catch { /* Restricted storage must not prevent logout. */ }
       window.location.href = "/";
     });
   }

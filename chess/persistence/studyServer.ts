@@ -249,12 +249,21 @@ export async function deleteStudy(actor: ChessActor, studyId: string) {
   if (error) throw new Error(error.message);
 }
 
-export async function createChapter(actor: ChessActor, studyId: string, input: { title?: unknown; duplicateChapterId?: unknown; sourceGameId?: unknown; analysisTree?: unknown; pgn?: unknown; initialFen?: unknown }) {
+export async function createChapter(actor: ChessActor, studyId: string, input: { title?: unknown; duplicateChapterId?: unknown; sourceGameId?: unknown; analysisTree?: unknown; pgn?: unknown; initialFen?: unknown; recoveryId?: unknown }) {
   await requireStudyAccess(actor, studyId, true);
   const supabase = client();
   const { data: chapters, error } = await supabase.from("chess_study_chapters").select("*").eq("study_id", studyId).order("sort_order");
   if (error) throw new Error(error.message);
   const rows = (chapters ?? []) as ChapterRow[];
+  const recoveryId = input.recoveryId === undefined ? null : String(input.recoveryId);
+  if (recoveryId !== null) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(recoveryId) || !input.analysisTree || input.duplicateChapterId || input.sourceGameId || input.pgn !== undefined || input.initialFen !== undefined) throw new Error("Invalid recovery request.");
+    const recovered = rows.find((row) => row.id === recoveryId);
+    if (recovered) {
+      if (recovered.metadata.recoveryDraftId !== recoveryId) throw new Error("Invalid recovery identifier.");
+      return mapChapter(recovered);
+    }
+  }
   const duplicate = input.duplicateChapterId ? rows.find((row) => row.id === String(input.duplicateChapterId)) : null;
   if (input.duplicateChapterId && !duplicate) throw new Error("Chapter to duplicate was not found.");
   const pgn = input.pgn === undefined ? null : String(input.pgn);
@@ -282,11 +291,18 @@ export async function createChapter(actor: ChessActor, studyId: string, input: {
     : duplicate?.metadata
       ?? (parsedPgn ? { sourceType: "pgn", pgnHeaders: parsedPgn.headers, result: parsedPgn.result } : fenTree ? { sourceType: "fen" } : { sourceType: "analysis" });
   const { data, error: insertError } = await supabase.from("chess_study_chapters").insert({
+    ...(recoveryId ? { id: recoveryId } : {}),
     study_id: studyId, title, sort_order: sortOrder, initial_fen: tree.nodes[tree.rootId].fen,
     analysis_tree: tree,
     source_game_id: game?.id ?? duplicate?.source_game_id ?? null,
-    metadata
+    metadata: recoveryId ? { ...metadata, recoveryDraftId: recoveryId } : metadata
   }).select("*").single();
+  if (insertError?.code === "23505" && recoveryId) {
+    // A lost response or two tabs can retry the same immutable snapshot. The
+    // primary key arbitrates concurrent requests without overwriting any row.
+    const existing = await supabase.from("chess_study_chapters").select("*").eq("study_id", studyId).eq("id", recoveryId).maybeSingle();
+    if (!existing.error && existing.data?.metadata?.recoveryDraftId === recoveryId) return mapChapter(existing.data as ChapterRow);
+  }
   if (insertError) throw new Error(insertError.message);
   return mapChapter(data as ChapterRow);
 }

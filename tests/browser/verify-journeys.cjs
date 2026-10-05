@@ -4,7 +4,7 @@ const out='work/comprehensive-qa';fs.mkdirSync(out,{recursive:true});const resul
 const devices=[['phone',390,844,true],['tablet',820,1180,true],['tablet-landscape',1180,820,true],['desktop',1440,900,false]];
 const visible=async locator=>{await locator.first().waitFor({state:'attached'});for(const el of await locator.all())if(await el.isVisible())return el;throw new Error('No visible matching control');};
 (async()=>{
- for(const engine of ['chromium','webkit']){
+ for(const engine of (process.env.QA_ENGINES||'chromium,webkit').split(',')){
   const browser=await (engine==='webkit'?webkit:chromium).launch({headless:true,...(engine==='chromium'&&process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}:{})});
   for(const [device,width,height,hasTouch] of devices){
    const checks={

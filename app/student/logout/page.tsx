@@ -6,7 +6,7 @@ import { clearCurrentStudentUser } from "@/lib/auth/getCurrentUser";
 export default function StudentLogoutPage() {
   useEffect(() => {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-      clearCurrentStudentUser();
+      clearCurrentStudentUser({ logout: true });
       window.location.href = "/";
     });
   }, []);

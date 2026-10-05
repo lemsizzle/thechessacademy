@@ -1,0 +1,57 @@
+# Rendered only into a new, unlinked work/local-e2e/<run>/supabase directory.
+project_id = "__PROJECT_ID__"
+
+[api]
+enabled = true
+port = 55431
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+auto_expose_new_tables = false
+
+[db]
+port = 55432
+shadow_port = 55430
+major_version = 17
+
+[db.migrations]
+enabled = true
+schema_paths = []
+
+[db.seed]
+enabled = false
+sql_paths = []
+
+[db.pooler]
+enabled = false
+port = 55439
+
+[studio]
+enabled = false
+port = 55433
+
+[local_smtp]
+enabled = false
+port = 55434
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:9470"
+additional_redirect_urls = []
+enable_signup = false
+enable_anonymous_sign_ins = false
+
+[realtime]
+enabled = false
+
+[storage]
+enabled = false
+
+[storage.vector]
+enabled = false
+
+[analytics]
+enabled = false
+
+[edge_runtime]
+enabled = false

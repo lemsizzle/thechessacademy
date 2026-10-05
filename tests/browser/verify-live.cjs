@@ -3,7 +3,7 @@ require('fs').mkdirSync('work/gameplay-audit', { recursive: true });
 const assert = require('node:assert/strict');
 const { chromium, webkit } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
-    for (const name of ['chromium', 'webkit']) {
+    for (const name of (process.env.QA_ENGINES || 'chromium,webkit').split(',')) {
         const browser = await (name === 'webkit' ? webkit : chromium).launch({ headless: true, ...(name === 'chromium' && process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
         for (const width of [390, 820, 1440]) {
             const page = await browser.newPage({ viewport: { width, height: 1100 }, hasTouch: true });

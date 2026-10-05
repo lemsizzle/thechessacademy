@@ -21,6 +21,12 @@ lichess_db_puzzle.csv.zst
 .vercel/
 .gitrepo/
 supabase/.temp/
+.next-e2e/
+/work/browser-ci/
+/work/local-e2e/
+/work/study-drafts/
+/work/comprehensive-qa/
+/work/gameplay-audit/
 
 .vercel
 .env*

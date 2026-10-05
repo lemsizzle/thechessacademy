@@ -1,7 +1,7 @@
 const {chromium,webkit}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const fs=require('node:fs');const assert=require('node:assert/strict');const results=[];
 (async()=>{
- for(const name of ['chromium','webkit']){
+ for(const name of (process.env.QA_ENGINES||'chromium,webkit').split(',')){
   const browser=await (name==='webkit'?webkit:chromium).launch({headless:true,...(name==='chromium'&&process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}:{})});
   const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true});page.setDefaultTimeout(10000);
   await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());

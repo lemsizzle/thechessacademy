@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const config: NextConfig = {
+  // Disposable E2E builds must not replace a developer's regular build output.
+  distDir: process.env.CHESSQUEST_LOCAL_E2E === "1" ? ".next-e2e" : ".next",
   async redirects() {
     // Keep old bookmarks on the public domain. In-flight OAuth callbacks and APIs
     // retain their original host so their host-only cookies remain readable.

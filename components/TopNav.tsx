@@ -5,11 +5,12 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { getNavigationGroups, getTopNavActions, type NavVariant } from "@/components/navigation";
 import { StudentNavigation } from "@/components/student/StudentNavigation";
+import { clearStudyDraftsOnLogout } from "@/chess/analysis/studyDraftSession";
 
 function TopNavAction({ href, label, className }: { href: string; label: string; className: string }) {
   if (href === "/api/admin/logout") {
     return (
-      <form action={href} method="post">
+      <form action={href} method="post" onSubmit={clearStudyDraftsOnLogout}>
         <button type="submit" className={className}>{label}</button>
       </form>
     );

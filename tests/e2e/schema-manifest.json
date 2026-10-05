@@ -1,0 +1,13 @@
+[
+  "docs/supabase-schema.sql",
+  "docs/supabase-add-lichess-fields.sql",
+  "supabase/migrations/20260718121302_puzzle_training_tables.sql",
+  "supabase/migrations/20260815090000_create_internal_chess_games.sql",
+  "supabase/migrations/20260815100000_create_chess_studies.sql",
+  "supabase/migrations/20260815101000_index_chess_study_source_games.sql",
+  "supabase/migrations/20260816020000_create_chess_review_assignments.sql",
+  "supabase/migrations/20260821090000_extend_chess_review_feedback.sql",
+  "supabase/migrations/20260821130208_persist_guided_exercise_progress.sql",
+  "supabase/migrations/20260912042520_student_academy_credentials.sql",
+  "tests/e2e/local-grants.sql"
+]

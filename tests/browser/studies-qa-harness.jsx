@@ -22,7 +22,7 @@ window.fetch = async (url, options={}) => {
     if(failAdd){failAdd=false;throw new TypeError('Failed to fetch');}
     return Response.json({chapter:{...chapter,id:'added',title:body.title||'Imported game'}});
   }
-  if(path.endsWith('/studies/fixture')) return Response.json({study,chapters:[chapter,chapterTwo]});
+  if(path.endsWith('/studies/fixture')) return Response.json({study,chapters:[chapter,chapterTwo],draftOwnerKey:params.has('teacher')?'admin':'student:qa'});
   if(path.endsWith('/studies')) return Response.json({studies:[{...study,chapterCount:2}]});
   if(path.includes('/games?')) return Response.json({games:[{id:'game',opponentName:'QA bot',result:'win',completedAt:new Date().toISOString(),moves:[]}]});
   if(path.includes('/members'))return Response.json({members:[]});

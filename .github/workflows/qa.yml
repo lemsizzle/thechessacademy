@@ -1,0 +1,108 @@
+name: ChessQuest QA
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+    inputs:
+      extended:
+        description: Include the longer gameplay and multiplayer fixture checks
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+  SUPABASE_TELEMETRY_DISABLED: '1'
+  DO_NOT_TRACK: '1'
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test:qa-tools
+      - run: npm test -- --maxWorkers=2
+      - run: npm run build
+
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, webkit]
+    env:
+      QA_ENGINES: ${{ matrix.engine }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx --no-install playwright install --with-deps ${{ matrix.engine }}
+      - name: Browser regressions (synthetic data, no external services)
+        env:
+          QA_SUITE: ${{ (github.event_name == 'schedule' || inputs.extended == true) && 'extended' || 'core' }}
+        run: node scripts/run-browser-qa.mjs "$QA_SUITE"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: browser-${{ matrix.engine }}
+          retention-days: 7
+          path: |
+            work/browser-ci/*.log
+            work/browser-ci/results.json
+            work/comprehensive-qa/*.json
+            work/comprehensive-qa/*.png
+            work/gameplay-audit/*.json
+            work/gameplay-audit/*.png
+            work/study-drafts/*.json
+            work/study-drafts/*.png
+
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx --no-install playwright install --with-deps chromium
+      - name: Real local Supabase + Next.js integration
+        run: npm run test:e2e
+      # Only sanitized assertions/screenshots are uploaded, never CLI output,
+      # local database volumes, .env files or generated credentials.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: local-backend
+          retention-days: 7
+          path: |
+            work/local-e2e/**/results.json
+            work/local-e2e/**/*.png

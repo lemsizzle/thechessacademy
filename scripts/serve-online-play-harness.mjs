@@ -24,6 +24,11 @@ function state(id) {
 createServer(async (req, res) => {
   const id = req.headers["x-fixture-student"] === "b" ? "b" : "a";
   const json = (data, status = 200) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(data)); };
+  if (req.url === "/__qa/reset" && req.method === "POST") {
+    challenges.length = 0;
+    people.forEach(person => { person.busy = false; });
+    return json({ ok: true });
+  }
   if (req.url === "/api/student/online-play") {
     if (req.method === "GET") return json({ state: state(id) });
     let raw = ""; for await (const chunk of req) raw += chunk;

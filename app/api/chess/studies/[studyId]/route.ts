@@ -13,7 +13,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ stu
   try {
     const actor = await requireChessActor();
     const { studyId } = await params;
-    return NextResponse.json(await getStudy(actor, studyId));
+    return NextResponse.json({
+      ...await getStudy(actor, studyId),
+      // Scope recovery to the authenticated actor, never a browser-supplied ID.
+      draftOwnerKey: actor.kind === "admin" ? "admin" : `student:${actor.studentId}`
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return response(error); }
 }
 

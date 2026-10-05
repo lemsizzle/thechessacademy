@@ -5,7 +5,7 @@ const fs = require('fs');
 const { chromium, webkit } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
     let count = 0;
-    for (const engine of ['chromium', 'webkit']) {
+    for (const engine of (process.env.QA_ENGINES || 'chromium,webkit').split(',')) {
         const browser = await (engine === 'webkit' ? webkit : chromium).launch({ headless: true, ...(engine === 'chromium' && process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } : {}) });
         for (const width of [390, 820, 1440]) {
             const page = await browser.newPage({ viewport: { width, height: 1100 }, hasTouch: true });
