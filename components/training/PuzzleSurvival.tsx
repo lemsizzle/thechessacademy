@@ -112,7 +112,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   const [woodpeckerSetSize, setWoodpeckerSetSize] = useState<number>(WOODPECKER_SET_SIZE);
   const [autoAdvance, setAutoAdvance] = useState(false);
   const autoAdvanceRef = useRef(false);
-  const [phase, setPhase] = useState<TrainerPhase>("select");
+  const [phase, setPhase] = useState<TrainerPhase>(() => searchParams.get("mode") === "adaptiveReview" ? "adaptive-review" : "select");
   const [setupRevision, setSetupRevision] = useState(0);
   useStudentMenuDestination("/student/training", () => {
     returnToPuzzleSetup();

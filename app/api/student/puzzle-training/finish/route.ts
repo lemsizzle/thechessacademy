@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
     assertPuzzleTokenStudent(payload, student.studentId);
     const puzzle = payload.version === 2 ? payload.puzzle : legacyPuzzle;
     if (!puzzle) return NextResponse.json({ error: "Puzzle is no longer available." }, { status: 404 });
+    if (payload.dashboardReplay) return NextResponse.json({ saved: false });
     await saveTrainingAttempt({
       studentId: student.studentId,
       puzzleId: puzzle.id,

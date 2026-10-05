@@ -18,6 +18,7 @@ export function preparePublicTrainingPuzzle(input: {
   woodpeckerCycleNumber?: 1 | 2 | 3;
   daily?: DailyPuzzleDetails | null;
   authorizationExpiresAt?: string;
+  dashboardReplay?: boolean;
 }): PublicTrainingPuzzle {
   const prepared = prepareTrainingPuzzle(input.puzzle);
   const startedAt = new Date();
@@ -28,6 +29,7 @@ export function preparePublicTrainingPuzzle(input: {
     sessionId: input.sessionId,
     selectedTheme: input.selectedTheme,
     trainingMode: input.trainingMode,
+    dashboardReplay: input.dashboardReplay,
     woodpeckerRunId: input.woodpeckerRunId,
     woodpeckerCycleNumber: input.woodpeckerCycleNumber,
     dailyDate: input.daily?.puzzleDate,

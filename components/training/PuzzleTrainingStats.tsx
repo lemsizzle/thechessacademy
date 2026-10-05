@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { Card } from "@/components/Card";
 import type {
@@ -212,6 +213,7 @@ export function PuzzleTrainingStatsSummary({
 }) {
   return (
     <div className="space-y-4">
+      <Link href="/student/training/dashboard" className="block rounded-lg border border-cyan-200/30 bg-cyan-300/10 p-4 font-bold text-cyan-100 hover:bg-cyan-300/20">Open Puzzle Dashboard → <span className="mt-1 block text-sm font-normal">Explore your strengths, practise tricky themes, and replay past puzzles.</span></Link>
       <div className="grid gap-4 xl:grid-cols-2">
         <Card className="border-cyan-300/20 bg-cyan-300/[0.04] p-4 sm:p-5">
           <p className="text-xs font-black uppercase tracking-wide text-cyan-100">All puzzle training</p>

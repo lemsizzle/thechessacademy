@@ -17,6 +17,7 @@ type PuzzleSessionBase = {
   woodpeckerRunId?: string;
   woodpeckerCycleNumber?: 1 | 2 | 3;
   dailyDate?: string;
+  dashboardReplay?: boolean;
   nextMoveIndex: number;
   startedAt: string;
   incorrectMoveCount: number;
@@ -118,6 +119,8 @@ function validatePayload(value: unknown): PuzzleSessionToken {
 
   const trainingMode = parsePuzzleTrainingMode(typeof payload.trainingMode === "string" ? payload.trainingMode : null);
   if (payload.trainingMode !== undefined && !puzzleTrainingModes.includes(payload.trainingMode as PuzzleTrainingMode)) return invalidToken();
+  if (payload.dashboardReplay !== undefined && payload.dashboardReplay !== true) return invalidToken();
+  if (payload.dashboardReplay && (trainingMode !== "legacy" || payload.dailyDate || payload.woodpeckerRunId)) return invalidToken();
   const hasWoodpeckerRunId = payload.woodpeckerRunId !== undefined;
   const hasWoodpeckerCycleNumber = payload.woodpeckerCycleNumber !== undefined;
   if (hasWoodpeckerRunId !== hasWoodpeckerCycleNumber
@@ -133,6 +136,7 @@ function validatePayload(value: unknown): PuzzleSessionToken {
     sessionId: payload.sessionId as string,
     selectedTheme: payload.selectedTheme as PuzzleThemeSlug,
     trainingMode,
+    ...(payload.dashboardReplay ? { dashboardReplay: true } : {}),
     ...(hasWoodpeckerRunId ? {
       woodpeckerRunId: payload.woodpeckerRunId as string,
       woodpeckerCycleNumber: payload.woodpeckerCycleNumber as 1 | 2 | 3

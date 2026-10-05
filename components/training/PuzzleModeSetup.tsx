@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   useEffect,
   useReducer,
@@ -431,7 +433,7 @@ export function PuzzleModeSetup({
                         ))}
                       </div>
                       <div className="mt-5 flex flex-col items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.025] p-4 sm:flex-row">
-                        <p className="text-sm text-slate-400">More modes can be added here without making the page longer.</p>
+                        <Link href="/student/training/dashboard" className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-black text-cyan-100 hover:bg-cyan-300/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200">Puzzle Dashboard · Progress & replays ↗</Link>
                         <Button type="button" variant="secondary" onClick={showStats}>View My Stats</Button>
                       </div>
                     </>

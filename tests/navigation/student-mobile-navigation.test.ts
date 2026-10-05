@@ -22,7 +22,7 @@ describe("student mobile navigation", () => {
     const hubs = getStudentNavigationHubs();
     expect(hubs.map((hub) => hub.label)).toEqual(["Train", "Play", "Quests", "Avatar Store"]);
     expect(hubs.map((hub) => hub.branches.map((branch) => branch.label))).toEqual([
-      [],
+      ["Puzzle Dashboard"],
       ["Game History", "Correspondence", "Tournaments"],
       [],
       []
@@ -41,7 +41,7 @@ describe("student mobile navigation", () => {
     const moreHrefs = getStudentMobileMoreLinks().map((link) => link.href);
     const allDesktopHrefs = getNavigationGroups("student").flatMap((group) => group.links.map((link) => link.href));
 
-    expect(getStudentMobileMoreGroups().map((group) => group.title)).toEqual(["Play", "More"]);
+    expect(getStudentMobileMoreGroups().map((group) => group.title)).toEqual(["Train", "Play", "More"]);
     expect(moreHrefs).toHaveLength(new Set(moreHrefs).size);
     expect(moreHrefs.every((href) => !primaryHrefs.has(href))).toBe(true);
     expect(new Set([...primaryHrefs, ...moreHrefs])).toEqual(new Set(allDesktopHrefs));

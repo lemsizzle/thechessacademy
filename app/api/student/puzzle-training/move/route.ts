@@ -1,6 +1,7 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { saveSurvivalReviewMistake } from "@/chess/training/adaptiveReviewServer";
 import { validatePuzzleMove } from "@/lib/puzzle-training/engine";
+import { savePuzzleReplay } from "@/lib/puzzle-training/dashboardServer";
 import { preparePublicTrainingPuzzle } from "@/lib/puzzle-training/publicPuzzle";
 import { activatePreparedNextPuzzle, readPreparedNextPuzzle } from "@/lib/puzzle-training/preparedNextPuzzle";
 import { assertPuzzleTokenStudent, createPuzzleSessionToken, readPuzzleSessionToken } from "@/lib/puzzle-training/sessionToken";
@@ -114,6 +115,21 @@ export async function POST(request: NextRequest) {
     }
 
     if (validation.completed) {
+      // Dashboard practice never enters the attempt/reward/quest pipeline or chains to new puzzles.
+      if (payload.dashboardReplay) {
+        const clean = payload.incorrectMoveCount === 0 && payload.hintsUsed === 0;
+        if (clean) await savePuzzleReplay(student.studentId, puzzle.id);
+        return NextResponse.json({
+          accepted: true, completed: true, token,
+          studentFen: validation.studentFen, positionFen: validation.positionFen,
+          message: clean ? "Clean solve! This puzzle is cleared from your replay list." : "You found it! Try again without help to clear this puzzle.",
+          completion: {
+            themes: puzzle.themes, rating: puzzle.rating, gameUrl: puzzle.game_url,
+            mistakes: payload.incorrectMoveCount, hintsUsed: payload.hintsUsed,
+            elapsedSeconds: Math.max(0, Math.round((Date.now() - Date.parse(payload.startedAt)) / 1000))
+          }
+        }, { headers: { "Cache-Control": "private, no-store" } });
+      }
       const attemptInput = {
         studentId: student.studentId,
         puzzleId: puzzle.id,
