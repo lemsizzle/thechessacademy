@@ -3,23 +3,23 @@ import { Card } from "@/components/Card";
 const faqs = [
   {
     question: "How do I use the Quest Board?",
-    answer: "Find your class, click your player card, and open your profile to see your level, XP bar, quests, badges, Lichess ratings, and recent progress."
+    answer: "Log in, then open your student dashboard to see your level, XP, quests, badges, and saved Chess Quest progress."
   },
   {
     question: "How do I gain XP?",
-    answer: "XP comes from teacher awards, completed quests, approved badges, submitted puzzle scores, and Lichess activity after your first login."
+    answer: "Earn XP through Chess Quest activities and quests, plus teacher-approved awards and submissions. Check each activity or quest for its rewards. Playing on Lichess does not automatically add Chess Quest XP."
   },
   {
-    question: "How does Lichess XP work?",
-    answer: "Ratings earn milestone XP for each full 100 points above 800: 15 XP for established Blitz or Rapid, and 10 XP for Puzzle. The highest earned rating is kept, so XP never drops after a rating loss. Provisional Blitz and Rapid do not count. After first login, a rated rapid game earns 5 XP, a rapid win earns 10 XP total, a rated blitz game earns 2 XP, a blitz win earns 5 XP total, and each correct puzzle earns 2 XP. Every XP earned also grants one Academy Coin."
+    question: "Does Lichess activity automatically earn Chess Quest XP?",
+    answer: "No. Lichess is an optional way to sign in or link your existing Chess Quest account. Chess Quest does not sync your Lichess games, puzzles, ratings, or tournament results for progress or rewards."
   },
   {
     question: "How do I earn badges?",
     answer: "Badges are earned by showing chess skills such as tactics, checkmates, endgames, sportsmanship, tournament effort, and special boss achievements."
   },
   {
-    question: "How do Lichess quests work?",
-    answer: "Live Lichess quests track approved activity windows such as rated rapid games, puzzle practice, and Arena scores. Sync your quest progress from the student quest page. Completed conditions go to your teacher for approval before XP or badges are awarded."
+    question: "How do quests work?",
+    answer: "Open Quests in the student portal, start an available quest, and complete its listed Chess Quest activities. Refresh to check saved progress. Some rewards are awarded automatically; others require teacher approval."
   },
   {
     question: "How do I submit work?",
@@ -27,7 +27,7 @@ const faqs = [
   },
   {
     question: "How do I join tournaments?",
-    answer: "Log in to Lichess, open the Chess Academy team page, click join, and enter the team code: good game. After you are on the team, return to the tournaments page and join an upcoming event."
+    answer: "Open Tournaments in the student portal and follow the entry instructions for an available event. Ask your teacher if you cannot find the event you need."
   }
 ];
 
