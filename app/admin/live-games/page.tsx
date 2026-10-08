@@ -13,11 +13,11 @@ export default async function AdminLiveGamesPage() {
       createAdminActionToken()
     ]);
     return (
-      <AppShell title="Live Games" subtitle="Watch student-vs-student games in progress without affecting play." variant="admin">
+      <AppShell title="Live Games" subtitle="Watch students playing each other or computer opponents without affecting play." variant="admin">
         <AdminLiveGames initialGames={initialGames} adminActionToken={adminActionToken} />
       </AppShell>
     );
   } catch (error) {
-    return <AppShell title="Live Games" subtitle="Watch student-vs-student games in progress without affecting play." variant="admin"><Card className="p-6 text-sm font-bold text-rose-100">{error instanceof Error ? error.message : "Live games could not be loaded."}</Card></AppShell>;
+    return <AppShell title="Live Games" subtitle="Watch students playing each other or computer opponents without affecting play." variant="admin"><Card className="p-6 text-sm font-bold text-rose-100">{error instanceof Error ? error.message : "Live games could not be loaded."}</Card></AppShell>;
   }
 }

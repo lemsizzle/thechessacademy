@@ -96,5 +96,7 @@ export function useGameClock() {
     setDisplay(snapshot);
   }, []);
 
-  return { display, expiredColor, reset, completeMove, restore, pause };
+  const sample = useCallback(() => runningRef.current ? clockAt(runningRef.current, Date.now()) : displayRef.current, []);
+
+  return { display, expiredColor, reset, completeMove, restore, pause, sample };
 }

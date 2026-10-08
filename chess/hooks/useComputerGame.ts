@@ -10,6 +10,7 @@ import { canColorPossiblyCheckmate, createOutcome, detectBoardOutcome, gameMoves
 import { useChessSounds } from "@/chess/hooks/useChessSounds";
 import { useBoardCaptureEffect } from "@/chess/hooks/useBoardCaptureEffect";
 import { useGameClock } from "@/chess/hooks/useGameClock";
+import { useComputerGamePresence } from "@/chess/hooks/useComputerGamePresence";
 import { useStockfish } from "@/chess/hooks/useStockfish";
 import { crossedOneMinuteWarning } from "@/chess/game/clockWarning";
 import { canPlayPremove, isPremovePromotion, type LivePremove } from "@/chess/live/premove";
@@ -33,6 +34,7 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
   const botMoveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousBotDelayRef = useRef<number | null>(null);
   const [config, setConfig] = useState<ComputerGameConfig | null>(null);
+  const [presenceSession, setPresenceSession] = useState<{ gameId: string; startedAt: string } | null>(null);
   const [fen, setFen] = useState(STANDARD_FEN);
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
   const [moves, setMoves] = useState(() => gameMoves(chessRef.current));
@@ -47,11 +49,12 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
   const [savedGameId, setSavedGameId] = useState<string | null>(null);
   const [engineRetry, setEngineRetry] = useState(0);
   const [delayingBotMove, setDelayingBotMove] = useState(false);
-  const { display: clockDisplay, expiredColor, reset: resetClock, completeMove: completeClockMove, restore: restoreClock, pause: pauseClock } = useGameClock();
+  const { display: clockDisplay, expiredColor, reset: resetClock, completeMove: completeClockMove, restore: restoreClock, pause: pauseClock, sample: sampleClock } = useGameClock();
   const { requestMove: requestEngineMove, stop: stopEngine, thinking: engineThinking, engineError, clearEngineError } = useStockfish();
   const { muted, setMuted, play: playSound } = useChessSounds();
   const { captureEffect, clearCaptureEffect, triggerCaptureEffect } = useBoardCaptureEffect();
   clockDisplayRef.current = clockDisplay;
+  useComputerGamePresence({ config, session: presenceSession, moves, outcome, sampleClock });
 
   const clearBotMoveDelay = useCallback(() => {
     if (botMoveTimerRef.current !== null) {
@@ -109,6 +112,7 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     outcomeRef.current = null;
     engineRequestFenRef.current = null;
     startedAtRef.current = new Date().toISOString();
+    setPresenceSession({ gameId: crypto.randomUUID(), startedAt: startedAtRef.current });
     completedAtRef.current = "";
     saveStartedRef.current = false;
     takebackCountRef.current = 0;
@@ -387,6 +391,7 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     pauseClock();
     outcomeRef.current = null;
     setConfig(null);
+    setPresenceSession(null);
     setOutcome(null);
     setResultOpen(false);
     setPendingPromotion(null);

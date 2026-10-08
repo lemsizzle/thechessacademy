@@ -14,6 +14,12 @@ const mocks = {
   "@/components/correspondence/CorrespondenceProvider": "export const useOptionalCorrespondence = () => null;",
   "@/chess/hooks/useLiveGameSounds": "const noop=()=>{}; export const useLiveGameSounds=()=>({muted:true,toggleMuted:noop,receiveGameSnapshot:noop,playClockWarning:noop,captureEffect:null});"
 };
+if (process.env.GAMEPLAY_MOCK_COMPUTER_PRESENCE === "1") {
+  // Only the local verification fixture imports server transforms with an in-memory DB.
+  mocks["server-only"] = "";
+  mocks["@/lib/supabase/server"] = "export const getSupabaseServiceClient=()=>window.__computerPresenceClient;";
+  mocks["@/lib/avatar/supabaseAvatar"] = "export const getStudentAvatarDisplayData=async()=>({avatars:{},items:[]});";
+}
 if (process.env.GAMEPLAY_MOCK_ENGINE === "1") {
   // UI regressions should not wait for deliberately random bot thinking (up to
   // 45 seconds). Real thinking-delay behavior has separate unit coverage.
@@ -28,7 +34,7 @@ const result = await build({
   entryPoints: [process.env.GAMEPLAY_FIXTURE || "tests/browser/gameplay-harness.jsx"], outfile: "bundle.js", bundle: true, write: false, format: "iife", jsx: "automatic",
   define: { "process.env.NODE_ENV": '"development"' },
   plugins: [{ name: "local-fixtures", setup(builder) {
-    builder.onResolve({ filter: /^(next\/|@\/)/ }, ({ path }) => path in mocks ? { path, namespace: "fixture" } : undefined);
+    builder.onResolve({ filter: /^(next\/|@\/|server-only$)/ }, ({ path }) => path in mocks ? { path, namespace: "fixture" } : undefined);
     builder.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path }) => ({ contents: mocks[path], loader: "js", resolveDir: process.cwd() }));
   } }],
   alias: { "@": process.cwd() }

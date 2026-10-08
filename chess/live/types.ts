@@ -111,6 +111,7 @@ export type LiveGameSummary = {
 };
 
 export type TeacherLiveGameSummary = {
+  computerPractice?: boolean;
   id: string;
   players: Record<ChessColor, LiveGamePlayer>;
   timeControl: TimeControl;
@@ -124,6 +125,7 @@ export type TeacherLiveGameSummary = {
 };
 
 export type TeacherLiveGameSnapshot = {
+  computerPractice?: boolean;
   berserk?: Record<ChessColor, boolean>;
   id: string;
   status: LiveGameStatus;

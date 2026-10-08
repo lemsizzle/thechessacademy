@@ -31,6 +31,7 @@ function clockValue(game: TeacherLiveGameSnapshot, color: ChessColor, nowMs: num
 }
 
 function completedStatus(game: TeacherLiveGameSnapshot) {
+  if (game.status === "cancelled") return "This practice game is no longer active. You can still review its last position.";
   if (game.status !== "completed") return `${game.players[game.activeColor].name} to move.`;
   if (!game.resultReason) return "Good Game.";
   const reason = game.resultReason.replaceAll("_", " ");
@@ -73,6 +74,9 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
         headers: isTeacher ? { "x-admin-action-token": adminActionToken } : undefined
       });
       const body = await response.json() as GameResponse;
+      if (response.status === 404 && gameId.startsWith("computer-")) {
+        setGame((previous) => previous ? { ...previous, status: "cancelled" } : null);
+      }
       if (!response.ok || !body.game) throw new Error(body.error || "Live game could not be loaded.");
       receiveGame(body.game);
     } catch (caught) {
@@ -211,9 +215,9 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
               <div>
                 <p className="text-xs font-black uppercase tracking-wider text-cyan-200">{isTeacher ? "Teacher spectator mode" : "Arena spectator mode"}</p>
                 <h2 className="mt-1 text-xl font-black text-white">{game.players.white.name} vs {game.players.black.name}</h2>
-                <p className="mt-1 text-xs font-bold text-slate-400">{game.matchmaking ? "Academy match" : "Private challenge"} · {game.rated ? "Rated" : "Casual"} · {game.timeControl.name}</p>
+                <p className="mt-1 text-xs font-bold text-slate-400">{game.computerPractice ? "Computer practice" : game.matchmaking ? "Academy match" : "Private challenge"} · {game.rated ? "Rated" : "Casual"} · {game.timeControl.name}</p>
               </div>
-              <span className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${game.status === "completed" ? "border-slate-300/25 bg-slate-300/10 text-slate-200" : connection === "live" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{game.status === "completed" ? "Finished" : connection === "live" ? "Live" : connection}</span>
+              <span className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${game.status !== "active" ? "border-slate-300/25 bg-slate-300/10 text-slate-200" : connection === "live" || game.computerPractice ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{game.status === "completed" ? "Finished" : game.status === "cancelled" ? "Closed" : connection === "live" || game.computerPractice ? "Live" : connection}</span>
             </div>
             <p className="mt-4 rounded-md border border-white/10 bg-white/5 p-3 text-sm font-bold leading-5 text-slate-200" aria-live="polite">{completedStatus(game)}</p>
           </Card>

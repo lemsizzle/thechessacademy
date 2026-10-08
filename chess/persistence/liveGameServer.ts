@@ -1,5 +1,7 @@
 import "server-only";
 import { GAME_SUMMARY_COLUMNS } from "./gameSummaryColumns";
+import { getTeacherComputerGame, listTeacherComputerGames } from "./computerGamePresenceServer";
+import { COMPUTER_GAME_PREFIX } from "@/chess/live/computerPresence";
 import { arenaBotAvatar } from "@/chess/arena/lobbyAvatars";
 
 import { Chess } from "chess.js";
@@ -475,16 +477,17 @@ export async function listLiveGames(studentId: string): Promise<LiveGameSummary[
 }
 
 export async function listTeacherLiveGames(): Promise<TeacherLiveGameSummary[]> {
-  const { data, error } = await serviceClient()
+  const [liveResult, computerGames] = await Promise.all([serviceClient()
     .from("live_chess_games")
     .select("*")
     .eq("status", "active")
     .eq("game_mode", "live")
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false }), listTeacherComputerGames()]);
+  const { data, error } = liveResult;
   if (error) throw new LiveGameServerError(error.message, 500);
   const games = (data ?? []).map(normalizeRecord);
   const players = await playerMap(games.flatMap((game) => [game.white_player_id, game.black_player_id]));
-  return games.flatMap((game) => game.started_at ? [{
+  const liveGames = games.flatMap((game) => game.started_at ? [{
     id: game.id,
     players: {
       white: gamePlayers(game, players).white ?? requiredPlayer(players, game.white_player_id),
@@ -499,6 +502,7 @@ export async function listTeacherLiveGames(): Promise<TeacherLiveGameSummary[]> 
     startedAt: game.started_at,
     updatedAt: game.updated_at
   }] : []);
+  return [...liveGames, ...computerGames].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
 }
 
 export async function maintainArenaGame(gameId: string) {
@@ -510,6 +514,7 @@ export async function maintainArenaGame(gameId: string) {
 }
 
 export async function getTeacherLiveGame(gameId: string) {
+  if (gameId.startsWith(COMPUTER_GAME_PREFIX)) return getTeacherComputerGame(gameId);
   const game = await loadRecord(gameId);
   if (game.game_mode !== "live" || game.status === "waiting" || game.status === "cancelled") throw new LiveGameServerError("This game is not available to watch.", 404);
   if (game.arena_bot && game.status === "active") scheduleArenaBotTurn(game.id);

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getTeacherLiveGame, LiveGameServerError } from "@/chess/persistence/liveGameServer";
 import { ADMIN_SESSION_COOKIE, isAuthorizedAdminRequest } from "@/lib/auth/adminSession";
+import { ComputerPresenceError } from "@/chess/live/computerPresence";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ game
     const { gameId } = await params;
     return NextResponse.json({ ok: true, game: await getTeacherLiveGame(gameId) });
   } catch (error) {
-    const status = error instanceof LiveGameServerError ? error.status : 500;
+    const status = error instanceof LiveGameServerError || error instanceof ComputerPresenceError ? error.status : 500;
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Live game could not be loaded." }, { status });
   }
 }
