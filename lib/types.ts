@@ -60,7 +60,10 @@ export type Badge = {
   createdAt?: string;
 };
 
+export type DisplayedBadge = { id: string; name: string; imageUrl: string; tier?: BadgeTier };
+
 export type Student = {
+  displayedBadge?: DisplayedBadge | null;
   id: string;
   slug: string;
   lichessUsername?: string;
@@ -154,6 +157,7 @@ export type CoinTransaction = {
 export type UserRole = "admin" | "student";
 
 export type StudentUser = {
+  displayedBadge?: DisplayedBadge | null;
   authProvider?: "lichess" | "academy" | "supabase";
   academyUsername?: string;
   id: string;

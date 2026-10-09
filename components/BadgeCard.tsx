@@ -2,24 +2,23 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { getBadgeTierStyles, getTierAura } from "@/lib/badges";
-import type { Badge } from "@/lib/types";
+import type { Badge, DisplayedBadge } from "@/lib/types";
 import { getTacticalMilestone, tacticalTier } from "@/lib/badges/tacticalMilestones";
 import { isChaosMastery } from "@/lib/badges/chaosMastery";
 import { achievementById, isGameAchievement } from "@/lib/badges/gameAchievements/catalog";
 import { achievementGameLink } from "@/lib/badges/gameAchievements/evidence";
 import { isSurvivalAdamantium } from "@/lib/badges/survivalAdamantium";
+import { getBadgeArtUrl } from "@/lib/badges/art";
+import { useDisplayedBadge } from "@/lib/badges/useDisplayedBadge";
+import { FeatureBadgeButton } from "@/components/student/FeatureBadgeButton";
 
-function getFallbackBadgeArtUrl(badge: Badge) {
-  const variant = (badge.id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) % 3) + 1;
-  const params = new URLSearchParams({ badge: badge.name, category: badge.category });
-  return `/mock-badge-art/${badge.tier?.toLowerCase() ?? "concept"}-${variant}.svg?${params.toString()}`;
-}
-
-export function BadgeCard({ badge, earned = false, statusText, earnedTiers }: { badge: Badge; earned?: boolean; statusText?: string; earnedTiers?: Badge[] }) {
+export function BadgeCard({ badge, earned = false, statusText, earnedTiers, featureStudentId, displayedBadge }: { badge: Badge; earned?: boolean; statusText?: string; earnedTiers?: Badge[]; featureStudentId?: string; displayedBadge?: DisplayedBadge | null }) {
   const [open, setOpen] = useState(false);
+  const current = useDisplayedBadge(displayedBadge, featureStudentId);
+  const featured = Boolean(earned && featureStudentId && (earnedTiers ?? [badge]).some(tier => tier.id === current?.id));
   const tierStyles = getBadgeTierStyles(badge.tier);
   const aura = getTierAura(badge.tier);
-  const imageUrl = badge.finalImageUrl || badge.artImageUrl || getFallbackBadgeArtUrl(badge);
+  const imageUrl = getBadgeArtUrl(badge);
   return (
     <>
       <button
@@ -33,16 +32,17 @@ export function BadgeCard({ badge, earned = false, statusText, earnedTiers }: { 
           <img src={imageUrl} alt="" width={192} height={192} loading="lazy" decoding="async" className="h-full w-full rounded-full bg-slate-950 object-contain" />
         </span>
         {earned && <span className="block min-h-8 w-full break-words text-center text-xs font-semibold leading-4 text-slate-100 sm:text-sm sm:leading-5">{badge.name}</span>}
+        {featured && <span className="absolute left-2 top-2 rounded-full border border-amber-200/40 bg-slate-950/95 px-2.5 py-1 text-xs font-black text-amber-200">★ Featured</span>}
       </button>
-      {open && <BadgeDetails badge={badge} earnedTiers={earnedTiers ?? [badge]} statusText={statusText ?? (earned ? "Earned" : "Locked")} onClose={() => setOpen(false)} />}
+      {open && <BadgeDetails badge={badge} earnedTiers={earnedTiers ?? [badge]} statusText={statusText ?? (earned ? "Earned" : "Locked")} featureStudentId={earned ? featureStudentId : undefined} displayedBadge={current} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-export function BadgeDetails({ badge: highestBadge, earnedTiers, statusText, onClose }: { badge: Badge; earnedTiers: Badge[]; statusText: string; onClose: () => void }) {
+export function BadgeDetails({ badge: highestBadge, earnedTiers, statusText, onClose, featureStudentId, displayedBadge }: { badge: Badge; earnedTiers: Badge[]; statusText: string; onClose: () => void; featureStudentId?: string; displayedBadge?: DisplayedBadge | null }) {
   const [selectedId, setSelectedId] = useState(highestBadge.id);
   const badge = earnedTiers.find((item) => item.id === selectedId) ?? highestBadge;
-  const imageUrl = badge.finalImageUrl || badge.artImageUrl || getFallbackBadgeArtUrl(badge);
+  const imageUrl = getBadgeArtUrl(badge);
   const milestone = getTacticalMilestone(badge);
   const awardDate = badge.createdAt ? new Date(badge.createdAt) : null;
   const selectedStatus = badge.id === highestBadge.id ? statusText : awardDate && !Number.isNaN(awardDate.getTime())
@@ -74,7 +74,7 @@ export function BadgeDetails({ badge: highestBadge, earnedTiers, statusText, onC
           event.preventDefault();
           onClose();
         } else if (event.key === "Tab") {
-          const buttons = dialogRef.current?.querySelectorAll<HTMLElement>("button, a[href]");
+          const buttons = dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), a[href]");
           if (!buttons?.length) return;
           const first = buttons[0];
           const last = buttons[buttons.length - 1];
@@ -95,6 +95,7 @@ export function BadgeDetails({ badge: highestBadge, earnedTiers, statusText, onC
         </div>
         <h2 id={titleId} className="mt-6 break-words text-center text-2xl font-black text-white">{badge.name}</h2>
         <p className="mt-2 text-center text-sm text-cyan-100">{selectedStatus}</p>
+        {featureStudentId && <FeatureBadgeButton key={badge.id} studentId={featureStudentId} badgeId={badge.id} displayedBadge={displayedBadge} />}
         <div className="mt-4 flex flex-wrap justify-center gap-2 text-sm font-bold">
           {badge.tier && <span className={`rounded-full border px-3 py-1 ${getBadgeTierStyles(badge.tier)}`}>{tacticalTier(badge.tier)}</span>}
           <span className="rounded-full bg-white/10 px-3 py-1">{achievementById.get(badge.id)?.group ?? badge.category}</span>
@@ -107,7 +108,7 @@ export function BadgeDetails({ badge: highestBadge, earnedTiers, statusText, onC
           <h3 className="text-sm font-bold text-white">Your earned tiers</h3>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {earnedTiers.map((tierBadge) => <button key={tierBadge.id} type="button" aria-label={`View ${tierBadge.name} ${tacticalTier(tierBadge.tier)} tier`} aria-pressed={badge.id === tierBadge.id} onClick={() => setSelectedId(tierBadge.id)} className={`rounded-xl border p-2 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${badge.id === tierBadge.id ? "border-cyan-200 bg-cyan-300/15" : "border-white/15 bg-white/5 hover:bg-white/10"}`}>
-              <img src={tierBadge.finalImageUrl || tierBadge.artImageUrl || getFallbackBadgeArtUrl(tierBadge)} alt="" width={72} height={72} className="mx-auto mb-2 size-16 rounded-full object-contain" />
+              <img src={getBadgeArtUrl(tierBadge)} alt="" width={72} height={72} className="mx-auto mb-2 size-16 rounded-full object-contain" />
               {tacticalTier(tierBadge.tier)}
             </button>)}
           </div>

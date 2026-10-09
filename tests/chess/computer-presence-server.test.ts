@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Chess } from "chess.js";
-const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn(), avatars: vi.fn(), presence: [] as unknown[], students: [] as unknown[], live: [] as unknown[], queries: [] as Array<{ table: string; method: string; args: unknown[] }> }));
+const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn(), avatars: vi.fn(), presence: [] as unknown[], students: [] as unknown[], live: [] as unknown[], badges: [] as unknown[], queries: [] as Array<{ table: string; method: string; args: unknown[] }> }));
 vi.mock("@/lib/supabase/server", () => ({ getSupabaseServiceClient: () => ({ from: mocks.from, rpc: mocks.rpc }) }));
 vi.mock("@/lib/avatar/supabaseAvatar", () => ({ getStudentAvatarDisplayData: mocks.avatars }));
 vi.mock("@/chess/persistence/arenaServer", () => ({ finalizeInternalArenaGame: vi.fn(), scheduleArenaBotTurn: vi.fn() }));
@@ -15,11 +15,11 @@ function row() { return {
 }; }
 beforeEach(() => {
   vi.clearAllMocks(); vi.spyOn(Date, "now").mockReturnValue(now);
-  mocks.presence = [row()]; mocks.students = [{ id: "student", display_name: "Explorer", lichess_username: null }]; mocks.live = []; mocks.queries = [];
+  mocks.presence = [row()]; mocks.students = [{ id: "student", display_name: "Explorer", lichess_username: null }]; mocks.live = []; mocks.badges = []; mocks.queries = [];
   mocks.avatars.mockResolvedValue({ avatars: { student: { studentId: "student", equippedItems: { hat: "hat" } } }, items: [{ id: "hat" }, { id: "unused" }] });
   mocks.rpc.mockResolvedValue({ data: true, error: null });
   mocks.from.mockImplementation((table: string) => {
-    let rows = table === "students" ? mocks.students : table === "live_chess_games" ? mocks.live : mocks.presence;
+    let rows = table === "students" ? mocks.students : table === "student_badges" ? mocks.badges : table === "live_chess_games" ? mocks.live : mocks.presence;
     const query: Record<string, unknown> = {};
     for (const method of ["select", "eq", "gte", "order", "in"]) query[method] = (...args: unknown[]) => {
       mocks.queries.push({ table, method, args });
@@ -34,6 +34,24 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 describe("teacher computer-game discovery and watching", () => {
+  it("shows the selected earned badge in human and computer game name tags", async () => {
+    mocks.badges = [{ student_id: "student", is_displayed: true, badges: { id: "selected-badge", name: "Survival Adamantium", category: "Tactics", tier: "SS", final_image_url: "/badges/survival-adamantium-v1.webp", art_image_url: null } }];
+    mocks.students.push({ id: "second", display_name: "Second Student", lichess_username: null });
+    mocks.live = [{ id: "human-game", white_player_id: "student", black_player_id: "second", status: "active", game_mode: "live", started_at: row().started_at, updated_at: row().started_at, moves: [], active_color: "white", rated: true, matchmaking: true, arena_tournament_id: null, time_control: { id: "5+3", name: "5 + 3", initialMs: 300000, incrementMs: 3000 } }];
+    const games = await listTeacherLiveGames();
+    expect(games.find(game => game.id === "human-game")?.players.white.displayedBadge).toMatchObject({ id: "selected-badge", tier: "Adamantium" });
+    const computer = await getTeacherComputerGame(`computer-${gameId}`);
+    expect(computer.players.black.displayedBadge?.id).toBe("selected-badge");
+    expect(computer.players.white.displayedBadge).toBeUndefined();
+  });
+  it("keeps gameplay available if decorative badge storage cannot be read", async () => {
+    const from = mocks.from.getMockImplementation()!;
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "student_badges") throw new Error("Temporary badge outage");
+      return from(table);
+    });
+    expect((await getTeacherComputerGame(`computer-${gameId}`)).players.black.name).toBe("Explorer");
+  });
   it("keeps student matches alongside computer practice in the teacher lobby and routes bot watch links correctly", async () => {
     mocks.students.push({ id: "second", display_name: "Second Student", lichess_username: null });
     mocks.live = [{ id: "human-game", white_player_id: "student", black_player_id: "second", status: "active", game_mode: "live", started_at: row().started_at, updated_at: row().started_at, moves: [], active_color: "white", rated: true, matchmaking: true, arena_tournament_id: null, time_control: { id: "5+3", name: "5 + 3", initialMs: 300000, incrementMs: 3000 } }];

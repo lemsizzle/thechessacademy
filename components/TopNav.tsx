@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { getNavigationGroups, getTopNavActions, type NavVariant } from "@/components/navigation";
 import { StudentNavigation } from "@/components/student/StudentNavigation";
 import { clearStudyDraftsOnLogout } from "@/chess/analysis/studyDraftSession";
+import type { DisplayedBadge } from "@/lib/types";
 
 function TopNavAction({ href, label, className }: { href: string; label: string; className: string }) {
   if (href === "/api/admin/logout") {
@@ -22,10 +23,14 @@ function TopNavAction({ href, label, className }: { href: string; label: string;
 export function TopNav({
   variant = "public",
   studentName,
+  displayedBadge,
+  studentId,
   onStudentLogout
 }: {
   variant?: NavVariant;
   studentName?: string;
+  displayedBadge?: DisplayedBadge | null;
+  studentId?: string;
   onStudentLogout?: () => void;
 }) {
   const pathname = usePathname();
@@ -50,7 +55,7 @@ export function TopNav({
   }, []);
 
   if (variant === "student" && studentName && onStudentLogout) {
-    return <StudentNavigation studentName={studentName} onLogout={onStudentLogout} />;
+    return <StudentNavigation studentName={studentName} displayedBadge={displayedBadge} studentId={studentId} onLogout={onStudentLogout} />;
   }
 
   const actions = getTopNavActions(variant);

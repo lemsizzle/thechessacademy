@@ -6,6 +6,7 @@ export type LiveGameStatus = "waiting" | "active" | "completed" | "cancelled";
 export type LiveGameMode = "live" | "correspondence";
 
 export type LiveGamePlayer = {
+  displayedBadge?: import("@/lib/types").DisplayedBadge | null;
   id: string;
   name: string;
   avatar?: StudentAvatarConfig;

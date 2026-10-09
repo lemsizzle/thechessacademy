@@ -5,6 +5,7 @@ import type { StudentActivityItem } from "@/lib/studentActivity";
 import type {
   AvatarItem,
   Badge,
+  DisplayedBadge,
   LichessQuestProgress,
   Quest,
   QuestCompletionEvent,
@@ -68,6 +69,7 @@ export type StudentDashboardData = {
     id: string;
     name: string;
     classGroup: string;
+    displayedBadge?: DisplayedBadge | null;
   };
   progress: StudentDashboardProgress;
   wallet: {

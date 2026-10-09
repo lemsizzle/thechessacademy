@@ -199,14 +199,14 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
       <div className="grid min-w-0 grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
         <BoardViewport maxWidth={700}>
-          <PlayerPanel name={game.players[topColor].name} subtitle={`Playing ${topColor}`} clockMs={displayedClocks[topColor]} active={game.status === "active" && game.activeColor === topColor} portrait={game.players[topColor].portrait} avatar={game.players[topColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, topColor)} actions={<BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} />} />
+          <PlayerPanel displayedBadge={game.players[topColor].displayedBadge} studentId={game.players[topColor].id} name={game.players[topColor].name} subtitle={`Playing ${topColor}`} clockMs={displayedClocks[topColor]} active={game.status === "active" && game.activeColor === topColor} portrait={game.players[topColor].portrait} avatar={game.players[topColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, topColor)} actions={<BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} />} />
           <div className="relative">
             <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
               <AcademyChessboard fen={viewedFen} orientation={orientation} humanColor={orientation} interactive={false} lastMove={lastMove} onMove={ignoreMove} arrows={boardArrows} allowDrawingArrows onArrowsChange={setBoardArrows} onClearAnnotations={clearBoardAnnotations} boardId={`teacher-watch-${game.id}`} />
               <BoardCaptureParticles effect={selectedPly === null ? captureEffect : null} orientation={orientation} />
             </div>
           </div>
-          <PlayerPanel name={game.players[bottomColor].name} subtitle={`Playing ${bottomColor}`} clockMs={displayedClocks[bottomColor]} active={game.status === "active" && game.activeColor === bottomColor} portrait={game.players[bottomColor].portrait} avatar={game.players[bottomColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, bottomColor)} />
+          <PlayerPanel displayedBadge={game.players[bottomColor].displayedBadge} studentId={game.players[bottomColor].id} name={game.players[bottomColor].name} subtitle={`Playing ${bottomColor}`} clockMs={displayedClocks[bottomColor]} active={game.status === "active" && game.activeColor === bottomColor} portrait={game.players[bottomColor].portrait} avatar={game.players[bottomColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, bottomColor)} />
         </BoardViewport>
 
         <aside className="space-y-4 xl:sticky xl:top-4">

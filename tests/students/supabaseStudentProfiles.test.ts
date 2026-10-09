@@ -38,16 +38,18 @@ const supabaseMock = vi.hoisted(() => {
           return query;
         }
 
-        const data = table === "student_badges"
+        let data: unknown[] = table === "student_badges"
           ? [{ student_id: student.id, badge_id: "badge-1" }]
           : [
             { student_id: student.id, quest_id: "quest-complete", status: "completed" },
             { student_id: student.id, quest_id: "quest-active", status: "active" }
           ];
         const query = {
-          select() {
+          select(columns: string) {
+            if (columns.includes("badges!inner")) data = [{ student_id: student.id, badges: { id: "badge-1", name: "Fork Finder", category: "Tactics", tier: "A", final_image_url: "/badge.webp", art_image_url: null } }];
             return query;
           },
+          eq() { return query; },
           in() {
             return Promise.resolve({ data, error: null });
           }
@@ -108,8 +110,9 @@ describe("Supabase student lookup hydration", () => {
   it("keeps full relation hydration as the default for profile callers", async () => {
     const result = await findSupabaseStudentById("11111111-1111-4111-8111-111111111111");
 
-    expect(supabaseMock.tableCalls).toEqual(["students", "student_badges", "student_quests"]);
+    expect(supabaseMock.tableCalls).toEqual(["students", "student_badges", "student_quests", "student_badges"]);
     expect(result.student?.badgeIds).toEqual(["badge-1"]);
     expect(result.student?.completedQuestIds).toEqual(["quest-complete"]);
+    expect(result.student?.displayedBadge).toMatchObject({ id: "badge-1", name: "Fork Finder", tier: "Gold", imageUrl: "/badge.webp" });
   });
 });

@@ -1,4 +1,6 @@
 import { LevelBadge } from "@/components/LevelBadge";
+import { DisplayedBadge } from "@/components/DisplayedBadge";
+import type { DisplayedBadge as BadgeData } from "@/lib/types";
 import { getLevelAvatarSymbol, getLevelCardStyle, getLevelFromXp, getLevelTitleFromXp } from "@/lib/xp";
 
 export function StudentCallingCard({
@@ -6,12 +8,16 @@ export function StudentCallingCard({
   classGroup,
   lichessUsername,
   xp,
+  displayedBadge,
+  studentId,
   size = "compact"
 }: {
   name: string;
   classGroup: string;
   lichessUsername?: string;
   xp: number;
+  displayedBadge?: BadgeData | null;
+  studentId?: string;
   size?: "compact" | "hero";
 }) {
   const level = getLevelFromXp(xp);
@@ -40,6 +46,7 @@ export function StudentCallingCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className={`${isHero ? "text-3xl" : "text-lg"} truncate font-black uppercase text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)]`}>{name}</h3>
+            <DisplayedBadge badge={displayedBadge} studentId={studentId} size={isHero ? "lg" : "sm"} />
             <LevelBadge level={level} />
           </div>
           <p className={`${isHero ? "text-sm" : "text-xs"} mt-1 font-black uppercase tracking-wide ${title.banner.split(" ").find((part) => part.startsWith("text-")) ?? "text-slate-200"}`}>

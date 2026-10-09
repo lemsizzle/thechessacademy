@@ -136,7 +136,7 @@ describe("getStudentDashboardData", () => {
     const xpQuery = serviceQuery({ data: [], error: null });
     const badgeQuery = serviceQuery({
       data: [
-        { badge_id: "badge-fork", awarded_at: "2026-09-05T12:00:00.000Z" },
+        { badge_id: "badge-fork", awarded_at: "2026-09-05T12:00:00.000Z", is_displayed: true },
         { badge_id: "badge-first", awarded_at: "2026-09-01T12:00:00.000Z" }
       ],
       error: null
@@ -151,6 +151,8 @@ describe("getStudentDashboardData", () => {
 
     expect(badgeQuery.order).toHaveBeenCalledWith("awarded_at", { ascending: false });
     expect(dashboard.badges.map((badge) => badge.id)).toEqual(["badge-fork", "badge-first"]);
+    expect(dashboard.student.displayedBadge).toMatchObject({ id: "badge-fork", name: "Fork Finder", tier: "Silver" });
+    expect(dashboard.student.displayedBadge?.imageUrl).toContain("/mock-badge-art/");
     expect(dashboard.badges.map((badge) => badge.createdAt)).toEqual([
       "2026-09-05T12:00:00.000Z",
       "2026-09-01T12:00:00.000Z"

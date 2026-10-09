@@ -19,6 +19,7 @@ import { arenaBotDifficulty, arenaGameBots } from "@/chess/arena/bots";
 import { chooseArenaBotMove } from "@/chess/engine/arenaStockfishServer";
 import { createArenaBotWorkQueue } from "@/chess/arena/botWorkQueue";
 import { arenaBotThinkingRemainingMs } from "@/chess/arena/botThinking";
+import { readDisplayedBadges } from "@/lib/badges/displayedBadgeRead";
 
 const queueArenaBotWork = createArenaBotWorkQueue();
 const pendingArenaBotTurns = new Map<string, Promise<void>>();
@@ -86,10 +87,13 @@ async function playerMap(ids: Array<string | null>) {
   const uniqueIds = [...new Set(ids.filter((id): id is string => Boolean(id)))];
   const players = new Map<string, LiveGamePlayer>();
   if (!uniqueIds.length) return players;
-  const studentResult = await serviceClient().from("students").select("id,display_name,lichess_username").in("id", uniqueIds);
+  const [studentResult, displayedBadges] = await Promise.all([
+    serviceClient().from("students").select("id,display_name,lichess_username").in("id", uniqueIds),
+    readDisplayedBadges(serviceClient(), uniqueIds).catch(() => new Map())
+  ]);
   if (studentResult.error) throw new LiveGameServerError(studentResult.error.message, 500);
   for (const row of (studentResult.data ?? []) as Array<{ id: string; display_name: string; lichess_username: string | null }>) {
-    players.set(row.id, { id: row.id, name: row.display_name || row.lichess_username || "Student" });
+    players.set(row.id, { id: row.id, name: row.display_name || row.lichess_username || "Student", ...(displayedBadges.has(row.id) ? { displayedBadge: displayedBadges.get(row.id) } : {}) });
   }
   return players;
 }

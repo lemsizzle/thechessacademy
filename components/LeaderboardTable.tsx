@@ -1,4 +1,5 @@
 "use client";
+import { DisplayedBadge } from "@/components/DisplayedBadge";
 
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { CorrespondenceIdentityMenu } from "@/components/correspondence/CorrespondenceIdentityMenu";
@@ -241,7 +242,7 @@ export function LeaderboardTable({
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-200 text-sm font-black text-slate-950">#{student.rank}</span>
                 <AvatarRenderer items={avatarItems} avatar={getStudentAvatar(student.id)} size="sm" label={`${student.name}'s avatar`} />
                 <span className="min-w-0">
-                  <span className="block truncate font-black text-white">{student.name}</span>
+                  <span className="flex items-center gap-2"><span className="truncate font-black text-white">{student.name}</span><DisplayedBadge badge={student.displayedBadge} studentId={student.id} /></span>
                   <span className="text-xs font-bold text-cyan-100">{student.score.toLocaleString()} {scoreUnit}</span>
                 </span>
             </CorrespondenceIdentityMenu>
@@ -278,8 +279,9 @@ export function LeaderboardTable({
                     >
                       <AvatarRenderer items={avatarItems} avatar={getStudentAvatar(student.id)} size="sm" label={`${student.name}'s avatar`} />
                       <div className="min-w-0">
-                        <span className="block font-bold text-white transition group-hover:text-amber-100">
+                        <span className="flex items-center gap-2 font-bold text-white transition group-hover:text-amber-100">
                           {student.name}
+                          <DisplayedBadge badge={student.displayedBadge} studentId={student.id} />
                         </span>
                         <span className="mt-1 block w-fit text-xs font-bold text-cyan-200">
                           ID: {student.lichessUsername ?? student.slug}

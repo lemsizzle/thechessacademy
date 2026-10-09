@@ -2,6 +2,7 @@ import { getSupabaseServerReadClient, getSupabaseServiceClient, isSupabaseProjec
 import { grantAcademyCoinsForXp } from "@/lib/avatar/supabaseAvatar";
 import { UNASSIGNED_CLASS } from "@/lib/classes";
 import { groupStudentRelations } from "@/lib/students/groupStudentRelations";
+import { readDisplayedBadges } from "@/lib/badges/displayedBadgeRead";
 import type { Badge, BadgeTier, Student, StudentSession, XpEvent } from "@/lib/types";
 
 type SupabaseStudentRow = {
@@ -71,9 +72,10 @@ async function hydrateStudentRows(
   if (!supabase || !rows.length) return rows.map((row) => toStudent(row));
 
   const studentIds = rows.map((row) => row.id);
-  const [badges, quests] = await Promise.all([
+  const [badges, quests, displayedBadges] = await Promise.all([
     supabase.from("student_badges").select("student_id,badge_id").in("student_id", studentIds),
-    supabase.from("student_quests").select("student_id,quest_id,status").in("student_id", studentIds)
+    supabase.from("student_quests").select("student_id,quest_id,status").in("student_id", studentIds),
+    readDisplayedBadges(supabase, studentIds).catch(() => new Map())
   ]);
 
   const badgeRows = badges.error ? [] : ((badges.data ?? []) as StudentBadgeRow[]);
@@ -83,11 +85,11 @@ async function hydrateStudentRows(
     questRows.filter((quest) => quest.status === "completed")
   );
 
-  return rows.map((row) => toStudent(
+  return rows.map((row) => ({ ...toStudent(
     row,
     (badgesByStudent.get(row.id) ?? []).map((badge) => badge.badge_id),
     (completedQuestsByStudent.get(row.id) ?? []).map((quest) => quest.quest_id)
-  ));
+  ), ...(displayedBadges.has(row.id) ? { displayedBadge: displayedBadges.get(row.id) } : {}) }));
 }
 
 function isUuid(value: string) {

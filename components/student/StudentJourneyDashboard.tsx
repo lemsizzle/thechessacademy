@@ -1,5 +1,6 @@
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { BadgeCard } from "@/components/BadgeCard";
+import { DisplayedBadge } from "@/components/DisplayedBadge";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import {
@@ -330,7 +331,7 @@ function TrophyCase({
   const Heading = headingLevel;
 
   return (
-    <section aria-labelledby={headingId}>
+    <section id={headingLevel === "h2" ? "trophy-case" : undefined} aria-labelledby={headingId}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-amber-200/35 bg-amber-300/10 text-2xl shadow-[0_0_28px_rgba(251,191,36,0.18)]">
@@ -339,7 +340,7 @@ function TrophyCase({
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Academy honors</p>
             <Heading id={headingId} className="mt-1 text-2xl font-black text-white">Trophy Case</Heading>
-            <p className="mt-1 text-sm text-slate-300">Select a badge for a closer look.</p>
+            <p className="mt-1 text-sm text-slate-300">{readOnly ? "Select a badge for a closer look." : "Open a badge and choose Feature badge to show it beside your name."}</p>
           </div>
         </div>
         <span className="w-fit rounded-full border border-amber-200/25 bg-amber-300/10 px-3 py-1.5 text-sm font-black text-amber-100">
@@ -361,6 +362,8 @@ function TrophyCase({
                 badge={badge}
                 earnedTiers={tiers}
                 earned
+                featureStudentId={readOnly ? undefined : data.student.id}
+                displayedBadge={data.student.displayedBadge}
                 statusText={formatBadgeAwardDate(badge.createdAt)}
               />
             ))}
@@ -431,7 +434,10 @@ export function StudentJourneyDashboard({ data, readOnly = false }: { data: Stud
 
             <div className="min-w-0 flex-1 text-center lg:text-left">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Academy student</p>
-              <h2 className="mt-1 truncate text-3xl font-black text-white">{data.student.name}</h2>
+              <div className="mt-1 flex min-w-0 items-center justify-center gap-3 lg:justify-start">
+                <h2 className="truncate text-3xl font-black text-white">{data.student.name}</h2>
+                <DisplayedBadge badge={data.student.displayedBadge} studentId={data.student.id} size="lg" />
+              </div>
               <p className="mt-1 text-sm font-bold text-slate-400">{data.student.classGroup || "The Chess Academy"}</p>
               <div className="mt-3 flex flex-wrap justify-center gap-2 lg:justify-start">
                 <span className="rounded-md border border-amber-300/35 bg-amber-300/10 px-2.5 py-1 text-xs font-black text-amber-100">Level {data.progress.level}</span>

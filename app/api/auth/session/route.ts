@@ -4,6 +4,13 @@ import { isSupabaseProjectConfigured } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { requireActiveStudent, StudentAuthenticationError } from "@/lib/auth/requireActiveStudent";
 import { NextResponse } from "next/server";
+import { getOwnDisplayedBadge } from "@/lib/badges/displayedBadgeServer";
+import type { StudentSession } from "@/lib/types";
+
+async function userWithBadge(session: StudentSession) {
+  const displayedBadge = session.onboardingCompleted ? await getOwnDisplayedBadge(session.studentId).catch(() => null) : null;
+  return { ...sessionToStudentUser(session), displayedBadge };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +20,7 @@ export async function GET() {
   if ((session.authProvider === "academy" || session.authProvider === "supabase")) {
     try {
       await requireActiveStudent();
-      return NextResponse.json({ user: sessionToStudentUser(session), studentExists: true,
+      return NextResponse.json({ user: await userWithBadge(session), studentExists: true,
         session: { studentId: session.studentId, onboardingCompleted: true } });
     } catch (error) {
       return NextResponse.json({ user: null }, { status: error instanceof StudentAuthenticationError ? 401 : 503 });
@@ -36,7 +43,7 @@ export async function GET() {
       onboardingCompleted: Boolean(linked.student)
     });
     const response = NextResponse.json({
-      user: sessionToStudentUser(repairedSession),
+      user: await userWithBadge(repairedSession),
       session: { studentId: repairedSession.studentId, onboardingCompleted: repairedSession.onboardingCompleted },
       studentExists: Boolean(linked.student)
     }, { status: linked.student ? 200 : 200 });

@@ -527,14 +527,14 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
 
       <div className="grid min-w-0 grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,700px)_minmax(300px,1fr)] xl:gap-x-16">
         <BoardViewport maxWidth={700}>
-          <PlayerPanel name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${isCorrespondence ? "3 days per move" : game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} portrait={opponent?.portrait} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} actions={<BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} />} />
+          <PlayerPanel displayedBadge={opponent?.displayedBadge} studentId={opponent?.id} name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${isCorrespondence ? "3 days per move" : game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} portrait={opponent?.portrait} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} actions={<BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} />} />
           <div className="relative">
             <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
               <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} allowPremoves={canQueuePremove} premove={displayedPremove} onCancelPremove={() => setPremove(null)} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
               <BoardCaptureParticles effect={captureEffect} orientation={orientation} />
             </div>
           </div>
-          <PlayerPanel name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}${isCorrespondence ? " · 3 days per move" : ""}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} avatar={viewer?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />
+          <PlayerPanel displayedBadge={viewer?.displayedBadge} studentId={viewer?.id} name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}${isCorrespondence ? " · 3 days per move" : ""}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} avatar={viewer?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />
         </BoardViewport>
 
         <aside className="space-y-4 xl:sticky xl:top-20">

@@ -10,6 +10,7 @@ import type { LiveGamePlayer, TeacherLiveGameSnapshot, TeacherLiveGameSummary } 
 import type { ChessColor } from "@/chess/types";
 import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { readDisplayedBadges } from "@/lib/badges/displayedBadgeRead";
 
 type Row = {
   student_id: string; game_id: string; version: number; status: ComputerPresenceInput["status"];
@@ -46,9 +47,12 @@ export async function publishComputerGamePresence(studentId: string, body: unkno
 async function studentPlayers(ids: string[]) {
   const unique = [...new Set(ids)];
   if (!unique.length) return new Map<string, LiveGamePlayer>();
-  const { data, error } = await client().from("students").select("id,display_name,lichess_username").in("id", unique).eq("is_active", true);
+  const [{ data, error }, displayedBadges] = await Promise.all([
+    client().from("students").select("id,display_name,lichess_username").in("id", unique).eq("is_active", true),
+    readDisplayedBadges(client(), unique).catch(() => new Map())
+  ]);
   if (error) throw new ComputerPresenceError(error.message, 500);
-  return new Map<string, LiveGamePlayer>((data ?? []).map((student) => [student.id, { id: student.id, name: student.display_name || student.lichess_username || "Student" }]));
+  return new Map<string, LiveGamePlayer>((data ?? []).map((student) => [student.id, { id: student.id, name: student.display_name || student.lichess_username || "Student", ...(displayedBadges.has(student.id) ? { displayedBadge: displayedBadges.get(student.id) } : {}) }]));
 }
 
 function summary(row: Row, student: LiveGamePlayer): TeacherLiveGameSummary | null {

@@ -153,7 +153,7 @@ export function StudentPortalShell({
         <div className="flex min-h-screen">
           <Sidebar variant="student" />
           <div className="min-w-0 flex-1">
-            <TopNav variant="student" studentName={user.name} onStudentLogout={logout} />
+            <TopNav variant="student" studentName={user.name} studentId={user.studentId} displayedBadge={user.displayedBadge} onStudentLogout={logout} />
             <main className="student-play-area mx-auto w-full max-w-7xl px-4 pb-28 pt-6 md:pb-6 lg:px-6">
               <ActiveLiveGameBanner key={user.studentId} />
               {title && <div data-page-heading className="mb-6">

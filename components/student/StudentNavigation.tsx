@@ -3,6 +3,8 @@
 import { StudentMenuLink as Link } from "@/components/student/StudentMenuNavigation";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { DisplayedBadge } from "@/components/DisplayedBadge";
+import type { DisplayedBadge as BadgeData } from "@/lib/types";
 import {
   getStudentMobileMoreGroups,
   isNavigationActive,
@@ -68,11 +70,11 @@ function MobileLink({ link, active, onSelect }: { link: NavLink; active: boolean
   );
 }
 
-export function StudentNavigation(props: { studentName: string; onLogout: () => void }) {
+export function StudentNavigation(props: { studentName: string; onLogout: () => void; displayedBadge?: BadgeData | null; studentId?: string }) {
   return <Suspense fallback={null}><StudentNavigationContent {...props} /></Suspense>;
 }
 
-function StudentNavigationContent({ studentName, onLogout }: { studentName: string; onLogout: () => void }) {
+function StudentNavigationContent({ studentName, onLogout, displayedBadge, studentId }: { studentName: string; onLogout: () => void; displayedBadge?: BadgeData | null; studentId?: string }) {
   const pathname = usePathname();
   const search = useSearchParams().toString();
   const isRouteWithin = (path: string, href: string) => isNavigationActive(path, href, search);
@@ -179,6 +181,7 @@ function StudentNavigationContent({ studentName, onLogout }: { studentName: stri
             >
               <span className="grid size-8 place-items-center rounded-full bg-cyan-200/15 text-sm font-black text-cyan-100" aria-hidden="true">{initial}</span>
               <span className="hidden max-w-32 truncate sm:inline">{studentName}</span>
+              <DisplayedBadge badge={displayedBadge} studentId={studentId} />
               <span className="text-slate-400" aria-hidden="true">⌄</span>
             </button>
             {openMenu === "account" ? (
@@ -189,7 +192,7 @@ function StudentNavigationContent({ studentName, onLogout }: { studentName: stri
                 className="absolute right-0 top-12 z-50 w-60 rounded-lg border border-white/10 bg-slate-950 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
               >
                 <p className="px-3 pb-2 pt-1 text-xs font-bold uppercase tracking-wide text-slate-500">Signed in as</p>
-                <p className="truncate px-3 pb-3 text-sm font-black text-white">{studentName}</p>
+                <div className="flex items-center gap-2 px-3 pb-3"><p className="truncate text-sm font-black text-white">{studentName}</p><DisplayedBadge badge={displayedBadge} studentId={studentId} /></div>
                 <div className="border-t border-white/10 pt-2">
                   <Link
                     href="/student"
@@ -198,6 +201,7 @@ function StudentNavigationContent({ studentName, onLogout }: { studentName: stri
                   >
                     Dashboard
                   </Link>
+                  <Link href="/student#trophy-case" onClick={() => closeMenu({ restoreFocus: false })} className="block rounded-md px-3 py-2.5 text-sm font-bold text-cyan-200 hover:bg-white/10">Trophy Case</Link>
                   <button type="button" onClick={onLogout} className="w-full rounded-md px-3 py-2.5 text-left text-sm font-bold text-rose-200 hover:bg-rose-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200/80">
                     Logout
                   </button>

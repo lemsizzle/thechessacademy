@@ -3,9 +3,13 @@ import { ChessClock } from "@/chess/components/ChessClock";
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
 import type { ReactNode } from "react";
+import { DisplayedBadge } from "@/components/DisplayedBadge";
+import type { DisplayedBadge as BadgeData } from "@/lib/types";
 
 type PlayerPanelProps = {
   name: string;
+  displayedBadge?: BadgeData | null;
+  studentId?: string;
   subtitle: string;
   clockMs: number | null;
   active: boolean;
@@ -17,7 +21,7 @@ type PlayerPanelProps = {
   actions?: ReactNode;
 };
 
-export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrait, avatar, avatarItems = [], materialAdvantage, actions }: PlayerPanelProps) {
+export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrait, avatar, avatarItems = [], materialAdvantage, actions, displayedBadge, studentId }: PlayerPanelProps) {
   return (
     <div className={`flex min-w-0 items-center justify-between gap-2 rounded-lg border p-2 ${active ? "border-cyan-200/35 bg-cyan-300/8" : "border-white/10 bg-slate-950/55"}`}>
       <div className="flex min-w-0 items-center gap-2">
@@ -26,6 +30,7 @@ export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrai
           <div className="flex items-center gap-2">
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${active ? "animate-pulse bg-cyan-300" : "bg-slate-600"}`} aria-hidden="true" />
             <p className="truncate font-black text-white">{name}</p>
+            <DisplayedBadge badge={displayedBadge} studentId={studentId} />
           </div>
           <div className="mt-1 flex min-w-0 items-center gap-2">
             <p className="truncate text-xs text-slate-400">{thinking ? `${name} is thinking...` : subtitle}</p>

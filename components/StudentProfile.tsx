@@ -153,7 +153,7 @@ export function StudentProfile({
             </div>
           ) : null}
           <div className="min-w-0 flex-1">
-            <StudentCallingCard name={effectiveStudent.name} classGroup={effectiveStudent.classGroup} lichessUsername={effectiveStudent.lichessUsername} xp={xp.totalXp} size="hero" />
+            <StudentCallingCard name={effectiveStudent.name} studentId={effectiveStudent.id} displayedBadge={effectiveStudent.displayedBadge} classGroup={effectiveStudent.classGroup} lichessUsername={effectiveStudent.lichessUsername} xp={xp.totalXp} size="hero" />
             {showAdminControls && isAdmin && (
               <div className="mt-3">
                 <Button href={`/admin/students?student=${encodeURIComponent(effectiveStudent.slug)}`} variant="secondary">Manage Student</Button>

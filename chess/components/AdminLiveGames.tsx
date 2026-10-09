@@ -5,6 +5,7 @@ import type { TeacherLiveGameSummary } from "@/chess/live/types";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
+import { DisplayedBadge } from "@/components/DisplayedBadge";
 
 type ListResponse = { ok?: boolean; games?: TeacherLiveGameSummary[]; error?: string };
 
@@ -58,7 +59,7 @@ export function AdminLiveGames({ initialGames, adminActionToken }: { initialGame
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-wider text-cyan-200">{game.computerPractice ? "Computer practice" : game.matchmaking ? "Academy match" : "Private challenge"} · {game.rated ? "Rated" : "Casual"}</p>
-                  <h2 className="mt-2 truncate text-xl font-black text-white">{game.players.white.name} vs {game.players.black.name}</h2>
+                  <h2 className="mt-2 flex flex-wrap items-center gap-2 text-xl font-black text-white"><span className="truncate">{game.players.white.name}</span><DisplayedBadge badge={game.players.white.displayedBadge} studentId={game.players.white.id} /><span className="text-slate-400">vs</span><span className="truncate">{game.players.black.name}</span><DisplayedBadge badge={game.players.black.displayedBadge} studentId={game.players.black.id} /></h2>
                   <p className="mt-2 text-sm font-bold text-slate-300"><span className="text-slate-500">White:</span> {game.players.white.name}</p>
                   <p className="mt-1 text-sm font-bold text-slate-300"><span className="text-slate-500">Black:</span> {game.players.black.name}</p>
                 </div>

@@ -2,6 +2,7 @@ import "server-only";
 
 import { getStudentAvatarDisplayData, getStudentAvatarState, listStudentCoinTransactions } from "@/lib/avatar/supabaseAvatar";
 import { listAdminBadges } from "@/lib/badges/supabaseBadges";
+import { getBadgeArtUrl } from "@/lib/badges/art";
 import { getStoredLichessAccount } from "@/lib/lichess/supabaseAccounts";
 import { getStudentPuzzleTrainingOverview } from "@/lib/puzzle-training/overviewServer";
 import { getSupabaseQuestTracking, type QuestTrackingState } from "@/lib/quests/supabaseQuestProgress";
@@ -41,6 +42,7 @@ type XpEventRow = {
 };
 
 type StudentBadgeAwardRow = {
+  is_displayed?: boolean;
   achievement_evidence?: import("@/lib/badges/gameAchievements/evidence").GameAchievementEvidence;
   badge_id: string;
   awarded_at: string;
@@ -85,7 +87,7 @@ async function listStudentBadgeAwards(studentId: string) {
 
   const { data, error } = await supabase
     .from("student_badges")
-    .select("badge_id,awarded_at,achievement_evidence")
+    .select("badge_id,awarded_at,achievement_evidence,is_displayed")
     .eq("student_id", studentId)
     .order("awarded_at", { ascending: false });
 
@@ -188,6 +190,8 @@ export async function getStudentDashboardData(studentId: string, { readOnly = fa
     const badge = badgeById.get(award.badge_id);
     return badge ? [badge] : [];
   });
+  const displayedAward = badgeAwardsResult.value.find((award) => award.is_displayed);
+  const displayed = displayedAward ? badgeById.get(displayedAward.badge_id) : undefined;
   const studentWithBadges = { ...student, badgeIds: badgeAwardsResult.value.map((award) => award.badge_id) };
   const quests = questResult.available && questTrackingResult.available
     ? summarizeStudentDashboardQuests({
@@ -215,7 +219,8 @@ export async function getStudentDashboardData(studentId: string, { readOnly = fa
     student: {
       id: student.id,
       name: student.name,
-      classGroup: student.classGroup
+      classGroup: student.classGroup,
+      ...(displayed ? { displayedBadge: { id: displayed.id, name: displayed.name, tier: displayed.tier, imageUrl: getBadgeArtUrl(displayed) } } : {})
     },
     progress: buildStudentDashboardProgress(student, lichessResult.value),
     wallet: avatarResult.value

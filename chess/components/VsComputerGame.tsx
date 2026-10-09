@@ -21,12 +21,12 @@ import { AddToStudyDialog } from "@/chess/components/AddToStudyDialog";
 import { createAnalysisTree } from "@/chess/analysis/tree";
 import { BOARD_ANNOTATION_COLORS } from "@/chess/components/boardAnnotations";
 import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/material";
-import type { AvatarItem, StudentAvatarConfig } from "@/lib/types";
+import type { AvatarItem, StudentAvatarConfig, DisplayedBadge } from "@/lib/types";
 
 type Confirmation = "resign" | "new-game" | null;
 
 
-export function VsComputerGame({ studentName, studentAvatar, avatarItems, initialUnlockedBotIds }: { studentName: string; studentAvatar: StudentAvatarConfig; avatarItems: AvatarItem[]; initialUnlockedBotIds: string[] }) {
+export function VsComputerGame({ studentName, studentAvatar, avatarItems, initialUnlockedBotIds, displayedBadge }: { studentName: string; studentAvatar: StudentAvatarConfig; avatarItems: AvatarItem[]; initialUnlockedBotIds: string[]; displayedBadge?: DisplayedBadge | null }) {
   const [unlockedBotIds, setUnlockedBotIds] = useState(initialUnlockedBotIds);
   const game = useComputerGame(setUnlockedBotIds);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
@@ -123,6 +123,8 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
   />;
   const studentPanel = <PlayerPanel
     name={studentName}
+    studentId={studentAvatar.studentId}
+    displayedBadge={displayedBadge}
     subtitle={`Playing ${config.humanColor} · ${config.timeControl.name}`}
     clockMs={playerClock}
     active={game.activeColor === config.humanColor}
