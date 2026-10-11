@@ -331,6 +331,9 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
       moves: gameMoves(chess).map(({ from, to, promotion }) => ({ from, to, promotion })),
       finalClock: clockDisplay ? { whiteMs: clockDisplay.whiteMs, blackMs: clockDisplay.blackMs } : null,
       takebackCount: takebackCountRef.current,
+      // Computer play currently has no Hint control. Persist explicitly so future
+      // assistance controls must provide a count and cannot earn seasonal credit.
+      hintsUsed: 0,
       startedAt: startedAtRef.current,
       completedAt: completedAtRef.current
     };

@@ -9,6 +9,7 @@ import { readAdminStore, updateAdminStore } from "@/lib/mockStorage";
 import { mergeLichessQuestProgress, mergeQuestAttempts, mergeQuestCompletions } from "@/lib/quests/mergeQuestTracking";
 import { createStudentQuestAttempt } from "@/lib/quests/questAttempts";
 import { isInternalQuestSource } from "@/lib/quests/questOptions";
+import { HALLOWEEN_QUEST_ID } from "@/lib/quests/halloween";
 import { findAttemptForPeriod, selectQuestCompletion, selectQuestLifecycle, selectQuestProgress, selectQuestTrackingForAttempt, selectStartedQuests } from "@/lib/quests/selectQuestProgress";
 import { STUDENT_QUEST_REFRESH_EVENT, refreshStudentQuests } from "@/lib/studentQuestRefresh";
 import type { LichessQuestProgress, PendingQuestAward, Quest, QuestCompletionEvent, StudentQuestAttempt, StudentUser } from "@/lib/types";
@@ -93,7 +94,7 @@ export function StudentLichessQuestList() {
         return localQuest ? { ...localQuest, ...quest, completionUrl: quest.completionUrl ?? localQuest.completionUrl } : quest;
       });
       const visibleQuests = mergedQuests.filter((quest) => (
-        isInternalQuestSource(quest.source)
+        quest.id !== HALLOWEEN_QUEST_ID && isInternalQuestSource(quest.source)
         && quest.isActive !== false
         && (quest.isLive || visibleQuestIds.has(quest.id))
       ));
@@ -126,7 +127,7 @@ export function StudentLichessQuestList() {
     const loadedServerQuests = await refreshServerQuests(visibleQuestIds, localQuests);
     if (!loadedServerQuests) {
       setQuests(localQuests.filter((quest) => (
-        isInternalQuestSource(quest.source)
+        quest.id !== HALLOWEEN_QUEST_ID && isInternalQuestSource(quest.source)
         && quest.isActive !== false
         && (quest.isLive || visibleQuestIds.has(quest.id))
       )));

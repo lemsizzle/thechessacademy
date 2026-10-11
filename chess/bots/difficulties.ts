@@ -1,7 +1,9 @@
 import { SIR_LEM_SOURCE } from "@/chess/bots/sirLemProfile";
 import type { BotDifficulty } from "@/chess/types";
+import { HALLOWEEN_BOTS } from "@/lib/quests/halloween";
+import { interpolateBotStrength } from "@/chess/bots/strength";
 
-export const BOT_DIFFICULTIES: BotDifficulty[] = [
+export const STANDARD_BOT_DIFFICULTIES: BotDifficulty[] = [
   {
     id: "pawny",
     name: "Pawny",
@@ -163,3 +165,10 @@ export const BOT_DIFFICULTIES: BotDifficulty[] = [
     description: `Remembers ${SIR_LEM_SOURCE.positions.toLocaleString("en-US")} positions from ${SIR_LEM_SOURCE.games.toLocaleString("en-US")} of So_Pawny’s public rated games. Plays his recorded choices, favoring recent games; uses a style-inspired engine for unfamiliar positions.`
   }
 ];
+
+export const HALLOWEEN_BOT_DIFFICULTIES: BotDifficulty[] = HALLOWEEN_BOTS.map((bot) => ({
+  ...interpolateBotStrength(bot.rating, STANDARD_BOT_DIFFICULTIES),
+  id: bot.id, name: bot.name, title: bot.title, portrait: bot.portrait, description: bot.description
+}));
+
+export const BOT_DIFFICULTIES: BotDifficulty[] = [...STANDARD_BOT_DIFFICULTIES, ...HALLOWEEN_BOT_DIFFICULTIES];

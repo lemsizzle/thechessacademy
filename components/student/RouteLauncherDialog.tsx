@@ -29,6 +29,7 @@ export function RouteLauncherDialog({
   description,
   triggerLabel,
   triggerDescription,
+  contentAnchor,
   children
 }: {
   id: string;
@@ -38,6 +39,7 @@ export function RouteLauncherDialog({
   description: string;
   triggerLabel: string;
   triggerDescription: string;
+  contentAnchor?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(true);
@@ -45,6 +47,18 @@ export function RouteLauncherDialog({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeLauncher = useCallback(() => setOpen(false), []);
   useStudentMenuDestination(navigationHref, () => setOpen(true));
+
+  useEffect(() => {
+    if (!contentAnchor) return;
+    const showAnchoredContent = () => {
+      if (window.location.hash !== `#${contentAnchor}`) return;
+      closeLauncher();
+      window.requestAnimationFrame(() => document.getElementById(contentAnchor)?.scrollIntoView({ block: "start" }));
+    };
+    showAnchoredContent();
+    window.addEventListener("hashchange", showAnchoredContent);
+    return () => window.removeEventListener("hashchange", showAnchoredContent);
+  }, [contentAnchor, closeLauncher]);
 
   useEffect(() => {
     if (!open) return;

@@ -1,4 +1,4 @@
-import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { STANDARD_BOT_DIFFICULTIES as BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
 import type { BotDifficulty, BotPersonality, ChessColor } from "@/chess/types";
 
 export const MAX_ARENA_BOTS = 12;

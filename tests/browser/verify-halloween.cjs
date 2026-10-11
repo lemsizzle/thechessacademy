@@ -1,0 +1,85 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'C:/Users/lemue/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {Chess}=require('chess.js');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const base='http://127.0.0.1:3109';
+const names=['Pipkin Pumpkin','Boo the Ghost','Count Checkula','Mira Moonwitch','Grim the Werewolf'];
+const ids=['pumpkin','ghost','vampire','witch','werewolf'].map(n=>'halloween-2026-'+n);
+let browser;
+(async()=>{
+  await fs.mkdir('work/halloween',{recursive:true});
+  browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
+  const context=await browser.newContext({viewport:{width:1440,height:1000}});
+  const page=await context.newPage();page.setDefaultTimeout(12000);
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(base+'/__qa/login');
+  await page.getByRole('button',{name:/Computer.*Choose a bot/}).click();
+  await page.goto(base+'/student/quests');
+  await page.getByText('0 / 5 visitors defeated',{exact:true}).waitFor();
+  await page.getByRole('link',{name:'Meet the Halloween bots'}).click();
+  await page.waitForFunction(()=>!document.getElementById('student-play-launcher'));
+  await page.getByRole('button',{name:'Open',exact:true}).click();
+  await page.getByRole('dialog',{name:'Choose an opponent'}).waitFor();
+  await page.getByRole('button',{name:/Computer.*Choose a bot/}).click();
+  await page.getByRole('button',{name:/Pipkin Pumpkin/}).waitFor();
+  for(const [label,width,height] of [['desktop',1440,1000],['tablet',1024,768],['mobile',390,844]]) {
+    await page.setViewportSize({width,height});
+    await page.locator('fieldset').filter({hasText:'Halloween visitors'}).scrollIntoViewIfNeeded();
+    for(const name of names) assert.equal(await page.getByRole('button',{name:new RegExp(name)}).isEnabled(),true);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+    await page.screenshot({path:`work/halloween/${label}-bots.png`});
+  }
+  await page.setViewportSize({width:1440,height:1000});
+  await page.getByRole('button',{name:/Pipkin Pumpkin/}).click();
+  await page.getByRole('button',{name:'Start vs Pipkin Pumpkin',exact:true}).click();
+  await page.locator('[data-square="e2"]').click();
+  await page.locator('[data-square="e4"]').click();
+  await page.getByText('Your move. Drag a piece or tap its start and destination squares.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:/Take ?back/i}).click();
+  const savedLoss=page.waitForResponse(r=>r.url().endsWith('/api/student/chess-games')&&r.request().method()==='POST');
+  await page.getByRole('button',{name:/⚑ Resign/}).click();
+  await page.getByRole('button',{name:'Resign',exact:true}).click();
+  assert.equal((await savedLoss).status(),201);
+  let state=await (await context.request.get(base+'/__qa/state')).json();
+  assert.equal(state.games[0].takeback_count,1);
+  assert.equal(state.games[0].hints_used,0);
+  assert.equal(state.progress.defeatedBotIds.length,0);
+  console.log('Actual board move, takeback, resignation and game save passed.');
+
+  // Legal complete-game fixtures exercise the real authenticated API and SQL trigger.
+  const chess=new Chess();
+  const moves=['f3','e5','g4','Qh4#'].map(san=>{const m=chess.move(san);return{from:m.from,to:m.to};});
+  const now=new Date().toISOString();
+  const payload={playerColor:'black',winnerColor:'black',result:'win',resultReason:'checkmate',timeControlId:'10+5',initialFen:new Chess().fen(),finalFen:chess.fen(),moves,hintsUsed:0,takebackCount:0,startedAt:now,completedAt:now};
+  async function finish(id,extra={}) {
+    const response=await context.request.post(base+'/api/student/chess-games',{data:{...payload,opponentId:id,...extra}});
+    assert.equal(response.status(),201,await response.text());
+  }
+  await finish(ids[0],{hintsUsed:1});await finish(ids[0],{takebackCount:1});
+  state=await(await context.request.get(base+'/__qa/state')).json();
+  assert.equal(state.progress.defeatedBotIds.length,0);
+  for(const id of ids) await finish(id);
+  await finish(ids[4]);
+  state=await(await context.request.get(base+'/__qa/state')).json();
+  assert.equal(state.progress.completed,true);
+  assert.equal(state.progress.defeatedBotIds.length,5);
+  assert.equal(state.xp.length,1);
+  assert.equal(state.xp[0].amount,500);
+  assert.equal(state.coins[0].academy_coins,500);
+  await page.evaluate(()=>window.dispatchEvent(new Event('academy-rewards-changed')));
+  await page.getByText('Halloween Bot Hunt',{exact:true}).waitFor();
+  await page.screenshot({path:'work/halloween/quest-celebration.png'});
+  await page.goto(base+'/student/quests');
+  await page.getByText('5 / 5 visitors defeated',{exact:true}).waitFor();
+  await page.getByText('Rewards awarded',{exact:true}).waitFor();
+  assert.equal(await page.getByText(/Deadline: November 1, 2026/).count(),1);
+  await page.screenshot({path:'work/halloween/completed-quest.png'});
+  await page.reload();
+  await page.getByText('5 / 5 visitors defeated',{exact:true}).waitFor();
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+  await page.screenshot({path:'work/halloween/mobile-quest.png'});
+  assert.deepEqual(errors,[]);
+  console.log('Halloween browser: desktop/tablet/mobile, assisted-win exclusion, 5 distinct wins, reward once, quest reload passed.');
+  await browser.close();
+})().catch(async e=>{console.error(e);await browser?.close();process.exit(1);});

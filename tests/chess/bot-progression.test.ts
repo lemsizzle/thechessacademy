@@ -2,6 +2,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { HALLOWEEN_BOTS } from "@/lib/quests/halloween";
+const halloweenIds = HALLOWEEN_BOTS.map((bot) => bot.id);
 import { getBotProgression, getBotUnlockRequirement, qualifiesForBotUnlock } from "@/chess/bots/progression";
 import { GameSetup } from "@/chess/components/GameSetup";
 
@@ -47,13 +49,13 @@ describe("computer opponent progression", () => {
     mocks.getSupabaseServiceClient.mockReset();
   });
 
-  it("starts every student with only Pawny and Sir Lem unlocked", () => {
-    expect(getBotProgression([]).unlockedBotIds).toEqual(["pawny", "so-pawny"]);
+  it("starts every student with Pawny, Sir Lem, and all Halloween visitors unlocked", () => {
+    expect(getBotProgression([]).unlockedBotIds).toEqual(["pawny", "so-pawny", ...halloweenIds]);
   });
 
   it("unlocks each academy bot only after the previous bot is defeated", () => {
-    expect(getBotProgression(["pawny"]).unlockedBotIds).toEqual(["pawny", "knight", "so-pawny"]);
-    expect(getBotProgression(["pawny", "knight"]).unlockedBotIds).toEqual(["pawny", "knight", "bishop", "so-pawny"]);
+    expect(getBotProgression(["pawny"]).unlockedBotIds).toEqual(["pawny", "knight", "so-pawny", ...halloweenIds]);
+    expect(getBotProgression(["pawny", "knight"]).unlockedBotIds).toEqual(["pawny", "knight", "bishop", "so-pawny", ...halloweenIds]);
     expect(getBotProgression(["pawny", "knight", "bishop", "rook"]).unlockedBotIds).toEqual(
       BOT_DIFFICULTIES.map((bot) => bot.id)
     );
@@ -61,7 +63,7 @@ describe("computer opponent progression", () => {
 
   it("does not let historical wins skip an earlier opponent", () => {
     const progression = getBotProgression(["knight", "bishop", "rook", "queen", "so-pawny"]);
-    expect(progression.unlockedBotIds).toEqual(["pawny", "so-pawny"]);
+    expect(progression.unlockedBotIds).toEqual(["pawny", "so-pawny", ...halloweenIds]);
   });
 
   it("explains which opponent unlocks a locked bot", () => {
@@ -99,7 +101,7 @@ describe("computer opponent progression", () => {
 
     await expect(getStudentBotProgression("student-1")).resolves.toEqual({
       defeatedBotIds: ["pawny", "knight"],
-      unlockedBotIds: ["pawny", "knight", "bishop", "so-pawny"]
+      unlockedBotIds: ["pawny", "knight", "bishop", "so-pawny", ...halloweenIds]
     });
     expect(client.from).toHaveBeenCalledWith("student_bot_defeats");
     expect(client.query.eq).toHaveBeenCalledWith("student_id", "student-1");

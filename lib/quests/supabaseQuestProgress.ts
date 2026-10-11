@@ -1,5 +1,6 @@
 import { isSupabaseServiceConfigured, getSupabaseServiceClient } from "@/lib/supabase/server";
 import { questProgressIdentity } from "@/lib/quests/questProgressIdentity";
+import { HALLOWEEN_QUEST_ID } from "@/lib/quests/halloween";
 import { mergeQuestAttempts } from "@/lib/quests/mergeQuestTracking";
 import type { LichessQuestProgress, QuestCompletionEvent, StudentQuestAttempt } from "@/lib/types";
 
@@ -132,7 +133,8 @@ export async function saveSupabaseQuestTracking(input: Partial<QuestTrackingStat
   const supabase = getSupabaseServiceClient();
   if (!supabase) return { configured: false, saved: false };
 
-  const attempts = uniqueBy(input.attempts, (attempt) => attempt.id);
+  // Seasonal evidence is written only by the completed-game transaction.
+  const attempts = uniqueBy(input.attempts, (attempt) => attempt.id).filter((item) => item.questId !== HALLOWEEN_QUEST_ID && !item.id.startsWith("halloween-2026:"));
   if (attempts.length) {
     const { data: storedRows, error: readError } = await supabase
       .from("student_quest_attempts")
@@ -162,7 +164,7 @@ export async function saveSupabaseQuestTracking(input: Partial<QuestTrackingStat
   // PostgreSQL compares timestamptz values by instant, not by their source
   // formatting. Canonicalize here so Z and +00:00 representations cannot put
   // the same conflict key into one upsert batch and abort the entire sync.
-  const progress = uniqueBy(input.progress, questProgressIdentity);
+  const progress = uniqueBy(input.progress, questProgressIdentity).filter((item) => item.questId !== HALLOWEEN_QUEST_ID);
   if (progress.length) {
     const { error } = await supabase.from("lichess_quest_progress").upsert(progress.map((item) => ({
       student_id: item.studentId,
@@ -180,7 +182,7 @@ export async function saveSupabaseQuestTracking(input: Partial<QuestTrackingStat
     if (error) throw new Error(error.message);
   }
 
-  const completions = uniqueBy(input.completions, (item) => item.id);
+  const completions = uniqueBy(input.completions, (item) => item.id).filter((item) => item.questId !== HALLOWEEN_QUEST_ID && !item.id.startsWith("halloween-2026:"));
   if (completions.length) {
     const { error } = await supabase.from("quest_completion_events").upsert(completions.map((item) => ({
       id: item.id,

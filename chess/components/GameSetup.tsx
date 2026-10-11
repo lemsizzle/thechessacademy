@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { BotPortrait } from "@/chess/components/BotPortrait";
-import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { STANDARD_BOT_DIFFICULTIES as BOT_DIFFICULTIES, HALLOWEEN_BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { HALLOWEEN_DEADLINE_LABEL, halloweenQuestState } from "@/lib/quests/halloween";
 import { getBotUnlockRequirement, isBotUnlocked } from "@/chess/bots/progression";
 import { resolvePlayerColor } from "@/chess/game/colors";
 import { TIME_CONTROLS } from "@/chess/game/timeControls";
@@ -32,6 +33,23 @@ export function GameSetup({ unlockedBotIds, onStart }: { unlockedBotIds: string[
           <p className="text-xs font-bold text-slate-500">Win without takebacks to unlock the next bot.</p>
         </div>
         <div className="min-w-0 p-4 sm:p-5">
+          <fieldset className="mb-5 rounded-xl border border-orange-300/30 bg-gradient-to-br from-orange-400/10 to-violet-400/10 p-3 sm:p-4">
+            <legend className="px-2 text-sm font-black text-orange-200">Halloween visitors</legend>
+            <p className="mb-3 text-xs leading-relaxed text-slate-300">
+              {halloweenQuestState(false) === "active" ? <>Beat all five without hints or takebacks for <strong className="text-amber-200">500 XP + 500 coins</strong>. Already active for everyone!<br />Finish by {HALLOWEEN_DEADLINE_LABEL}.</> : <>Meet five spooky friends. The seasonal quest ends {HALLOWEEN_DEADLINE_LABEL}.</>}
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {HALLOWEEN_BOT_DIFFICULTIES.map((difficulty) => (
+                <button key={difficulty.id} type="button" onClick={() => setBot(difficulty)} aria-pressed={bot.id === difficulty.id}
+                  className={`min-w-0 rounded-xl border p-2 text-center transition active:scale-[.98] ${bot.id === difficulty.id ? "border-orange-200 bg-orange-300/15" : "border-white/10 bg-slate-950/40 hover:border-orange-200/50"}`}>
+                  <BotPortrait src={difficulty.portrait} size="choice" selected={bot.id === difficulty.id} />
+                  <span className="mt-1 block text-xs font-black text-white">{difficulty.name}</span>
+                  <span className="block text-xs font-bold text-orange-200">~{difficulty.estimatedRating}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-slate-400">Ratings are estimated strengths.</p>
+          </fieldset>
           <fieldset>
             <legend className="sr-only">Opponent</legend>
             <div className="grid min-w-0 grid-cols-3 gap-2 sm:grid-cols-6">
