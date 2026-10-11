@@ -1,1 +1,7 @@
-{}
+{
+  "git": {
+    "deploymentEnabled": {
+      "fix/browser-fixture-avatars-20261011": false
+    }
+  }
+}

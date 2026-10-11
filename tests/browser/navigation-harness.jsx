@@ -26,7 +26,7 @@ window.fetch = async (url, options = {}) => {
 function Page() {
   const [details, setDetails] = useState(false);
   if (location.pathname === '/student/training') return <PuzzleSurvival initialOverview={emptyPuzzleTrainingOverview} />;
-  if (location.pathname === '/student/play') return <><PlayModeGrid /><section id="computer-game"><VsComputerGame studentName="Fixture" studentAvatar={null} avatarItems={[]} initialUnlockedBotIds={[]} /></section></>;
+  if (location.pathname === '/student/play') return <><PlayModeGrid /><section id="computer-game"><VsComputerGame studentName="Fixture" studentAvatar={{ studentId: 'fixture', equippedItems: {} }} avatarItems={[]} initialUnlockedBotIds={[]} /></section></>;
   if (location.pathname === '/student/quests') return <RouteLauncherDialog id="fixture-quests" navigationHref="/student/quests" eyebrow="Quests" title="Your quests" description="Fixture quest content" triggerLabel="Open your quests" triggerDescription="Open the quest list"><p>Quest list</p></RouteLauncherDialog>;
   return <><p>Destination: {location.pathname}{location.search}</p><button onClick={() => setDetails(true)}>Open details</button>{details && <p>Details are open</p>}</>;
 }
