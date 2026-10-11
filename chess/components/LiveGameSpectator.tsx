@@ -48,6 +48,8 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [boardArrows, setBoardArrows] = useState<Array<{ startSquare: string; endSquare: string; color: string }>>([]);
   const [selectedPly, setSelectedPly] = useState<number | null>(null);
+  const refreshControllerRef = useRef<AbortController | null>(null);
+  const queuedRefreshRef = useRef(false);
   const previousClocksRef = useRef<{ gameId: string; white: number | null; black: number | null } | null>(null);
   const { muted, toggleMuted, receiveGameSnapshot, playClockWarning, captureEffect } = useLiveGameSounds();
   const isTeacher = role === "teacher";
@@ -63,7 +65,14 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
     setLoading(false);
   }, [receiveGameSnapshot]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async function refreshGame(queueIfBusy = false): Promise<void> {
+    if (refreshControllerRef.current) {
+      // A broadcast may describe a move newer than the response already in flight.
+      if (queueIfBusy) queuedRefreshRef.current = true;
+      return;
+    }
+    const controller = new AbortController();
+    refreshControllerRef.current = controller;
     try {
       const endpoint = isTeacher
         ? `/api/admin/live-games/${gameId}`
@@ -71,22 +80,37 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
       const response = await fetch(endpoint, {
         cache: "no-store",
         credentials: "same-origin",
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]),
         headers: isTeacher ? { "x-admin-action-token": adminActionToken } : undefined
       });
       const body = await response.json() as GameResponse;
+      if (controller.signal.aborted) return;
       if (response.status === 404 && gameId.startsWith("computer-")) {
         setGame((previous) => previous ? { ...previous, status: "cancelled" } : null);
       }
       if (!response.ok || !body.game) throw new Error(body.error || "Live game could not be loaded.");
       receiveGame(body.game);
     } catch (caught) {
+      if (controller.signal.aborted) return;
       setError(caught instanceof Error ? caught.message : "Live game could not be loaded.");
       setLoading(false);
+    } finally {
+      if (refreshControllerRef.current === controller) {
+        refreshControllerRef.current = null;
+        const shouldRefresh = queuedRefreshRef.current && !controller.signal.aborted;
+        queuedRefreshRef.current = false;
+        if (shouldRefresh) void refreshGame();
+      }
     }
   }, [adminActionToken, gameId, isTeacher, receiveGame, tournamentId]);
 
   useEffect(() => {
     void refresh();
+    return () => {
+      refreshControllerRef.current?.abort();
+      refreshControllerRef.current = null;
+      queuedRefreshRef.current = false;
+    };
   }, [refresh]);
 
   useEffect(() => {
@@ -102,7 +126,7 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
       .channel(game.realtimeTopic, {
         config: { presence: { key: `${presenceRole}-${crypto.randomUUID()}` } }
       })
-      .on("broadcast", { event: "game_changed" }, () => void refresh())
+      .on("broadcast", { event: "game_changed" }, () => void refresh(true))
       .subscribe((status) => {
         setConnection(status === "SUBSCRIBED" ? "live" : status === "CHANNEL_ERROR" || status === "TIMED_OUT" ? "polling" : "connecting");
         if (status === "SUBSCRIBED") {
