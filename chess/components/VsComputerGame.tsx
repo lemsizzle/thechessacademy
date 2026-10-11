@@ -138,10 +138,11 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
     <div className="space-y-4">
       <GameBoardWorkspace
         revealOnMount
+        revealResult={game.resultOpen && Boolean(game.outcome)}
         title={`Computer · ${config.timeControl.name}`}
         settings={<BoardSettings muted={game.muted} onToggleMuted={() => game.setMuted((value) => !value)} />}
-        opponent={opponentPanel}
-        player={studentPanel}
+        opponent={game.boardOrientation === config.humanColor ? opponentPanel : studentPanel}
+        player={game.boardOrientation === config.humanColor ? studentPanel : opponentPanel}
         board={
           <div className="game-board-surface">
             <AcademyChessboard
@@ -185,7 +186,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
         </>
       )}
 
-          <Card className="p-3">
+          <Card className="game-primary-controls p-3">
             <h2 className="mb-3 font-black text-white">Game controls</h2>
             <GameControls
               canTakeBack={game.canTakeBack}

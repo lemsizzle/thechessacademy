@@ -2,7 +2,7 @@ import { formatClock } from "@/chess/game/clock";
 
 export function ChessClock({ milliseconds, active, label, compact = false }: { milliseconds: number | null; active: boolean; label: string; compact?: boolean }) {
   return (
-    <div className={`${compact ? "w-24 py-1" : "min-w-24 py-1.5"} shrink-0 rounded-md border px-2 text-right font-mono transition ${active ? "border-amber-300/70 bg-amber-300/15 text-amber-100 shadow-gold" : "border-white/10 bg-slate-950/80 text-slate-200"}`} aria-label={`${label} clock ${formatClock(milliseconds)}`}>
+    <div className={`chess-clock ${compact ? "w-24 py-1" : "min-w-24 py-1.5"} shrink-0 rounded-md border px-2 text-right font-mono transition ${active ? "border-amber-300/70 bg-amber-300/15 text-amber-100 shadow-gold" : "border-white/10 bg-slate-950/80 text-slate-200"}`} aria-label={`${label} clock ${formatClock(milliseconds)}`}>
       <span className={compact ? "sr-only" : "block text-[10px] font-black uppercase tracking-wider opacity-70"}>{label}</span>
       <span className="block text-xl font-black tabular-nums">{formatClock(milliseconds)}</span>
     </div>

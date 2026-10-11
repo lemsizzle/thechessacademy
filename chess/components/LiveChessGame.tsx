@@ -508,6 +508,9 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
             : premove ? "Premove queued. Click or tap anywhere on the board to cancel." : `Waiting for ${opponent?.name ?? "your opponent"}. You can queue a premove.`
       : completionText(game);
 
+  const opponentPanel = <PlayerPanel compact displayedBadge={opponent?.displayedBadge} studentId={opponent?.id} name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${isCorrespondence ? "3 days per move" : game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} portrait={opponent?.portrait} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} />;
+  const playerPanel = <PlayerPanel compact displayedBadge={viewer?.displayedBadge} studentId={viewer?.id} name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}${isCorrespondence ? " · 3 days per move" : ""}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} avatar={viewer?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />;
+
   return (
     <div className="space-y-4">
       {game.status === "waiting" && !isCorrespondence ? (
@@ -525,10 +528,11 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
 
       <GameBoardWorkspace
+        revealResult={resultOpen && game.status === "completed"}
         title={isCorrespondence ? "Correspondence · 3 days per move" : `Live game · ${game.timeControl.name}`}
         settings={<BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} />}
-        opponent={<PlayerPanel compact displayedBadge={opponent?.displayedBadge} studentId={opponent?.id} name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${isCorrespondence ? "3 days per move" : game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} portrait={opponent?.portrait} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} />}
-        player={<PlayerPanel compact displayedBadge={viewer?.displayedBadge} studentId={viewer?.id} name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}${isCorrespondence ? " · 3 days per move" : ""}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} avatar={viewer?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />}
+        opponent={orientation === viewerColor ? opponentPanel : playerPanel}
+        player={orientation === viewerColor ? playerPanel : opponentPanel}
         board={
             <div className="game-board-surface">
               <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} allowPremoves={canQueuePremove} premove={displayedPremove} onCancelPremove={() => setPremove(null)} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
@@ -567,7 +571,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           </p>
         </GameDialog>
       ) : null}
-          <Card className="p-3">
+          <Card className="game-primary-controls p-3">
             <h2 className="font-black text-white">Game controls</h2>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Button type="button" variant="ghost" onClick={() => setOrientation((value) => oppositeColor(value))}>⇅ Flip Board</Button>

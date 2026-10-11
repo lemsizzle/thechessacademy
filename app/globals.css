@@ -132,17 +132,31 @@ main:has(.game-workspace) [data-route-launcher="student-play-launcher"],
   scroll-margin-top: 77px;
 }
 .game-layout { position: relative; display: grid; align-items: start; gap: 8px; }
-.game-information { display: contents; }
+.game-information {
+  display: contents;
+  /* These box properties take effect only in the two-column layout. Both
+     clocks stay beside their end of the board while controls scroll between. */
+  position: sticky;
+  top: 77px;
+  height: calc(min(var(--game-board-limit), 100cqw - var(--game-side-space, 316px)) + 40px);
+  padding-top: 40px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  min-width: 0;
+}
 .game-opponent { order: 0; }
 .game-board-column { order: 1; }
 .game-player { order: 2; }
-.game-sidebar { order: 3; display: flex; flex-direction: column; gap: 12px; overflow-wrap: anywhere; }
+.game-sidebar { order: 3; display: flex; flex-direction: column; gap: 12px; overflow-wrap: anywhere; min-height: 0; scrollbar-width: thin; }
+.game-sidebar > * { flex-shrink: 0; }
+.game-sidebar:focus-visible { outline: 2px solid #a5f3fc; outline-offset: 2px; }
 .game-board-column, .game-opponent, .game-player, .game-sidebar {
   width: 100%; min-width: 0; max-width: max(176px, calc(100svh - 240px)); margin-inline: auto;
 }
 .game-board-toolbar { display: flex; height: 40px; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 4px; }
 .game-board-surface { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; border-radius: 8px; box-shadow: 0 0 0 1px rgb(165 243 252 / .2); }
-.game-player-compact { padding: 4px 8px; min-height: 48px; }
+.game-player-compact { padding: 4px 8px; min-height: 48px; flex-direction: var(--game-player-direction, row); }
+.game-player-compact .chess-clock { text-align: var(--game-clock-align, right); }
 .game-player-compact p { font-size: 13px; }
 .game-player-compact .game-player-subtitle p { font-size: 10px; }
 .game-player-portrait { width: 32px; height: 32px; flex-shrink: 0; }
@@ -155,32 +169,49 @@ main:has(.game-workspace) [data-route-launcher="student-play-launcher"],
   .student-play-area:has(.game-workspace) { padding-bottom: 16px; }
 }
 @container (min-width: 800px) {
-  .game-layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
+  .game-layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; --game-player-direction: row-reverse; --game-clock-align: left; }
   .game-board-column { order: 0; position: sticky; top: 77px; max-width: var(--game-board-limit); }
-  .game-information { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .game-information { display: grid; }
   .game-opponent, .game-player, .game-sidebar { order: initial; max-width: none; }
+  .game-player { grid-row: 3; }
+  .game-sidebar { grid-row: 2; overflow-y: auto; }
 }
 @media (orientation: landscape) {
   @container (min-width: 492px) {
-    .game-layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
+    .game-layout { grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; --game-player-direction: row-reverse; --game-clock-align: left; }
     .game-board-column { order: 0; position: sticky; top: 77px; max-width: var(--game-board-limit); }
-    .game-information { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .game-information { display: grid; }
     .game-opponent, .game-player, .game-sidebar { order: initial; max-width: none; }
+    .game-player { grid-row: 3; }
+    .game-sidebar { grid-row: 2; overflow-y: auto; }
   }
 }
 @media (max-width: 767px) and (orientation: portrait) {
+  .game-board-column { max-width: max(136px, calc(100svh - 272px)); }
+  .game-opponent, .game-player, .game-sidebar { max-width: none; }
   .game-opponent { padding-right: 44px; }
   .game-board-toolbar { position: absolute; top: 0; right: 0; width: 36px; height: 48px; padding: 0; }
   .game-board-toolbar h2 { @apply sr-only; }
 }
 @media (max-width: 767px) and (orientation: landscape) {
-  .student-portal-shell .game-workspace { --game-board-limit: max(160px, calc(100svh - 200px)); }
-  .game-layout { grid-template-columns: minmax(0, 1fr) 280px; gap: 12px; }
+  .student-portal-shell .game-workspace { --game-board-limit: max(96px, calc(100svh - 200px)); }
+  .game-layout { grid-template-columns: minmax(0, 1fr) 280px; gap: 12px; --game-side-space: 292px; --game-player-direction: row-reverse; --game-clock-align: left; }
   .game-board-column { order: 0; position: sticky; top: 73px; max-width: var(--game-board-limit); }
-  .game-information { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .game-information { display: grid; top: 73px; }
   .game-opponent, .game-player, .game-sidebar { order: initial; max-width: none; }
+  .game-player { grid-row: 3; }
+  .game-sidebar { grid-row: 2; overflow-y: auto; }
   .game-board-toolbar h2 { @apply sr-only; }
   .game-board-toolbar { justify-content: end; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Use the toolbar's vertical space for the upper clock on short phones. */
+  .game-information { padding-top: 0; }
+  .game-player-compact { min-height: 40px; padding-block: 1px; }
+  .game-primary-controls { padding: 8px; }
+  .game-primary-controls button, .game-primary-controls a { font-size: 12px; }
+  .game-primary-controls > h2 { @apply sr-only; }
+  .game-primary-controls > .grid { margin-top: 0; }
 }
 
 :root {
