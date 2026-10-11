@@ -48,6 +48,17 @@ function updatePosition(input) {
 }
 window.audit.opponentMove = (san = 'e5') => { updatePosition(san); window.dispatchEvent(new Event('focus')); };
 window.audit.setClock = milliseconds => { game.clocks.whiteMs = milliseconds; game.clocks.blackMs = milliseconds; game.clocks.startedAt = now(); game.version++; window.dispatchEvent(new Event('focus')); };
+window.audit.setPosition = fen => {
+  chess.load(fen);
+  Object.assign(game, { initialFen: fen, fen, moves: [], activeColor: chess.turn() === 'w' ? 'white' : 'black', version: game.version + 1, serverNow: now() });
+  window.dispatchEvent(new Event('focus'));
+};
+window.audit.finishGame = () => {
+  Object.assign(game, { status: 'completed', winnerColor: 'white', resultReason: 'resignation', completedAt: now(), version: game.version + 1, serverNow: now() });
+  window.dispatchEvent(new Event('focus'));
+};
+window.audit.offerDraw = () => { game.drawOfferedBy = 'black'; game.version++; window.dispatchEvent(new Event('focus')); };
+window.audit.failNextMove = () => { window.audit.nextMoveError = 'Fixture move failed. Please try again.'; };
 window.fetch = async (url, options = {}) => {
   const path = String(url), body = options.body ? JSON.parse(options.body) : {};
   window.audit.requests.push({ path, body, method: options.method || 'GET' });
@@ -63,12 +74,18 @@ window.fetch = async (url, options = {}) => {
   if (path.endsWith('/presence')) return Response.json({ queue: { gameId: 'fixture', status: 'playing', tournamentStatus: 'active', queueEnabled: true } });
   if (path.includes('/live-games/') || path.includes('/internal-arenas/')) {
     if (path.endsWith('/move')) {
+      if (window.audit.nextMoveError) {
+        const error = window.audit.nextMoveError;
+        delete window.audit.nextMoveError;
+        return Response.json({ error }, { status: 400 });
+      }
       try { updatePosition({ from: body.from, to: body.to, promotion: body.promotion }); window.audit.moveRequests.push(body); }
       catch { return Response.json({ error: 'Illegal fixture move' }, { status: 400 }); }
     }
     if (path.endsWith('/action')) {
       if (body.action === 'resign') Object.assign(game, { status: 'completed', winnerColor: 'black', resultReason: 'resignation', completedAt: now(), version: game.version + 1 });
       if (body.action === 'offer_draw') Object.assign(game, { drawOfferedBy: 'white', version: game.version + 1 });
+      if (body.action === 'decline_draw') Object.assign(game, { drawOfferedBy: null, version: game.version + 1 });
     }
     return Response.json({ ok: true, game: { ...game, serverNow: now() } });
   }

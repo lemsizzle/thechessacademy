@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/Button";
+import { ZenModeButton } from "@/chess/components/GameBoardWorkspace";
 
 export function GameControls({ canTakeBack, muted, onResign, onTakeBack, onFlip, onNewGame, onToggleMute }: {
   canTakeBack: boolean;
@@ -17,7 +18,8 @@ export function GameControls({ canTakeBack, muted, onResign, onTakeBack, onFlip,
       <Button type="button" variant="ghost" onClick={onFlip}>⇅ Flip Board</Button>
       <Button type="button" variant="ghost" onClick={onToggleMute}>{muted ? "🔇 Sound Off" : "🔊 Sound On"}</Button>
       <Button type="button" variant="ghost" onClick={onNewGame}>＋ New Game</Button>
-      <Button type="button" variant="ghost" onClick={onResign} className="col-span-2 border-rose-300/25 text-rose-100">⚑ Resign</Button>
+      <ZenModeButton />
+      <Button type="button" variant="ghost" onClick={onResign} className="border-rose-300/25 text-rose-100">⚑ Resign</Button>
     </div>
   );
 }

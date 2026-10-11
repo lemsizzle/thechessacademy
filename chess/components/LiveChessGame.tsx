@@ -3,7 +3,7 @@ import { InGameTournamentChat } from "@/components/tournaments/InGameTournamentC
 
 import { refreshCelebrations } from "@/lib/celebrations";
 
-import { GameBoardWorkspace } from "@/chess/components/GameBoardWorkspace";
+import { GameBoardWorkspace, ZenModeButton } from "@/chess/components/GameBoardWorkspace";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
@@ -411,6 +411,11 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
     setAnnotationStart(null);
   }, []);
 
+  const enableBoardMoves = useCallback(() => {
+    setAnnotationMode(null);
+    setAnnotationStart(null);
+  }, []);
+
   async function copyChallenge() {
     if (!game) return;
     const url = `${window.location.origin}/student/play/live?code=${game.challengeCode}`;
@@ -528,6 +533,8 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
 
       <GameBoardWorkspace
+        onEnterZen={enableBoardMoves}
+        attentionRequired={Boolean(error || opponentOfferedDraw)}
         revealResult={resultOpen && game.status === "completed"}
         title={isCorrespondence ? "Correspondence · 3 days per move" : `Live game · ${game.timeControl.name}`}
         settings={<BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} />}
@@ -575,7 +582,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
             <h2 className="font-black text-white">Game controls</h2>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Button type="button" variant="ghost" onClick={() => setOrientation((value) => oppositeColor(value))}>⇅ Flip Board</Button>
-              <Button href={game.arenaTournamentId ? "/student/tournaments" : isCorrespondence ? "/student/play/correspondence" : "/student/play/live"} variant="ghost">{game.arenaTournamentId ? "Arena" : isCorrespondence ? "Correspondence" : "Live Games"}</Button>
+              <ZenModeButton />
               {game.status === "active" && !opponent?.botDifficultyId ? <Button type="button" variant="ghost" disabled={pending || Boolean(game.drawOfferedBy)} onClick={() => void sendAction("offer_draw")}>{viewerOfferedDraw ? "Draw Offered" : "Offer Draw"}</Button> : null}
               {game.status === "active" ? <Button type="button" variant="ghost" className="border-rose-300/25 text-rose-100" disabled={pending} onClick={() => setConfirmation("resign")}>⚑ Resign</Button> : null}
             </div>
@@ -650,7 +657,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
               </div>
             ) : null}
             {opponentOfferedDraw ? (
-              <div className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3">
+              <div data-game-attention className="mt-3 rounded-md border border-amber-300/30 bg-amber-300/10 p-3">
                 <p className="text-sm font-bold text-amber-100">Your opponent offered a draw.</p>
                 <div className="mt-3 flex gap-2"><Button type="button" onClick={() => void sendAction("accept_draw")} disabled={pending}>Accept</Button><Button type="button" variant="ghost" onClick={() => void sendAction("decline_draw")} disabled={pending}>Decline</Button></div>
               </div>

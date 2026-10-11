@@ -81,6 +81,11 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
     setAnnotationStart(null);
   }, []);
 
+  const enableBoardMoves = useCallback(() => {
+    setAnnotationMode(null);
+    setAnnotationStart(null);
+  }, []);
+
   if (!game.config) return <GameSetup unlockedBotIds={unlockedBotIds} onStart={(config) => {
     clearBoardAnnotations();
     setAnnotationMode(null);
@@ -137,6 +142,8 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
   return (
     <div className="space-y-4">
       <GameBoardWorkspace
+        onEnterZen={enableBoardMoves}
+        attentionRequired={Boolean(game.engineError)}
         revealOnMount
         revealResult={game.resultOpen && Boolean(game.outcome)}
         title={`Computer · ${config.timeControl.name}`}
@@ -219,7 +226,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
                 <Button type="button" variant="ghost" className="px-3 py-1.5 text-xs" onClick={game.cancelPremove}>Cancel</Button>
               </div>
             ) : null}
-            {game.engineError && !game.outcome && <Button type="button" variant="secondary" className="mt-3" onClick={game.retryComputerMove}>Retry Computer Move</Button>}
+            {game.engineError && !game.outcome && <Button data-game-attention type="button" variant="secondary" className="mt-3" onClick={game.retryComputerMove}>Retry Computer Move</Button>}
             {game.saveStatus !== "idle" && (
               <p className={`mt-3 text-xs ${game.saveStatus === "failed" ? "text-rose-200" : game.saveStatus === "saved" ? "text-emerald-200" : "text-slate-400"}`} aria-live="polite">
                 {game.saveStatus === "saving" ? "Saving completed game..." : game.saveMessage}

@@ -1,6 +1,6 @@
 "use client";
 
-import { GameBoardWorkspace } from "@/chess/components/GameBoardWorkspace";
+import { GameBoardWorkspace, ZenModeButton } from "@/chess/components/GameBoardWorkspace";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
@@ -222,6 +222,7 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
       {(game.berserk?.white || game.berserk?.black) && <p className="rounded-md border border-orange-300/30 bg-orange-300/10 p-3 text-sm font-bold text-orange-100" role="status">⚔ Berserk: {[game.berserk?.white ? game.players.white.name : null, game.berserk?.black ? game.players.black.name : null].filter(Boolean).join(" & ")} · no increment</p>}
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
       <GameBoardWorkspace
+        attentionRequired={Boolean(error)}
         title={game.computerPractice ? "Watch computer game" : "Watch live game"}
         settings={<BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} />}
         opponent={<PlayerPanel compact displayedBadge={game.players[topColor].displayedBadge} studentId={game.players[topColor].id} name={game.players[topColor].name} subtitle={`Playing ${topColor}`} clockMs={displayedClocks[topColor]} active={game.status === "active" && game.activeColor === topColor} portrait={game.players[topColor].portrait} avatar={game.players[topColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, topColor)} />}
@@ -249,6 +250,7 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
             <h2 className="font-black text-white">Spectator controls</h2>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Button type="button" variant="ghost" onClick={() => setOrientation((value) => oppositeColor(value))}>⇅ Flip Board</Button>
+              <ZenModeButton />
               <Button href={backHref} variant="ghost">{isTeacher ? "All Live Games" : "Arena Lobby"}</Button>
             </div>
             <details className="mt-3 border-t border-white/10 pt-3">

@@ -25,7 +25,7 @@ type PlayerPanelProps = {
 export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrait, avatar, avatarItems = [], materialAdvantage, actions, displayedBadge, studentId, compact = false }: PlayerPanelProps) {
   return (
     <div className={`${compact ? "game-player-compact" : ""} flex min-w-0 items-center justify-between gap-2 rounded-lg border p-2 ${active ? "border-cyan-200/35 bg-cyan-300/8" : "border-white/10 bg-slate-950/55"}`}>
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="game-player-identity flex min-w-0 items-center gap-2">
         {(avatar || portrait) && <div className={compact ? "game-player-portrait" : "contents"}>
           {avatar ? <AvatarRenderer items={avatarItems} avatar={avatar} size="sm" label={`${name}'s avatar`} /> : portrait ? <BotPortrait src={portrait} /> : null}
         </div>}
@@ -49,7 +49,7 @@ export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrai
           </div>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="game-player-clock flex shrink-0 items-center gap-2">
         <ChessClock milliseconds={clockMs} active={active} label={name} compact={compact} />
         {actions}
       </div>
