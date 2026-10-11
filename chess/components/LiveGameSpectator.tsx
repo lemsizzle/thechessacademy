@@ -1,6 +1,6 @@
 "use client";
 
-import { BoardViewport } from "@/chess/components/BoardViewport";
+import { GameBoardWorkspace } from "@/chess/components/GameBoardWorkspace";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
@@ -221,32 +221,46 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
     <div className="space-y-4">
       {(game.berserk?.white || game.berserk?.black) && <p className="rounded-md border border-orange-300/30 bg-orange-300/10 p-3 text-sm font-bold text-orange-100" role="status">⚔ Berserk: {[game.berserk?.white ? game.players.white.name : null, game.berserk?.black ? game.players.black.name : null].filter(Boolean).join(" & ")} · no increment</p>}
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
-      <div className="grid min-w-0 grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,700px)_minmax(300px,1fr)]">
-        <BoardViewport maxWidth={700}>
-          <PlayerPanel displayedBadge={game.players[topColor].displayedBadge} studentId={game.players[topColor].id} name={game.players[topColor].name} subtitle={`Playing ${topColor}`} clockMs={displayedClocks[topColor]} active={game.status === "active" && game.activeColor === topColor} portrait={game.players[topColor].portrait} avatar={game.players[topColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, topColor)} actions={<BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} />} />
-          <div className="relative">
-            <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
-              <AcademyChessboard fen={viewedFen} orientation={orientation} humanColor={orientation} interactive={false} lastMove={lastMove} onMove={ignoreMove} arrows={boardArrows} allowDrawingArrows onArrowsChange={setBoardArrows} onClearAnnotations={clearBoardAnnotations} boardId={`teacher-watch-${game.id}`} />
-              <BoardCaptureParticles effect={selectedPly === null ? captureEffect : null} orientation={orientation} />
-            </div>
+      <GameBoardWorkspace
+        title={game.computerPractice ? "Watch computer game" : "Watch live game"}
+        settings={<BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} />}
+        opponent={<PlayerPanel compact displayedBadge={game.players[topColor].displayedBadge} studentId={game.players[topColor].id} name={game.players[topColor].name} subtitle={`Playing ${topColor}`} clockMs={displayedClocks[topColor]} active={game.status === "active" && game.activeColor === topColor} portrait={game.players[topColor].portrait} avatar={game.players[topColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, topColor)} />}
+        player={<PlayerPanel compact displayedBadge={game.players[bottomColor].displayedBadge} studentId={game.players[bottomColor].id} name={game.players[bottomColor].name} subtitle={`Playing ${bottomColor}`} clockMs={displayedClocks[bottomColor]} active={game.status === "active" && game.activeColor === bottomColor} portrait={game.players[bottomColor].portrait} avatar={game.players[bottomColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, bottomColor)} />}
+        board={
+          <div className="game-board-surface">
+            <AcademyChessboard fen={viewedFen} orientation={orientation} humanColor={orientation} interactive={false} lastMove={lastMove} onMove={ignoreMove} arrows={boardArrows} allowDrawingArrows onArrowsChange={setBoardArrows} onClearAnnotations={clearBoardAnnotations} boardId={`teacher-watch-${game.id}`} />
+            <BoardCaptureParticles effect={selectedPly === null ? captureEffect : null} orientation={orientation} />
           </div>
-          <PlayerPanel displayedBadge={game.players[bottomColor].displayedBadge} studentId={game.players[bottomColor].id} name={game.players[bottomColor].name} subtitle={`Playing ${bottomColor}`} clockMs={displayedClocks[bottomColor]} active={game.status === "active" && game.activeColor === bottomColor} portrait={game.players[bottomColor].portrait} avatar={game.players[bottomColor].avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, bottomColor)} />
-        </BoardViewport>
-
-        <aside className="space-y-4 xl:sticky xl:top-4">
-          <Card className="p-4 sm:p-5">
+        }
+      >
+          <Card className="p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-wider text-cyan-200">{isTeacher ? "Teacher spectator mode" : "Arena spectator mode"}</p>
-                <h2 className="mt-1 text-xl font-black text-white">{game.players.white.name} vs {game.players.black.name}</h2>
+                <h2 className="mt-1 text-base font-black text-white">{game.players.white.name} vs {game.players.black.name}</h2>
                 <p className="mt-1 text-xs font-bold text-slate-400">{game.computerPractice ? "Computer practice" : game.matchmaking ? "Academy match" : "Private challenge"} · {game.rated ? "Rated" : "Casual"} · {game.timeControl.name}</p>
               </div>
-              <span className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${game.status !== "active" ? "border-slate-300/25 bg-slate-300/10 text-slate-200" : connection === "live" || game.computerPractice ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{game.status === "completed" ? "Finished" : game.status === "cancelled" ? "Closed" : connection === "live" || game.computerPractice ? "Live" : connection}</span>
+              <span className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${game.status !== "active" ? "border-slate-300/25 bg-slate-300/10 text-slate-200" : connection === "live" || game.computerPractice ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{game.status === "completed" ? "Finished" : game.status === "cancelled" ? "Closed" : connection === "live" || game.computerPractice ? "Live" : connection}</span>
             </div>
-            <p className="mt-4 rounded-md border border-white/10 bg-white/5 p-3 text-sm font-bold leading-5 text-slate-200" aria-live="polite">{completedStatus(game)}</p>
+            <p className="mt-3 rounded-md border border-white/10 bg-white/5 p-2 text-sm font-bold leading-5 text-slate-200" aria-live="polite">{completedStatus(game)}</p>
           </Card>
 
-          <Card className="p-4 sm:p-5">
+          <Card className="p-3">
+            <h2 className="font-black text-white">Spectator controls</h2>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button type="button" variant="ghost" onClick={() => setOrientation((value) => oppositeColor(value))}>⇅ Flip Board</Button>
+              <Button href={backHref} variant="ghost">{isTeacher ? "All Live Games" : "Arena Lobby"}</Button>
+            </div>
+            <details className="mt-3 border-t border-white/10 pt-3">
+              <summary className="cursor-pointer text-xs font-black text-cyan-200">Private board arrows</summary>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <p className="text-xs leading-5 text-slate-400">Right-drag on the board to draw. Players cannot see these arrows.</p>
+                <Button type="button" variant="ghost" disabled={!boardArrows.length} onClick={clearBoardAnnotations}>Clear</Button>
+              </div>
+            </details>
+          </Card>
+
+          <Card className="p-3">
             <div className="mb-3 flex items-center justify-between gap-3"><h2 className="font-black text-white">Moves</h2><span className="text-right text-xs text-slate-500">Click a move · ← → keys</span></div>
             <MoveHistory moves={game.moves} selectedPly={viewedPly} onSelectPly={(ply) => setSelectedPly(ply === game.moves.length ? null : ply)} />
             {selectedPly !== null ? (
@@ -255,25 +269,7 @@ export function LiveGameSpectator({ gameId, adminActionToken = "", role = "teach
               </button>
             ) : null}
           </Card>
-
-          <Card className="p-4 sm:p-5">
-            <h2 className="font-black text-white">Spectator controls</h2>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button type="button" variant="ghost" onClick={() => setOrientation((value) => oppositeColor(value))}>⇅ Flip Board</Button>
-              <Button href={backHref} variant="ghost">{isTeacher ? "All Live Games" : "Arena Lobby"}</Button>
-            </div>
-            <div className="mt-4 border-t border-white/10 pt-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Private board arrows</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-400">Right-drag on the board to draw. Players cannot see these arrows.</p>
-                </div>
-                <Button type="button" variant="ghost" disabled={!boardArrows.length} onClick={() => setBoardArrows([])}>Clear</Button>
-              </div>
-            </div>
-          </Card>
-        </aside>
-      </div>
+      </GameBoardWorkspace>
     </div>
   );
 }

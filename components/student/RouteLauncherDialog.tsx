@@ -82,7 +82,7 @@ export function RouteLauncherDialog({
 
   return (
     <RouteLauncherContext.Provider value={closeLauncher}>
-      <section className="rounded-xl border border-cyan-200/20 bg-slate-950/80 p-4 sm:p-5">
+      <section data-route-launcher={id} className="rounded-xl border border-cyan-200/20 bg-slate-950/80 p-4 sm:p-5">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">{eyebrow}</p>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>

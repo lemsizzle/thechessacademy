@@ -3,7 +3,7 @@ import { InGameTournamentChat } from "@/components/tournaments/InGameTournamentC
 
 import { refreshCelebrations } from "@/lib/celebrations";
 
-import { BoardViewport } from "@/chess/components/BoardViewport";
+import { GameBoardWorkspace } from "@/chess/components/GameBoardWorkspace";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
@@ -41,7 +41,6 @@ type GameResponse = { ok: boolean; game?: LiveGameSnapshot; error?: string };
 type Confirmation = "cancel" | "resign" | null;
 type RematchDecision = "request" | "accept" | "decline";
 type RematchResponse = { ok: boolean; rematch?: { status: "waiting" | "matched" | "declined"; gameId: string | null; source: LiveGameSnapshot }; error?: string };
-
 
 function clockValue(game: LiveGameSnapshot, color: ChessColor, nowMs: number, serverOffsetMs: number) {
   const base = color === "white" ? game.clocks.whiteMs : game.clocks.blackMs;
@@ -525,19 +524,18 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
 
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
 
-      <div className="grid min-w-0 grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,700px)_minmax(300px,1fr)] xl:gap-x-16">
-        <BoardViewport maxWidth={700}>
-          <PlayerPanel displayedBadge={opponent?.displayedBadge} studentId={opponent?.id} name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${isCorrespondence ? "3 days per move" : game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} portrait={opponent?.portrait} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} actions={<BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} />} />
-          <div className="relative">
-            <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
+      <GameBoardWorkspace
+        title={isCorrespondence ? "Correspondence · 3 days per move" : `Live game · ${game.timeControl.name}`}
+        settings={<BoardSoundSettings muted={muted} onToggleMuted={toggleMuted} />}
+        opponent={<PlayerPanel compact displayedBadge={opponent?.displayedBadge} studentId={opponent?.id} name={opponent?.name ?? "Waiting for opponent"} subtitle={`Playing ${opponentColor} · ${isCorrespondence ? "3 days per move" : game.timeControl.name}`} clockMs={displayedClocks[opponentColor]} active={game.status === "active" && game.activeColor === opponentColor} portrait={opponent?.portrait} avatar={opponent?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)} />}
+        player={<PlayerPanel compact displayedBadge={viewer?.displayedBadge} studentId={viewer?.id} name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}${isCorrespondence ? " · 3 days per move" : ""}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} avatar={viewer?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />}
+        board={
+            <div className="game-board-surface">
               <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} allowPremoves={canQueuePremove} premove={displayedPremove} onCancelPremove={() => setPremove(null)} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
               <BoardCaptureParticles effect={captureEffect} orientation={orientation} />
             </div>
-          </div>
-          <PlayerPanel displayedBadge={viewer?.displayedBadge} studentId={viewer?.id} name={viewer?.name ?? "You"} subtitle={`You are playing ${viewerColor}${isCorrespondence ? " · 3 days per move" : ""}`} clockMs={displayedClocks[viewerColor]} active={game.status === "active" && game.activeColor === viewerColor} avatar={viewer?.avatar} avatarItems={game.avatarItems} materialAdvantage={materialAdvantageForColor(materialBalance, viewerColor)} />
-        </BoardViewport>
-
-        <aside className="space-y-4 xl:sticky xl:top-20">
+        }
+      >
       {resultOpen && game.status === "completed" && game.arenaTournamentId ? (
         <GameDialog inline           title={game.winnerColor && game.winnerColor !== viewerColor ? "Defeat — good effort" : game.winnerColor === viewerColor ? "Victory!" : "Arena Game Complete"}
           tone={game.winnerColor && game.winnerColor !== viewerColor ? "loss" : "default"}
@@ -569,16 +567,34 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           </p>
         </GameDialog>
       ) : null}
-          <Card className="p-4 sm:p-5">
+          <Card className="p-3">
+            <h2 className="font-black text-white">Game controls</h2>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button type="button" variant="ghost" onClick={() => setOrientation((value) => oppositeColor(value))}>⇅ Flip Board</Button>
+              <Button href={game.arenaTournamentId ? "/student/tournaments" : isCorrespondence ? "/student/play/correspondence" : "/student/play/live"} variant="ghost">{game.arenaTournamentId ? "Arena" : isCorrespondence ? "Correspondence" : "Live Games"}</Button>
+              {game.status === "active" && !opponent?.botDifficultyId ? <Button type="button" variant="ghost" disabled={pending || Boolean(game.drawOfferedBy)} onClick={() => void sendAction("offer_draw")}>{viewerOfferedDraw ? "Draw Offered" : "Offer Draw"}</Button> : null}
+              {game.status === "active" ? <Button type="button" variant="ghost" className="border-rose-300/25 text-rose-100" disabled={pending} onClick={() => setConfirmation("resign")}>⚑ Resign</Button> : null}
+            </div>
+            <details className="mt-2 border-t border-white/10" onToggle={(event) => { if (!event.currentTarget.open) { setAnnotationMode(null); setAnnotationStart(null); } }}>
+              <summary>Board drawings</summary>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" aria-pressed={annotationMode === null} variant={annotationMode === null ? "secondary" : "ghost"} onClick={() => { setAnnotationMode(null); setAnnotationStart(null); }}>Move</Button>
+                <Button type="button" aria-pressed={annotationMode === "arrow"} variant={annotationMode === "arrow" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("arrow"); setAnnotationStart(null); }}>Arrow</Button>
+                <Button type="button" aria-pressed={annotationMode === "circle"} variant={annotationMode === "circle" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("circle"); setAnnotationStart(null); }}>Circle</Button>
+                <Button type="button" variant="ghost" disabled={!boardArrows.length && !boardCircles.length} onClick={clearBoardAnnotations}>Clear</Button>
+              </div>
+            </details>
+          </Card>
+
+          <Card className="p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-wider text-cyan-200">{isCorrespondence ? "Correspondence game" : "Live game"}</p>
-                <h2 className="mt-1 text-xl font-black text-white">{opponent ? `vs ${opponent.name}` : "Waiting challenge"}</h2>
                 <p className="mt-1 text-xs font-bold text-slate-400">{isCorrespondence ? "Casual · random colors · 3 days per move" : `${game.matchmaking ? "Academy match" : "Private challenge"} · ${game.timeControl.name}`}</p>
               </div>
-              <span className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${connection === "live" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{connection === "live" ? (isCorrespondence ? "Synced" : "Live") : connection}</span>
+              <span className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-1 text-[11px] font-bold uppercase ${connection === "live" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-amber-300/30 bg-amber-300/10 text-amber-100"}`}>{connection === "live" ? (isCorrespondence ? "Synced" : "Live") : connection}</span>
             </div>
-            <p className="mt-4 rounded-md border border-white/10 bg-white/5 p-3 text-sm font-bold leading-5 text-slate-200" aria-live="polite">{statusText}</p>
+            <p className="mt-3 rounded-md border border-white/10 bg-white/5 p-3 text-sm font-bold leading-5 text-slate-200" aria-live="polite">{statusText}</p>
             {game.arenaTournamentId && (canBerserk(game, viewerColor) || game.berserk?.white || game.berserk?.black) ? (
               <div className="mt-3 rounded-md border border-orange-300/30 bg-orange-300/10 p-3">
                 {canBerserk(game, viewerColor) && <Button type="button" variant="secondary" disabled={pending} onClick={() => void sendAction("berserk")}>⚔ Berserk</Button>}
@@ -638,31 +654,12 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
           </Card>
 
           {game.arenaTournamentId && <InGameTournamentChat key={game.arenaTournamentId} tournamentId={game.arenaTournamentId} />}
-          <Card className="p-4 sm:p-5">
+          <Card className="p-3">
             <div className="mb-3 flex items-center justify-between"><h2 className="font-black text-white">Moves</h2><span className="text-xs text-slate-500">SAN notation</span></div>
             <MoveHistory moves={game.moves} />
           </Card>
 
-          <Card className="p-4 sm:p-5">
-            <h2 className="font-black text-white">Game controls</h2>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button type="button" variant="ghost" onClick={() => setOrientation((value) => oppositeColor(value))}>⇅ Flip Board</Button>
-              <Button href={game.arenaTournamentId ? "/student/tournaments" : isCorrespondence ? "/student/play/correspondence" : "/student/play/live"} variant="ghost">{game.arenaTournamentId ? "Arena" : isCorrespondence ? "Correspondence" : "Live Games"}</Button>
-              {game.status === "active" && !opponent?.botDifficultyId ? <Button type="button" variant="ghost" disabled={pending || Boolean(game.drawOfferedBy)} onClick={() => void sendAction("offer_draw")}>{viewerOfferedDraw ? "Draw Offered" : "Offer Draw"}</Button> : null}
-              {game.status === "active" ? <Button type="button" variant="ghost" className="border-rose-300/25 text-rose-100" disabled={pending} onClick={() => setConfirmation("resign")}>⚑ Resign</Button> : null}
-            </div>
-            <div className="mt-4 border-t border-white/10 pt-4">
-              <p className="mb-2 text-xs font-black uppercase tracking-wider text-cyan-200">Board drawings</p>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" aria-pressed={annotationMode === null} variant={annotationMode === null ? "secondary" : "ghost"} onClick={() => { setAnnotationMode(null); setAnnotationStart(null); }}>Move</Button>
-                <Button type="button" aria-pressed={annotationMode === "arrow"} variant={annotationMode === "arrow" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("arrow"); setAnnotationStart(null); }}>Arrow</Button>
-                <Button type="button" aria-pressed={annotationMode === "circle"} variant={annotationMode === "circle" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("circle"); setAnnotationStart(null); }}>Circle</Button>
-                <Button type="button" variant="ghost" disabled={!boardArrows.length && !boardCircles.length} onClick={clearBoardAnnotations}>Clear</Button>
-              </div>
-            </div>
-          </Card>
-        </aside>
-      </div>
+      </GameBoardWorkspace>
 
       {pendingPromotion ? <PromotionDialog color={viewerColor} onChoose={(piece) => {
         if (pendingPromotion.mode === "premove") {

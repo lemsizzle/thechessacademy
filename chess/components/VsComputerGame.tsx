@@ -1,6 +1,6 @@
 "use client";
 
-import { BoardViewport } from "@/chess/components/BoardViewport";
+import { GameBoardWorkspace } from "@/chess/components/GameBoardWorkspace";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Chess } from "chess.js";
@@ -24,7 +24,6 @@ import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/
 import type { AvatarItem, StudentAvatarConfig, DisplayedBadge } from "@/lib/types";
 
 type Confirmation = "resign" | "new-game" | null;
-
 
 export function VsComputerGame({ studentName, studentAvatar, avatarItems, initialUnlockedBotIds, displayedBadge }: { studentName: string; studentAvatar: StudentAvatarConfig; avatarItems: AvatarItem[]; initialUnlockedBotIds: string[]; displayedBadge?: DisplayedBadge | null }) {
   const [unlockedBotIds, setUnlockedBotIds] = useState(initialUnlockedBotIds);
@@ -113,6 +112,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
   }
 
   const opponentPanel = <PlayerPanel
+    compact
     name={config.bot.name}
     subtitle={config.bot.title}
     portrait={config.bot.portrait}
@@ -122,6 +122,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
     materialAdvantage={materialAdvantageForColor(materialBalance, opponentColor)}
   />;
   const studentPanel = <PlayerPanel
+    compact
     name={studentName}
     studentId={studentAvatar.studentId}
     displayedBadge={displayedBadge}
@@ -135,13 +136,14 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
 
   return (
     <div className="space-y-4">
-      <div className="bot-game-layout grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <BoardViewport className="bot-game-board-column space-y-3" maxWidth={1200} fitToScreen>
-          <div data-bot-player-row>{opponentPanel}</div>
-
-          <div className="relative">
-          <div data-bot-settings-row className="mb-2 flex justify-end"><BoardSettings muted={game.muted} onToggleMuted={() => game.setMuted((value) => !value)} /></div>
-          <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-cyan-200/20 bg-slate-950/70 p-1 sm:p-2">
+      <GameBoardWorkspace
+        revealOnMount
+        title={`Computer · ${config.timeControl.name}`}
+        settings={<BoardSettings muted={game.muted} onToggleMuted={() => game.setMuted((value) => !value)} />}
+        opponent={opponentPanel}
+        player={studentPanel}
+        board={
+          <div className="game-board-surface">
             <AcademyChessboard
               fen={game.fen}
               orientation={game.boardOrientation}
@@ -162,17 +164,8 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
             />
             <BoardCaptureParticles effect={game.captureEffect} orientation={game.boardOrientation} />
           </div>
-          </div>
-
-          <div data-bot-player-row>{studentPanel}</div>
-        </BoardViewport>
-
-        <aside className="bot-game-controls min-w-0 space-y-4 xl:sticky xl:top-20">
-          <div className="bot-game-landscape-players hidden space-y-3">
-            <BoardSettings muted={game.muted} onToggleMuted={() => game.setMuted((value) => !value)} />
-            {opponentPanel}
-            {studentPanel}
-          </div>
+        }
+      >
       {game.outcome && game.resultOpen && (
         <>
           <GameDialog inline             tone={game.outcome.result === "loss" ? "loss" : "default"}
@@ -192,15 +185,31 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
         </>
       )}
 
-          <Card className="p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Game status</p>
-                <h2 className="mt-1 text-xl font-black text-white">Vs {config.bot.name}</h2>
+          <Card className="p-3">
+            <h2 className="mb-3 font-black text-white">Game controls</h2>
+            <GameControls
+              canTakeBack={game.canTakeBack}
+              muted={game.muted}
+              onTakeBack={game.takeBack}
+              onFlip={() => game.setBoardOrientation((value) => value === "white" ? "black" : "white")}
+              onToggleMute={() => game.setMuted((value) => !value)}
+              onResign={() => setConfirmation("resign")}
+              onNewGame={() => game.outcome ? game.leaveGame() : setConfirmation("new-game")}
+            />
+            <details className="mt-2 border-t border-white/10" onToggle={(event) => { if (!event.currentTarget.open) { setAnnotationMode(null); setAnnotationStart(null); } }}>
+              <summary>Board drawings</summary>
+              <div className="flex flex-wrap gap-2" aria-label="Live board drawing tools">
+                <Button type="button" aria-pressed={annotationMode === null} variant={annotationMode === null ? "secondary" : "ghost"} onClick={() => { setAnnotationMode(null); setAnnotationStart(null); }}>Move</Button>
+                <Button type="button" aria-pressed={annotationMode === "arrow"} variant={annotationMode === "arrow" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("arrow"); setAnnotationStart(null); }}>Arrow</Button>
+                <Button type="button" aria-pressed={annotationMode === "circle"} variant={annotationMode === "circle" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("circle"); setAnnotationStart(null); }}>Circle</Button>
+                <Button type="button" variant="ghost" disabled={!boardArrows.length && !boardCircles.length} onClick={clearBoardAnnotations}>Clear</Button>
               </div>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-slate-300">{config.timeControl.name}</span>
-            </div>
-            <div className={`mt-4 rounded-md border p-3 text-sm font-bold leading-5 ${game.engineError ? "border-rose-300/35 bg-rose-300/10 text-rose-100" : game.outcome ? "border-amber-300/35 bg-amber-300/10 text-amber-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">
+              <p className="mt-2 text-xs leading-5 text-slate-400">Right-click a square for a circle or right-drag for an arrow. Shift/Ctrl draws red, Alt/Command blue, and both yellow. Touch players can use Arrow or Circle mode.</p>
+            </details>
+          </Card>
+
+          <Card className="p-3">
+            <div className={`rounded-md border p-3 text-sm font-bold leading-5 ${game.engineError ? "border-rose-300/35 bg-rose-300/10 text-rose-100" : game.outcome ? "border-amber-300/35 bg-amber-300/10 text-amber-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">
               {status}
             </div>
             {game.premove ? (
@@ -218,7 +227,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
             {game.outcome && !game.resultOpen && <CompletedGameActions gameId={game.savedGameId} saveFailed={game.saveStatus === "failed"} />}
           </Card>
 
-          <Card className="p-4 sm:p-5">
+          <Card className="p-3">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-black text-white">Moves</h2>
               <span className="text-xs text-slate-500">SAN notation</span>
@@ -226,30 +235,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
             <MoveHistory moves={game.moves} />
           </Card>
 
-          <Card className="p-4 sm:p-5">
-            <h2 className="mb-3 font-black text-white">Game controls</h2>
-            <GameControls
-              canTakeBack={game.canTakeBack}
-              muted={game.muted}
-              onTakeBack={game.takeBack}
-              onFlip={() => game.setBoardOrientation((value) => value === "white" ? "black" : "white")}
-              onToggleMute={() => game.setMuted((value) => !value)}
-              onResign={() => setConfirmation("resign")}
-              onNewGame={() => game.outcome ? game.leaveGame() : setConfirmation("new-game")}
-            />
-            <div className="mt-4 border-t border-white/10 pt-4">
-              <p className="mb-2 text-xs font-black uppercase tracking-wider text-cyan-200">Board drawings</p>
-              <div className="flex flex-wrap gap-2" aria-label="Live board drawing tools">
-                <Button type="button" aria-pressed={annotationMode === null} variant={annotationMode === null ? "secondary" : "ghost"} onClick={() => { setAnnotationMode(null); setAnnotationStart(null); }}>Move</Button>
-                <Button type="button" aria-pressed={annotationMode === "arrow"} variant={annotationMode === "arrow" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("arrow"); setAnnotationStart(null); }}>Arrow</Button>
-                <Button type="button" aria-pressed={annotationMode === "circle"} variant={annotationMode === "circle" ? "secondary" : "ghost"} onClick={() => { setAnnotationMode("circle"); setAnnotationStart(null); }}>Circle</Button>
-                <Button type="button" variant="ghost" disabled={!boardArrows.length && !boardCircles.length} onClick={clearBoardAnnotations}>Clear</Button>
-              </div>
-              <p className="mt-2 text-xs leading-5 text-slate-400">Right-click a square for a circle or right-drag for an arrow. Shift/Ctrl draws red, Alt/Command blue, and both yellow. Touch players can use Arrow or Circle mode.</p>
-            </div>
-          </Card>
-        </aside>
-      </div>
+      </GameBoardWorkspace>
 
       {game.pendingPromotion && (
         <PromotionDialog
