@@ -19,7 +19,7 @@ function hasOpenDialog() {
 }
 
 /** One mounted board and one set of players; CSS reflows the controls around them. */
-export function GameBoardWorkspace({ title, settings, opponent, player, board, children, revealOnMount = false, revealResult = false, attentionRequired = false, onEnterZen }: {
+export function GameBoardWorkspace({ title, settings, opponent, player, board, children, revealOnMount = false, revealResult = false, attentionRequired = false, onEnterZen, onCancelPremove }: {
   title: string;
   settings: ReactNode;
   opponent: ReactNode;
@@ -30,6 +30,7 @@ export function GameBoardWorkspace({ title, settings, opponent, player, board, c
   revealResult?: boolean;
   attentionRequired?: boolean;
   onEnterZen?: () => void;
+  onCancelPremove?: () => void;
 }) {
   const workspace = useRef<HTMLDivElement>(null);
   const controls = useRef<HTMLElement>(null);
@@ -126,7 +127,14 @@ export function GameBoardWorkspace({ title, settings, opponent, player, board, c
 
   return (
     <EnterZenContext.Provider value={enterZen}>
-      <div ref={workspace} className="game-workspace" data-board-fit-screen data-zen={isZen ? "true" : undefined}>
+      <div ref={workspace} className="game-workspace" data-board-fit-screen data-zen={isZen ? "true" : undefined}
+        onPointerDownCapture={(event) => {
+          // The surrounding Zen canvas and clocks are a large cancellation
+          // target on mouse and touch; board gestures keep their own handling.
+          if (isZen && event.target instanceof Element && !event.target.closest("[data-chess-board]") && !hasOpenDialog()) {
+            onCancelPremove?.();
+          }
+        }}>
         <div className="game-layout">
           <section className="game-board-column" aria-label="Chessboard">
             <div className="game-board-toolbar">

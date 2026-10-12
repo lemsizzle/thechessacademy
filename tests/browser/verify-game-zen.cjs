@@ -147,6 +147,15 @@ const output = process.env.GAME_ZEN_SCREENSHOTS || 'work/game-zen';
       await move('g1', 'f3'); assert.equal(await page.getByText('Premove: g1 → f3', { exact: true }).count(), 1);
       await page.locator('[data-square="a3"]').click({ button: 'right' });
       assert.equal(await page.getByText('Premove: g1 → f3', { exact: true }).count(), 0, 'Right click cancels premove in Zen');
+      for (const target of ['background', '.game-opponent .chess-clock', '.game-player .chess-clock']) {
+        await move('g1', 'f3');
+        assert.equal(await page.getByText('Premove: g1 → f3', { exact: true }).count(), 1);
+        if (target === 'background') await page.mouse.click(2, 2);
+        else await page.locator(target).click();
+        assert.equal(await page.getByText('Premove: g1 → f3', { exact: true }).count(), 0, `${target} cancels premove`);
+        assert(await isZen(), 'Off-board cancellation must keep Zen open');
+        assert.equal(await page.evaluate(() => window.audit.moveRequests.length), 1, 'Cancellation must not submit a move');
+      }
       await move('g1', 'f3'); await page.evaluate(() => window.audit.opponentMove());
       await page.waitForFunction(() => window.audit.moveRequests.length === 2);
       await page.locator('[data-square="f3"] [data-piece]').waitFor(); await assertSameBoard(liveBoard);
@@ -182,6 +191,11 @@ const output = process.env.GAME_ZEN_SCREENSHOTS || 'work/game-zen';
       assert.equal(await touch.getByText('Premove: g1 → f3', { exact: true }).count(), 1);
       await touch.locator('[data-square="a3"]').tap();
       assert.equal(await touch.getByText('Premove: g1 → f3', { exact: true }).count(), 0, 'Touch cancels premove in Zen');
+      await touch.locator('[data-square="g1"]').tap(); await touch.locator('[data-square="f3"]').tap();
+      assert.equal(await touch.getByText('Premove: g1 → f3', { exact: true }).count(), 1);
+      await touch.touchscreen.tap(2, 2);
+      assert.equal(await touch.getByText('Premove: g1 → f3', { exact: true }).count(), 0, 'Touch outside board cancels premove');
+      assert(await touch.getByRole('button', { name: /^Exit Zen\b/i }).isVisible(), 'Touch cancellation keeps Zen open');
       await touch.getByRole('button', { name: /^Exit Zen\b/i }).tap();
       assert(await touch.locator('[data-square="e4"] [data-piece]').isVisible());
       await touch.close();

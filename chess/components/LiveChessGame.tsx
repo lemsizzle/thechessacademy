@@ -533,6 +533,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
       {error ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{error}</p> : null}
 
       <GameBoardWorkspace
+        onCancelPremove={() => setPremove(null)}
         onEnterZen={enableBoardMoves}
         attentionRequired={Boolean(error || opponentOfferedDraw)}
         revealResult={resultOpen && game.status === "completed"}

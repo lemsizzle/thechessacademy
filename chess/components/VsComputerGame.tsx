@@ -142,6 +142,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
   return (
     <div className="space-y-4">
       <GameBoardWorkspace
+        onCancelPremove={game.cancelPremove}
         onEnterZen={enableBoardMoves}
         attentionRequired={Boolean(game.engineError)}
         revealOnMount
