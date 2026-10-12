@@ -1,5 +1,6 @@
 import { Chess } from "chess.js";
 import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { isHalloweenBot } from "@/lib/quests/halloween";
 import { oppositeColor } from "@/chess/game/colors";
 import { TIME_CONTROLS } from "@/chess/game/timeControls";
 import { canColorPossiblyCheckmate, detectBoardOutcome, resultHeader } from "@/chess/game/rules";
@@ -26,6 +27,7 @@ export type CompletedGamePayload = {
   moves: Array<Pick<GameMove, "from" | "to" | "promotion">>;
   finalClock: { whiteMs: number; blackMs: number } | null;
   takebackCount: number;
+  hintsUsed?: number;
   startedAt: string;
   completedAt: string;
 };
@@ -71,6 +73,10 @@ export function validateCompletedGame(input: unknown) {
   const takebackCount = Number(body.takebackCount ?? 0);
   if (!Number.isSafeInteger(takebackCount) || takebackCount < 0 || takebackCount > 1000) {
     throw new Error("Invalid takeback count.");
+  }
+  const hintsUsed = body.hintsUsed ?? (isHalloweenBot(opponentId) ? NaN : 0);
+  if (typeof hintsUsed !== "number" || !Number.isSafeInteger(hintsUsed) || hintsUsed < 0 || hintsUsed > 1000) {
+    throw new Error("Invalid hint count.");
   }
 
   const startedAt = new Date(String(body.startedAt ?? ""));
@@ -162,6 +168,7 @@ export function validateCompletedGame(input: unknown) {
     pgn: chess.pgn({ maxWidth: 80, newline: "\n" }),
     moves: savedMoves,
     takebackCount,
+    hintsUsed,
     startedAt: startedAt.toISOString(),
     completedAt: completedAt.toISOString()
   };

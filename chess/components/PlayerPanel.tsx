@@ -7,6 +7,7 @@ import { DisplayedBadge } from "@/components/DisplayedBadge";
 import type { DisplayedBadge as BadgeData } from "@/lib/types";
 
 type PlayerPanelProps = {
+  compact?: boolean;
   name: string;
   displayedBadge?: BadgeData | null;
   studentId?: string;
@@ -21,18 +22,20 @@ type PlayerPanelProps = {
   actions?: ReactNode;
 };
 
-export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrait, avatar, avatarItems = [], materialAdvantage, actions, displayedBadge, studentId }: PlayerPanelProps) {
+export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrait, avatar, avatarItems = [], materialAdvantage, actions, displayedBadge, studentId, compact = false }: PlayerPanelProps) {
   return (
-    <div className={`flex min-w-0 items-center justify-between gap-2 rounded-lg border p-2 ${active ? "border-cyan-200/35 bg-cyan-300/8" : "border-white/10 bg-slate-950/55"}`}>
-      <div className="flex min-w-0 items-center gap-2">
-        {avatar ? <AvatarRenderer items={avatarItems} avatar={avatar} size="sm" label={`${name}'s avatar`} /> : portrait ? <BotPortrait src={portrait} /> : null}
+    <div className={`${compact ? "game-player-compact" : ""} flex min-w-0 items-center justify-between gap-2 rounded-lg border p-2 ${active ? "border-cyan-200/35 bg-cyan-300/8" : "border-white/10 bg-slate-950/55"}`}>
+      <div className="game-player-identity flex min-w-0 items-center gap-2">
+        {(avatar || portrait) && <div className={compact ? "game-player-portrait" : "contents"}>
+          {avatar ? <AvatarRenderer items={avatarItems} avatar={avatar} size="sm" label={`${name}'s avatar`} /> : portrait ? <BotPortrait src={portrait} /> : null}
+        </div>}
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${active ? "animate-pulse bg-cyan-300" : "bg-slate-600"}`} aria-hidden="true" />
             <p className="truncate font-black text-white">{name}</p>
             <DisplayedBadge badge={displayedBadge} studentId={studentId} />
           </div>
-          <div className="mt-1 flex min-w-0 items-center gap-2">
+          <div className={`${compact ? "game-player-subtitle" : "mt-1"} flex min-w-0 items-center gap-2`}>
             <p className="truncate text-xs text-slate-400">{thinking ? `${name} is thinking...` : subtitle}</p>
             {materialAdvantage ? (
               <span
@@ -46,8 +49,8 @@ export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrai
           </div>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <ChessClock milliseconds={clockMs} active={active} label={name} />
+      <div className="game-player-clock flex shrink-0 items-center gap-2">
+        <ChessClock milliseconds={clockMs} active={active} label={name} compact={compact} />
         {actions}
       </div>
     </div>

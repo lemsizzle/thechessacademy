@@ -104,11 +104,14 @@ assert.equal(geometry.count,64);assert(Math.abs(geometry.w-geometry.h)<1 && Math
                         if (area === 'bot') {
                             await page.getByRole('button', { name: /Take Back/ }).click();
                             await page.waitForFunction(() => document.querySelector('[data-square="e2"] [data-piece]'));
+                            const drawings = page.locator('summary').filter({ hasText: 'Board drawings' });
+                            await drawings.click();
                             await page.getByRole('button', { name: 'Arrow', exact: true }).click();
                             await tap('e2');
                             await tap('e4');
                             await page.waitForFunction(() => document.querySelector('[id$="-board"] > svg > path'));
                             await page.getByRole('button', { name: 'Clear', exact: true }).click();
+                            await drawings.click();
                         }
                     }
                     if (area === 'spectator' || area === 'arena') {

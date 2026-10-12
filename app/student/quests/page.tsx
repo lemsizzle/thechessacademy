@@ -1,4 +1,5 @@
 import { QuestBoard } from "@/components/QuestBoard";
+import { HalloweenQuestCard } from "@/components/quests/HalloweenQuestCard";
 import { StudentLichessQuestList } from "@/components/quests/StudentLichessQuestList";
 import { StudentPortalShell } from "@/components/student/StudentPortalShell";
 import { RouteLauncherDialog } from "@/components/student/RouteLauncherDialog";
@@ -28,6 +29,7 @@ export default function StudentQuestsPage() {
           ))}
         </div>
         <div className="space-y-6">
+          <HalloweenQuestCard />
           <StudentLichessQuestList />
           <section aria-labelledby="class-quests-heading">
             <h2 id="class-quests-heading" className="mb-3 font-black text-white">Available class quests</h2>

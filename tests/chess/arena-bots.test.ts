@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Chess } from "chess.js";
-import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { STANDARD_BOT_DIFFICULTIES as BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
 import { ARENA_BOT_MIN_RATING, ARENA_BOT_MAX_RATING, ARENA_BOT_RATING_STEP, arenaBotDifficulty, arenaBotRatingId, MAX_ARENA_BOTS, parseArenaBotInput } from "@/chess/arena/bots";
 import { chooseArenaBotMove } from "@/chess/engine/arenaStockfishServer";
 import { readFileSync } from "node:fs";

@@ -5,12 +5,13 @@ import { QuestCard } from "@/components/QuestCard";
 import type { Badge, Quest } from "@/lib/types";
 import { isAutomatedQuestSource } from "@/lib/quests/questOptions";
 import { useMockAdminState } from "@/lib/useMockAdminState";
+import { HALLOWEEN_QUEST_ID } from "@/lib/quests/halloween";
 
 export function QuestBoard({ excludeAutomated = false, initialQuests, badges }: { excludeAutomated?: boolean; initialQuests?: Quest[]; badges?: Badge[] }) {
   const { quests: adminQuests } = useMockAdminState();
   const quests = initialQuests ?? adminQuests;
   const visibleQuests = quests.filter((quest) => (
-    (quest.isLive === true || quest.status === "completed")
+    quest.id !== HALLOWEEN_QUEST_ID && (quest.isLive === true || quest.status === "completed")
     && (!excludeAutomated || !isAutomatedQuestSource(quest.source))
   ));
 

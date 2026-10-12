@@ -29,6 +29,7 @@ export function RouteLauncherDialog({
   description,
   triggerLabel,
   triggerDescription,
+  contentAnchor,
   children
 }: {
   id: string;
@@ -38,6 +39,7 @@ export function RouteLauncherDialog({
   description: string;
   triggerLabel: string;
   triggerDescription: string;
+  contentAnchor?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(true);
@@ -45,6 +47,18 @@ export function RouteLauncherDialog({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeLauncher = useCallback(() => setOpen(false), []);
   useStudentMenuDestination(navigationHref, () => setOpen(true));
+
+  useEffect(() => {
+    if (!contentAnchor) return;
+    const showAnchoredContent = () => {
+      if (window.location.hash !== `#${contentAnchor}`) return;
+      closeLauncher();
+      window.requestAnimationFrame(() => document.getElementById(contentAnchor)?.scrollIntoView({ block: "start" }));
+    };
+    showAnchoredContent();
+    window.addEventListener("hashchange", showAnchoredContent);
+    return () => window.removeEventListener("hashchange", showAnchoredContent);
+  }, [contentAnchor, closeLauncher]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,7 +82,7 @@ export function RouteLauncherDialog({
 
   return (
     <RouteLauncherContext.Provider value={closeLauncher}>
-      <section className="rounded-xl border border-cyan-200/20 bg-slate-950/80 p-4 sm:p-5">
+      <section data-route-launcher={id} className="rounded-xl border border-cyan-200/20 bg-slate-950/80 p-4 sm:p-5">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">{eyebrow}</p>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>

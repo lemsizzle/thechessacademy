@@ -11,6 +11,7 @@ export type StudentUpdate = {
 // catalog; database creation can precede the release that makes an item usable.
 // Keep this independent of gameplay/data APIs: opening the popup needs no DB read.
 export const studentUpdates: readonly StudentUpdate[] = [
+  { id: "halloween-bot-hunt", date: "2026-10-11", category: "Quest", title: "Halloween Bot Hunt", description: "Five Halloween bots, from 400 to 1200 estimated strength, have arrived in Play. Beat each one without hints or takebacks by November 1 at 11:59 PM Bangkok time to earn 500 XP and 500 coins once. This quest is already active—no need to start it." },
   { id: "feature-badge", date: "2026-10-09", category: "Feature", title: "Feature your favorite badge", description: "Open an earned badge in your Trophy Case and choose Feature badge to show it beside your name on your profile, leaderboard, and game boards." },
   { id: "try-hard", date: "2026-10-09", category: "Badges", title: "Try Hard", description: "New Gold and Platinum badges challenge you to win 5 or 10 consecutive games in one Academy tournament. Draws and losses break the streak. See Badges for the full requirements." },
   { id: "study-drafts", date: "2026-10-06", category: "Feature", title: "Recover your Study drafts", description: "Unfinished Study edits can be recovered after a reload, with recovery support when you switch devices." },

@@ -29,6 +29,7 @@ export async function saveCompletedGame(studentId: string, payload: unknown) {
       pgn: game.pgn,
       moves: game.moves,
       takeback_count: game.takebackCount,
+      hints_used: game.hintsUsed,
       started_at: game.startedAt,
       completed_at: game.completedAt
     })

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Chess } from "chess.js";
 import { adjustedErrorBandWeights, estimatePositionComplexity, scoreHumanCandidates, selectHumanLikeMove } from "@/chess/bots/humanMoveSelector";
 import { parseStockfishInfo, StockfishService } from "@/chess/engine/StockfishService";
-import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { STANDARD_BOT_DIFFICULTIES as BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
 import { SIR_LEM_SOURCE } from "@/chess/bots/sirLemProfile";
 import { SIR_LEM_REPERTOIRE } from "@/chess/bots/sirLemRepertoire";
 import { repertoirePositionKey, selectRepertoireMove } from "@/chess/bots/repertoire";

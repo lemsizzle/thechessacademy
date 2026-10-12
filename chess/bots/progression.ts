@@ -1,4 +1,5 @@
 import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
+import { HALLOWEEN_BOTS } from "@/lib/quests/halloween";
 
 export const BOT_PROGRESSION_IDS = ["pawny", "knight", "bishop", "rook", "queen"] as const;
 export const ALWAYS_UNLOCKED_BOT_IDS = ["pawny", "so-pawny"] as const;
@@ -12,7 +13,7 @@ const botNames = new Map(BOT_DIFFICULTIES.map((bot) => [bot.id, bot.name]));
 
 export function getBotProgression(defeatedBotIds: Iterable<string>): BotProgressionState {
   const defeated = new Set(defeatedBotIds);
-  const unlocked = new Set<string>(ALWAYS_UNLOCKED_BOT_IDS);
+  const unlocked = new Set<string>([...ALWAYS_UNLOCKED_BOT_IDS, ...HALLOWEEN_BOTS.map((bot) => bot.id)]);
 
   for (let index = 1; index < BOT_PROGRESSION_IDS.length; index += 1) {
     if (!defeated.has(BOT_PROGRESSION_IDS[index - 1])) break;

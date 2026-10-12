@@ -3,8 +3,6 @@
 import { celebrate, refreshCelebrations } from "@/lib/celebrations";
 import { useStudentMenuDestination } from "@/components/student/StudentMenuNavigation";
 
-import { BoardViewport } from "@/chess/components/BoardViewport";
-
 import { Chess, type Square } from "chess.js";
 import type { ChessboardOptions } from "react-chessboard";
 import { ResponsiveChessboard } from "@/chess/components/ResponsiveChessboard";
@@ -1387,32 +1385,41 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
     );
   }
 
+  const showingPrompt = phase === "turn" && !error && message === (puzzle?.prompt || "Your turn. Find the best move.");
+
   return (
     <>
-      <div className="space-y-5">
-      <Card className="overflow-hidden">
-        <div className="grid grid-cols-3 divide-x divide-white/10 sm:grid-cols-6">
-          {[["Puzzle", primaryProgress], secondaryMetric, ['Timer', <PuzzleTimer key={`${sessionId.current}:${puzzle?.id ?? "loading"}`} running={phase === "turn" || phase === "reply"} />], ['Accuracy', `${activeAccuracy}%`], ['Streak', currentStreak], ['Best', bestStreak]].map(([label, value]) => (
-            <div key={String(label)} className="p-3 text-center"><p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{label}</p><p className="mt-1 text-lg font-black text-white sm:text-2xl">{value}</p></div>
-          ))}
-        </div>
-      </Card>
-
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
-        <BoardViewport maxWidth={640}>
-          <BoardSettings />
+      <div className="puzzle-workspace" data-board-fit-screen>
+      <div className="puzzle-layout">
+        <section className="puzzle-board-column" aria-label="Puzzle board">
+          <div className="puzzle-board-toolbar">
+            <h2 className="min-w-0 text-base font-black text-white">{trainingMode === "daily" ? "Daily puzzle" : trainingMode === "woodpecker" ? "Woodpecker" : "Survival"}</h2>
+            <div className="flex shrink-0 items-center gap-3">
+              <span className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                {puzzle && <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full border border-white/40 ${puzzle.sideToMove === "White" ? "bg-white" : "bg-slate-950"}`} />}
+                {puzzle ? `${puzzle.sideToMove} to move` : "Loading"}
+              </span>
+              <BoardSettings />
+            </div>
+          </div>
         <div ref={puzzleBoardRef} className="overflow-hidden rounded-lg border border-cyan-200/20 bg-slate-950/70">
           {positionFen ? <ResponsiveChessboard key={`academy-puzzle-board-${puzzle?.id ?? "loading"}-${annotationResetKey}`} options={boardOptions} onCancelPremove={queuedPremove ? () => cancelPremove() : undefined} /> : <div className="flex aspect-square items-center justify-center text-sm text-slate-400">Preparing board...</div>}
         </div>
-        </BoardViewport>
+        </section>
 
-        <div className="space-y-4">
-          <Card className="p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-xs font-black uppercase text-cyan-100">{trainingMode === "daily" ? "Puzzle of the Day" : selectedThemeName}</span>{trainingMode !== "daily" && <span className="rounded border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-xs font-black uppercase text-amber-100">{activeDifficultyName}</span>}{woodpeckerReviewing && <span className="rounded border border-fuchsia-200/30 bg-fuchsia-300/10 px-2 py-1 text-xs font-black uppercase text-fuchsia-100">Mistake review</span>}</div><span className="text-xs font-bold text-slate-400">{puzzle ? `${puzzle.sideToMove} to move` : "Loading"}</span></div>
+        <aside className="puzzle-sidebar min-w-0 space-y-3" aria-label="Training progress and controls">
+          <Card className="puzzle-stats overflow-hidden">
+            <dl className="grid grid-cols-3 gap-px bg-white/10">
+              {[["Puzzle", primaryProgress], secondaryMetric, ['Timer', <PuzzleTimer key={`${sessionId.current}:${puzzle?.id ?? "loading"}`} running={phase === "turn" || phase === "reply"} />], ['Accuracy', `${activeAccuracy}%`], ['Streak', currentStreak], ['Best', bestStreak]].map(([label, value]) => (
+                <div key={String(label)} className="min-w-0 bg-slate-950 px-2 py-3 text-center"><dt className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</dt><dd className="mt-1 text-lg font-black tabular-nums text-white">{value}</dd></div>
+              ))}
+            </dl>
+          </Card>
+          <Card className="p-4">
+            <div className="flex flex-wrap gap-2"><span className="rounded border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-cyan-100">{trainingMode === "daily" ? "Puzzle of the Day" : selectedThemeName}</span>{trainingMode !== "daily" && <span className="rounded border border-amber-200/30 bg-amber-300/10 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-amber-100">{activeDifficultyName}</span>}{woodpeckerReviewing && <span className="rounded border border-fuchsia-200/30 bg-fuchsia-300/10 px-2 py-1 text-xs font-black uppercase text-fuchsia-100">Mistake review</span>}</div>
             {puzzle?.daily && <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${puzzle.daily.rewardClaimed ? "border-cyan-200/25 bg-cyan-300/5 text-cyan-100" : "border-amber-200/35 bg-amber-300/10 text-amber-100"}`}>{puzzle.daily.rewardClaimed ? "Reward already claimed today — replay for practice." : `Available reward: +${puzzle.daily.xp} XP and +${puzzle.daily.coins} Academy Coins`}</div>}
-            {trainingMode !== "daily" && <div className="mt-4"><AutoAdvanceSwitch checked={autoAdvance} onChange={updateAutoAdvance} compact /></div>}
-            <h2 className="mt-4 text-2xl font-black text-white">{phase === "reply" || (phase === "turn" && moveLocked.current) ? "Queue your next move" : phase === "solved" ? "Puzzle complete" : puzzle?.prompt || "Find the best move"}</h2>
-            <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${phase === "solved" ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : error ? "border-fuchsia-300/50 bg-fuchsia-300/10 text-fuchsia-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">{error || message}</div>
+            <h2 className="mt-3 text-xl font-black text-white">{phase === "reply" || (phase === "turn" && moveLocked.current) ? "Queue your next move" : phase === "solved" ? "Puzzle complete" : puzzle?.prompt || "Find the best move"}</h2>
+            <div className={showingPrompt ? "sr-only" : `mt-3 rounded-md border p-3 text-sm font-bold ${phase === "solved" ? "border-amber-300/50 bg-amber-300/10 text-amber-100" : error ? "border-fuchsia-300/50 bg-fuchsia-300/10 text-fuchsia-100" : "border-white/10 bg-white/5 text-slate-200"}`} aria-live="polite">{error || message}</div>
             <SurvivalBadgeAwards awards={badgeAwards} />
             {queuedPremove && (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-fuchsia-300/40 bg-fuchsia-300/10 p-3">
@@ -1423,10 +1430,11 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
             {phase === "turn" && <div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => void requestHint()}>Hint</Button><Button type="button" variant="ghost" onClick={() => void exitTraining()}>{woodpeckerReviewing ? "Return to Cycle Results" : "Exit Training"}</Button></div>}
             {phase === "solved" && <Button type="button" onClick={() => advanceTrainingPuzzle(puzzle?.id)} className="mt-4">{woodpeckerReviewing ? woodpeckerReviewIndex + 1 >= woodpeckerReviewPuzzleIdsRef.current.length ? "Finish Review" : "Next Mistake" : "Next Puzzle"}</Button>}
             {phase === "error" && <div className="mt-4 flex flex-wrap gap-2"><Button type="button" onClick={() => void loadPuzzle(trainingMode, requestedPuzzleIdRef.current ?? undefined)}>Try Again</Button><Button type="button" variant="ghost" onClick={() => setPhase("select")}>Choose Theme</Button></div>}
+            {trainingMode !== "daily" && <div className="mt-4 border-t border-white/10 pt-3"><AutoAdvanceSwitch checked={autoAdvance} onChange={updateAutoAdvance} compact /></div>}
           </Card>
 
           {completion && (
-            <Card className="p-5">
+            <Card className="p-4">
               <p className="text-xs font-black uppercase text-amber-200">Solved Details</p>
               <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-slate-500">Themes</dt><dd className="font-bold text-white">{completion.themes.join(", ")}</dd></div><div><dt className="text-slate-500">Rating</dt><dd className="font-bold text-white">{completion.rating ?? "Unrated"}</dd></div><div><dt className="text-slate-500">Mistakes</dt><dd className="font-bold text-white">{completion.mistakes}</dd></div><div><dt className="text-slate-500">Solve time</dt><dd className="font-bold text-white">{formatTime(completion.elapsedSeconds)}</dd></div></dl>
               {completion.gameUrl && <a href={completion.gameUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-sm font-bold text-cyan-200 underline decoration-cyan-300/40 underline-offset-4">View original Lichess game</a>}
@@ -1434,7 +1442,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
           )}
 
           <p className="text-xs text-slate-500">{puzzle?.sourceKind === "study" ? "Teacher-authored Chess Academy position." : "Puzzle data from the Lichess open database."}</p>
-        </div>
+        </aside>
       </div>
       </div>
 
