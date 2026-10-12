@@ -52,6 +52,6 @@ function Page() {
   if (location.pathname.endsWith('/analysis')) return <GameAnalysisLoader gameId={location.pathname.split('/').at(-2)} basePath="/student"/>;
   if (location.pathname.endsWith('/history')) return <><h1 className="mb-4 text-2xl font-black">Game History</h1><ChessHistoryDashboard/></>;
   if (location.pathname.includes('/live/')) return <LiveChessGame gameId="fixture-live" mode={params.has('correspondence') ? 'correspondence' : 'live'}/>;
-  return <><PlayModeGrid/><section id="computer-game"><VsComputerGame studentName="Student" studentAvatar={null} avatarItems={[]} initialUnlockedBotIds={['pawny']}/></section></>;
+  return <><PlayModeGrid/><section id="computer-game"><VsComputerGame studentName="Student" studentAvatar={{ studentId: 'fixture', equippedItems: {} }} avatarItems={[]} initialUnlockedBotIds={['pawny']}/></section></>;
 }
 createRoot(document.getElementById('root')).render(<StudentMenuNavigation><div className="student-portal-shell academy-grid min-h-screen"><div className="flex min-h-screen"><Sidebar variant="student"/><div className="min-w-0 flex-1"><StudentNavigation studentName="Student" onLogout={()=>{}}/><main className="student-play-area mx-auto max-w-7xl px-4 pb-28 pt-6 md:pb-6 lg:px-6"><Page/></main></div></div></div></StudentMenuNavigation>);
