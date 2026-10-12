@@ -100,7 +100,13 @@ const visible=async locator=>{await locator.first().waitFor({state:'attached'});
    for(const [name,check] of Object.entries(checks).filter(([name])=>!process.env.QA_JOURNEYS||process.env.QA_JOURNEYS.split(',').includes(name))){
     const page=await browser.newPage({viewport:{width,height},hasTouch});page.setDefaultTimeout(6000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
-    try{await check(page);assert.deepEqual(errors,[]);results.push({engine,device,name,result:'PASS'});}catch(e){results.push({engine,device,name,result:'FAIL',error:e.message,errors});fs.writeFileSync(`${out}/FAIL-${engine}-${device}-${name}-journey.txt`,await page.locator('body').innerText());await page.screenshot({path:`${out}/FAIL-${engine}-${device}-${name}-journey.png`,fullPage:true});}
+    try{await check(page);assert.deepEqual(errors,[]);results.push({engine,device,name,result:'PASS'});}catch(e){
+     results.push({engine,device,name,result:'FAIL',error:e.message,errors});
+     fs.writeFileSync(`${out}/journeys.json`,JSON.stringify(results,null,2));
+     console.error(e);
+     await page.locator('body').innerText({timeout:1000}).then(text=>fs.writeFileSync(`${out}/FAIL-${engine}-${device}-${name}-journey.txt`,text)).catch(error=>console.error('Journey text capture unavailable:',error.message));
+     await page.screenshot({path:`${out}/FAIL-${engine}-${device}-${name}-journey.png`,fullPage:true,timeout:2000}).catch(error=>console.error('Journey screenshot unavailable:',error.message));
+    }
     console.log(JSON.stringify(results.at(-1)));await page.close();fs.writeFileSync(`${out}/journeys.json`,JSON.stringify(results,null,2));
    }
   }
