@@ -6,6 +6,7 @@ import { Chess } from "chess.js";
 import { arenaBotDifficulty } from "@/chess/arena/bots";
 import { selectHumanLikeMove } from "@/chess/bots/humanMoveSelector";
 import { selectRepertoireMove } from "@/chess/bots/repertoire";
+import { openingMoveChoices } from "@/chess/bots/openingMoves";
 import { parseStockfishInfo } from "@/chess/engine/StockfishService";
 import type { BotMoveContext, StockfishCandidate } from "@/chess/types";
 
@@ -15,9 +16,10 @@ export async function chooseArenaBotMove(fen: string, difficultyId: string, cont
   if (!bot) throw new Error("Unknown Arena bot skill level.");
   const chess = new Chess(fen);
   if (chess.isGameOver()) throw new Error("No move is available in this position.");
+  const openingChoices = openingMoveChoices(fen, bot);
   if (bot.repertoireId === "so-pawny") {
     const { SIR_LEM_REPERTOIRE } = await import("@/chess/bots/sirLemRepertoire");
-    const move = selectRepertoireMove(fen, SIR_LEM_REPERTOIRE);
+    const move = selectRepertoireMove(fen, SIR_LEM_REPERTOIRE, Math.random, openingChoices);
     if (move) return move;
   }
   return new Promise((resolve, reject) => {
@@ -47,7 +49,7 @@ export async function chooseArenaBotMove(fen: string, difficultyId: string, cont
         if (line === "uciok") {
           engine.stdin.write(`setoption name Hash value 16\nsetoption name Threads value 1\nsetoption name MultiPV value ${bot!.multiPv}\nisready\n`);
         } else if (line === "readyok") {
-          engine.stdin.write(`position fen ${fen}\ngo movetime ${bot!.thinkTimeMs}\n`);
+          engine.stdin.write(`position fen ${fen}\ngo movetime ${bot!.thinkTimeMs}${openingChoices ? ` searchmoves ${openingChoices.join(" ")}` : ""}\n`);
         } else if (line.startsWith("bestmove ")) {
           try {
             const best = line.split(" ")[1];

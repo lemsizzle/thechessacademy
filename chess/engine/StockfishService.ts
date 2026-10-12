@@ -1,5 +1,6 @@
 import { selectHumanLikeMove } from "@/chess/bots/humanMoveSelector";
 import { selectRepertoireMove } from "@/chess/bots/repertoire";
+import { openingMoveChoices } from "@/chess/bots/openingMoves";
 import type { BotDifficulty, BotMoveContext, StockfishCandidate } from "@/chess/types";
 
 const STOCKFISH_WORKER_URL = "/vendor/stockfish/stockfish-18-lite-single.js";
@@ -164,12 +165,13 @@ export class StockfishService {
     const checkCancelled = () => {
       if (version !== this.requestVersion || this.permanentlyTerminated) throw new StockfishCancelledError();
     };
+    const openingChoices = openingMoveChoices(fen, difficulty);
     if (difficulty.repertoireId === "so-pawny") {
       // Only downloaded for Sir Lem. A failed load must not silently substitute
       // unrelated engine play for the student's chosen opponent.
       const { SIR_LEM_REPERTOIRE } = await import("@/chess/bots/sirLemRepertoire");
       checkCancelled();
-      const rememberedMove = selectRepertoireMove(fen, SIR_LEM_REPERTOIRE);
+      const rememberedMove = selectRepertoireMove(fen, SIR_LEM_REPERTOIRE, Math.random, openingChoices);
       if (rememberedMove) return rememberedMove;
     }
     await this.configureAnalysis(difficulty);
@@ -194,7 +196,7 @@ export class StockfishService {
         candidates: new Map()
       };
       worker.postMessage(`position fen ${fen}`);
-      worker.postMessage(`go movetime ${difficulty.thinkTimeMs}`);
+      worker.postMessage(`go movetime ${difficulty.thinkTimeMs}${openingChoices ? ` searchmoves ${openingChoices.join(" ")}` : ""}`);
     });
   }
 
