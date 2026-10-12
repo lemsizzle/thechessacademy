@@ -23,6 +23,15 @@ type PlayerPanelProps = {
 };
 
 export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrait, avatar, avatarItems = [], materialAdvantage, actions, displayedBadge, studentId, compact = false }: PlayerPanelProps) {
+  const materialBadge = materialAdvantage ? (
+    <span
+      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-black tabular-nums ${materialAdvantage > 0 ? "bg-emerald-300/15 text-emerald-200" : "bg-rose-300/10 text-rose-200"}`}
+      aria-label={`${name} is ${materialAdvantage > 0 ? "up" : "down"} ${Math.abs(materialAdvantage)} points of material`}
+      title="Material balance"
+    >
+      {materialAdvantage > 0 ? "+" : "−"}{Math.abs(materialAdvantage)}
+    </span>
+  ) : null;
   return (
     <div className={`${compact ? "game-player-compact" : ""} flex min-w-0 items-center justify-between gap-2 rounded-lg border p-2 ${active ? "border-cyan-200/35 bg-cyan-300/8" : "border-white/10 bg-slate-950/55"}`}>
       <div className="game-player-identity flex min-w-0 items-center gap-2">
@@ -37,15 +46,7 @@ export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrai
           </div>
           <div className={`${compact ? "game-player-subtitle" : "mt-1"} flex min-w-0 items-center gap-2`}>
             <p className="truncate text-xs text-slate-400">{thinking ? `${name} is thinking...` : subtitle}</p>
-            {materialAdvantage ? (
-              <span
-                className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-black tabular-nums ${materialAdvantage > 0 ? "bg-emerald-300/15 text-emerald-200" : "bg-rose-300/10 text-rose-200"}`}
-                aria-label={`${name} is ${materialAdvantage > 0 ? "up" : "down"} ${Math.abs(materialAdvantage)} points of material`}
-                title="Material balance"
-              >
-                {materialAdvantage > 0 ? "+" : "−"}{Math.abs(materialAdvantage)}
-              </span>
-            ) : null}
+            {materialBadge}
           </div>
         </div>
       </div>
@@ -53,6 +54,7 @@ export function PlayerPanel({ name, subtitle, clockMs, active, thinking, portrai
         <ChessClock milliseconds={clockMs} active={active} label={name} compact={compact} />
         {actions}
       </div>
+      {compact && materialBadge ? <span className="game-zen-material">{materialBadge}</span> : null}
     </div>
   );
 }

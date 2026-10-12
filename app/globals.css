@@ -214,7 +214,7 @@ main:has(.game-workspace) [data-route-launcher="student-play-launcher"],
   .game-primary-controls > .grid { margin-top: 0; }
 }
 
-.game-zen-exit { display: none; }
+.game-zen-exit, .game-zen-material { display: none; }
 body:has(.game-workspace[data-zen="true"]) { overflow: hidden; }
 body:has(.game-workspace[data-zen="true"]) header.sticky,
 body:has(.game-workspace[data-zen="true"]) [data-sidebar],
@@ -274,7 +274,10 @@ body:has(.game-workspace[data-zen="true"]) > [role="status"] { visibility: hidde
 .game-workspace[data-zen="true"] .game-player { width: 144px; max-width: none; margin: 0; padding: 0; }
 .game-workspace[data-zen="true"] .game-opponent { order: 0; }
 .game-workspace[data-zen="true"] .game-player { order: 2; }
-.game-workspace[data-zen="true"] .game-player-compact { min-height: 0; padding: 0; border: 0; background: transparent; }
+.game-workspace[data-zen="true"] .game-player-compact { position: relative; min-height: 0; padding: 0; border: 0; background: transparent; }
+.game-workspace[data-zen="true"] .game-zen-material { display: block; position: absolute; right: 0; top: calc(100% + 4px); white-space: nowrap; }
+.game-workspace[data-zen="true"] .game-zen-material > span { font-size: 12px; }
+.game-workspace[data-zen="true"] .game-player .game-zen-material { top: auto; bottom: calc(100% + 4px); }
 .game-workspace[data-zen="true"] .chess-clock { width: 144px; padding: 5px 12px; }
 .game-workspace[data-zen="true"] .chess-clock > span:last-child { font-size: 28px; line-height: 36px; }
 .game-workspace[data-zen="true"] .game-zen-exit { display: flex; order: 1; flex-direction: column; align-items: center; gap: 4px; margin-block: auto; }
@@ -286,6 +289,8 @@ body:has(.game-workspace[data-zen="true"]) > [role="status"] { visibility: hidde
   .game-workspace[data-zen="true"] .game-information { display: contents; }
   .game-workspace[data-zen="true"] .game-opponent { grid-column: 1; grid-row: 1; justify-self: end; }
   .game-workspace[data-zen="true"] .game-player { grid-column: 1; grid-row: 3; justify-self: end; }
+  .game-workspace[data-zen="true"] .game-zen-material,
+  .game-workspace[data-zen="true"] .game-player .game-zen-material { right: calc(100% + 8px); top: 50%; bottom: auto; transform: translateY(-50%); }
   .game-workspace[data-zen="true"] .game-zen-exit { grid-column: 1; grid-row: 4; margin: 0; }
   .game-workspace[data-zen="true"] .game-zen-shortcut { display: none; }
 }
