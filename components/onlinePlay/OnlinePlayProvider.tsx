@@ -1,11 +1,11 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/Button";
 import { onlinePlayPollMs } from "@/lib/pollingPolicy";
-import { fetchOnlinePlayState } from "@/lib/onlinePlay/client";
+import { fetchOnlinePlayState, OnlinePlayRequestError } from "@/lib/onlinePlay/client";
 import { challengeIsPending, EMPTY_ONLINE_PLAY, ONLINE_CLOCKS, type DirectChallenge, type OnlinePlayState } from "@/lib/onlinePlay/types";
 
 type Action = { action: "challenge"; recipientId: string; timeControlId: string } | { action: "accept" | "decline" | "cancel"; challengeId: string };
@@ -15,6 +15,9 @@ export function useOnlinePlay() { return useContext(Context); }
 
 export function OnlinePlayProvider({ studentId, children }: { studentId: string; children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const previousPath = useRef(pathname);
+  const pollNow = useRef<() => void>(() => {});
   const [state, setState] = useState(EMPTY_ONLINE_PLAY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -49,7 +52,9 @@ export function OnlinePlayProvider({ studentId, children }: { studentId: string;
     } catch (caught) {
       if (mounted.current && sequence === generation.current) {
         setError(caught instanceof Error ? caught.message : "Online play is unavailable.");
-        setState((current) => ({ ...current, students: [] }));
+        setState((current) => caught instanceof OnlinePlayRequestError && caught.status === 401
+          ? EMPTY_ONLINE_PLAY : { ...current, students: [] });
+        if (caught instanceof OnlinePlayRequestError && caught.status === 401) setNotice(null);
       }
     } finally { if (mounted.current && sequence === generation.current) setLoading(false); }
   }, [router]);
@@ -58,24 +63,47 @@ export function OnlinePlayProvider({ studentId, children }: { studentId: string;
     mounted.current = true;
     notified.current.clear(); waitingFor.current.clear(); heartbeatAt.current = 0;
     let polling = false;
+    let disposed = false;
+    let refreshAfterNavigation = false;
     let lastPoll = 0;
-    const tick = async () => {
-      if (polling || document.visibilityState !== "visible" || Date.now() - lastPoll < pollDelay.current) return;
+    const tick = async (force = false, afterCurrent = false) => {
+      if (disposed || document.visibilityState !== "visible") return;
+      if (polling) { refreshAfterNavigation ||= afterCurrent; return; }
+      if (!force && Date.now() - lastPoll < pollDelay.current) return;
       lastPoll = Date.now();
       polling = true;
-      try { await refresh(Date.now() - heartbeatAt.current >= 30_000); } finally { polling = false; }
+      try { await refresh(Date.now() - heartbeatAt.current >= 30_000); } finally {
+        polling = false;
+        if (refreshAfterNavigation && !disposed) {
+          refreshAfterNavigation = false;
+          void tick(true);
+        }
+      }
     };
     void tick();
+    const wake = () => { void tick(true); };
+    pollNow.current = () => { void tick(true, true); };
     const timer = window.setInterval(() => void tick(), 5_000);
-    window.addEventListener("focus", tick);
-    document.addEventListener("visibilitychange", tick);
+    window.addEventListener("focus", wake);
+    window.addEventListener("online", wake);
+    document.addEventListener("visibilitychange", wake);
     return () => {
+      disposed = true;
       mounted.current = false; generation.current++;
       window.clearInterval(timer);
-      window.removeEventListener("focus", tick);
-      document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("focus", wake);
+      window.removeEventListener("online", wake);
+      document.removeEventListener("visibilitychange", wake);
+      pollNow.current = () => {};
     };
   }, [studentId, refresh]);
+
+  useEffect(() => {
+    if (previousPath.current === pathname) return;
+    previousPath.current = pathname;
+    // Refresh the saved-game link immediately after leaving or finishing a game.
+    pollNow.current();
+  }, [pathname]);
 
   const act = useCallback(async (action: Action) => {
     if (busy.current) return;

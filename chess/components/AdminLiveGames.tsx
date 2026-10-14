@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TeacherLiveGameSummary } from "@/chess/live/types";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { DisplayedBadge } from "@/components/DisplayedBadge";
+import { TeacherLiveBoardCard } from "./TeacherLiveBoardCard";
+import { teacherPreviewGames } from "@/chess/live/teacherPreviews";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 type ListResponse = { ok?: boolean; games?: TeacherLiveGameSummary[]; error?: string };
 
@@ -13,37 +16,88 @@ export function AdminLiveGames({ initialGames, adminActionToken }: { initialGame
   const [games, setGames] = useState(initialGames);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState("");
+  const preferredIds = useRef(teacherPreviewGames(initialGames).map(game => game.id));
+  const request = useRef<AbortController | null>(null);
+  const queued = useRef(false);
+  const [liveTopics, setLiveTopics] = useState<string[]>([]);
+  const previews = teacherPreviewGames(games, preferredIds.current);
+  const topicKey = previews.map(game => game.preview?.realtimeTopic ?? "").filter(Boolean).sort().join("|");
+  const remainingGames = games.filter(game => !previews.some(preview => preview.id === game.id));
+  const pollMs = previews.some(game => !game.preview?.realtimeTopic || !liveTopics.includes(game.preview.realtimeTopic)) ? 5_000 : 10_000;
 
-  const refresh = useCallback(async (showProgress = false) => {
+  const refresh = useCallback(async function load(showProgress = false, queueIfBusy = false): Promise<void> {
+    if (document.visibilityState !== "visible") return;
+    if (request.current) { queued.current ||= queueIfBusy; return; }
+    const controller = new AbortController();
+    request.current = controller;
     if (showProgress) setRefreshing(true);
     try {
-      const response = await fetch("/api/admin/live-games", {
+      const watch = preferredIds.current.join(",");
+      const response = await fetch(`/api/admin/live-games${watch ? `?watch=${encodeURIComponent(watch)}` : ""}`, {
         cache: "no-store",
         credentials: "same-origin",
-        headers: { "x-admin-action-token": adminActionToken }
+        headers: { "x-admin-action-token": adminActionToken },
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)])
       });
       const body = await response.json() as ListResponse;
+      if (controller.signal.aborted) return;
+      if (response.status === 401) setGames([]);
       if (!response.ok || !body.games) throw new Error(body.error || "Live games could not be loaded.");
+      preferredIds.current = teacherPreviewGames(body.games, preferredIds.current).map(game => game.id);
       setGames(body.games);
       setMessage("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Live games could not be loaded.");
+      if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : "Live games could not be loaded.");
     } finally {
-      if (showProgress) setRefreshing(false);
+      if (request.current === controller) {
+        request.current = null;
+        if (!controller.signal.aborted) setRefreshing(false);
+        const again = queued.current && !controller.signal.aborted;
+        queued.current = false;
+        if (again) void load();
+      }
     }
   }, [adminActionToken]);
 
   useEffect(() => {
+    return () => { request.current?.abort(); request.current = null; queued.current = false; };
+  }, [refresh]);
+
+  useEffect(() => {
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
-    }, 10_000);
+    }, pollMs);
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [refresh]);
+  }, [refresh, pollMs]);
+
+  useEffect(() => {
+    setLiveTopics([]);
+    const client = getSupabaseClient();
+    if (!client || !topicKey) return;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      if (document.visibilityState !== "visible" || timer) return;
+      timer = setTimeout(() => { timer = undefined; if (!disposed) void refresh(false, true); }, 150);
+    };
+    const channels = topicKey.split("|").map(topic => client.channel(topic)
+      .on("broadcast", { event: "game_changed" }, schedule)
+      .subscribe(status => {
+        if (disposed) return;
+        setLiveTopics(current => status === "SUBSCRIBED" ? [...new Set([...current, topic])] : current.filter(item => item !== topic));
+        if (status === "SUBSCRIBED") schedule();
+      }));
+    return () => { disposed = true; clearTimeout(timer); channels.forEach(channel => { void client.removeChannel(channel); }); };
+  }, [topicKey, refresh]);
 
   return (
     <div className="space-y-4">
@@ -53,8 +107,16 @@ export function AdminLiveGames({ initialGames, adminActionToken }: { initialGame
       </div>
       {message ? <p className="rounded-md border border-rose-300/30 bg-rose-300/10 p-3 text-sm font-bold text-rose-100" role="alert">{message}</p> : null}
       {games.length ? (
+        <>
+        <section aria-label="Live board previews" className="space-y-3">
+          <div><h2 className="text-lg font-black text-white">Watch together</h2><p className="text-sm text-slate-400">Up to three live boards. Games stay in place while you watch; the next game fills an empty spot.</p></div>
+          <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {previews.map((game, index) => <TeacherLiveBoardCard key={game.id} game={game} slot={index + 1} />)}
+          </div>
+        </section>
+        {remainingGames.length > 0 && <h2 className="pt-3 text-lg font-black text-white">More live games</h2>}
         <div className="grid gap-4 lg:grid-cols-2">
-          {games.map((game) => (
+          {remainingGames.map((game) => (
             <Card key={game.id} className="p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -72,6 +134,7 @@ export function AdminLiveGames({ initialGames, adminActionToken }: { initialGame
             </Card>
           ))}
         </div>
+        </>
       ) : <EmptyState title="No games in progress" message="Students playing each other or a computer opponent will appear here automatically." />}
     </div>
   );

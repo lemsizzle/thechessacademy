@@ -6,7 +6,8 @@ import { gameMoves } from "@/chess/game/rules";
 import { TIME_CONTROLS } from "@/chess/game/timeControls";
 import { COMPUTER_GAME_PREFIX, COMPUTER_PRESENCE_TTL_MS, ComputerPresenceError, computerGameId, parseComputerPresence } from "@/chess/live/computerPresence";
 import type { ComputerPresenceInput } from "@/chess/live/computerPresence";
-import type { LiveGamePlayer, TeacherLiveGameSnapshot, TeacherLiveGameSummary } from "@/chess/live/types";
+import type { LiveGamePlayer, TeacherBoardPreview, TeacherLiveGameSnapshot, TeacherLiveGameSummary } from "@/chess/live/types";
+import { TEACHER_PREVIEW_LIMIT } from "@/chess/live/teacherPreviews";
 import type { ChessColor } from "@/chess/types";
 import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
@@ -110,4 +111,29 @@ export async function getTeacherComputerGame(id: string): Promise<TeacherLiveGam
     winnerColor: row.snapshot.winnerColor, resultReason: row.snapshot.resultReason,
     completedAt: row.status === "completed" ? row.updated_at : null, serverNow: new Date().toISOString()
   };
+}
+
+/** One bounded read for the visible practice boards, without avatars or full spectator hydration. */
+export async function teacherComputerPreviews(ids: string[]): Promise<Map<string, TeacherBoardPreview>> {
+  const result = new Map<string, TeacherBoardPreview>();
+  const gameIds = [...new Set(ids)].slice(0, TEACHER_PREVIEW_LIMIT).map(computerGameId);
+  if (!gameIds.length) return result;
+  const now = Date.now();
+  const { data, error } = await client().from("student_computer_game_presence")
+    .select("game_id,status,updated_at,snapshot").in("game_id", gameIds)
+    .eq("status", "active").gte("updated_at", new Date(now - COMPUTER_PRESENCE_TTL_MS).toISOString());
+  if (error) throw new ComputerPresenceError(error.message, 500);
+  for (const row of (data ?? []) as Row[]) {
+    try {
+      const chess = new Chess();
+      for (const move of row.snapshot.moves) chess.move({ from: move.slice(0, 2), to: move.slice(2, 4), promotion: move[4] });
+      const last = row.snapshot.moves.at(-1);
+      result.set(`${COMPUTER_GAME_PREFIX}${row.game_id}`, {
+        fen: chess.fen(), activeColor: chess.turn() === "w" ? "white" : "black", lastMove: last ? [last.slice(0, 2), last.slice(2, 4)] : null,
+        clocks: { whiteMs: row.snapshot.clock?.whiteMs ?? null, blackMs: row.snapshot.clock?.blackMs ?? null, startedAt: row.updated_at },
+        serverNow: new Date(now).toISOString(), realtimeTopic: ""
+      });
+    } catch { /* A malformed practice position must not hide other students' games. */ }
+  }
+  return result;
 }

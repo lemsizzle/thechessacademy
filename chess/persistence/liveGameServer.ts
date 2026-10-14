@@ -1,6 +1,7 @@
 import "server-only";
 import { GAME_SUMMARY_COLUMNS } from "./gameSummaryColumns";
-import { getTeacherComputerGame, listTeacherComputerGames } from "./computerGamePresenceServer";
+import { getTeacherComputerGame, listTeacherComputerGames, teacherComputerPreviews } from "./computerGamePresenceServer";
+import { teacherPreviewGames } from "@/chess/live/teacherPreviews";
 import { COMPUTER_GAME_PREFIX } from "@/chess/live/computerPresence";
 import { arenaBotAvatar } from "@/chess/arena/lobbyAvatars";
 
@@ -480,10 +481,10 @@ export async function listLiveGames(studentId: string): Promise<LiveGameSummary[
   });
 }
 
-export async function listTeacherLiveGames(): Promise<TeacherLiveGameSummary[]> {
+export async function listTeacherLiveGames(preferredPreviewIds: string[] = []): Promise<TeacherLiveGameSummary[]> {
   const [liveResult, computerGames] = await Promise.all([serviceClient()
     .from("live_chess_games")
-    .select("*")
+    .select("id,white_player_id,black_player_id,status,game_mode,started_at,updated_at,moves,current_fen,active_color,rated,matchmaking,arena_tournament_id,arena_bot,arena_opponent_bot,time_control,white_ms,black_ms,clock_started_at,realtime_token")
     .eq("status", "active")
     .eq("game_mode", "live")
     .order("updated_at", { ascending: false }), listTeacherComputerGames()]);
@@ -506,7 +507,22 @@ export async function listTeacherLiveGames(): Promise<TeacherLiveGameSummary[]> 
     startedAt: game.started_at,
     updatedAt: game.updated_at
   }] : []);
-  return [...liveGames, ...computerGames].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+  const sorted: TeacherLiveGameSummary[] = [...liveGames, ...computerGames].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+  const selected = teacherPreviewGames(sorted, preferredPreviewIds);
+  const computerPreviews = await teacherComputerPreviews(selected.filter(game => game.computerPractice).map(game => game.id));
+  const records = new Map(games.map(game => [game.id, game]));
+  const serverNow = new Date().toISOString();
+  for (const summary of selected) {
+    if (summary.computerPractice) { summary.preview = computerPreviews.get(summary.id); continue; }
+    const record = records.get(summary.id)!;
+    const last = record.moves.at(-1);
+    summary.preview = {
+      fen: record.current_fen, activeColor: record.active_color, lastMove: last ? [last.from, last.to] : null,
+      clocks: { whiteMs: record.white_ms, blackMs: record.black_ms, startedAt: record.clock_started_at },
+      serverNow, realtimeTopic: `live-game:${record.id}:${record.realtime_token}`
+    };
+  }
+  return sorted;
 }
 
 export async function maintainArenaGame(gameId: string) {

@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { LiveGameSummary } from "@/chess/live/types";
+import { useOnlinePlay } from "@/components/onlinePlay/OnlinePlayProvider";
+import type { ResumableLiveGame } from "@/lib/onlinePlay/types";
 
-export function resumableLiveGames(games: LiveGameSummary[], pathname: string) {
+export function resumableLiveGames(games: ResumableLiveGame[], pathname: string) {
   return games.filter((game) => game.status === "active" && game.gameMode === "live"
     && pathname.replace(/\/$/, "") !== `/student/play/live/${game.id}`);
 }
@@ -13,9 +14,16 @@ export function resumableLiveGames(games: LiveGameSummary[], pathname: string) {
 /** Discover saved games on every page, including after a refresh or a new session. */
 export function ActiveLiveGameBanner() {
   const pathname = usePathname();
-  const [games, setGames] = useState<LiveGameSummary[]>([]);
+  const onlinePlay = useOnlinePlay();
+  const sharedGames = onlinePlay?.state.activeGames;
+  const hasSharedGames = sharedGames !== undefined;
+  const [games, setGames] = useState<ResumableLiveGame[]>([]);
 
   useEffect(() => {
+    // The shell's existing presence/invitation refresh supplies this list too.
+    // Keep the old endpoint only for older servers during a rolling deployment
+    // or standalone use without the provider.
+    if (hasSharedGames) return;
     let disposed = false;
     let pending = false;
     const controller = new AbortController();
@@ -31,7 +39,7 @@ export function ActiveLiveGameBanner() {
           return;
         }
         if (!response.ok) return;
-        const data = await response.json() as { games?: LiveGameSummary[] };
+        const data = await response.json() as { games?: ResumableLiveGame[] };
         if (!disposed && Array.isArray(data.games)) {
           const active = data.games.filter(game => game.status === "active" && game.gameMode === "live");
           setGames(current => JSON.stringify(current) === JSON.stringify(active) ? current : active);
@@ -55,9 +63,9 @@ export function ActiveLiveGameBanner() {
       window.removeEventListener("online", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [pathname]);
+  }, [pathname, hasSharedGames]);
 
-  const activeGames = resumableLiveGames(games, pathname);
+  const activeGames = resumableLiveGames(sharedGames ?? games, pathname);
   if (!activeGames.length) return null;
 
   return (

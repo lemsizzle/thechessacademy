@@ -112,6 +112,7 @@ export type LiveGameSummary = {
 };
 
 export type TeacherLiveGameSummary = {
+  preview?: TeacherBoardPreview;
   computerPractice?: boolean;
   id: string;
   players: Record<ChessColor, LiveGamePlayer>;
@@ -123,6 +124,16 @@ export type TeacherLiveGameSummary = {
   arenaTournamentId: string | null;
   startedAt: string;
   updatedAt: string;
+};
+
+/** Small, read-only position for the teacher's multi-board view. */
+export type TeacherBoardPreview = {
+  fen: string;
+  activeColor: ChessColor;
+  lastMove: [string, string] | null;
+  clocks: { whiteMs: number | null; blackMs: number | null; startedAt: string | null };
+  serverNow: string;
+  realtimeTopic: string;
 };
 
 export type TeacherLiveGameSnapshot = {

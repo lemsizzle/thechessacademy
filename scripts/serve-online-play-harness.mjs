@@ -6,7 +6,7 @@ import postcss from "postcss";
 import tailwind from "tailwindcss";
 
 const mocks = {
-  "next/navigation": "const router={push(url){document.querySelector('#navigation').textContent=url;}}; export const useRouter=()=>router; export const usePathname=()=>'/student';",
+  "next/navigation": "import {useSyncExternalStore} from 'react'; let path='/student';const listeners=new Set();const router={push(url){document.querySelector('#navigation').textContent=url;path=url;listeners.forEach(fn=>fn());}};const subscribe=fn=>{listeners.add(fn);return()=>listeners.delete(fn)};export const useRouter=()=>router;export const usePathname=()=>useSyncExternalStore(subscribe,()=>path,()=>'/student');window.fixtureNavigate=router.push;",
   "next/link": "import React from 'react';export default function Link({children,...props}){return React.createElement('a',props,children)}",
   "@/lib/supabase/client": "export const getSupabaseClient=()=>null;"
 };
@@ -14,12 +14,13 @@ const bundle = await build({ entryPoints: ["tests/browser/online-play-harness.js
   b.onResolve({ filter: /^(next\/|@\/)/ }, ({ path }) => path in mocks ? { path, namespace: "fixture" } : undefined);
   b.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path }) => ({ contents: mocks[path], resolveDir: process.cwd(), loader: "js" }));
 } }] });
-const css = await postcss([tailwind({ content: ["./components/onlinePlay/*.tsx", "./components/correspondence/CorrespondenceProvider.tsx", "./components/Button.tsx", "./tests/browser/online-play-harness.jsx"], theme: { extend: {} }, plugins: [] })]).process("@tailwind base;@tailwind components;@tailwind utilities;", { from: undefined });
+const css = await postcss([tailwind({ content: ["./components/onlinePlay/*.tsx", "./components/student/ActiveLiveGameBanner.tsx", "./components/correspondence/CorrespondenceProvider.tsx", "./components/Button.tsx", "./tests/browser/online-play-harness.jsx"], theme: { extend: {} }, plugins: [] })]).process("@tailwind base;@tailwind components;@tailwind utilities;", { from: undefined });
 const people = [{ id: "a", name: "Alex", busy: false }, { id: "b", name: "Blair", busy: false }];
 const challenges = [];
 function state(id) {
   const mapped = challenges.map((c) => ({ ...c, opponentName: people.find((p) => p.id === (c.challengerId === id ? c.recipientId : c.challengerId)).name }));
-  return { students: people.filter((p) => p.id !== id), busy: people.find((p) => p.id === id).busy, incoming: mapped.filter((c) => c.recipientId === id), outgoing: mapped.filter((c) => c.challengerId === id) };
+  const activeGames = mapped.filter(c => c.status === "accepted" && (c.challengerId === id || c.recipientId === id)).map(c => ({ id: c.gameId, status: "active", gameMode: "live", viewerColor: c.challengerId === id ? "white" : "black", opponent: { id: c.challengerId === id ? c.recipientId : c.challengerId, name: c.opponentName }, activeColor: "white", arenaTournamentId: null }));
+  return { activeGames, students: people.filter((p) => p.id !== id), busy: people.find((p) => p.id === id).busy, incoming: mapped.filter((c) => c.recipientId === id), outgoing: mapped.filter((c) => c.challengerId === id) };
 }
 createServer(async (req, res) => {
   const id = req.headers["x-fixture-student"] === "b" ? "b" : "a";

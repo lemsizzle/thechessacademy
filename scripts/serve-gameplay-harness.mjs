@@ -20,6 +20,9 @@ if (process.env.GAMEPLAY_MOCK_COMPUTER_PRESENCE === "1") {
   mocks["@/lib/supabase/server"] = "export const getSupabaseServiceClient=()=>window.__computerPresenceClient;";
   mocks["@/lib/avatar/supabaseAvatar"] = "export const getStudentAvatarDisplayData=async()=>({avatars:{},items:[]});";
 }
+if (process.env.GAMEPLAY_MOCK_TEACHER_PREVIEWS === "1") {
+  mocks["@/lib/supabase/client"] = "export const getSupabaseClient=()=>window.__teacherPreviewRealtime;";
+}
 if (process.env.GAMEPLAY_MOCK_ENGINE === "1") {
   // UI regressions should not wait for deliberately random bot thinking (up to
   // 45 seconds). Real thinking-delay behavior has separate unit coverage.

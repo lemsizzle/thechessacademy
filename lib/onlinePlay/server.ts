@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
-import { ONLINE_CLOCKS, type DirectChallenge, type OnlinePlayState } from "./types";
+import type { LiveGameRecord } from "@/chess/live/types";
+import { ONLINE_CLOCKS, type DirectChallenge, type OnlinePlayState, type ResumableLiveGame } from "./types";
 
 export class OnlinePlayError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
@@ -26,6 +27,7 @@ export function parseOnlineAction(input: unknown) {
   throw new OnlinePlayError("Choose a valid online play action.");
 }
 type ChallengeRow = { id: string; challenger_id: string; recipient_id: string; time_control_id: string; status: DirectChallenge["status"]; expires_at: string; game_id: string | null };
+type ActiveGameRow = Pick<LiveGameRecord, "id" | "white_player_id" | "black_player_id" | "active_color" | "arena_tournament_id" | "arena_bot" | "arena_opponent_bot">;
 export async function getOnlinePlay(studentId: string): Promise<OnlinePlayState> {
   const db = client();
   const now = Date.now();
@@ -34,12 +36,16 @@ export async function getOnlinePlay(studentId: string): Promise<OnlinePlayState>
     db.from("student_live_challenges").select("id,challenger_id,recipient_id,time_control_id,status,expires_at,game_id")
       .or(`challenger_id.eq.${studentId},recipient_id.eq.${studentId}`).gt("created_at", new Date(now - 10 * 60_000).toISOString())
       .order("created_at", { ascending: false }).limit(50),
-    db.from("live_chess_games").select("white_player_id,black_player_id").eq("game_mode", "live").eq("status", "active")
+    // Reuse this existing active-game read for the return-to-game banner. No
+    // history, PGN, FEN, avatar catalog or private realtime tokens are needed.
+    db.from("live_chess_games").select("id,white_player_id,black_player_id,active_color,arena_tournament_id,arena_bot,arena_opponent_bot").eq("game_mode", "live").eq("status", "active")
   ]);
   if (presence.error || challenges.error || games.error) throw new OnlinePlayError("Online students could not be loaded. Try again.", 503);
   const rows = (challenges.data ?? []) as ChallengeRow[];
   const onlineIds = new Set((presence.data ?? []).map((p) => p.student_id as string));
-  const ids = [...new Set([studentId, ...onlineIds, ...rows.flatMap((c) => [c.challenger_id, c.recipient_id])])];
+  const ownGames = ((games.data ?? []) as ActiveGameRow[]).filter(g => g.white_player_id === studentId || g.black_player_id === studentId);
+  const opponentIds = ownGames.flatMap(g => [g.white_player_id, g.black_player_id]).filter((id): id is string => Boolean(id));
+  const ids = [...new Set([studentId, ...onlineIds, ...opponentIds, ...rows.flatMap((c) => [c.challenger_id, c.recipient_id])])];
   const students = await db.from("students").select("id,display_name,lichess_username").in("id", ids).eq("is_active", true);
   if (students.error) throw new OnlinePlayError("Online students could not be loaded.", 503);
   const names = new Map((students.data ?? []).map((s) => [s.id as string, (s.display_name || s.lichess_username || "Student") as string]));
@@ -50,7 +56,19 @@ export async function getOnlinePlay(studentId: string): Promise<OnlinePlayState>
     timeControlId: c.time_control_id, status: c.status === "pending" && Date.parse(c.expires_at) <= now ? "expired" : c.status,
     expiresAt: c.expires_at, gameId: c.game_id
   });
+  const activeGames: ResumableLiveGame[] = ownGames.map(g => {
+    const viewerColor = g.white_player_id === studentId ? "white" : "black";
+    const opponentColor = viewerColor === "white" ? "black" : "white";
+    const opponentId = viewerColor === "white" ? g.black_player_id : g.white_player_id;
+    const bot = [g.arena_bot, g.arena_opponent_bot].find(b => b?.color === opponentColor);
+    return {
+      id: g.id, status: "active", gameMode: "live", viewerColor,
+      opponent: bot ? { id: bot.id, name: bot.name } : opponentId ? { id: opponentId, name: names.get(opponentId) ?? "Student" } : null,
+      activeColor: g.active_color, arenaTournamentId: g.arena_tournament_id
+    };
+  });
   return {
+    activeGames,
     busy: busy.has(studentId),
     students: [...onlineIds].filter((id) => id !== studentId && names.has(id))
       .map((id) => ({ id, name: names.get(id)!, busy: busy.has(id) }))

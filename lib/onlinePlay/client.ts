@@ -1,5 +1,9 @@
 import type { OnlinePlayState } from "./types";
 
+export class OnlinePlayRequestError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+
 /** A presence update also returns the list, avoiding a second authenticated request. */
 export async function fetchOnlinePlayState(heartbeat = false, onHeartbeat?: () => void): Promise<OnlinePlayState> {
   if (heartbeat) {
@@ -20,6 +24,6 @@ export async function fetchOnlinePlayState(heartbeat = false, onHeartbeat?: () =
 
   const response = await fetch("/api/student/online-play", { cache: "no-store" });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.error || "Online play could not be loaded.");
+  if (!response.ok) throw new OnlinePlayRequestError(body.error || "Online play could not be loaded.", response.status);
   return body.state as OnlinePlayState;
 }

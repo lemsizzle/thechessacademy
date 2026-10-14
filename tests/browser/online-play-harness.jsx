@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { OnlinePlayProvider } from "../../components/onlinePlay/OnlinePlayProvider";
 import { OnlinePlayPanel } from "../../components/onlinePlay/OnlinePlayPanel";
 import { CorrespondenceProvider } from "../../components/correspondence/CorrespondenceProvider";
+import { ActiveLiveGameBanner } from "../../components/student/ActiveLiveGameBanner";
 
 const studentId = new URLSearchParams(location.search).get("student") === "b" ? "b" : "a";
 const originalFetch = window.fetch.bind(window);
@@ -23,6 +24,7 @@ createRoot(document.getElementById("root")).render(
       <h1 className="text-2xl font-black text-white">{studentId === "a" ? "Alex" : "Blair"} — local test</h1>
       <p id="navigation" className="break-words text-cyan-200" />
       <p id="request-counts" className="text-sm text-slate-300" />
+      <ActiveLiveGameBanner />
       <OnlinePlayPanel />
     </main>
   </CorrespondenceProvider></OnlinePlayProvider>

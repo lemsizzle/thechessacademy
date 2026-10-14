@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { listTeacherLiveGames } from "@/chess/persistence/liveGameServer";
+import { parseTeacherPreviewIds } from "@/chess/live/teacherPreviews";
 import { ADMIN_SESSION_COOKIE, isAuthorizedAdminRequest } from "@/lib/auth/adminSession";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,8 @@ async function authorized(request: Request) {
 export async function GET(request: Request) {
   if (!await authorized(request)) return NextResponse.json({ ok: false, error: "Teacher log in required." }, { status: 401 });
   try {
-    return NextResponse.json({ ok: true, games: await listTeacherLiveGames() });
+    const preferred = parseTeacherPreviewIds(new URL(request.url).searchParams.get("watch"));
+    return NextResponse.json({ ok: true, games: await listTeacherLiveGames(preferred) }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Live games could not be loaded." }, { status: 500 });
   }

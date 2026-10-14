@@ -6,11 +6,22 @@ export type StudentUpdate = {
   description: string;
 };
 
-// Student-facing release notes. Add an entry when shipping a feature or publishing
-// catalog content. Dates were checked against main's release history and the live
-// catalog; database creation can precede the release that makes an item usable.
+// Student-facing release notes. Update alongside every student-relevant feature,
+// improvement, fix, or catalog release (see AGENTS.md). Dates were checked against
+// main's release history and the live catalog; database creation can precede
+// the release that makes an item usable.
 // Keep this independent of gameplay/data APIs: opening the popup needs no DB read.
 export const studentUpdates: readonly StudentUpdate[] = [
+  { id: "lighter-background-updates", date: "2026-10-14", category: "Feature", title: "Less background loading", description: "Reduced background loading while you browse and play, while keeping online challenges and your return-to-game reminder up to date." },
+  { id: "master-chief-avatar-items", date: "2026-10-13", category: "Avatar Store", title: "Master Chief-inspired gear", description: "The Master Chief-Inspired Battlesuit and Master Chief-Inspired Mask have arrived. Visit the Avatar Store to preview and purchase them for your avatar." },
+  { id: "bot-opening-discipline", date: "2026-10-13", category: "Feature", title: "Better bot openings", description: "Bots rated above 500 avoid a- and h-pawn pushes on their first two moves in computer games and tournaments. Captures and forced moves are still allowed." },
+  { id: "zen-cancel-premove", date: "2026-10-13", category: "Feature", title: "Cancel premoves without leaving Zen", description: "Click or tap outside the board, including either clock, to cancel a queued premove while staying in Zen mode." },
+  { id: "zen-material-balance", date: "2026-10-13", category: "Feature", title: "See material differences in Zen", description: "The + or − material score stays visible near each clock in Zen mode, so you can see who is ahead in material." },
+  { id: "zen-mode", date: "2026-10-12", category: "Feature", title: "Focus with Zen mode", description: "Choose Zen mode in game controls for a large board with fewer distractions. Click Exit Zen, press Escape, or press Z to return. You can also press Z to enter Zen." },
+  { id: "game-clock-placement", date: "2026-10-12", category: "Feature", title: "Keep your clock in sight", description: "Game clocks stay close to your board while you play. On wider screens, moves and controls scroll between the clocks." },
+  { id: "larger-game-boards", date: "2026-10-12", category: "Feature", title: "More room for your games", description: "Computer and live games now make better use of your screen, with larger boards and easy-to-reach controls on computers, tablets, and phones." },
+  { id: "tournament-bot-outfits", date: "2026-10-12", category: "Feature", title: "Fresh looks for tournament bots", description: "New tournament bots wear two or three randomly chosen avatar items for simpler, distinct outfits." },
+  { id: "larger-puzzle-boards", date: "2026-10-11", category: "Feature", title: "A bigger board for puzzle practice", description: "Puzzle Training gives the board more space, with compact stats and controls that fit around it on computers, tablets, and phones." },
   { id: "halloween-bot-hunt", date: "2026-10-11", category: "Quest", title: "Halloween Bot Hunt", description: "Five Halloween bots, from 400 to 1200 estimated strength, have arrived in Play. Beat each one without hints or takebacks by November 1 at 11:59 PM Bangkok time to earn 500 XP and 500 coins once. This quest is already active—no need to start it." },
   { id: "feature-badge", date: "2026-10-09", category: "Feature", title: "Feature your favorite badge", description: "Open an earned badge in your Trophy Case and choose Feature badge to show it beside your name on your profile, leaderboard, and game boards." },
   { id: "try-hard", date: "2026-10-09", category: "Badges", title: "Try Hard", description: "New Gold and Platinum badges challenge you to win 5 or 10 consecutive games in one Academy tournament. Draws and losses break the streak. See Badges for the full requirements." },
