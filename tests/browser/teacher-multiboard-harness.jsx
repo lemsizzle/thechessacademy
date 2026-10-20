@@ -31,7 +31,7 @@ const calls = [];
 let fail = false, gate = null;
 function list(ids = []) {
   const chosen = new Set(teacherPreviewGames(records, ids).map(g => g.id));
-  return records.map(g => ({ ...g, preview: chosen.has(g.id) ? g.preview : undefined }));
+  return records.map(g => ({ ...g, preview: chosen.has(g.id) ? { ...g.preview, serverNow: new Date().toISOString() } : undefined }));
 }
 window.fetch = async (url, options = {}) => {
   const path = new URL(String(url), location.origin);

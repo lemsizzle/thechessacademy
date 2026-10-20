@@ -16,11 +16,12 @@ export function AdminLiveGames({ initialGames, adminActionToken }: { initialGame
   const [games, setGames] = useState(initialGames);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState("");
-  const preferredIds = useRef(teacherPreviewGames(initialGames).map(game => game.id));
+  const [selectedIds, setSelectedIds] = useState(() => teacherPreviewGames(initialGames).map(game => game.id));
+  const preferredIds = useRef(selectedIds);
   const request = useRef<AbortController | null>(null);
   const queued = useRef(false);
   const [liveTopics, setLiveTopics] = useState<string[]>([]);
-  const previews = teacherPreviewGames(games, preferredIds.current);
+  const previews = teacherPreviewGames(games, selectedIds);
   const topicKey = previews.map(game => game.preview?.realtimeTopic ?? "").filter(Boolean).sort().join("|");
   const remainingGames = games.filter(game => !previews.some(preview => preview.id === game.id));
   const pollMs = previews.some(game => !game.preview?.realtimeTopic || !liveTopics.includes(game.preview.realtimeTopic)) ? 5_000 : 10_000;
@@ -44,6 +45,7 @@ export function AdminLiveGames({ initialGames, adminActionToken }: { initialGame
       if (response.status === 401) setGames([]);
       if (!response.ok || !body.games) throw new Error(body.error || "Live games could not be loaded.");
       preferredIds.current = teacherPreviewGames(body.games, preferredIds.current).map(game => game.id);
+      setSelectedIds(preferredIds.current);
       setGames(body.games);
       setMessage("");
     } catch (error) {
@@ -58,6 +60,18 @@ export function AdminLiveGames({ initialGames, adminActionToken }: { initialGame
       }
     }
   }, [adminActionToken]);
+
+  const chooseGame = (slot: number, id: string) => {
+    if (!games.some(game => game.id === id)) return;
+    const next = previews.map(game => game.id);
+    if (next[slot] === id) return;
+    const otherSlot = next.indexOf(id);
+    if (otherSlot !== -1) next[otherSlot] = next[slot];
+    next[slot] = id;
+    preferredIds.current = next;
+    setSelectedIds(next);
+    void refresh(true, true);
+  };
 
   useEffect(() => {
     return () => { request.current?.abort(); request.current = null; queued.current = false; };
@@ -109,9 +123,9 @@ export function AdminLiveGames({ initialGames, adminActionToken }: { initialGame
       {games.length ? (
         <>
         <section aria-label="Live board previews" className="space-y-3">
-          <div><h2 className="text-lg font-black text-white">Watch together</h2><p className="text-sm text-slate-400">Up to three live boards. Games stay in place while you watch; the next game fills an empty spot.</p></div>
+          <div><h2 className="text-lg font-black text-white">Watch together</h2><p className="text-sm text-slate-400">Choose a game for each board. Choosing a game already on screen swaps boards. When a game ends, the next game fills its spot.</p></div>
           <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {previews.map((game, index) => <TeacherLiveBoardCard key={game.id} game={game} slot={index + 1} />)}
+            {previews.map((game, index) => <TeacherLiveBoardCard key={index} game={game} slot={index + 1} games={games} onChoose={id => chooseGame(index, id)} loading={refreshing} />)}
           </div>
         </section>
         {remainingGames.length > 0 && <h2 className="pt-3 text-lg font-black text-white">More live games</h2>}

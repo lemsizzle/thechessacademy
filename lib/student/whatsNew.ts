@@ -12,6 +12,8 @@ export type StudentUpdate = {
 // the release that makes an item usable.
 // Keep this independent of gameplay/data APIs: opening the popup needs no DB read.
 export const studentUpdates: readonly StudentUpdate[] = [
+  { id: "solid-piece-selection", date: "2026-10-20", category: "Feature", title: "Pieces stay clear when selecting", description: "Pieces stay fully visible when you switch selections or start dragging, even if your pointer moves slightly as you click." },
+  { id: "clear-live-board-drawings", date: "2026-10-20", category: "Feature", title: "Clear board drawings with a click or tap", description: "Click or tap the board in Move mode to clear your arrows and circles, including during live games and Zen mode. Right-click a circle or draw the same arrow again to remove just that marking." },
   { id: "lighter-background-updates", date: "2026-10-14", category: "Feature", title: "Less background loading", description: "Reduced background loading while you browse and play, while keeping online challenges and your return-to-game reminder up to date." },
   { id: "master-chief-avatar-items", date: "2026-10-13", category: "Avatar Store", title: "Master Chief-inspired gear", description: "The Master Chief-Inspired Battlesuit and Master Chief-Inspired Mask have arrived. Visit the Avatar Store to preview and purchase them for your avatar." },
   { id: "bot-opening-discipline", date: "2026-10-13", category: "Feature", title: "Better bot openings", description: "Bots rated above 500 avoid a- and h-pawn pushes on their first two moves in computer games and tournaments. Captures and forced moves are still allowed." },

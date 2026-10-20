@@ -28,7 +28,7 @@ function PreviewClock({ preview, color, name }: { preview: TeacherBoardPreview; 
   </span>;
 }
 
-export const TeacherLiveBoardCard = memo(function TeacherLiveBoardCard({ game, slot }: { game: TeacherLiveGameSummary; slot: number }) {
+export const TeacherLiveBoardCard = memo(function TeacherLiveBoardCard({ game, slot, games, onChoose, loading }: { game: TeacherLiveGameSummary; slot: number; games: TeacherLiveGameSummary[]; onChoose: (id: string) => void; loading: boolean }) {
   const preview = game.preview;
   const player = (color: ChessColor) => <div className="flex min-w-0 items-center gap-2 py-2">
     <span aria-hidden="true" className={`size-3 shrink-0 rounded-full border border-slate-400 ${color === "white" ? "bg-white" : "bg-slate-950"}`} />
@@ -41,9 +41,15 @@ export const TeacherLiveBoardCard = memo(function TeacherLiveBoardCard({ game, s
       <h3 className="text-cyan-200">Board {slot} · {game.computerPractice ? "Computer practice" : game.arenaTournamentId ? "Tournament" : "Student game"}</h3>
       <span className="shrink-0 text-emerald-200">Live</span>
     </div>
+    <label className="mt-3 block text-xs font-bold text-slate-300">
+      Choose game <span className="sr-only">for board {slot}</span>
+      <select value={game.id} onChange={event => onChoose(event.target.value)} className="mt-1 min-h-11 w-full min-w-0 rounded-md border border-white/20 bg-slate-900 px-2 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300">
+        {games.map(option => <option key={option.id} value={option.id}>{option.players.white.name} vs {option.players.black.name} · {option.timeControl.name}{option.computerPractice ? " · Computer" : option.arenaTournamentId ? " · Tournament" : ""}</option>)}
+      </select>
+    </label>
     {player("black")}
     {preview ? <AcademyChessboard boardId={`teacher-preview-${game.id}`} fen={preview.fen} orientation="white" humanColor="white" interactive={false} lastMove={preview.lastMove} onMove={ignoreMove} allowDrawingArrows />
-      : <div className="grid aspect-square place-items-center rounded-lg border border-white/10 bg-white/5 p-4 text-center text-sm text-slate-400">Position temporarily unavailable. Open the game or refresh to try again.</div>}
+      : <div role="status" className="grid aspect-square place-items-center rounded-lg border border-white/10 bg-white/5 p-4 text-center text-sm text-slate-400">{loading ? "Loading board…" : "Position temporarily unavailable. Open the game or refresh to try again."}</div>}
     {player("white")}
     <div className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3">
       <p className="text-xs text-slate-400">{game.timeControl.name} · {preview?.activeColor === "black" ? "Black" : "White"} to move</p>
