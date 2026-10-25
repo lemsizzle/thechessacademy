@@ -6,15 +6,17 @@ import { getStudentAvatarDisplayData } from "@/lib/avatar/supabaseAvatar";
 import { getStudentBotProgression } from "@/chess/persistence/botProgressionServer";
 import { sessionToStudentUser } from "@/lib/auth/session";
 import { getOwnDisplayedBadge } from "@/lib/badges/displayedBadgeServer";
+import { getStudentHalloweenReductions } from "@/chess/persistence/halloweenAdaptationServer";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentPlayPage() {
   const student = await requireActiveStudent();
-  const [avatarDisplay, botProgression, displayedBadge] = await Promise.all([
+  const [avatarDisplay, botProgression, displayedBadge, halloweenReductions] = await Promise.all([
     getStudentAvatarDisplayData([student.studentId]),
     getStudentBotProgression(student.studentId),
-    getOwnDisplayedBadge(student.studentId).catch(() => null)
+    getOwnDisplayedBadge(student.studentId).catch(() => null),
+    getStudentHalloweenReductions(student.studentId).catch(() => null)
   ]);
   const studentAvatar = avatarDisplay.avatars[student.studentId];
   const equippedItemIds = new Set(Object.values(studentAvatar.equippedItems));
@@ -26,7 +28,7 @@ export default async function StudentPlayPage() {
         <PlayModeGrid />
         <section id="computer-game" className="scroll-mt-5" aria-labelledby="computer-game-title">
           <h2 id="computer-game-title" className="mb-3 text-lg font-black text-white">Computer</h2>
-          <VsComputerGame studentName={student.name} studentAvatar={studentAvatar} displayedBadge={displayedBadge} avatarItems={equippedAvatarItems} initialUnlockedBotIds={botProgression.unlockedBotIds} />
+          <VsComputerGame studentName={student.name} studentAvatar={studentAvatar} displayedBadge={displayedBadge} avatarItems={equippedAvatarItems} initialUnlockedBotIds={botProgression.unlockedBotIds} initialHalloweenReductions={halloweenReductions} />
         </section>
       </div>
     </StudentPortalShell>

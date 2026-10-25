@@ -35,6 +35,10 @@ if (process.env.GAMEPLAY_MOCK_ENGINE === "1") {
 if (process.env.GAMEPLAY_NAVIGATION === "1") {
   mocks["next/navigation"] = "const router={push(url){location.assign(url)},replace(url){history.replaceState(null,'',url)},refresh(){}}; export const useRouter=()=>router; export const useSearchParams=()=>new URLSearchParams(location.search); export const usePathname=()=>location.pathname;";
 }
+if (process.env.GAMEPLAY_HALLOWEEN_ADAPTATION === "1") {
+  mocks["@/chess/bots/thinkingDelay"] = "export const createBotThinkingDelay=()=>40; export const MAX_BOT_THINKING_DELAY_MS=45000;";
+  mocks["@/chess/hooks/useStockfish"] = "const noop=()=>{}; const requestMove=async(fen,bot)=>window.fixtureBotMove(fen,bot); export const useStockfish=()=>({requestMove,thinking:false,engineError:'',stop:noop,clearEngineError:noop});";
+}
 const result = await build({
   entryPoints: [process.env.GAMEPLAY_FIXTURE || "tests/browser/gameplay-harness.jsx"], outfile: "bundle.js", bundle: true, write: false, format: "iife", jsx: "automatic",
   define: { "process.env.NODE_ENV": '"development"' },
