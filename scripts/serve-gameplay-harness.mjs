@@ -23,10 +23,12 @@ if (process.env.GAMEPLAY_MOCK_COMPUTER_PRESENCE === "1") {
 if (process.env.GAMEPLAY_MOCK_TEACHER_PREVIEWS === "1") {
   mocks["@/lib/supabase/client"] = "export const getSupabaseClient=()=>window.__teacherPreviewRealtime;";
 }
-if (process.env.GAMEPLAY_MOCK_ENGINE === "1") {
+if (process.env.GAMEPLAY_MOCK_ENGINE === "1" || process.env.GAMEPLAY_FAST_BOT_DELAY === "1") {
   // UI regressions should not wait for deliberately random bot thinking (up to
   // 45 seconds). Real thinking-delay behavior has separate unit coverage.
   mocks["@/chess/bots/thinkingDelay"] = "export const createBotThinkingDelay=()=>40; export const MAX_BOT_THINKING_DELAY_MS=45000;";
+}
+if (process.env.GAMEPLAY_MOCK_ENGINE === "1") {
   mocks["@/chess/hooks/useStockfish"] = "import {Chess} from 'chess.js'; const noop=()=>{}; const requestMove=async(fen)=>{const m=new Chess(fen).moves({verbose:true})[0]; return m ? m.from+m.to+(m.promotion||'') : null}; export const useStockfish=()=>({requestMove,thinking:false,engineError:'',stop:noop,clearEngineError:noop});";
   mocks["@/chess/hooks/useAnalysisEngine"] = "const noop=()=>{}; const state={lines:[],loading:false,error:'',analyze:noop,stop:noop,clear:noop}; export const useAnalysisEngine=()=>state;";
 }

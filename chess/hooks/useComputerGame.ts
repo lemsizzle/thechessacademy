@@ -280,8 +280,10 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
     return () => {
       ignore = true;
       clearBotMoveDelay();
+      stopEngine();
+      if (engineRequestFenRef.current === fen) engineRequestFenRef.current = null;
     };
-  }, [clearBotMoveDelay, completeClockMove, config, engineRetry, fen, finishGame, movePromotionPending, outcome, playMoveSound, requestEngineMove, syncPosition, triggerCaptureEffect]);
+  }, [clearBotMoveDelay, completeClockMove, config, engineRetry, fen, finishGame, movePromotionPending, outcome, playMoveSound, requestEngineMove, stopEngine, syncPosition, triggerCaptureEffect]);
 
   useEffect(() => {
     if (!config || outcome || pendingPromotion || thinking || !premove) return;

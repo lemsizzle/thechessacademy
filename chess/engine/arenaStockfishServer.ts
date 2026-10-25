@@ -8,6 +8,7 @@ import { selectHumanLikeMove } from "@/chess/bots/humanMoveSelector";
 import { selectRepertoireMove } from "@/chess/bots/repertoire";
 import { openingMoveChoices } from "@/chess/bots/openingMoves";
 import { parseStockfishInfo } from "@/chess/engine/StockfishService";
+import { chooseBotRecoveryMove } from "@/chess/bots/recoveryMove";
 import type { BotMoveContext, StockfishCandidate } from "@/chess/types";
 
 /** The same bundled engine/personalities as Play, run by the server, never the opponent's browser. */
@@ -35,7 +36,10 @@ export async function chooseArenaBotMove(fen: string, difficultyId: string, cont
       finished = true;
       clearTimeout(timeout);
       engine.kill();
-      if (error) reject(error); else resolve(move!);
+      if (error) {
+        try { resolve(chooseBotRecoveryMove(fen, bot!, context, [...candidates.values()])); }
+        catch { reject(error); }
+      } else resolve(move!);
     }
     engine.on("error", (error) => finish(error));
     engine.stdin.on("error", (error) => finish(error));
