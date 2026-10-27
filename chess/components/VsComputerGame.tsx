@@ -22,12 +22,20 @@ import { createAnalysisTree } from "@/chess/analysis/tree";
 import { BOARD_ANNOTATION_COLORS } from "@/chess/components/boardAnnotations";
 import { materialAdvantageForColor, whiteMaterialAdvantage } from "@/chess/game/material";
 import type { AvatarItem, StudentAvatarConfig, DisplayedBadge } from "@/lib/types";
+import type { HalloweenReductions } from "@/chess/bots/halloweenAdaptation";
+import { personalizedHalloweenBots } from "@/chess/bots/difficulties";
 
 type Confirmation = "resign" | "new-game" | null;
 
-export function VsComputerGame({ studentName, studentAvatar, avatarItems, initialUnlockedBotIds, displayedBadge }: { studentName: string; studentAvatar: StudentAvatarConfig; avatarItems: AvatarItem[]; initialUnlockedBotIds: string[]; displayedBadge?: DisplayedBadge | null }) {
+export function VsComputerGame({ studentName, studentAvatar, avatarItems, initialUnlockedBotIds, displayedBadge, initialHalloweenReductions = {} }: { studentName: string; studentAvatar: StudentAvatarConfig; avatarItems: AvatarItem[]; initialUnlockedBotIds: string[]; displayedBadge?: DisplayedBadge | null; initialHalloweenReductions?: HalloweenReductions | null }) {
   const [unlockedBotIds, setUnlockedBotIds] = useState(initialUnlockedBotIds);
-  const game = useComputerGame(setUnlockedBotIds);
+  const [halloweenReductions, setHalloweenReductions] = useState(initialHalloweenReductions);
+  const updateHalloweenReductions = useCallback((next: HalloweenReductions | null) => {
+    // A transient read failure must not erase an already known adjustment.
+    setHalloweenReductions((current) => next ?? current);
+  }, []);
+  const halloweenBots = useMemo(() => personalizedHalloweenBots(halloweenReductions ?? {}), [halloweenReductions]);
+  const game = useComputerGame(setUnlockedBotIds, updateHalloweenReductions);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [addStudyOpen, setAddStudyOpen] = useState(false);
   const [annotationMode, setAnnotationMode] = useState<"arrow" | "circle" | null>(null);
@@ -86,13 +94,14 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
     setAnnotationStart(null);
   }, []);
 
-  if (!game.config) return <GameSetup unlockedBotIds={unlockedBotIds} onStart={(config) => {
+  if (!game.config) return <GameSetup unlockedBotIds={unlockedBotIds} halloweenReductions={halloweenReductions} onStart={(config) => {
     clearBoardAnnotations();
     setAnnotationMode(null);
     game.startGame(config);
   }} />;
 
   const { config } = game;
+  const nextHalloweenBot = halloweenReductions === null ? undefined : halloweenBots.find((bot) => bot.id === config.bot.id);
   const opponentColor = config.humanColor === "white" ? "black" : "white";
   const opponentClock = opponentColor === "white" ? game.clockTimes.white : game.clockTimes.black;
   const playerClock = config.humanColor === "white" ? game.clockTimes.white : game.clockTimes.black;
@@ -142,6 +151,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
   return (
     <div className="space-y-4">
       <GameBoardWorkspace
+        onCancelPremove={game.cancelPremove}
         onEnterZen={enableBoardMoves}
         attentionRequired={Boolean(game.engineError)}
         revealOnMount
@@ -185,6 +195,9 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
             onSecondary={() => game.setResultOpen(false)}
           >
             <CompletedGameActions gameId={game.savedGameId} saveFailed={game.saveStatus === "failed"} />
+            {game.saveStatus === "saved" && nextHalloweenBot && nextHalloweenBot.estimatedRating < config.bot.estimatedRating && (
+              <p className="mt-3 text-sm text-orange-200" role="status">Keep going! {config.bot.name} will play at ~{nextHalloweenBot.estimatedRating} next time.</p>
+            )}
             <div className={`mt-4 rounded-lg border p-4 text-center ${game.outcome.result === "win" ? "border-emerald-300/35 bg-emerald-300/10" : game.outcome.result === "loss" ? "border-rose-300/35 bg-rose-300/10" : "border-cyan-200/35 bg-cyan-300/10"}`}>
               <p className="text-3xl font-black text-white">{game.outcome.result === "win" ? "Victory!" : game.outcome.result === "loss" ? "Defeat — good effort" : "Draw"}</p>
             </div>

@@ -1,5 +1,7 @@
 import { selectHumanLikeMove } from "@/chess/bots/humanMoveSelector";
 import { selectRepertoireMove } from "@/chess/bots/repertoire";
+import { openingMoveChoices } from "@/chess/bots/openingMoves";
+import { chooseBotRecoveryMove } from "@/chess/bots/recoveryMove";
 import type { BotDifficulty, BotMoveContext, StockfishCandidate } from "@/chess/types";
 
 const STOCKFISH_WORKER_URL = "/vendor/stockfish/stockfish-18-lite-single.js";
@@ -54,6 +56,7 @@ export class StockfishService {
   private initializePromise: Promise<void> | null = null;
   private initializeResolve: (() => void) | null = null;
   private initializeReject: ((error: Error) => void) | null = null;
+  private initializeTimeout: ReturnType<typeof setTimeout> | null = null;
   private sawUciOk = false;
   private pendingAnalysis: PendingAnalysis | null = null;
   private permanentlyTerminated = false;
@@ -67,18 +70,20 @@ export class StockfishService {
       this.initializeResolve = resolve;
       this.initializeReject = reject;
     });
+    const initialization = this.initializePromise;
+    this.initializeTimeout = setTimeout(() => this.failWorker(new Error("The computer engine did not finish loading.")), 8_000);
 
     try {
       const worker = new Worker(STOCKFISH_WORKER_URL);
       this.worker = worker;
-      worker.onmessage = (event: MessageEvent<unknown>) => this.handleMessage(String(event.data ?? ""));
-      worker.onerror = () => this.failWorker(new Error("The computer opponent could not be loaded."));
+      worker.onmessage = (event: MessageEvent<unknown>) => { if (this.worker === worker) this.handleMessage(String(event.data ?? "")); };
+      worker.onerror = () => { if (this.worker === worker) this.failWorker(new Error("The computer opponent could not be loaded.")); };
       worker.postMessage("uci");
     } catch (error) {
       this.failWorker(error instanceof Error ? error : new Error("The computer opponent could not be loaded."));
     }
 
-    return this.initializePromise;
+    return initialization;
   }
 
   private handleMessage(payload: string) {
@@ -92,6 +97,8 @@ export class StockfishService {
       return;
     }
     if (line === "readyok" && this.sawUciOk) {
+      if (this.initializeTimeout) clearTimeout(this.initializeTimeout);
+      this.initializeTimeout = null;
       this.initializeResolve?.();
       this.initializeResolve = null;
       this.initializeReject = null;
@@ -113,7 +120,7 @@ export class StockfishService {
     clearTimeout(pending.timeout);
     const bestMove = line.split(/\s+/)[1];
     if (!bestMove || bestMove === "(none)") {
-      pending.reject(new Error("Stockfish did not return a legal move."));
+      this.recoverPending(pending);
       return;
     }
 
@@ -129,8 +136,15 @@ export class StockfishService {
         context: pending.context
       }));
     } catch (error) {
-      pending.reject(error instanceof Error ? error : new Error("The computer could not choose a move."));
+      this.recoverPending(pending);
     }
+  }
+
+  private recoverPending(pending: PendingAnalysis) {
+    this.recycleWorker();
+    try {
+      pending.resolve(chooseBotRecoveryMove(pending.fen, pending.difficulty, pending.context, [...pending.candidates.values()]));
+    } catch (error) { pending.reject(error instanceof Error ? error : new Error("No legal computer move is available.")); }
   }
 
   private failWorker(error: Error) {
@@ -138,14 +152,12 @@ export class StockfishService {
     this.initializeReject = null;
     this.initializeResolve = null;
     if (this.pendingAnalysis) {
-      clearTimeout(this.pendingAnalysis.timeout);
-      this.pendingAnalysis.reject(error);
+      const pending = this.pendingAnalysis;
       this.pendingAnalysis = null;
+      clearTimeout(pending.timeout);
+      this.recoverPending(pending);
     }
-    this.worker?.terminate();
-    this.worker = null;
-    this.initializePromise = null;
-    this.sawUciOk = false;
+    this.recycleWorker();
   }
 
   private async configureAnalysis(difficulty: BotDifficulty) {
@@ -164,15 +176,22 @@ export class StockfishService {
     const checkCancelled = () => {
       if (version !== this.requestVersion || this.permanentlyTerminated) throw new StockfishCancelledError();
     };
+    const openingChoices = openingMoveChoices(fen, difficulty);
     if (difficulty.repertoireId === "so-pawny") {
       // Only downloaded for Sir Lem. A failed load must not silently substitute
       // unrelated engine play for the student's chosen opponent.
       const { SIR_LEM_REPERTOIRE } = await import("@/chess/bots/sirLemRepertoire");
       checkCancelled();
-      const rememberedMove = selectRepertoireMove(fen, SIR_LEM_REPERTOIRE);
+      const rememberedMove = selectRepertoireMove(fen, SIR_LEM_REPERTOIRE, Math.random, openingChoices);
       if (rememberedMove) return rememberedMove;
     }
-    await this.configureAnalysis(difficulty);
+    try { await this.configureAnalysis(difficulty); }
+    catch (error) {
+      checkCancelled();
+      if (error instanceof StockfishCancelledError) throw error;
+      this.recycleWorker();
+      return chooseBotRecoveryMove(fen, difficulty, context);
+    }
     checkCancelled();
     const worker = this.worker;
     if (!worker) throw new Error("Stockfish is not available.");
@@ -180,10 +199,10 @@ export class StockfishService {
     return new Promise<string>((resolve, reject) => {
       const timeout = setTimeout(() => {
         if (!this.pendingAnalysis) return;
+        const pending = this.pendingAnalysis;
         this.pendingAnalysis = null;
-        reject(new Error("The computer opponent took too long to respond."));
-        this.recycleWorker();
-      }, Math.max(12_000, difficulty.thinkTimeMs + 8_000));
+        this.recoverPending(pending);
+      }, Math.max(4_000, difficulty.thinkTimeMs + 2_000));
       this.pendingAnalysis = {
         resolve,
         reject,
@@ -193,8 +212,10 @@ export class StockfishService {
         context,
         candidates: new Map()
       };
-      worker.postMessage(`position fen ${fen}`);
-      worker.postMessage(`go movetime ${difficulty.thinkTimeMs}`);
+      try {
+        worker.postMessage(`position fen ${fen}`);
+        worker.postMessage(`go movetime ${difficulty.thinkTimeMs}${openingChoices ? ` searchmoves ${openingChoices.join(" ")}` : ""}`);
+      } catch (error) { this.failWorker(error instanceof Error ? error : new Error("The computer engine stopped.")); }
     });
   }
 
@@ -214,7 +235,8 @@ export class StockfishService {
   }
 
   private recycleWorker() {
-    this.worker?.postMessage("quit");
+    if (this.initializeTimeout) clearTimeout(this.initializeTimeout);
+    this.initializeTimeout = null;
     this.worker?.terminate();
     this.worker = null;
     this.initializePromise = null;

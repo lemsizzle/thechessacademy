@@ -12,6 +12,31 @@ import { LiveGameSpectator } from '../../chess/components/LiveGameSpectator';
 import { gameMoves } from '../../chess/game/rules';
 
 const area = new URLSearchParams(location.search).get('area') || 'bot';
+// Fault injection for engine recovery QA. Subsequent workers use real Stockfish.
+const engineFailure = new URLSearchParams(location.search).get('engineFailure');
+if (engineFailure) {
+  const NativeWorker = window.Worker;
+  let first = true;
+  window.Worker = class {
+    constructor(...args) {
+      if (!first) {
+        const worker = new NativeWorker(...args);
+        worker.addEventListener('message', event => {
+          if (String(event.data).startsWith('bestmove ')) window.audit.engineBestMoves = (window.audit.engineBestMoves ?? 0) + 1;
+        });
+        return worker;
+      }
+      first = false;
+    }
+    postMessage(command) {
+      if (engineFailure === 'startup') return;
+      if (command === 'uci') queueMicrotask(() => this.onmessage?.({ data: 'uciok' }));
+      if (command === 'isready') queueMicrotask(() => this.onmessage?.({ data: 'readyok' }));
+      if (command.startsWith('go ') && engineFailure === 'crash') queueMicrotask(() => this.onerror?.());
+    }
+    terminate() {}
+  };
+}
 // The fixture server uses a generic main wrapper; the real shell supplies its own.
 const fixtureWrapper = document.getElementById('root').parentElement;
 if (fixtureWrapper.tagName === 'MAIN') {

@@ -20,15 +20,24 @@ if (process.env.GAMEPLAY_MOCK_COMPUTER_PRESENCE === "1") {
   mocks["@/lib/supabase/server"] = "export const getSupabaseServiceClient=()=>window.__computerPresenceClient;";
   mocks["@/lib/avatar/supabaseAvatar"] = "export const getStudentAvatarDisplayData=async()=>({avatars:{},items:[]});";
 }
-if (process.env.GAMEPLAY_MOCK_ENGINE === "1") {
+if (process.env.GAMEPLAY_MOCK_TEACHER_PREVIEWS === "1") {
+  mocks["@/lib/supabase/client"] = "export const getSupabaseClient=()=>window.__teacherPreviewRealtime;";
+}
+if (process.env.GAMEPLAY_MOCK_ENGINE === "1" || process.env.GAMEPLAY_FAST_BOT_DELAY === "1") {
   // UI regressions should not wait for deliberately random bot thinking (up to
   // 45 seconds). Real thinking-delay behavior has separate unit coverage.
   mocks["@/chess/bots/thinkingDelay"] = "export const createBotThinkingDelay=()=>40; export const MAX_BOT_THINKING_DELAY_MS=45000;";
+}
+if (process.env.GAMEPLAY_MOCK_ENGINE === "1") {
   mocks["@/chess/hooks/useStockfish"] = "import {Chess} from 'chess.js'; const noop=()=>{}; const requestMove=async(fen)=>{const m=new Chess(fen).moves({verbose:true})[0]; return m ? m.from+m.to+(m.promotion||'') : null}; export const useStockfish=()=>({requestMove,thinking:false,engineError:'',stop:noop,clearEngineError:noop});";
   mocks["@/chess/hooks/useAnalysisEngine"] = "const noop=()=>{}; const state={lines:[],loading:false,error:'',analyze:noop,stop:noop,clear:noop}; export const useAnalysisEngine=()=>state;";
 }
 if (process.env.GAMEPLAY_NAVIGATION === "1") {
   mocks["next/navigation"] = "const router={push(url){location.assign(url)},replace(url){history.replaceState(null,'',url)},refresh(){}}; export const useRouter=()=>router; export const useSearchParams=()=>new URLSearchParams(location.search); export const usePathname=()=>location.pathname;";
+}
+if (process.env.GAMEPLAY_HALLOWEEN_ADAPTATION === "1") {
+  mocks["@/chess/bots/thinkingDelay"] = "export const createBotThinkingDelay=()=>40; export const MAX_BOT_THINKING_DELAY_MS=45000;";
+  mocks["@/chess/hooks/useStockfish"] = "const noop=()=>{}; const requestMove=async(fen,bot)=>window.fixtureBotMove(fen,bot); export const useStockfish=()=>({requestMove,thinking:false,engineError:'',stop:noop,clearEngineError:noop});";
 }
 const result = await build({
   entryPoints: [process.env.GAMEPLAY_FIXTURE || "tests/browser/gameplay-harness.jsx"], outfile: "bundle.js", bundle: true, write: false, format: "iife", jsx: "automatic",

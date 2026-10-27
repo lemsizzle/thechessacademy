@@ -1,12 +1,15 @@
 const {chromium,webkit}=require(process.env.PLAYWRIGHT_MODULE||'playwright');const assert=require('node:assert/strict');
+const base=process.env.QA_BASE_URL||'http://127.0.0.1:9421';
 (async()=>{
  for(const engine of (process.env.QA_ENGINES||'chromium,webkit').split(',')){
- await fetch('http://127.0.0.1:9421/__qa/reset',{method:'POST'});
+ await fetch(`${base}/__qa/reset`,{method:'POST'});
  const b=await(engine==='webkit'?webkit:chromium).launch({headless:true,...(engine==='chromium'&&process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE}:{})});
  const a=await b.newPage({viewport:{width:390,height:844},hasTouch:true});const other=await b.newPage({viewport:{width:1180,height:820},hasTouch:true});
  a.setDefaultTimeout(15000);other.setDefaultTimeout(15000);
  for(const page of [a,other])await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
- await a.goto('http://127.0.0.1:9421/?student=a');await other.goto('http://127.0.0.1:9421/?student=b');
+ const historyRequests=[];
+ for(const page of [a,other])page.on('request',r=>{if(new URL(r.url()).pathname==='/api/student/live-games')historyRequests.push(r.url())});
+ await a.goto(`${base}/?student=a`);await other.goto(`${base}/?student=b`);
  await a.getByRole('button',{name:'Challenge Blair',exact:true}).click();
  await a.getByRole('button',{name:'Cancel',exact:true}).click();await a.getByText('Blair: challenge cancelled.',{exact:true}).waitFor();
  await a.getByRole('button',{name:'Challenge Blair',exact:true}).click();await a.getByRole('button',{name:'Cancel',exact:true}).waitFor();await other.reload();
@@ -15,6 +18,10 @@ const {chromium,webkit}=require(process.env.PLAYWRIGHT_MODULE||'playwright');con
  await other.getByRole('complementary',{name:'Incoming live challenge'}).getByRole('button',{name:'Accept',exact:true}).click();
  await other.locator('#navigation').filter({hasText:'/student/play/live/fixture-game'}).waitFor();
  await a.reload();await a.getByRole('link',{name:'Open game with Blair',exact:true}).waitFor();
+ await a.getByRole('link',{name:'Return to game',exact:true}).waitFor();
+ await other.evaluate(()=>window.fixtureNavigate('/student/training'));
+ await other.getByRole('link',{name:'Return to game',exact:true}).waitFor();
+ assert.equal(historyRequests.length,0,'Shared status must not fetch game history for reminders');
  assert(!await a.evaluate(()=>document.documentElement.scrollWidth>innerWidth));
  console.log('PASS: two isolated local sessions; challenge, cancel, rechallenge, decline, accept, game destination at phone/tablet sizes. Transport is fixture HTTP, not production Realtime.');
  await b.close();

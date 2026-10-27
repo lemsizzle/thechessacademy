@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn(), avatars: vi.fn(),
 vi.mock("@/lib/supabase/server", () => ({ getSupabaseServiceClient: () => ({ from: mocks.from, rpc: mocks.rpc }) }));
 vi.mock("@/lib/avatar/supabaseAvatar", () => ({ getStudentAvatarDisplayData: mocks.avatars }));
 vi.mock("@/chess/persistence/arenaServer", () => ({ finalizeInternalArenaGame: vi.fn(), scheduleArenaBotTurn: vi.fn() }));
-import { getTeacherComputerGame, listTeacherComputerGames, publishComputerGamePresence } from "@/chess/persistence/computerGamePresenceServer";
+import { getTeacherComputerGame, listTeacherComputerGames, publishComputerGamePresence, teacherComputerPreviews } from "@/chess/persistence/computerGamePresenceServer";
 import { listTeacherLiveGames, getTeacherLiveGame } from "@/chess/persistence/liveGameServer";
 const gameId = "56be1301-448a-4f10-b211-de23b8387bf5";
 const now = Date.parse("2026-10-08T02:00:00Z");
@@ -25,6 +25,7 @@ beforeEach(() => {
       mocks.queries.push({ table, method, args });
       if (method === "eq") rows = rows.filter((row) => (row as Record<string, unknown>)[args[0] as string] === args[1] || (table === "students" && args[0] === "is_active"));
       if (method === "gte") rows = rows.filter((row) => (row as Record<string, string>)[args[0] as string] >= (args[1] as string));
+      if (method === "in") rows = rows.filter(row => (args[1] as unknown[]).includes((row as Record<string, unknown>)[args[0] as string]));
       return query;
     };
     query.maybeSingle = () => Promise.resolve({ data: rows[0] ?? null, error: null });
@@ -34,6 +35,25 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 describe("teacher computer-game discovery and watching", () => {
+  it("prepares at most three live previews without spectator hydration or game mutation", async () => {
+    mocks.presence = [];
+    mocks.students.push({ id: "second", display_name: "Second Student" });
+    mocks.live = Array.from({ length: 5 }, (_, i) => ({ id: `game-${i}`, white_player_id: "student", black_player_id: "second", status: "active", game_mode: "live", started_at: row().started_at, updated_at: row().started_at, moves: [{ from: "e2", to: "e4" }], current_fen: new Chess().fen(), active_color: "black", white_ms: 300000, black_ms: 300000, clock_started_at: row().updated_at, realtime_token: `secret-${i}`, time_control: { name: "5 + 3" } }));
+    const games = await listTeacherLiveGames(["game-3", "game-1", "game-4"]);
+    expect(games.filter(game => game.preview).map(game => game.id)).toEqual(["game-1", "game-3", "game-4"]);
+    expect(games[3].preview).toMatchObject({ lastMove: ["e2", "e4"], activeColor: "black", clocks: { whiteMs: 300000 }, realtimeTopic: "live-game:game-3:secret-3" });
+    expect(games[0].preview).toBeUndefined();
+    expect(mocks.avatars).not.toHaveBeenCalled(); expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+  it("batches selected computer positions and ignores malformed positions without avatar reads", async () => {
+    const otherId = "56be1301-448a-4f10-b211-de23b8387bf6";
+    mocks.presence.push({ ...row(), game_id: otherId, snapshot: { ...row().snapshot, moves: ["e2e5"] } });
+    const previews = await teacherComputerPreviews([`computer-${gameId}`, `computer-${otherId}`]);
+    const chess = new Chess(); chess.move("e4"); chess.move("e5");
+    expect(previews.get(`computer-${gameId}`)).toMatchObject({ fen: chess.fen(), lastMove: ["e7", "e5"], clocks: { startedAt: row().updated_at }, realtimeTopic: "" });
+    expect(previews.has(`computer-${otherId}`)).toBe(false);
+    expect(mocks.from).toHaveBeenCalledTimes(1); expect(mocks.avatars).not.toHaveBeenCalled();
+  });
   it("shows the selected earned badge in human and computer game name tags", async () => {
     mocks.badges = [{ student_id: "student", is_displayed: true, badges: { id: "selected-badge", name: "Survival Adamantium", category: "Tactics", tier: "SS", final_image_url: "/badges/survival-adamantium-v1.webp", art_image_url: null } }];
     mocks.students.push({ id: "second", display_name: "Second Student", lichess_username: null });

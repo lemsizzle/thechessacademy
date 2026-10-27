@@ -1,30 +1,35 @@
 "use client";
 
-import { Chessboard, type ChessboardOptions } from "react-chessboard";
-import { useRef, useState } from "react";
+import { Chessboard, ChessboardProvider, useChessboardContext, type ChessboardOptions } from "react-chessboard";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { annotationColorForModifiers, BOARD_ANNOTATION_COLORS, toggleBoardCircle, type BoardCircle } from "./boardAnnotations";
 import { useOutsideBoardAnnotationClear } from "@/chess/hooks/useOutsideBoardAnnotationClear";
 import styles from "./ResponsiveChessboard.module.css";
 import { castlingDropTarget } from "@/chess/game/castlingInput";
 
 /** Keep squares, pieces and annotations in one coordinate space on every screen. */
-export function ResponsiveChessboard({ options, onCancelPremove }: { options: ChessboardOptions; onCancelPremove?: () => void }) {
+function BoardInputSurface({ options, onCancelPremove, clearCircles, controlledArrows, children }: { options: ChessboardOptions; onCancelPremove?: () => void; clearCircles: () => void; controlledArrows: boolean; children: ReactNode }) {
+  const { clearArrows, internalArrows } = useChessboardContext();
+  useEffect(() => {
+    // Once the owner has accepted drawings, discard the library's duplicate
+    // layer. Otherwise toggling/removing an owned arrow leaves a ghost behind.
+    if (controlledArrows && internalArrows.length && internalArrows.every(arrow => options.arrows?.some(owned => owned.startSquare === arrow.startSquare && owned.endSquare === arrow.endSquare))) clearArrows();
+  }, [controlledArrows, internalArrows, options.arrows, clearArrows]);
   const cancelledGesture = useRef(false);
-  // Boards with controlled annotations keep their existing handler. All other
-  // boards get circles independently of whether arrow drawing is enabled.
-  const [annotations, setAnnotations] = useState({ position: options.position, id: options.id, circles: [] as BoardCircle[] });
-  const gesture = useRef<{ square: string; color: string } | null>(null);
-  if (annotations.position !== options.position || annotations.id !== options.id) {
-    setAnnotations({ position: options.position, id: options.id, circles: [] });
-  }
-  const clearCircles = () => {
-    gesture.current = null;
-    setAnnotations(current => current.circles.length ? { ...current, circles: [] } : current);
-  };
-  const boardRef = useOutsideBoardAnnotationClear(options.onSquareRightClick ? undefined : clearCircles);
+  const boardRef = useOutsideBoardAnnotationClear(() => {
+    clearArrows();
+    if (!options.onSquareRightClick) clearCircles();
+  });
   return (
     <div ref={boardRef} data-chess-board className={styles.frame}
       onPointerDownCapture={event => {
+        // The library clears only on mousedown. Touch and a cancelled premove
+        // can skip it, leaving its private arrow layer visible indefinitely.
+        // Clear through its public context without remounting the board/drag state.
+        if (event.button === 0 && options.clearArrowsOnClick !== false) {
+          clearArrows();
+          clearCircles();
+        }
         cancelledGesture.current = Boolean(onCancelPremove && (event.button === 0 || event.button === 2));
         if (!cancelledGesture.current) return;
         event.preventDefault();
@@ -52,8 +57,29 @@ export function ResponsiveChessboard({ options, onCancelPremove }: { options: Ch
         event.preventDefault();
         event.stopPropagation();
       }}>
-      <Chessboard options={{
+      {children}
+    </div>
+  );
+}
+
+/** Keep squares, pieces and annotations in one coordinate space on every screen. */
+export function ResponsiveChessboard({ options, onCancelPremove, controlledArrows = false }: { options: ChessboardOptions; onCancelPremove?: () => void; controlledArrows?: boolean }) {
+  // Boards with controlled annotations keep their existing handler. All other
+  // boards get circles independently of whether arrow drawing is enabled.
+  const [annotations, setAnnotations] = useState({ position: options.position, id: options.id, circles: [] as BoardCircle[] });
+  const gesture = useRef<{ square: string; color: string } | null>(null);
+  if (annotations.position !== options.position || annotations.id !== options.id) {
+    setAnnotations({ position: options.position, id: options.id, circles: [] });
+  }
+  const clearCircles = () => {
+    gesture.current = null;
+    setAnnotations(current => current.circles.length ? { ...current, circles: [] } : current);
+  };
+  return <ChessboardProvider options={{
         ...options,
+        // A few pixels of movement while switching selected pieces can start
+        // a drag. Keep the source solid instead of the library's 50% ghost.
+        draggingPieceGhostStyle: { opacity: 1, ...options.draggingPieceGhostStyle },
         onPieceDrop: options.onPieceDrop ? drop => options.onPieceDrop!({
           ...drop,
           targetSquare: drop.targetSquare ? castlingDropTarget(options.position, drop.sourceSquare, drop.targetSquare) : drop.targetSquare
@@ -85,7 +111,9 @@ export function ResponsiveChessboard({ options, onCancelPremove }: { options: Ch
           gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
           gridTemplateRows: "repeat(8, minmax(0, 1fr))"
         }
-      }} />
+      }}>
+    <BoardInputSurface options={options} onCancelPremove={onCancelPremove} clearCircles={clearCircles} controlledArrows={controlledArrows}>
+      <Chessboard />
       {!options.onSquareRightClick && annotations.circles.length > 0 ? (
         <svg className={styles.circles} viewBox="0 0 8 8" aria-hidden="true">
           {annotations.circles.map(({ square, color }) => {
@@ -96,6 +124,6 @@ export function ResponsiveChessboard({ options, onCancelPremove }: { options: Ch
           })}
         </svg>
       ) : null}
-    </div>
-  );
+    </BoardInputSurface>
+  </ChessboardProvider>;
 }

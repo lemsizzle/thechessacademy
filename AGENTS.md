@@ -693,6 +693,17 @@ Do not silently invent these decisions. Ask the product owner when they become r
 - For sync/reward changes, test the complete path from Lichess or student action through persisted progress, XP, coins, activity, and every student/teacher view.
 - Do not commit or push unless the user explicitly asks.
 
+### Student-facing release notes
+
+- For every change relevant to students, update `lib/student/whatsNew.ts` in the same change, before committing or pushing. This is a standing product-owner requirement; do not wait for a separate request to update What's new.
+- Include new features, badges, avatar items, quests, and meaningful student-facing improvements or fixes. Skip teacher-only changes, internal refactoring, and infrastructure work without a visible student benefit.
+- Announce newly available Avatar Store items and collections, including catalog-only releases. Name the items or collection and direct students to the Avatar Store; verify availability and any purchase or unlock requirements before announcing them.
+- Write concise, text-only notes that explain what students can now do and where to find it. Verify requirements, rewards, deadlines, and controls against the implemented behavior; do not announce unfinished or unreleased features.
+- Use the date the change first becomes available to students in Asia/Bangkok (`YYYY-MM-DD`). Preserve original dates when correcting existing copy. Give a later meaningful improvement its own entry instead of making an old feature look newly released.
+- Keep unique, stable IDs and list entries newest first, including latest-to-oldest ordering within a day. Group closely related changes when that makes the list easier to read; avoid duplicate announcements.
+- Preserve the existing two-calendar-month filter and text-only popup. Release notes stay bundled locally and must not add database reads, gameplay requests, or background polling.
+- Before release, check that every student-relevant change being shipped has an accurate note and run `npx vitest run tests/student/whats-new.test.tsx` alongside the checks appropriate to the implementation.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

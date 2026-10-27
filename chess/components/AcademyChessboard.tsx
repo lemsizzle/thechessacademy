@@ -68,13 +68,13 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
   const [keyboardSquare, setKeyboardSquare] = useState<Square>(() => boardSquaresForOrientation(orientation)[0]);
   const movedSelectionRef = useRef<string | null>(null);
   const rightGestureRef = useRef<{ startSquare: string; color: string } | null>(null);
-  const internalArrowsWerePresentRef = useRef(false);
   const keyboardSquareRefs = useRef(new Map<Square, HTMLButtonElement>());
-  const boardRef = useOutsideBoardAnnotationClear(() => {
+  const clearAnnotations = () => {
     rightGestureRef.current = null;
-    setLocalAnnotations({ fen, boardId, circles: [] });
+    setLocalAnnotations(current => current.circles.length ? { fen, boardId, circles: [] } : current);
     onClearAnnotations?.();
-  });
+  };
+  const boardRef = useOutsideBoardAnnotationClear(clearAnnotations);
   const chess = useMemo(() => new Chess(fen), [fen]);
   const previousPositionRef = useRef({ chess, humanColor, boardId });
   const visualSquares = useMemo(() => boardSquaresForOrientation(orientation), [orientation]);
@@ -324,17 +324,14 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
       arrowStartOffset: 0
     },
     ...LICHESS_ANNOTATION_CLEAR_OPTIONS,
+    clearArrowsOnClick: !annotationMode,
     onArrowsChange: ({ arrows: nextArrows }) => {
       if (!nextArrows.length) {
         rightGestureRef.current = null;
-        // react-chessboard reports an empty internal list on mount. Ignore that
-        // initial synchronization so position-owned lesson/study arrows survive.
-        if (!internalArrowsWerePresentRef.current) return;
-        internalArrowsWerePresentRef.current = false;
-        onArrowsChange?.([]);
+        // The library empties its temporary layer after drawings transfer to
+        // their owner. Only a user clear gesture may clear owned annotations.
         return;
       }
-      internalArrowsWerePresentRef.current = true;
       const gesture = rightGestureRef.current;
       const normalized = nextArrows.map((arrow) => gesture && arrow.startSquare === gesture.startSquare
         ? { ...arrow, color: gesture.color }
@@ -361,11 +358,6 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
       && (!movableSquares || (square !== null && movableSquares.includes(square))),
     onSquareClick: ({ square }) => selectOrMove(square),
     onSquareMouseDown: ({ square }, event) => {
-      if (event.button === 0 && !annotationMode) {
-        rightGestureRef.current = null;
-        setLocalAnnotations({ fen, boardId, circles: [] });
-        onClearAnnotations?.();
-      }
       if (event.button === 2) {
         rightGestureRef.current = { startSquare: square, color: annotationColorForModifiers(event) };
       }
@@ -395,8 +387,12 @@ function AcademyChessboardComponent({ fen, orientation, humanColor, interactive,
   };
 
   const instructionsId = `${boardId}-keyboard-instructions`;
-  return <div ref={boardRef} className="relative aspect-square w-full min-w-0">
-    <div aria-hidden="true" className="w-full min-w-0"><ResponsiveChessboard key={boardId} options={options} onCancelPremove={premove && onCancelPremove ? () => { setSelectedSquare(null); onCancelPremove(); } : undefined} /></div>
+  return <div ref={boardRef} className="relative aspect-square w-full min-w-0"
+    onPointerDownCapture={event => {
+      // Capture before the premove handler can swallow the normal click/tap.
+      if (event.button === 0 && !annotationMode) clearAnnotations();
+    }}>
+    <div aria-hidden="true" className="w-full min-w-0"><ResponsiveChessboard key={boardId} options={options} controlledArrows={Boolean(onArrowsChange)} onCancelPremove={premove && onCancelPremove ? () => { setSelectedSquare(null); onCancelPremove(); } : undefined} /></div>
     <p id={instructionsId} className="sr-only">Use the arrow keys to move between squares. Press Enter or Space to select a piece or destination. Press Escape to clear the selected square.</p>
     <div role="grid" aria-label={`Chessboard, ${orientation} perspective`} aria-describedby={instructionsId} aria-readonly={!interactive} className="pointer-events-none absolute inset-0 z-20 grid grid-rows-8">
       {Array.from({ length: 8 }, (_, rowIndex) => (

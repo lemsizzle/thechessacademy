@@ -5,7 +5,8 @@ import { VsComputerGame } from '../../chess/components/VsComputerGame';
 import { LiveGameSpectator } from '../../chess/components/LiveGameSpectator';
 import { AdminLiveGames } from '../../chess/components/AdminLiveGames';
 import { AppShell } from '../../components/AppShell';
-import { publishComputerGamePresence, listTeacherComputerGames, getTeacherComputerGame } from '../../chess/persistence/computerGamePresenceServer';
+import { publishComputerGamePresence, listTeacherComputerGames, getTeacherComputerGame, teacherComputerPreviews } from '../../chess/persistence/computerGamePresenceServer';
+import { teacherPreviewGames, parseTeacherPreviewIds } from '../../chess/live/teacherPreviews';
 
 const storageKey = 'computer-spectator-fixture';
 const studentId = '56be1301-448a-4f10-b211-de23b8387bf5';
@@ -35,7 +36,12 @@ window.fetch = async (url, options = {}) => {
   calls.push({ path, at: Date.now(), keepalive: options.keepalive ?? false });
   try {
     if (path === '/api/student/computer-game-presence') return Response.json({ ok: true, ...await publishComputerGamePresence(studentId, JSON.parse(options.body)) });
-    if (path === '/api/admin/live-games') return Response.json({ ok: true, games: await listTeacherComputerGames() });
+    if (path.split('?')[0] === '/api/admin/live-games') {
+      const games = await listTeacherComputerGames();
+      const selected = teacherPreviewGames(games, parseTeacherPreviewIds(new URL(path, location.origin).searchParams.get('watch')));
+      const previews = await teacherComputerPreviews(selected.map(game => game.id));
+      return Response.json({ ok: true, games: games.map(game => ({ ...game, preview: previews.get(game.id) })) });
+    }
     if (path.startsWith('/api/admin/live-games/')) return Response.json({ ok: true, game: await getTeacherComputerGame(path.split('/').at(-1)) });
     if (path === '/api/student/chess-games') return Response.json({ ok: true, gameId: 'preview-completed-game', unlockedBotIds: ['pawny'] });
     return Response.json({ ok: true, celebrations: [], live: false });

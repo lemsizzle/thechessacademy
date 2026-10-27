@@ -3,6 +3,8 @@ import { requireActiveStudent, StudentAuthenticationError } from "@/lib/auth/req
 import { BotLockedError } from "@/chess/persistence/botProgressionServer";
 import { saveCompletedGame } from "@/chess/persistence/saveCompletedGame";
 import { scheduleGameAchievements } from "@/lib/badges/gameAchievements/server";
+import { isHalloweenBot } from "@/lib/quests/halloween";
+import { getStudentHalloweenReductions } from "@/chess/persistence/halloweenAdaptationServer";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,12 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null);
     const saved = await saveCompletedGame(student.studentId, body);
     scheduleGameAchievements([student.studentId]);
-    return NextResponse.json({ ok: true, gameId: saved.id, unlockedBotIds: saved.unlockedBotIds }, { status: 201 });
+    // A difficulty-read failure must never turn an already saved game into a
+    // failed save or cause the client to upload it again.
+    const halloweenReductions = isHalloweenBot(body?.opponentId) && body?.result === "loss"
+      ? await getStudentHalloweenReductions(student.studentId).catch(() => null)
+      : undefined;
+    return NextResponse.json({ ok: true, gameId: saved.id, unlockedBotIds: saved.unlockedBotIds, halloweenReductions }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Completed game could not be saved.";
     const status = error instanceof StudentAuthenticationError

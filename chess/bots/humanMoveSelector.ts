@@ -1,5 +1,6 @@
 import { Chess, SQUARES, type Color, type Move, type PieceSymbol, type Square } from "chess.js";
 import type { BotDifficulty, BotErrorBand, BotMoveContext, StockfishCandidate } from "@/chess/types";
+import { openingMoveChoices } from "@/chess/bots/openingMoves";
 
 const PIECE_VALUE: Record<PieceSymbol, number> = {
   p: 100,
@@ -268,7 +269,8 @@ export function selectHumanLikeMove({
   context?: BotMoveContext;
   random?: () => number;
 }) {
-  const scored = scoreHumanCandidates(fen, candidates, bot, context);
+  const openingChoices = openingMoveChoices(fen, bot);
+  const scored = scoreHumanCandidates(fen, openingChoices ? candidates.filter(candidate => openingChoices.includes(candidate.uci)) : candidates, bot, context);
   if (!scored.length) throw new Error("Stockfish did not return a legal candidate move.");
 
   const plausible = scored.filter((candidate) => candidate.cpLoss <= bot.maxPlausibleCpLoss || candidate.candidate.rank === 1);

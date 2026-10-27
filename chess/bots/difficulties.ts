@@ -2,6 +2,7 @@ import { SIR_LEM_SOURCE } from "@/chess/bots/sirLemProfile";
 import type { BotDifficulty } from "@/chess/types";
 import { HALLOWEEN_BOTS } from "@/lib/quests/halloween";
 import { interpolateBotStrength } from "@/chess/bots/strength";
+import { HALLOWEEN_MAX_REDUCTION, HALLOWEEN_RATING_STEP, type HalloweenReductions } from "@/chess/bots/halloweenAdaptation";
 
 export const STANDARD_BOT_DIFFICULTIES: BotDifficulty[] = [
   {
@@ -172,3 +173,31 @@ export const HALLOWEEN_BOT_DIFFICULTIES: BotDifficulty[] = HALLOWEEN_BOTS.map((b
 }));
 
 export const BOT_DIFFICULTIES: BotDifficulty[] = [...STANDARD_BOT_DIFFICULTIES, ...HALLOWEEN_BOT_DIFFICULTIES];
+
+// Only personalized Halloween opponents can use this gentler anchor. Standard
+// opponents and tournament bots retain their existing strengths.
+const HALLOWEEN_BEGINNER: BotDifficulty = {
+  ...STANDARD_BOT_DIFFICULTIES[0], estimatedRating: 200,
+  tacticalAwareness: 0.08, qualityDiscipline: 0.05,
+  selectionTemperature: 95, maxPlausibleCpLoss: 1200,
+  errorBands: [
+    { minCpLoss: 0, maxCpLoss: 50, weight: 12, complexityMultiplier: 0 },
+    { minCpLoss: 50, maxCpLoss: 150, weight: 24, complexityMultiplier: 0.35 },
+    { minCpLoss: 150, maxCpLoss: 300, weight: 30, complexityMultiplier: 1 },
+    { minCpLoss: 300, maxCpLoss: 600, weight: 24, complexityMultiplier: 1.8 },
+    { minCpLoss: 600, maxCpLoss: 1200, weight: 10, complexityMultiplier: 2.8 }
+  ]
+};
+
+export function personalizedHalloweenBots(reductions: HalloweenReductions = {}): BotDifficulty[] {
+  return HALLOWEEN_BOT_DIFFICULTIES.map((bot) => {
+    const requested = reductions[bot.id] ?? 0;
+    const reduction = Number.isFinite(requested)
+      ? Math.min(HALLOWEEN_MAX_REDUCTION, Math.max(0, Math.floor(requested / HALLOWEEN_RATING_STEP) * HALLOWEEN_RATING_STEP)) : 0;
+    if (!reduction) return bot;
+    return {
+      ...interpolateBotStrength(bot.estimatedRating - reduction, [HALLOWEEN_BEGINNER, ...STANDARD_BOT_DIFFICULTIES]),
+      id: bot.id, name: bot.name, title: bot.title, portrait: bot.portrait, description: bot.description
+    };
+  });
+}
