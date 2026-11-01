@@ -39,6 +39,9 @@ export type BattleState = {
   startsAt: number | null;
   endsAt: number | null;
   winnerId: string | null;
+  /** A waiting rematch is reserved for the previous opponent. */
+  invitedId?: string;
+  rematchId?: string;
 };
 export type BattleRecord = {
   id: string;

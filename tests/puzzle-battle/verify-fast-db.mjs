@@ -34,10 +34,13 @@ const load = (who, identity, deck = false) =>
     JSON.stringify(identity),
     deck,
   ]);
-const patch = (who, revision, p) =>
-  db.query("select write_puzzle_battle_player($1,$2,$3,$4) value", [
+const patch = (who, revision, p, identity = who === a
+  ? { provider: "academy", username: "first" }
+  : { provider: "supabase", authUserId: auth }) =>
+  db.query("select submit_puzzle_battle_player($1,$2,$3,$4,$5) value", [
     id,
     who,
+    JSON.stringify(identity),
     revision,
     JSON.stringify(p),
   ]);
@@ -118,6 +121,8 @@ try {
     revision: 1,
     lastAction: randomUUID(),
   };
+  await assert.rejects(() => patch(a, 0, pa, { provider: "academy", username: "revoked" }), /login/);
+  await assert.rejects(() => patch(third, 0, { ...pa, id: third }, { provider: "academy", username: "third" }), /other players/);
   assert.equal((await patch(a, 0, pa)).rows[0].value.version, 1);
   const result = (await patch(b, 0, pb)).rows[0].value;
   assert.deepEqual(
@@ -139,6 +144,29 @@ try {
     .value;
   assert.equal(done.state.status, "finished");
   assert.equal(done.state.winnerId, null);
+  // A single Hide and Seek result wins under the row lock, not when both finish.
+  await db.query("update puzzle_battles set mode='hide-and-seek',state=$1 where id=$2", [JSON.stringify(state), id]);
+  const missed = (await patch(a, 0, { ...pa, score: 0, mistakes: 1, done: true })).rows[0].value;
+  assert.equal(missed.state.status, "finished");
+  assert.equal(missed.state.winnerId, b);
+  assert.equal((await patch(a, 0, pa)).rows[0].value.state.players[0].score, 0);
+  await db.query("update puzzle_battles set state=$1 where id=$2", [JSON.stringify(state), id]);
+  assert.equal((await patch(a, 0, { ...pa, done: true })).rows[0].value.state.winnerId, a);
+  const lateFinisher = (await patch(b, 0, { ...pb, done: true })).rows[0].value;
+  assert.equal(lateFinisher.state.winnerId, a);
+  assert.equal(lateFinisher.state.players[1].score, 0, "A later solve cannot overwrite the first winner");
+  const nextId = randomUUID();
+  const rematch = (who, next) => db.query("select rematch_puzzle_battle($1,$2,$3,$4,$5,$6) value", [
+    id, who, next, next.slice(0, 8), JSON.stringify({ status: "waiting", players: [player(who)],
+      startsAt: null, endsAt: null, winnerId: null, invitedId: who === a ? b : a }), JSON.stringify([{ kind: "fixture" }]),
+  ]);
+  await assert.rejects(() => rematch(third, randomUUID()), /other players/);
+  assert.equal((await rematch(a, nextId)).rows[0].value, nextId);
+  assert.equal((await rematch(b, randomUUID())).rows[0].value, nextId, "Simultaneous rematch requests reuse one room");
+  assert.equal((await db.query("select state from puzzle_battles where id=$1", [nextId])).rows[0].state.invitedId, b);
+  await db.query("update puzzle_battles set state=state||'{\"status\":\"cancelled\"}'::jsonb where id=$1", [nextId]);
+  const replacementId = randomUUID();
+  assert.equal((await rematch(b, replacementId)).rows[0].value, replacementId, "A cancelled invitation can be replaced");
   await db.query("update puzzle_battles set state=$1 where id=$2", [
     JSON.stringify({ ...state, endsAt: Date.now() - 1 }),
     id,
@@ -155,6 +183,7 @@ try {
     () => load(a, { provider: "academy", username: "first" }),
     /profile/,
   );
+  await assert.rejects(() => patch(a, 0, pa), /profile/, "Cached answers still check current active status");
   for (const role of ["anon", "authenticated"]) {
     await db.exec(`reset role; set role ${role}`);
     await assert.rejects(
@@ -162,6 +191,7 @@ try {
       /permission/,
     );
     await assert.rejects(() => patch(a, 0, pa), /permission/);
+    await assert.rejects(() => rematch(a, randomUUID()), /permission/);
   }
   console.log(
     "PASS fast database: active credentials, membership, private decks, independent simultaneous scores, duplicate rejection, deadline, completion, service-only RPCs.",

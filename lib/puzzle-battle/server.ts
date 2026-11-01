@@ -29,6 +29,27 @@ import {
 } from "./rules";
 
 const cache = new Map<string, { until: number; deck: BattleChallenge[] }>();
+const positions = new Map<string, { until: number; record: BattleRecord }>();
+function viewFor(record: BattleRecord, deck: BattleChallenge[], studentId: string) {
+  const previous = positions.get(record.id);
+  if (!previous || record.version >= previous.record.version) {
+    if (positions.size >= 32 && !positions.has(record.id))
+      positions.delete(positions.keys().next().value!);
+    positions.set(record.id, { until: Date.now() + 60_000, record });
+  }
+  return battleView(record, deck, studentId, Date.now());
+}
+function sessionIdentity(session: StudentSession) {
+  return session.authProvider === "academy"
+    ? { provider: "academy", username: session.academyUsername }
+    : session.authProvider === "supabase"
+      ? { provider: "supabase", authUserId: session.authUserId }
+      : {
+          provider: "lichess",
+          lichessId: session.lichessUserId,
+          username: session.lichessUsername,
+        };
+}
 function client() {
   const db = getSupabaseServiceClient();
   if (!db)
@@ -78,20 +99,10 @@ async function loadForSession(id: string, session: StudentSession) {
   if (!uuid.test(id)) throw new BattleError("Invalid battle.", 404);
   const cached = cache.get(id);
   const warm = cached && cached.until > Date.now();
-  const identity =
-    session.authProvider === "academy"
-      ? { provider: "academy", username: session.academyUsername }
-      : session.authProvider === "supabase"
-        ? { provider: "supabase", authUserId: session.authUserId }
-        : {
-            provider: "lichess",
-            lichessId: session.lichessUserId,
-            username: session.lichessUsername,
-          };
   const { data, error } = await client().rpc("load_puzzle_battle", {
     p_id: id,
     p_student_id: session.studentId,
-    p_identity: identity,
+    p_identity: sessionIdentity(session),
     p_include_deck: !warm,
   });
   if (error) {
@@ -120,7 +131,7 @@ export async function buildBattleDeck(
       puzzle: generateStarWarsPuzzle(index, parseInt(seed.slice(0, 7), 16)),
     }));
   if (mode === "hide-and-seek")
-    return Array.from({ length: 50 }, (_, index) => ({
+    return Array.from({ length: 1 }, (_, index) => ({
       kind: mode,
       puzzle: generateHideAndSeekBoard(`${seed}:${index}`),
     }));
@@ -200,7 +211,7 @@ export async function createBattle(
   )
     throw new BattleError("Choose a battle mode and time control.");
   // Check before expensive preparation as well as atomically inside the RPC.
-  const lobby = await listBattles(student.id);
+  const lobby = await listBattles(student.id, true);
   if (lobby.some((b) => b.mine && ["waiting", "playing"].includes(b.status)))
     throw new BattleError(
       "Finish or leave your current puzzle battle first.",
@@ -246,7 +257,12 @@ export async function readBattle(
     : await recordFor(id);
   if (!record.state.players.some((p) => p.id === studentId))
     throw new BattleError("This battle belongs to other players.", 403);
-  const settled = settleBattle(record.state, record.expires_at, Date.now());
+  let settled = settleBattle(record.state, record.expires_at, Date.now());
+  // Resume two-player rooms created by an older client that still required Ready.
+  if (settled.status === "waiting" && settled.players.length === 2)
+    settled = applyBattleAction(record, [], { id: studentId, name: "" }, {
+      type: "ready", actionId: randomUUID(),
+    }, Date.now());
   if (settled.status !== record.state.status) {
     await client().rpc("write_puzzle_battle", {
       p_id: id,
@@ -256,7 +272,7 @@ export async function readBattle(
     });
     record = await recordFor(id);
   }
-  return battleView(record, await deckFor(id), studentId, Date.now());
+  return viewFor(record, await deckFor(id), studentId);
 }
 export async function actOnBattle(
   id: string,
@@ -273,9 +289,26 @@ export async function actOnBattle(
   )
     throw new BattleError("Invalid battle action.");
   for (let attempt = 0; attempt < 4; attempt++) {
-    const record = session
-      ? await loadForSession(id, session)
-      : await recordFor(id);
+    const saved = positions.get(id);
+    const cachedPlayer = saved?.record.state.players.find(
+      (p) => p.id === student.id,
+    );
+    // Only use trusted server state, never a browser-supplied position. A stale
+    // personal revision is rejected at save time and retried from the database.
+    const now = Date.now();
+    const useCached =
+      attempt === 0 && session && saved && cachedPlayer &&
+      ["move", "finish", "skip"].includes(action.type) &&
+      saved.until > now && (cache.get(id)?.until ?? 0) > now &&
+      saved.record.state.status === "playing" &&
+      saved.record.state.startsAt! <= now && saved.record.state.endsAt! > now &&
+      !cachedPlayer.done && cachedPlayer.revision === action.revision &&
+      cachedPlayer.lastAction !== action.actionId;
+    const record = useCached
+      ? saved.record
+      : session
+        ? await loadForSession(id, session)
+        : await recordFor(id);
     if (
       action.type !== "join" &&
       !record.state.players.some((p) => p.id === student.id)
@@ -283,24 +316,32 @@ export async function actOnBattle(
       throw new BattleError("This battle belongs to other players.", 403);
     const deck = await deckFor(id),
       state = applyBattleAction(record, deck, student, action, Date.now());
-    if (JSON.stringify(state) === JSON.stringify(record.state))
-      return battleView(record, deck, student.id, Date.now());
+    if (JSON.stringify(state) === JSON.stringify(record.state)) {
+      if (useCached) continue;
+      return viewFor(record, deck, student.id);
+    }
     if (
       ["move", "finish", "skip"].includes(action.type) &&
       state.players.find((p) => p.id === student.id)!.revision >
         record.state.players.find((p) => p.id === student.id)!.revision
     ) {
       const before = record.state.players.find((p) => p.id === student.id)!;
-      const { data, error } = await client().rpc("write_puzzle_battle_player", {
-        p_id: id,
-        p_student_id: student.id,
-        p_revision: before.revision,
-        p_player: state.players.find((p) => p.id === student.id),
-      });
+      const { data, error } = await client().rpc(
+        session ? "submit_puzzle_battle_player" : "write_puzzle_battle_player",
+        {
+          p_id: id,
+          p_student_id: student.id,
+          p_revision: before.revision,
+          p_player: state.players.find((p) => p.id === student.id),
+          ...(session ? { p_identity: sessionIdentity(session) } : {}),
+        },
+      );
+      if (error?.code === "28000")
+        throw new StudentAuthenticationError("Student login no longer exists.");
       if (error)
         throw new BattleError("Your move couldn't save. Please retry.", 503);
       if (data)
-        return battleView(data as BattleRecord, deck, student.id, Date.now());
+        return viewFor(data as BattleRecord, deck, student.id);
       continue;
     }
     const { data, error } = await client().rpc("write_puzzle_battle", {
@@ -317,11 +358,10 @@ export async function actOnBattle(
         409,
       );
     if (data === true)
-      return battleView(
+      return viewFor(
         { ...record, state, version: record.version + 1 },
         deck,
         student.id,
-        Date.now(),
       );
   }
   throw new BattleError(
@@ -347,17 +387,48 @@ export async function joinBattle(
     actionId: randomUUID(),
   });
 }
+export async function rematchBattle(id: unknown, student: { id: string; name: string }) {
+  if (typeof id !== "string" || !uuid.test(id)) throw new BattleError("Invalid battle.", 404);
+  const previous = await readBattle(id, student.id);
+  if (previous.state.status !== "finished" || previous.state.players.length !== 2)
+    throw new BattleError("Finish this battle before a rematch.", 409);
+  let nextId = previous.state.rematchId;
+  if (nextId) {
+    const next = await recordFor(nextId);
+    if (settleBattle(next.state, next.expires_at, Date.now()).status === "cancelled")
+      nextId = undefined;
+  }
+  if (!nextId) {
+    const deck = await buildBattleDeck(previous.mode);
+    const proposedId = randomUUID();
+    const opponent = previous.state.players.find((p) => p.id !== student.id)!;
+    const { data, error } = await client().rpc("rematch_puzzle_battle", {
+      p_source_id: id, p_student_id: student.id, p_id: proposedId,
+      p_code: randomBytes(4).toString("hex").toUpperCase(),
+      p_state: {
+        status: "waiting", players: [newBattlePlayer(student.id, student.name)],
+        startsAt: null, endsAt: null, winnerId: null, invitedId: opponent.id,
+      },
+      p_deck: deck,
+    });
+    if (error || !data) throw new BattleError(error?.message.includes("current puzzle battle") || error?.message.includes("Please wait") ? error.message : "Couldn't start the rematch. Please retry.", 409);
+    nextId = data as string;
+    if (nextId === proposedId) remember(nextId, deck);
+  }
+  return actOnBattle(nextId, student, { type: "join", actionId: randomUUID() });
+}
 export async function listBattles(
   studentId: string,
+  includeOwnBattles = false,
 ): Promise<BattleLobbyItem[]> {
   const db = client();
   const [own, open] = await Promise.all([
-    db
+    includeOwnBattles ? db
       .from("puzzle_battles")
       .select(fields)
       .or(`host_id.eq.${studentId},guest_id.eq.${studentId}`)
       .order("created_at", { ascending: false })
-      .limit(12),
+      .limit(12) : Promise.resolve({ data: [], error: null }),
     db
       .from("puzzle_battles")
       .select(fields)
@@ -377,7 +448,12 @@ export async function listBattles(
       ]),
     ).values(),
   ];
-  return records.map((record) => {
+  return records.filter((record) => (
+    includeOwnBattles || (record.state.status === "waiting" && record.guest_id === null &&
+      record.state.players.length === 1 && Date.parse(record.expires_at) > Date.now())
+  ) && (!record.state.invitedId || record.state.invitedId === studentId ||
+    record.host_id === studentId || record.guest_id === studentId)
+  ).map((record) => {
     const state = settleBattle(record.state, record.expires_at, Date.now());
     return {
       id: record.id,

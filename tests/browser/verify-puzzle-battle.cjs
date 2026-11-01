@@ -21,6 +21,8 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9482";
     }),
     cb = await browser.newContext({ viewport: { width: 1024, height: 768 } }),
     cc = await browser.newContext();
+  // Isolate from public Realtime; exercise the documented disconnected fallback.
+  for (const context of [ca, cb, cc]) await context.routeWebSocket(/.*/, ws => ws.close());
   const a = await ca.newPage(),
     b = await cb.newPage(),
     errors = [];
@@ -71,9 +73,6 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9482";
       const battle = (await created.json()).battle;
       await b.getByLabel("Join with a code").fill(battle.code);
       await b.getByRole("button", { name: "Join battle", exact: true }).click();
-      await b
-        .getByRole("heading", { name: "Both players are here!" })
-        .waitFor();
       const forbidden = await cc.request.get(
         `${base}/api/student/puzzle-battles/${battle.id}`,
       );
@@ -84,8 +83,8 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9482";
       );
       assert.equal(third.status(), 409);
       await a.reload();
-      await a.getByRole("button", { name: "I'm ready", exact: true }).click();
-      await b.getByRole("button", { name: "I'm ready", exact: true }).click();
+      assert.equal(await a.getByRole("button", { name: "I'm ready", exact: true }).count(), 0);
+      assert.equal(await b.getByRole("button", { name: "I'm ready", exact: true }).count(), 0);
       await a.reload();
       await a.locator("[data-square]").first().waitFor();
       await b.locator("[data-square]").first().waitFor();
@@ -166,13 +165,24 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9482";
           .waitFor();
         assert.equal((await state(battle.id, cb)).state.players[1].mistakes, 1);
       } else if (mode === "star-wars") {
+        for (const [name, width, height] of [["laptop",1366,768],["large-laptop",1920,1080],["phone",390,844]]) {
+          await a.setViewportSize({ width, height });
+          await a.waitForTimeout(150);
+          const boardBox = await a.locator("[data-chess-board]").first().boundingBox();
+          const starBox = await a.locator("[data-battle-star]").first().boundingBox();
+          assert.ok(starBox.width >= boardBox.width / 8 * 0.65, "Stars scale with their square");
+          await a.screenshot({ path: `work/puzzle-battle/stars-${name}.png` });
+        }
+        await a.setViewportSize({ width:1440, height:1000 });
         const moves = findStarWarsSolution(
           initialStarWarsState(deck[0].puzzle),
         );
         assert.ok(moves?.length);
+        let selected = null;
         for (const move of moves) {
-          await square(a, move.from);
+          if (selected !== move.from) await square(a, move.from);
           await square(a, move.to);
+          selected = move.to;
         }
       } else {
         assert.equal(
@@ -193,45 +203,15 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9482";
         );
         for (const squareName of deck[0].puzzle.safeSquares)
           await square(a, squareName);
-        const unsafe = Array.from(
-          { length: 64 },
-          (_, i) =>
-            `${String.fromCharCode(97 + (i % 8))}${1 + Math.floor(i / 8)}`,
-        ).find(
-          (s) =>
-            !deck[0].puzzle.safeSquares.includes(s) &&
-            !deck[0].puzzle.pieces.some((p) => p.square === s),
-        );
-        let lostHideResponse = false;
-        await b.route(
-          `**/api/student/puzzle-battles/${battle.id}`,
-          async (route) => {
-            if (route.request().method() === "POST" && !lostHideResponse) {
-              lostHideResponse = true;
-              await route.fetch();
-              await route.abort("failed");
-            } else await route.continue();
-          },
-        );
-        await square(b, firstSafe);
-        await square(b, unsafe);
-        await b.getByRole("button", { name: "Retry", exact: true }).waitFor();
-        assert.equal(
-          await b.locator("[data-square]:not(:disabled)").count(),
-          0,
-          "Failed save must not reopen a finished board",
-        );
-        await b.getByRole("button", { name: "Retry", exact: true }).click();
-        await b
-          .getByText("Keep going — try the next board.", { exact: true })
-          .waitFor();
-        await b.unroute(`**/api/student/puzzle-battles/${battle.id}`);
-        assert.equal(
-          (await state(battle.id, cb)).state.players[1].mistakes,
-          1,
-          "One dangerous tap immediately loses a life",
-        );
+        assert.equal(deck.length, 1, "Hide and Seek uses exactly one shared board");
+        await a.getByRole("heading", { name: "You won! Nicely solved!" }).waitFor();
+        await b.getByRole("heading", { name: "Good effort — keep practicing!" }).waitFor();
+        assert.equal((await state(battle.id)).state.status, "finished");
+        await a.reload();
+        await a.getByRole("heading", { name: "You won! Nicely solved!" }).waitFor();
         await a.screenshot({ path: "work/puzzle-battle/star-detective.png" });
+        console.log("PASS Hide and Seek: automatic start, shared single board, first finish ends match, reload persists winner.");
+        continue;
       }
       await a.getByTestId("my-score").filter({ hasText: "1" }).waitFor();
       assert.equal((await state(battle.id)).state.players[0].score, 1);

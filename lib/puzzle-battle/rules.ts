@@ -32,7 +32,7 @@ export function newBattlePlayer(id: string, name: string): BattlePlayer {
   return {
     id,
     name: name.slice(0, 60),
-    ready: false,
+    ready: true,
     score: 0,
     mistakes: 0,
     index: 0,
@@ -91,7 +91,13 @@ export function applyBattleAction(
     if (state.players.some((p) => p.id === student.id)) return state;
     if (state.status !== "waiting" || state.players.length !== 1)
       throw new BattleError("This challenge is no longer open.", 409);
+    if (state.invitedId && state.invitedId !== student.id)
+      throw new BattleError("This rematch is reserved for the previous opponent.", 403);
     state.players.push(newBattlePlayer(student.id, student.name));
+    state.players.forEach((p) => { p.ready = true; });
+    state.status = "playing";
+    state.startsAt = now + 5000;
+    state.endsAt = state.startsAt + record.duration * 1000;
     return state;
   }
   const player = state.players.find((p) => p.id === student.id);
@@ -107,14 +113,14 @@ export function applyBattleAction(
       player.done = true;
     }
   } else if (action.type === "ready") {
+    // Older clients can still send ready after the automatic countdown starts.
+    if (state.status === "playing") return state;
     if (state.status !== "waiting" || state.players.length !== 2)
       throw new BattleError("Wait for your opponent to join.");
-    player.ready = true;
-    if (state.players.every((p) => p.ready)) {
-      state.status = "playing";
-      state.startsAt = now + 5000;
-      state.endsAt = state.startsAt + record.duration * 1000;
-    }
+    state.players.forEach((p) => { p.ready = true; });
+    state.status = "playing";
+    state.startsAt = now + 5000;
+    state.endsAt = state.startsAt + record.duration * 1000;
   } else {
     if (state.status !== "playing" || now < state.startsAt! || player.done)
       throw new BattleError("The board is not active yet.", 409);
@@ -204,6 +210,13 @@ export function applyBattleAction(
       player.moveIndex = 0;
     }
     player.done = player.mistakes >= 3 || player.index >= deck.length;
+    if (record.mode === "hide-and-seek" && (solved || failed)) {
+      player.done = true;
+      state.status = "finished";
+      state.winnerId = solved
+        ? player.id
+        : state.players.find((p) => p.id !== player.id)!.id;
+    }
   }
   player.revision++;
   player.lastAction = action.actionId;
@@ -267,7 +280,11 @@ export function battleView(
     serverNow: now,
     expiresAt: record.expires_at,
     topic: `puzzle-battle:${record.id}:${record.realtime_token}`,
-    challenge: state.status === "playing" ? publicChallenge(deck, me) : null,
+    challenge: state.status === "playing"
+      ? publicChallenge(deck, me)
+      : state.status === "finished" && record.mode === "hide-and-seek"
+        ? publicChallenge(deck, { ...me, index: Math.min(me.index, deck.length - 1), done: false })
+        : null,
     totalChallenges: deck.length,
   };
 }

@@ -95,8 +95,8 @@ function filtered(rows, params) {
   ["f3", "e5", "g4"].forEach((move) => chess.move(move));
   const puzzles = Array.from({ length: 100 }, (_, i) => ({
     id: randomUUID(),
-    initial_fen: chess.fen(),
-    moves: ["d8h4"],
+    initial_fen: process.env.BATTLE_MULTIMOVE ? new Chess().fen() : chess.fen(),
+    moves: process.env.BATTLE_MULTIMOVE ? ["e2e4", "a7a6", "e4e5", "b7b6", "e5e6"] : ["d8h4"],
     start_mode: "direct",
     accepted_moves: [],
     themes: ["mateIn1"],
@@ -128,6 +128,16 @@ function filtered(rows, params) {
               ])
             ).rows[0].value,
           );
+        if (table === "submit_puzzle_battle_player")
+          return json(res, (await pg.query(
+            "select submit_puzzle_battle_player($1,$2,$3,$4,$5) value",
+            [args.p_id, args.p_student_id, JSON.stringify(args.p_identity), args.p_revision, JSON.stringify(args.p_player)]
+          )).rows[0].value);
+        if (table === "rematch_puzzle_battle")
+          return json(res, (await pg.query(
+            "select rematch_puzzle_battle($1,$2,$3,$4,$5,$6) value",
+            [args.p_source_id, args.p_student_id, args.p_id, args.p_code, JSON.stringify(args.p_state), JSON.stringify(args.p_deck)]
+          )).rows[0].value);
         if (table === "write_puzzle_battle_player")
           return json(
             res,

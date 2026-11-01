@@ -3,6 +3,7 @@ import {
   createBattle,
   joinBattle,
   listBattles,
+  rematchBattle,
 } from "@/lib/puzzle-battle/server";
 import {
   battleBody,
@@ -28,6 +29,8 @@ export async function POST(request: Request) {
         battle:
           body?.action === "join"
             ? await joinBattle(body.code, student)
+            : body?.action === "rematch"
+              ? await rematchBattle(body.battleId, student)
             : await createBattle(student, body?.mode, body?.duration),
       },
       201,

@@ -66,7 +66,7 @@ const action = (extra: Partial<BattleAction> = {}): BattleAction => ({
 describe("Puzzle Battle", () => {
   it("keeps the same complete deck order for both players, even at different speeds", () => {
     for (const kind of ["survival", "star-wars", "hide-and-seek"] as const) {
-      const deck: BattleChallenge[] = Array.from({ length: 50 }, (_, i) =>
+      const deck: BattleChallenge[] = Array.from({ length: kind === "hide-and-seek" ? 1 : 50 }, (_, i) =>
         kind === "survival"
           ? { ...puzzle, puzzle: { ...puzzle.puzzle, id: `shared-${i}` } }
           : kind === "star-wars"
@@ -164,7 +164,7 @@ describe("Puzzle Battle", () => {
       applyBattleAction(r, [puzzle], a, action(), r.state.startsAt! - 1),
     ).toThrow("active yet");
   });
-  it("starts only when two different players are ready", () => {
+  it("starts a shared countdown automatically when a second different player joins", () => {
     const r = room();
     r.state = {
       ...r.state,
@@ -177,9 +177,7 @@ describe("Puzzle Battle", () => {
       applyBattleAction(r, [puzzle], a, action({ type: "ready" }), now),
     ).toThrow("Wait");
     r.state = applyBattleAction(r, [puzzle], b, action({ type: "join" }), now);
-    r.state = applyBattleAction(r, [puzzle], a, action({ type: "ready" }), now);
-    expect(r.state.status).toBe("waiting");
-    r.state = applyBattleAction(r, [puzzle], b, action({ type: "ready" }), now);
+    expect(r.state.status).toBe("playing");
     expect(r.state.startsAt).toBe(now + 5000);
     expect(r.state.endsAt).toBe(now + 65000);
     expect(() =>
@@ -229,6 +227,11 @@ describe("Puzzle Battle", () => {
     const r = room(),
       hide = generateHideAndSeekBoard("battle-test"),
       deck: BattleChallenge[] = [{ kind: "hide-and-seek", puzzle: hide }];
+    r.mode = "hide-and-seek";
+    const solved = applyBattleAction(r, deck, a, action({ type: "finish", squares: [...hide.safeSquares] }), now);
+    expect(solved.status).toBe("finished");
+    expect(solved.winnerId).toBe(a.id);
+    expect(battleView({ ...r, state: solved }, deck, a.id, now).challenge?.boardId).toBe(hide.seed);
     expect(
       applyBattleAction(
         r,
@@ -268,6 +271,9 @@ describe("Puzzle Battle", () => {
       mistakes: 1,
       index: 1,
     });
+    expect(failed.status).toBe("finished");
+    expect(failed.winnerId).toBe(b.id);
+    expect(applyBattleAction({ ...r, state: solved }, deck, b, action({ type: "finish", squares: [...hide.safeSquares] }), now).winnerId).toBe(a.id);
     expect(
       applyBattleAction(
         { ...r, state: failed },
@@ -288,5 +294,11 @@ describe("Puzzle Battle", () => {
     ).toThrow("empty squares");
     const view = battleView(r, deck, a.id, now);
     expect(view.challenge).not.toHaveProperty("safeSquares");
+  });
+  it("reserves rematches for the original opponent", () => {
+    const r = room();
+    r.state = { ...r.state, status: "waiting", players: [newBattlePlayer(a.id, a.name)], invitedId: b.id };
+    expect(() => applyBattleAction(r, [puzzle], { id: "c", name: "C" }, action({ type: "join" }), now)).toThrow("reserved");
+    expect(applyBattleAction(r, [puzzle], b, action({ type: "join" }), now).status).toBe("playing");
   });
 });

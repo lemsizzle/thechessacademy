@@ -34,7 +34,7 @@ const RULES: Record<BattleMode, string> = {
   "star-wars":
     "Collect a star on every move. Clear the whole route for one point. A missed star, stranded route, or skip costs one life.",
   "hide-and-seek":
-    "Star Detective: every tap is final. Find all safe squares to finish automatically. A dangerous square ends this board and costs one life.",
+    "One board, one chance! Find all safe squares first to win. A dangerous square instantly loses the battle. If time runs out before either player finishes, it is a draw.",
 };
 const clock = (ms: number) => {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
@@ -158,15 +158,15 @@ export function PuzzleBattle() {
       const status = current.current?.state.status;
       const interval = !current.current
         ? 15000
-        : realtimeReady.current
-          ? 30000
-          : status === "waiting"
-            ? 2000
+        : status === "waiting"
+          ? 2000
+          : realtimeReady.current
+            ? 30000
             : 10000;
       if (
         performance.now() - lastReadAt.current >= interval &&
         (!current.current ||
-          ["waiting", "playing"].includes(current.current.state.status))
+          ["waiting", "playing", "finished"].includes(current.current.state.status))
       )
         void refresh();
     }, 1000);
@@ -195,7 +195,7 @@ export function PuzzleBattle() {
     return () => clearInterval(timer);
   }, [battle?.state.status]);
   const topic =
-    battle && ["waiting", "playing"].includes(battle.state.status)
+    battle && ["waiting", "playing", "finished"].includes(battle.state.status)
       ? battle.topic
       : undefined;
   useEffect(() => {
@@ -313,6 +313,24 @@ export function PuzzleBattle() {
     },
     [install, refresh],
   );
+  async function rematch() {
+    if (mutating.current || !current.current) return;
+    mutating.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const data = await api("/api/student/puzzle-battles", {
+        action: "rematch", battleId: current.current.id,
+      });
+      open(data.battle.id);
+      install(data.battle);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't start the rematch.");
+    } finally {
+      mutating.current = false;
+      setBusy(false);
+    }
+  }
   const errorPanel = error ? (
     <div
       role="alert"
@@ -342,10 +360,10 @@ export function PuzzleBattle() {
             Race through the same boards
           </h2>
           <p className="mt-2 text-sm text-slate-300">
-            Three lives each. One point per completed board. Highest score wins;
-            equal scores draw. The puzzle order is identical; each player
-            advances at their own pace. Both players press Ready before the
-            countdown.
+            Survival and Star Wars: three lives each, one point per board,
+            highest score wins. Hide and Seek: race on one shared board; the first
+            finish wins, and one wrong square loses. Both players get identical
+            puzzles. The countdown starts automatically when a classmate joins.
           </p>
           <fieldset className="mt-5">
             <legend className="font-bold">Battle mode</legend>
@@ -384,7 +402,8 @@ export function PuzzleBattle() {
             {busy ? "Preparing boards…" : "Create challenge"}
           </Button>
           <p className="mt-3 text-xs text-slate-400">
-            Up to 50 boards. No hints or takebacks. Battle scores are separate
+            One board in Hide and Seek; up to 50 in Survival and Star Wars.
+            No hints or takebacks. Battle scores are separate
             from solo records and rewards.
           </p>
         </Card>
@@ -415,7 +434,7 @@ export function PuzzleBattle() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-black">
-              Open challenges & your recent battles
+              Open challenges
             </h2>
             <Button variant="ghost" onClick={() => void refresh()}>
               Refresh
@@ -423,7 +442,7 @@ export function PuzzleBattle() {
           </div>
           {!lobby.length ? (
             <p className="mt-3 text-sm text-slate-400">
-              No challenges yet. Create one and share its code with a classmate.
+              No open challenges right now. Create one and share its code with a classmate.
             </p>
           ) : (
             <ul className="mt-3 divide-y divide-white/10">
@@ -500,9 +519,16 @@ export function PuzzleBattle() {
         <h2 className="text-lg font-black">
           {BATTLE_LABELS[battle.mode]} Battle · {battle.duration / 60} min
         </h2>
+        <div className="flex flex-wrap gap-2">
+        {state.status === "finished" && opponent && (
+          <Button disabled={busy} onClick={() => void rematch()}>
+            {busy ? "Opening rematch…" : state.rematchId ? "Accept rematch" : "Rematch"}
+          </Button>
+        )}
         <Button variant="ghost" onClick={() => open(null)}>
           Battle lobby
         </Button>
+        </div>
       </div>
       {state.status === "waiting" ? (
         <Card className="space-y-4 p-5">
@@ -531,20 +557,16 @@ export function PuzzleBattle() {
             Copy challenge link
           </Button>
           <p className="text-sm text-slate-300">
-            {RULES[battle.mode]} Each player has three lives. This challenge
-            closes after 10 minutes if it hasn't started.
+            {RULES[battle.mode]} {battle.mode !== "hide-and-seek" && "Each player has three lives."}
+            {" "}The countdown starts automatically when your opponent joins.
+            This challenge closes after 10 minutes if nobody joins.
           </p>
           {state.players.map((p) => (
             <p key={p.id}>
-              <strong>{p.name}</strong> · {p.ready ? "Ready ✓" : "Not ready"}
+              <strong>{p.name}</strong> · Joined
             </p>
           ))}
-          <Button
-            disabled={busy || !opponent || me.ready}
-            onClick={() => void act({ type: "ready" })}
-          >
-            {me.ready ? "Waiting for opponent…" : "I'm ready"}
-          </Button>
+          <p className="text-sm text-slate-300">Waiting for your opponent to join…</p>
           <p role="status" className="text-cyan-200">
             {notice}
           </p>
@@ -560,12 +582,12 @@ export function PuzzleBattle() {
                 <strong className="text-2xl" data-testid="my-score">
                   {me.score}
                 </strong>
-                <span
+                {battle.mode !== "hide-and-seek" && <span
                   className="ml-2 text-xs text-rose-200"
                   aria-label={`${3 - me.mistakes} lives`}
                 >
                   {"♥".repeat(Math.max(0, 3 - me.mistakes)) || "Out of lives"}
-                </span>
+                </span>}
               </div>
               <div className="text-center">
                 <p className="text-[10px] uppercase text-slate-400">
@@ -591,9 +613,9 @@ export function PuzzleBattle() {
                 <strong className="text-2xl" data-testid="opponent-score">
                   {opponent?.score ?? 0}
                 </strong>
-                <span className="ml-2 text-xs text-rose-200">
+                {battle.mode !== "hide-and-seek" && <span className="ml-2 text-xs text-rose-200">
                   {"♥".repeat(Math.max(0, 3 - (opponent?.mistakes ?? 0)))}
-                </span>
+                </span>}
               </div>
             </div>
             {board && (finished || now >= state.startsAt!) ? (
@@ -641,15 +663,19 @@ export function PuzzleBattle() {
                         ? "Good effort — keep practicing!"
                         : "A draw! Well played, both of you."}
                 </h3>
-                <p>
-                  {me.score} – {opponent?.score ?? 0}
-                </p>
+                <p>{state.status === "cancelled" ? "This challenge was closed."
+                  : state.players.some((p) => p.forfeited) ? "The remaining player wins."
+                  : battle.mode === "hide-and-seek"
+                  ? state.players.some((p) => p.mistakes > 0)
+                    ? "A dangerous square ended the race. Try again with a fresh board!"
+                    : state.winnerId ? "The first complete set of safe squares wins!" : "Time ran out. Neither player finished."
+                  : `${me.score} – ${opponent?.score ?? 0}`}</p>
                 {state.players.some((p) => p.forfeited) && (
                   <p className="text-sm text-slate-300">
                     A player left the battle.
                   </p>
                 )}
-                <Button
+                <Button variant="secondary"
                   onClick={() => {
                     setMode(battle.mode);
                     setDuration(battle.duration);
@@ -664,7 +690,7 @@ export function PuzzleBattle() {
                 <h3 className="font-black">
                   {me.done
                     ? "Your run is complete"
-                    : `Board ${me.index + 1} of ${battle.totalChallenges}`}
+                    : battle.mode === "hide-and-seek" ? "One-board race" : `Board ${me.index + 1} of ${battle.totalChallenges}`}
                 </h3>
                 <p className="text-sm text-slate-300">
                   {me.done
@@ -674,16 +700,17 @@ export function PuzzleBattle() {
                 <p role="status" className="min-h-6 font-bold text-cyan-200">
                   {busy ? "Checking…" : notice}
                 </p>
-                <Button
+                {battle.mode !== "hide-and-seek" && <Button
                   variant="secondary"
                   disabled={!active || busy || Boolean(retry)}
                   onClick={() => void act({ type: "skip" })}
                 >
                   Skip · lose one life
-                </Button>
+                </Button>}
                 <p className="text-xs text-slate-400">
-                  No hints or takebacks. Each completed board is one point.
-                  Equal scores draw.
+                  No hints or takebacks. {battle.mode === "hide-and-seek"
+                    ? "Every tap is final. One wrong square ends the battle."
+                    : "Each completed board is one point. Equal scores draw."}
                 </p>
               </>
             )}
@@ -751,6 +778,7 @@ const BattleBoard = memo(function BattleBoard({
   );
   const movingRef = useRef(false);
   const hideFinished = useRef(false);
+  const [wrongSquare, setWrongSquare] = useState<string | null>(null);
   const hideSelection = useRef<string[]>([]);
   const hideBoard = useMemo(() => {
     if (challenge.kind !== "hide-and-seek") return null;
@@ -812,7 +840,7 @@ const BattleBoard = memo(function BattleBoard({
       to: to as Square,
     });
     if (result.status === "illegal") return;
-    setStarSelection(null);
+    setStarSelection(result.status === "advanced" ? to : null);
     route.current.push({ from: from as Square, to: to as Square });
     setStar(result.state);
     if (result.status === "solved" || result.status === "failed")
@@ -830,7 +858,8 @@ const BattleBoard = memo(function BattleBoard({
       const next = [...hideSelection.current, square];
       hideSelection.current = next;
       const failed = !safe.has(square);
-      setSelected(failed ? [] : next);
+      setSelected(failed ? hideSelection.current.filter((s) => s !== square) : next);
+      if (failed) setWrongSquare(square);
       if (failed || next.length === safe.size) {
         // Lock immediately, including during a failed save/retry. Checking the
         // visible army locally keeps taps instant; the server verifies the result.
@@ -868,7 +897,7 @@ const BattleBoard = memo(function BattleBoard({
                     : squareStyles.lightSquareStyle
                 }
               >
-                {Piece ? <Piece /> : marked ? "★" : null}
+                {Piece ? <Piece /> : wrongSquare === square ? <span className="text-red-600">✕</span> : marked ? "★" : null}
                 <span className="absolute bottom-0 right-1 text-[9px] text-slate-700">
                   {square}
                 </span>
@@ -878,8 +907,7 @@ const BattleBoard = memo(function BattleBoard({
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm">
-            {selected.length} / {challenge.totalSafe} stars found · Star
-            Detective
+            {wrongSquare ? "Wrong square — you lost this battle." : `${selected.length} / ${challenge.totalSafe} stars found · Star Detective`}
           </span>
         </div>
       </div>
@@ -920,16 +948,22 @@ const BattleBoard = memo(function BattleBoard({
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 grid grid-cols-8"
+          className="pointer-events-none absolute inset-0 grid grid-cols-8 grid-rows-[repeat(8,minmax(0,1fr))]"
         >
           {Array.from({ length: 64 }, (_, i) => {
             const square = `${String.fromCharCode(97 + (i % 8))}${8 - Math.floor(i / 8)}`;
             return (
               <span
                 key={square}
-                className="flex items-center justify-center text-3xl text-amber-300 drop-shadow-[0_1px_2px_#000]"
+                className="flex min-h-0 min-w-0 items-center justify-center"
               >
-                {star.remainingStars.includes(square as Square) ? "★" : ""}
+                {star.remainingStars.includes(square as Square) && (
+                  <svg data-battle-star={square} viewBox="0 0 100 100"
+                    className="h-[72%] w-[72%] drop-shadow-[0_2px_2px_#000]" aria-hidden="true">
+                    <path d="M50 5 63 34 95 38 71 60 78 92 50 76 22 92 29 60 5 38 37 34Z"
+                      fill="#fcd34d" stroke="#78350f" strokeWidth="4" strokeLinejoin="round" />
+                  </svg>
+                )}
               </span>
             );
           })}
@@ -948,6 +982,7 @@ const BattleBoard = memo(function BattleBoard({
           interactive={interactive && !promotion && !moving}
           lastMove={null}
           onMove={move}
+          keepMovedPieceSelected
           allowDrawingArrows
         />
       </div>

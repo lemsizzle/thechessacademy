@@ -24,5 +24,7 @@ export async function createBattleTestDatabase() {
       "utf8",
     ),
   );
+  await db.exec(readFileSync("supabase/migrations/20261101173014_puzzle_battle_cached_answers.sql", "utf8"));
+  await db.exec(readFileSync("supabase/migrations/20261101174411_puzzle_battle_single_board_rematches.sql", "utf8"));
   return db;
 }
