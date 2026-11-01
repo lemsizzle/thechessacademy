@@ -1,5 +1,6 @@
 import { Chess, DEFAULT_POSITION } from "chess.js";
-import { HALLOWEEN_BOTS, HALLOWEEN_END } from "@/lib/quests/halloween";
+import { HALLOWEEN_BOTS } from "@/lib/quests/halloween";
+import { huntForBot } from "@/lib/quests/seasonalBotHunts";
 
 export const HALLOWEEN_ADAPTATION_START = "2026-10-26T00:00:00+07:00";
 export const HALLOWEEN_RATING_STEP = 25;
@@ -18,21 +19,22 @@ export type HalloweenLossRecord = {
  * Server-created timestamps control daily limits; replay fingerprints stop retries
  * or duplicate uploads from earning additional reductions.
  */
-export function halloweenReductionsFromGames(games: readonly HalloweenLossRecord[]): HalloweenReductions {
+export function seasonalReductionsFromGames(games: readonly HalloweenLossRecord[]): HalloweenReductions {
   const reductions: HalloweenReductions = {};
   const seen = new Set<string>();
   const daily = new Map<string, number>();
   const lastAccepted = new Map<string, number>();
   const sorted = [...games].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
   for (const game of sorted) {
-    if (!HALLOWEEN_BOTS.some((bot) => bot.id === game.opponent_id)
+    const hunt = huntForBot(game.opponent_id);
+    if (!hunt
       || game.result !== "loss" || game.result_reason !== "checkmate"
       || game.takeback_count !== 0 || game.hints_used !== 0
       || game.initial_fen !== DEFAULT_POSITION
       || !["white", "black"].includes(game.player_color)) continue;
     const start = Date.parse(game.started_at), end = Date.parse(game.completed_at), saved = Date.parse(game.created_at);
     if (![start, end, saved].every(Number.isFinite)
-      || start < Date.parse(HALLOWEEN_ADAPTATION_START) || saved >= Date.parse(HALLOWEEN_END)
+      || start < Date.parse(hunt.adaptationStartsAt) || saved >= Date.parse(hunt.endsAt)
       || end - start < 120_000 || end > saved + 60_000 || saved - start < 120_000) continue;
     if ((reductions[game.opponent_id] ?? 0) >= HALLOWEEN_MAX_REDUCTION) continue;
     const day = new Date(saved + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -58,3 +60,8 @@ export function halloweenReductionsFromGames(games: readonly HalloweenLossRecord
   }
   return reductions;
 }
+
+export function halloweenReductionsFromGames(games: readonly HalloweenLossRecord[]): HalloweenReductions {
+  return seasonalReductionsFromGames(games.filter((game) => HALLOWEEN_BOTS.some((bot) => bot.id === game.opponent_id)));
+}
+export type SeasonalReductions = HalloweenReductions;

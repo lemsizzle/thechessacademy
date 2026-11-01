@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-01",
+  "mode": "Built-in image generation; initial turkey established the visual reference; matching art direction used for the set.",
+  "processing": "Resized and encoded as WebP with alpha using sharp. No compositing or generated lettering.",
+  "prompts": [
+    {
+      "asset": "public/bots/thanksgiving/turkey.webp",
+      "prompt": "Tilly Turkey: cheerful cute turkey pawn, amber eyes, red wattle and caramel/red/gold tail fan. Cohesive premium 3D storybook chess collectible, ivory and gold pedestal, warm autumn palette, expressive friendly face, subtle cyan rim light, centered full object with margin, square transparent background. No text, no scenery.",
+      "size": 480
+    },
+    {
+      "asset": "public/bots/thanksgiving/corn.webp",
+      "prompt": "Kernel Corn: golden corn cob character, green husk shoulders, friendly amber eyes, knight-style pedestal. Cohesive premium 3D storybook chess collectible, ivory and gold pedestal, warm autumn palette, expressive friendly face, subtle cyan rim light, centered full object with margin, square transparent background. No text, no scenery.",
+      "size": 480
+    },
+    {
+      "asset": "public/bots/thanksgiving/fox.webp",
+      "prompt": "Maple Fox: orange fox bishop bust, white cheeks, amber eyes, maple leaf brooch and green scarf. Cohesive premium 3D storybook chess collectible, ivory and gold pedestal, warm autumn palette, expressive friendly face, subtle cyan rim light, centered full object with margin, square transparent background. No text, no scenery.",
+      "size": 480
+    },
+    {
+      "asset": "public/bots/thanksgiving/scarecrow.webp",
+      "prompt": "Hazel Harvest: kind stitched burlap face, button eyes, straw hair, garden hat and orange scarf, rook pedestal. Cohesive premium 3D storybook chess collectible, ivory and gold pedestal, warm autumn palette, expressive friendly face, subtle cyan rim light, centered full object with margin, square transparent background. No text, no scenery.",
+      "size": 480
+    },
+    {
+      "asset": "public/bots/thanksgiving/stag.webp",
+      "prompt": "King Chestnut: friendly young chestnut stag, amber eyes, golden crown and small antlers with autumn leaves, king pedestal. Cohesive premium 3D storybook chess collectible, ivory and gold pedestal, warm autumn palette, expressive friendly face, subtle cyan rim light, centered full object with margin, square transparent background. No text, no scenery.",
+      "size": 480
+    },
+    {
+      "asset": "public/badges/seasonal/harvest-champion.webp",
+      "prompt": "Harvest Champion: circular golden amber medallion, central ivory chess king, five golden leaves, wheat and acorns, orange jewel, cohesive premium 3D storybook collectible, transparent outside medallion, no text, centered full object with margin, square composition.",
+      "size": 768
+    }
+  ]
+}

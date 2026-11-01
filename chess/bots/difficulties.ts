@@ -1,6 +1,7 @@
 import { SIR_LEM_SOURCE } from "@/chess/bots/sirLemProfile";
 import type { BotDifficulty } from "@/chess/types";
 import { HALLOWEEN_BOTS } from "@/lib/quests/halloween";
+import { SEASONAL_BOTS } from "@/lib/quests/seasonalBotHunts";
 import { interpolateBotStrength } from "@/chess/bots/strength";
 import { HALLOWEEN_MAX_REDUCTION, HALLOWEEN_RATING_STEP, type HalloweenReductions } from "@/chess/bots/halloweenAdaptation";
 
@@ -172,9 +173,13 @@ export const HALLOWEEN_BOT_DIFFICULTIES: BotDifficulty[] = HALLOWEEN_BOTS.map((b
   id: bot.id, name: bot.name, title: bot.title, portrait: bot.portrait, description: bot.description
 }));
 
-export const BOT_DIFFICULTIES: BotDifficulty[] = [...STANDARD_BOT_DIFFICULTIES, ...HALLOWEEN_BOT_DIFFICULTIES];
+export const SEASONAL_BOT_DIFFICULTIES: BotDifficulty[] = SEASONAL_BOTS.map((bot) => ({
+  ...interpolateBotStrength(bot.rating, STANDARD_BOT_DIFFICULTIES),
+  id: bot.id, name: bot.name, title: bot.title, portrait: bot.portrait, description: bot.description
+}));
+export const BOT_DIFFICULTIES: BotDifficulty[] = [...STANDARD_BOT_DIFFICULTIES, ...SEASONAL_BOT_DIFFICULTIES];
 
-// Only personalized Halloween opponents can use this gentler anchor. Standard
+// Only personalized seasonal opponents can use this gentler anchor. Standard
 // opponents and tournament bots retain their existing strengths.
 const HALLOWEEN_BEGINNER: BotDifficulty = {
   ...STANDARD_BOT_DIFFICULTIES[0], estimatedRating: 200,
@@ -189,8 +194,8 @@ const HALLOWEEN_BEGINNER: BotDifficulty = {
   ]
 };
 
-export function personalizedHalloweenBots(reductions: HalloweenReductions = {}): BotDifficulty[] {
-  return HALLOWEEN_BOT_DIFFICULTIES.map((bot) => {
+export function personalizedSeasonalBots(reductions: HalloweenReductions = {}): BotDifficulty[] {
+  return SEASONAL_BOT_DIFFICULTIES.map((bot) => {
     const requested = reductions[bot.id] ?? 0;
     const reduction = Number.isFinite(requested)
       ? Math.min(HALLOWEEN_MAX_REDUCTION, Math.max(0, Math.floor(requested / HALLOWEEN_RATING_STEP) * HALLOWEEN_RATING_STEP)) : 0;
@@ -200,4 +205,8 @@ export function personalizedHalloweenBots(reductions: HalloweenReductions = {}):
       id: bot.id, name: bot.name, title: bot.title, portrait: bot.portrait, description: bot.description
     };
   });
+}
+
+export function personalizedHalloweenBots(reductions: HalloweenReductions = {}): BotDifficulty[] {
+  return personalizedSeasonalBots(reductions).filter((bot) => HALLOWEEN_BOTS.some((old) => old.id === bot.id));
 }

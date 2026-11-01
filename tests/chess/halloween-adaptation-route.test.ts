@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), save: vi.fn(), reductions: vi.fn(), achievements: vi.fn() }));
 vi.mock("@/lib/auth/requireActiveStudent", () => ({ requireActiveStudent: mocks.auth, StudentAuthenticationError: class extends Error {} }));
 vi.mock("@/chess/persistence/saveCompletedGame", () => ({ saveCompletedGame: mocks.save }));
-vi.mock("@/chess/persistence/halloweenAdaptationServer", () => ({ getStudentHalloweenReductions: mocks.reductions }));
+vi.mock("@/chess/persistence/seasonalAdaptationServer", () => ({ getStudentSeasonalReductions: mocks.reductions }));
 vi.mock("@/lib/badges/gameAchievements/server", () => ({ scheduleGameAchievements: mocks.achievements }));
 import { POST } from "@/app/api/student/chess-games/route";
 import { StudentAuthenticationError } from "@/lib/auth/requireActiveStudent";

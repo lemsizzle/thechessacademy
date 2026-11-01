@@ -1,7 +1,7 @@
 "use client";
 
 import { refreshCelebrations } from "@/lib/celebrations";
-import type { HalloweenReductions } from "@/chess/bots/halloweenAdaptation";
+import type { SeasonalReductions } from "@/chess/bots/halloweenAdaptation";
 
 import { Chess } from "chess.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -20,7 +20,7 @@ import type { ClockSnapshot, ComputerGameConfig, GameOutcome, PromotionPiece } f
 const STANDARD_FEN = new Chess().fen();
 const UCI_MOVE = /^([a-h][1-8])([a-h][1-8])([qrbn])?$/;
 
-export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[]) => void, onHalloweenUpdate?: (reductions: HalloweenReductions | null) => void) {
+export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[]) => void, onSeasonalUpdate?: (reductions: SeasonalReductions | null) => void) {
   const [initialChess] = useState(() => new Chess());
   const chessRef = useRef(initialChess);
   const outcomeRef = useRef<GameOutcome | null>(null);
@@ -346,11 +346,11 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     }).then(async (response) => {
-      const body = await response.json().catch(() => ({})) as { error?: string; gameId?: string; unlockedBotIds?: string[]; halloweenReductions?: HalloweenReductions | null };
+      const body = await response.json().catch(() => ({})) as { error?: string; gameId?: string; unlockedBotIds?: string[]; seasonalReductions?: SeasonalReductions | null };
       if (!response.ok) throw new Error(body.error ?? "Completed game could not be saved.");
       if (!body.gameId) throw new Error("The saved game ID was not returned.");
       if (body.unlockedBotIds) onProgressionUpdate?.(body.unlockedBotIds);
-      if (body.halloweenReductions !== undefined) onHalloweenUpdate?.(body.halloweenReductions);
+      if (body.seasonalReductions !== undefined) onSeasonalUpdate?.(body.seasonalReductions);
       setSavedGameId(body.gameId);
       setSaveStatus("saved");
         refreshCelebrations();
@@ -359,7 +359,7 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
       setSaveStatus("failed");
       setSaveMessage(error instanceof Error ? error.message : "Completed game could not be saved.");
     });
-  }, [clockDisplay, config, onProgressionUpdate, onHalloweenUpdate, outcome]);
+  }, [clockDisplay, config, onProgressionUpdate, onSeasonalUpdate, outcome]);
 
   const resign = useCallback(() => {
     if (!config || outcomeRef.current) return;

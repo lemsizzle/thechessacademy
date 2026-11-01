@@ -1,5 +1,6 @@
 import { QuestBoard } from "@/components/QuestBoard";
-import { HalloweenQuestCard } from "@/components/quests/HalloweenQuestCard";
+import { SeasonalQuestCard } from "@/components/quests/SeasonalQuestCard";
+import { SEASONAL_BOT_HUNTS } from "@/lib/quests/seasonalBotHunts";
 import { StudentLichessQuestList } from "@/components/quests/StudentLichessQuestList";
 import { StudentPortalShell } from "@/components/student/StudentPortalShell";
 import { RouteLauncherDialog } from "@/components/student/RouteLauncherDialog";
@@ -29,7 +30,7 @@ export default function StudentQuestsPage() {
           ))}
         </div>
         <div className="space-y-6">
-          <HalloweenQuestCard />
+          {[...SEASONAL_BOT_HUNTS].reverse().map((hunt) => <SeasonalQuestCard key={hunt.id} hunt={hunt} />)}
           <StudentLichessQuestList />
           <section aria-labelledby="class-quests-heading">
             <h2 id="class-quests-heading" className="mb-3 font-black text-white">Available class quests</h2>

@@ -1,6 +1,6 @@
 import { Chess } from "chess.js";
 import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
-import { isHalloweenBot } from "@/lib/quests/halloween";
+import { isSeasonalBot } from "@/lib/quests/seasonalBotHunts";
 import { oppositeColor } from "@/chess/game/colors";
 import { TIME_CONTROLS } from "@/chess/game/timeControls";
 import { canColorPossiblyCheckmate, detectBoardOutcome, resultHeader } from "@/chess/game/rules";
@@ -74,7 +74,7 @@ export function validateCompletedGame(input: unknown) {
   if (!Number.isSafeInteger(takebackCount) || takebackCount < 0 || takebackCount > 1000) {
     throw new Error("Invalid takeback count.");
   }
-  const hintsUsed = body.hintsUsed ?? (isHalloweenBot(opponentId) ? NaN : 0);
+  const hintsUsed = body.hintsUsed ?? (isSeasonalBot(opponentId) ? NaN : 0);
   if (typeof hintsUsed !== "number" || !Number.isSafeInteger(hintsUsed) || hintsUsed < 0 || hintsUsed > 1000) {
     throw new Error("Invalid hint count.");
   }

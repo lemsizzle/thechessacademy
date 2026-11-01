@@ -7,7 +7,7 @@ import { getSupabaseQuestTracking, saveSupabaseQuestTracking } from "@/lib/quest
 import { addSupabaseStudentXp } from "@/lib/students/supabaseStudentProfiles";
 import { getSupabaseServiceClient, isSupabaseServiceConfigured } from "@/lib/supabase/server";
 import { listAdminQuests } from "@/lib/quests/supabaseQuests";
-import { HALLOWEEN_QUEST_ID } from "@/lib/quests/halloween";
+import { isSeasonalQuest } from "@/lib/quests/seasonalBotHunts";
 import type { ArenaTournamentResult, PendingQuestAward, Quest, QuestCompletionEvent, StudentLichessAccount, StudentQuestAttempt, XpEvent } from "@/lib/types";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -81,7 +81,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ stu
     // Do not accept client-supplied reward rules when storage is unavailable.
   }
   // Seasonal completions and rewards are atomic on game insert, never re-awarded here.
-  quests = quests.filter((quest) => quest.id !== HALLOWEEN_QUEST_ID && (quest.source === "internal_games" || quest.source === "internal_puzzles"));
+  quests = quests.filter((quest) => !isSeasonalQuest(quest.id) && (quest.source === "internal_games" || quest.source === "internal_puzzles"));
   if (!quests.length) return NextResponse.json({ error: "No quest rules are available." }, { status: 400 });
   const persistedTracking = await getSupabaseQuestTracking(studentId);
   const completionEvents = mergeQuestCompletions(persistedTracking.completions, body.completionEvents);

@@ -34,7 +34,7 @@ describe("student what's new", () => {
     expect(html).not.toMatch(/<(img|svg|video|canvas)\b/);
   });
   it("has a useful empty state when all releases have aged out", () => {
-    const entries = getRecentStudentUpdates(new Date("2027-01-01T12:00:00Z"));
+    const entries = getRecentStudentUpdates(new Date("2027-01-01T12:00:00Z"), [note("2026-10-01")]);
     expect(entries).toEqual([]);
     expect(renderToStaticMarkup(createElement(StudentUpdateList, { entries }))).toContain("No new updates in the last two months");
   });

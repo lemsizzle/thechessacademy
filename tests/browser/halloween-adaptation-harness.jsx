@@ -4,10 +4,11 @@ import { createRoot } from 'react-dom/client';
 import { Chess } from 'chess.js';
 import { VsComputerGame } from '../../chess/components/VsComputerGame';
 import { validateCompletedGame } from '../../chess/persistence/completedGame';
-import { halloweenReductionsFromGames } from '../../chess/bots/halloweenAdaptation';
+import { seasonalReductionsFromGames } from '../../chess/bots/halloweenAdaptation';
 
+const thanksgiving = new URLSearchParams(location.search).get('holiday') === 'thanksgiving';
 const RealDate = Date;
-let offset = Date.parse('2026-10-26T10:00:00+07:00') - RealDate.now();
+let offset = Date.parse(thanksgiving ? '2026-11-20T10:00:00+07:00' : '2026-10-26T10:00:00+07:00') - RealDate.now();
 window.Date = class extends RealDate {
   constructor(...args) { super(...(args.length ? args : [RealDate.now() + offset])); }
   static now() { return RealDate.now() + offset; }
@@ -23,7 +24,7 @@ window.fixtureBotMove = (fen, bot) => {
   if (!move) throw new Error('Unexpected fixture position');
   return move.from + move.to;
 };
-const key = 'halloween-adaptation-fixture-games';
+const key = `${thanksgiving ? 'thanksgiving' : 'halloween'}-adaptation-fixture-games`;
 const records = JSON.parse(localStorage.getItem(key) || '[]');
 window.fetch = async (input, options = {}) => {
   const path = String(input);
@@ -40,17 +41,17 @@ window.fetch = async (input, options = {}) => {
         takeback_count: game.takebackCount, hints_used: game.hintsUsed, started_at: game.startedAt,
         completed_at: game.completedAt, created_at: new Date().toISOString() });
       localStorage.setItem(key, JSON.stringify(records));
-      const halloweenReductions = halloweenReductionsFromGames(records);
+      const halloweenReductions = seasonalReductionsFromGames(records);
       window.audit.saves.push({ game, halloweenReductions });
-      return Response.json({ ok: true, gameId: 'fixture-game', unlockedBotIds: [], halloweenReductions });
+      return Response.json({ ok: true, gameId: 'fixture-game', unlockedBotIds: [], seasonalReductions: halloweenReductions });
     } catch (error) { return Response.json({ error: error.message }, { status: 400 }); }
   }
   return Response.json({ events: [], awards: [], incoming: [], outgoing: [], games: [] });
 };
 createRoot(document.getElementById('root')).render(
   <div className="academy-grid min-h-screen p-3 sm:p-6">
-    <p className="mb-4 text-sm text-slate-300">Halloween difficulty preview · local test data</p>
+    <p className="mb-4 text-sm text-slate-300">Seasonal difficulty preview · local test data</p>
     <VsComputerGame studentName="Explorer" studentAvatar={{ equippedItems: {} }} avatarItems={[]} initialUnlockedBotIds={['pawny','so-pawny']}
-      initialHalloweenReductions={halloweenReductionsFromGames(records)} />
+      initialSeasonalReductions={seasonalReductionsFromGames(records)} />
   </div>
 );

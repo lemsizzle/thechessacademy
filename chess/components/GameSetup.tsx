@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { BotPortrait } from "@/chess/components/BotPortrait";
-import { STANDARD_BOT_DIFFICULTIES as BOT_DIFFICULTIES, personalizedHalloweenBots } from "@/chess/bots/difficulties";
-import type { HalloweenReductions } from "@/chess/bots/halloweenAdaptation";
-import { HALLOWEEN_DEADLINE_LABEL, halloweenQuestState } from "@/lib/quests/halloween";
+import { STANDARD_BOT_DIFFICULTIES as BOT_DIFFICULTIES, personalizedSeasonalBots } from "@/chess/bots/difficulties";
+import type { SeasonalReductions } from "@/chess/bots/halloweenAdaptation";
+import { SEASONAL_BOT_HUNTS, seasonalQuestState } from "@/lib/quests/seasonalBotHunts";
 import { getBotUnlockRequirement, isBotUnlocked } from "@/chess/bots/progression";
 import { resolvePlayerColor } from "@/chess/game/colors";
 import { TIME_CONTROLS } from "@/chess/game/timeControls";
@@ -18,10 +18,10 @@ const colorChoices: Array<{ id: PlayerColorChoice; label: string; symbol: string
   { id: "random", label: "Random", symbol: "◈" }
 ];
 
-export function GameSetup({ unlockedBotIds, onStart, halloweenReductions = {} }: { unlockedBotIds: string[]; onStart: (config: ComputerGameConfig) => void; halloweenReductions?: HalloweenReductions | null }) {
+export function GameSetup({ unlockedBotIds, onStart, seasonalReductions = {} }: { unlockedBotIds: string[]; onStart: (config: ComputerGameConfig) => void; seasonalReductions?: SeasonalReductions | null }) {
   const [selectedBot, setBot] = useState<BotDifficulty>(BOT_DIFFICULTIES[0]);
-  const halloweenBots = personalizedHalloweenBots(halloweenReductions ?? {});
-  const bot = halloweenBots.find((candidate) => candidate.id === selectedBot.id) ?? selectedBot;
+  const seasonalBots = personalizedSeasonalBots(seasonalReductions ?? {});
+  const bot = seasonalBots.find((candidate) => candidate.id === selectedBot.id) ?? selectedBot;
   const [color, setColor] = useState<PlayerColorChoice>("white");
   const [timeControl, setTimeControl] = useState<TimeControl>(TIME_CONTROLS[0]);
 
@@ -36,29 +36,28 @@ export function GameSetup({ unlockedBotIds, onStart, halloweenReductions = {} }:
           <p className="text-xs font-bold text-slate-500">Win without takebacks to unlock the next bot.</p>
         </div>
         <div className="min-w-0 p-4 sm:p-5">
-          <fieldset className="mb-5 rounded-xl border border-orange-300/30 bg-gradient-to-br from-orange-400/10 to-violet-400/10 p-3 sm:p-4">
-            <legend className="px-2 text-sm font-black text-orange-200">Halloween visitors</legend>
+          {[...SEASONAL_BOT_HUNTS].reverse().filter((hunt) => seasonalQuestState(hunt, false) !== "expired").map((hunt) => <fieldset key={hunt.id} className="mb-5 rounded-xl border border-orange-300/30 bg-gradient-to-br from-orange-400/10 to-violet-400/10 p-3 sm:p-4">
+            <legend className="px-2 text-sm font-black text-orange-200">{hunt.label} visitors</legend>
             <p className="mb-3 text-xs leading-relaxed text-slate-300">
-              {halloweenQuestState(false) === "active" ? <>Beat all five without hints or takebacks for <strong className="text-amber-200">500 XP + 500 coins</strong>. Already active for everyone!<br />Finish by {HALLOWEEN_DEADLINE_LABEL}.</> : <>Meet five spooky friends. The seasonal quest ends {HALLOWEEN_DEADLINE_LABEL}.</>}
+              {seasonalQuestState(hunt, false) === "active" ? <>Beat all {hunt.bots.length} without hints or takebacks for <strong className="text-amber-200">{hunt.reward} XP + {hunt.reward} coins{hunt.badge ? ` + ${hunt.badge.name} badge` : ""}</strong>. Already active for everyone!<br />Finish by {hunt.deadlineLabel}.</> : <>Meet {hunt.bots.length} seasonal friends. The seasonal quest ends {hunt.deadlineLabel}.</>}
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {halloweenBots.map((difficulty) => (
+              {seasonalBots.filter((bot) => hunt.bots.some((entry) => entry.id === bot.id)).map((difficulty) => (
                 <button key={difficulty.id} type="button" onClick={() => setBot(difficulty)} aria-pressed={bot.id === difficulty.id}
                   className={`min-w-0 rounded-xl border p-2 text-center transition active:scale-[.98] ${bot.id === difficulty.id ? "border-orange-200 bg-orange-300/15" : "border-white/10 bg-slate-950/40 hover:border-orange-200/50"}`}>
                   <BotPortrait src={difficulty.portrait} size="choice" selected={bot.id === difficulty.id} />
                   <span className="mt-1 block text-xs font-black text-white">{difficulty.name}</span>
-                  <span className="block text-xs font-bold text-orange-200">~{difficulty.estimatedRating}</span>
-                  {(halloweenReductions?.[difficulty.id] ?? 0) > 0 && <span className="block text-[10px] text-orange-100">Adjusted for you</span>}
+                  {(seasonalReductions?.[difficulty.id] ?? 0) > 0 && <span className="block text-[10px] text-orange-100">Adjusted for you</span>}
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[11px] text-slate-400">Ratings are estimated strengths.</p>
-            {halloweenReductions === null && <p role="status" className="mt-2 text-xs text-amber-200">Your adjusted levels could not be loaded. Showing starting levels; reload to try again.</p>}
+            <p className="mt-2 text-xs text-orange-100">After a qualifying loss, that bot gets a little easier just for you. Keep trying!</p>
+            {seasonalReductions === null && <p role="status" className="mt-2 text-xs text-amber-200">Your adjusted levels could not be loaded. Showing starting levels; reload to try again.</p>}
             <details className="mt-2 text-xs text-slate-300">
               <summary className="cursor-pointer font-bold text-orange-200">A little help after a tough game</summary>
-              <p className="mt-2 leading-relaxed">Starting October 26, a played-out checkmate loss lowers that bot’s strength by 25 for you. Play at least 12 of your own moves over 2 minutes, using several pieces, without hints or takebacks. Quick losses, resignations, timeouts, and replaying the same game do not count. Up to two reductions per bot per Bangkok day, 200 points total, through November 1. Wins at your adjusted level still count toward the quest.</p>
+              <p className="mt-2 leading-relaxed">A played-out checkmate loss lowers that bot’s strength by 25 for you. Play at least 12 of your own moves over 2 minutes, using several pieces, without hints or takebacks. Quick losses, resignations, timeouts, and replaying the same game do not count. Up to two reductions per bot per Bangkok day, 200 points total, until this hunt’s deadline. Wins at your adjusted level still count toward the quest.</p>
             </details>
-          </fieldset>
+          </fieldset>)}
           <fieldset>
             <legend className="sr-only">Opponent</legend>
             <div className="grid min-w-0 grid-cols-3 gap-2 sm:grid-cols-6">

@@ -2,8 +2,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
-import { HALLOWEEN_BOTS } from "@/lib/quests/halloween";
-const halloweenIds = HALLOWEEN_BOTS.map((bot) => bot.id);
+import { SEASONAL_BOTS } from "@/lib/quests/seasonalBotHunts";
+const halloweenIds = SEASONAL_BOTS.map((bot) => bot.id);
 import { getBotProgression, getBotUnlockRequirement, qualifiesForBotUnlock } from "@/chess/bots/progression";
 import { GameSetup } from "@/chess/components/GameSetup";
 
