@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BotPortrait } from "@/chess/components/BotPortrait";
 import { STANDARD_BOT_DIFFICULTIES as BOT_DIFFICULTIES, personalizedSeasonalBots } from "@/chess/bots/difficulties";
 import type { SeasonalReductions } from "@/chess/bots/halloweenAdaptation";
-import { SEASONAL_BOT_HUNTS, seasonalQuestState } from "@/lib/quests/seasonalBotHunts";
+import { SEASONAL_BOT_HUNTS, seasonalQuestState, seasonalBotsVisible } from "@/lib/quests/seasonalBotHunts";
 import { getBotUnlockRequirement, isBotUnlocked } from "@/chess/bots/progression";
 import { resolvePlayerColor } from "@/chess/game/colors";
 import { TIME_CONTROLS } from "@/chess/game/timeControls";
@@ -36,7 +36,7 @@ export function GameSetup({ unlockedBotIds, onStart, seasonalReductions = {} }: 
           <p className="text-xs font-bold text-slate-500">Win without takebacks to unlock the next bot.</p>
         </div>
         <div className="min-w-0 p-4 sm:p-5">
-          {[...SEASONAL_BOT_HUNTS].reverse().filter((hunt) => seasonalQuestState(hunt, false) !== "expired").map((hunt) => <fieldset key={hunt.id} className="mb-5 rounded-xl border border-orange-300/30 bg-gradient-to-br from-orange-400/10 to-violet-400/10 p-3 sm:p-4">
+          {[...SEASONAL_BOT_HUNTS].reverse().filter((hunt) => seasonalBotsVisible(hunt)).map((hunt) => <fieldset key={hunt.id} className="mb-5 rounded-xl border border-orange-300/30 bg-gradient-to-br from-orange-400/10 to-violet-400/10 p-3 sm:p-4">
             <legend className="px-2 text-sm font-black text-orange-200">{hunt.label} visitors</legend>
             <p className="mb-3 text-xs leading-relaxed text-slate-300">
               {seasonalQuestState(hunt, false) === "active" ? <>Beat all {hunt.bots.length} without hints or takebacks for <strong className="text-amber-200">{hunt.reward} XP + {hunt.reward} coins{hunt.badge ? ` + ${hunt.badge.name} badge` : ""}</strong>. Already active for everyone!<br />Finish by {hunt.deadlineLabel}.</> : <>Meet {hunt.bots.length} seasonal friends. The seasonal quest ends {hunt.deadlineLabel}.</>}

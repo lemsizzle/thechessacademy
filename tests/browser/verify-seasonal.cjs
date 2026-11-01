@@ -16,12 +16,15 @@ let browser;
   await page.getByRole('button',{name:/Computer.*Choose a bot/}).click();
   await page.goto(base+'/student/quests');
   await page.getByRole('heading',{name:'Thanksgiving Bot Hunt',exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Halloween Bot Hunt',exact:true}).waitFor();
+  assert.equal(await page.getByRole('link',{name:'Meet the Halloween bots'}).count(),0);
   await page.getByRole('link',{name:'Meet the Thanksgiving bots'}).click();
   await page.waitForFunction(()=>!document.getElementById('student-play-launcher'));
   await page.getByRole('button',{name:'Open',exact:true}).click();
   await page.getByRole('dialog',{name:'Choose an opponent'}).waitFor();
   await page.getByRole('button',{name:/Computer.*Choose a bot/}).click();
   await page.getByRole('button',{name:/Tilly Turkey/}).waitFor();
+  assert.equal(await page.getByRole('button',{name:/Pipkin Pumpkin|Boo the Ghost|Count Checkula|Mira Moonwitch|Grim the Werewolf/}).count(),0);
   for(const [label,width,height] of [['desktop',1440,1000],['tablet',1024,768],['mobile',390,844]]) {
     await page.setViewportSize({width,height});
     await page.locator('fieldset').filter({hasText:'Thanksgiving visitors'}).scrollIntoViewIfNeeded();

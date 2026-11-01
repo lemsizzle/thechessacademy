@@ -22,7 +22,7 @@ describe("student mobile navigation", () => {
     const hubs = getStudentNavigationHubs();
     expect(hubs.map((hub) => hub.label)).toEqual(["Train", "Play", "Quests", "Avatar Store"]);
     expect(hubs.map((hub) => hub.branches.map((branch) => branch.label))).toEqual([
-      ["Puzzle Dashboard"],
+      ["Puzzle Battle", "Puzzle Dashboard"],
       ["Game History", "Correspondence", "Tournaments"],
       [],
       []

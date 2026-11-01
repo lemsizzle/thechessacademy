@@ -409,6 +409,7 @@ export function PuzzleModeSetup({
                   {launcher.screen === "choices" ? (
                     <>
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Puzzle training modes">
+                        <Link href="/student/training/battle" className="rounded-xl border border-cyan-200/40 bg-cyan-300/10 p-4 text-left hover:bg-cyan-300/20 sm:p-5"><span className="text-2xl" aria-hidden>⚔</span><span className="mt-4 block text-lg font-black text-white">Puzzle Battle</span><span className="mt-1 block text-xs font-bold uppercase text-amber-100">Race a classmate · 3 modes · timed rounds</span></Link>
                         {PUZZLE_MODE_OPTIONS.map((mode) => (
                           <button
                             key={mode.id}

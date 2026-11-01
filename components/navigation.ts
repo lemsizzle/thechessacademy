@@ -38,7 +38,7 @@ const studentNavigationHubs: StudentNavHub[] = [
     href: "/student/training",
     label: "Train",
     icon: "\u{1F9E9}",
-    branches: [{ href: "/student/training/dashboard", label: "Puzzle Dashboard", icon: "\u{1F4C8}" }]
+    branches: [{ href: "/student/training/battle", label: "Puzzle Battle", icon: "⚔" }, { href: "/student/training/dashboard", label: "Puzzle Dashboard", icon: "\u{1F4C8}" }]
   },
   {
     href: "/student/play",

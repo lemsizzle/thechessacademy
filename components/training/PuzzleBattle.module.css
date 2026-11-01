@@ -1,0 +1,24 @@
+.battle {
+  container-type: inline-size;
+}
+.workspace {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+.boardColumn {
+  width: min(100%, calc(100svh - 235px));
+  min-width: 0;
+  margin-inline: auto;
+}
+@media (max-width: 759px) and (orientation: portrait) {
+  .boardColumn {
+    width: 100%;
+  }
+}
+@container (min-width: 700px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr) clamp(210px, 24cqw, 280px);
+  }
+}

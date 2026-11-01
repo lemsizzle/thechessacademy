@@ -17,7 +17,7 @@ import { saveSupabaseQuestTracking } from "@/lib/quests/supabaseQuestProgress";
 describe("reusable seasonal bot hunts", () => {
   beforeEach(() => vi.clearAllMocks());
   it("provides five new unlocked opponents, matching art, and increasing real strengths", () => {
-    expect(hunt.bots.map(bot => bot.rating)).toEqual([400,600,800,1000,1200]);
+    expect(hunt.bots.map(bot => bot.rating)).toEqual([400,550,700,850,1000]);
     const all = getBotProgression([]).unlockedBotIds;
     for (const bot of hunt.bots) {
       expect(all).toContain(bot.id);
@@ -25,6 +25,12 @@ describe("reusable seasonal bot hunts", () => {
       expect(existsSync(`public${bot.portrait}`)).toBe(true);
     }
     expect(new Set(SEASONAL_BOTS.map(bot => bot.id)).size).toBe(SEASONAL_BOTS.length);
+    const strengths = hunt.bots.map(bot => BOT_DIFFICULTIES.find(entry => entry.id === bot.id)!);
+    for (let i = 1; i < strengths.length; i++) {
+      expect(strengths[i].qualityDiscipline).toBeGreaterThan(strengths[i - 1].qualityDiscipline);
+      expect(strengths[i].maxPlausibleCpLoss).toBeLessThan(strengths[i - 1].maxPlausibleCpLoss);
+    }
+    expect(strengths.at(-1)!.qualityDiscipline).toBeCloseTo(0.538);
     expect(existsSync(`public${hunt.badge!.image}`)).toBe(true);
   });
   it("includes November 27 in Pacific time and stops at exactly midnight", () => {

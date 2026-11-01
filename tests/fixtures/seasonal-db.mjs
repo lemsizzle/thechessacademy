@@ -10,6 +10,7 @@ export async function createSeasonalTestDatabase() {
     grant select,insert,update on badges,student_badges to service_role;
   `);
   await db.exec(readFileSync('supabase/migrations/20261101095251_seasonal_bot_hunts.sql','utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261101102623_thanksgiving_quest_copy.sql','utf8'));
   const row = (await db.query("select is_active,is_live from academy_quests where id='thanksgiving-2026-bot-quest'")).rows[0];
   if (row.is_active || row.is_live) throw Error('Quest must be staged until app deployment.');
   await db.exec("update academy_quests set is_active=true,is_live=true where id='thanksgiving-2026-bot-quest';");
