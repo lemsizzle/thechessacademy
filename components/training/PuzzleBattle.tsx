@@ -1,7 +1,10 @@
 "use client";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Chess, type Square } from "chess.js";
+import { PromotionDialog } from "@/chess/components/PromotionDialog";
+import { submitBattleWithRecovery } from "@/lib/puzzle-battle/clientRecovery";
 import { BATTLE_BOTS, BATTLE_BOT_LEVELS, type BattleBotLevel } from "@/lib/puzzle-battle/bots";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
 import { ResponsiveChessboard } from "@/chess/components/ResponsiveChessboard";
@@ -41,13 +44,13 @@ const clock = (ms: number) => {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 };
-async function api(url: string, body?: unknown) {
+async function api(url: string, body?: unknown, timeoutMs = 12000) {
   const response = await fetch(url, {
     method: body ? "POST" : "GET",
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
     cache: "no-store",
-    signal: AbortSignal.timeout(12000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const data = await response.json();
   if (!response.ok)
@@ -72,6 +75,7 @@ export function PuzzleBattle() {
     [confirmLeave, setConfirmLeave] = useState(false);
   const [notice, setNotice] = useState(""),
     [now, setNow] = useState(Date.now());
+  const [moveStatus, setMoveStatus] = useState("");
   const current = useRef<BattleView | null>(null),
     clockAnchor = useRef({ server: Date.now(), local: 0 }),
     mutating = useRef(false),
@@ -294,10 +298,17 @@ export function PuzzleBattle() {
       mutating.current = true;
       setBusy(true);
       setError("");
+      setMoveStatus("");
+      const slowMove = setTimeout(() => setMoveStatus("Checking your move…"), 1200);
       try {
-        const { battle: next } = await api(
+        const { battle: next } = await submitBattleWithRecovery(
           `/api/student/puzzle-battles/${view.id}`,
           action,
+          api,
+          () => {
+            clearTimeout(slowMove);
+            setMoveStatus("Reconnecting — your move is being recovered…");
+          },
         );
         install(next);
         retryRef.current = null;
@@ -319,6 +330,8 @@ export function PuzzleBattle() {
         retryRef.current = status && status < 500 ? null : action;
         setRetry(retryRef.current);
       } finally {
+        clearTimeout(slowMove);
+        setMoveStatus("");
         mutating.current = false;
         setBusy(false);
         const botDue = current.current?.state.status === "playing" &&
@@ -548,7 +561,7 @@ export function PuzzleBattle() {
   const board = battle.challenge ?? lastBoard.current;
   return (
     <div className={`${styles.battle} space-y-3`}>
-      {errorPanel}
+      {state.status === "waiting" && errorPanel}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-black">
           {BATTLE_LABELS[battle.mode]} Battle · {battle.duration / 60} min
@@ -653,12 +666,19 @@ export function PuzzleBattle() {
               </div>
             </div>
             {board && (finished || now >= state.startsAt!) ? (
+              <div className="relative">
               <BattleBoard
                 key={`${battle.id}:${board.index}`}
                 challenge={board}
                 interactive={active && !busy && !retry}
                 submit={act}
               />
+              {(moveStatus || retry) && !finished && <div role="status"
+                className="absolute inset-x-2 bottom-2 z-30 rounded-lg border border-amber-200/40 bg-slate-950/95 p-3 text-center text-sm font-bold text-amber-100 shadow-lg">
+                {retry ? "Move not saved yet. Resume to continue." : moveStatus}
+                {retry && <Button className="ml-2" disabled={busy} onClick={() => void act(retry, retry)}>Resume puzzle</Button>}
+              </div>}
+              </div>
             ) : (
               <div
                 data-chess-board
@@ -683,6 +703,7 @@ export function PuzzleBattle() {
             )}
           </div>
           <Card className="space-y-4 self-start p-4">
+            {errorPanel}
             {state.bot && <p className="text-sm font-bold text-violet-200">Computer opponent · {BATTLE_BOTS[state.bot.level].name}</p>}
             {finished ? (
               <>
@@ -1022,36 +1043,19 @@ const BattleBoard = memo(function BattleBoard({
           keepMovedPieceSelected
           allowDrawingArrows
         />
-      </div>
-      {promotion && (
-        <div
-          className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-950 p-2"
-          role="group"
-          aria-label="Choose promotion"
-        >
-          <span>Promote to:</span>
-          {(
-            [
-              ["q", "Queen"],
-              ["r", "Rook"],
-              ["b", "Bishop"],
-              ["n", "Knight"],
-            ] as const
-          ).map(([piece, label]) => (
-            <Button
-              key={piece}
-              disabled={!interactive}
-              onClick={() => {
-                const move = { ...promotion, promotion: piece };
-                setPromotion(null);
-                submitMove(move);
-              }}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
+      {promotion && interactive && createPortal(
+        <PromotionDialog
+          color={challenge.orientation}
+          onChoose={piece => {
+            const input = { ...promotion, promotion: piece };
+            setPromotion(null);
+            submitMove(input);
+          }}
+          onCancel={() => setPromotion(null)}
+        />,
+        document.body,
       )}
+      </div>
     </div>
   );
 });

@@ -58,11 +58,11 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9486";
         else await route.continue();
       });
       await click("e4");
-      await page.getByRole("button",{name:"Retry",exact:true}).click();
-      await page.unroute("**"+path);
       await page.waitForFunction(()=>document.querySelector('[data-board-square="a6"]')?.getAttribute("aria-label")?.includes("black pawn"));
+      await page.unroute("**"+path);
       // Retry restores authoritative state; explicitly select the piece after a failed save.
-      await click("e4"); pending=reply(); await click("e5");
+      if(await page.locator('[data-board-square="e4"]').getAttribute('aria-pressed')!=="true") await click("e4");
+      pending=reply(); await click("e5");
       result=(await (await pending).json()).battle;
       assert.equal(result.state.players[0].moveIndex,4);
       assert.equal(result.state.players[0].score,1);

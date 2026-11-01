@@ -155,7 +155,7 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9482";
           "Score still waits for server verification",
         );
         releaseMove();
-        await a.getByRole("button", { name: "Retry", exact: true }).click();
+        await a.getByTestId("my-score").filter({ hasText: "1" }).waitFor();
         await a.unroute(`**/api/student/puzzle-battles/${battle.id}`);
         // A legal but incorrect move costs the opponent one life, no points.
         await square(b, "a7");

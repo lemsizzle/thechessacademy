@@ -64,17 +64,17 @@ function filtered(rows, params) {
     if (op === "gte")
       rows = rows.filter(
         (row) =>
-          get(row, key) >= Number(target) || scalar(get(row, key)) >= target,
+          typeof get(row, key) === 'number' ? get(row, key) >= Number(target) : scalar(get(row, key)) >= target,
       );
     if (op === "gt")
       rows = rows.filter(
         (row) =>
-          get(row, key) > Number(target) || scalar(get(row, key)) > target,
+          typeof get(row, key) === 'number' ? get(row, key) > Number(target) : scalar(get(row, key)) > target,
       );
     if (op === "lt")
       rows = rows.filter(
         (row) =>
-          get(row, key) < Number(target) || scalar(get(row, key)) < target,
+          typeof get(row, key) === 'number' ? get(row, key) < Number(target) : scalar(get(row, key)) < target,
       );
   }
   return rows.slice(0, Number(params.get("limit") ?? rows.length));
@@ -93,10 +93,14 @@ function filtered(rows, params) {
   }
   const chess = new Chess();
   ["f3", "e5", "g4"].forEach((move) => chess.move(move));
-  const puzzles = Array.from({ length: 100 }, (_, i) => ({
+  const puzzles = process.env.BATTLE_PUZZLE_FILE
+    ? JSON.parse(require('node:fs').readFileSync(process.env.BATTLE_PUZZLE_FILE, 'utf8')).map((p, i) => ({
+        ...p, is_active: true, source_kind: 'lichess', random_key: (i % 10) / 10,
+      }))
+    : Array.from({ length: 100 }, (_, i) => ({
     id: randomUUID(),
-    initial_fen: process.env.BATTLE_MULTIMOVE ? new Chess().fen() : chess.fen(),
-    moves: process.env.BATTLE_MULTIMOVE ? ["e2e4", "a7a6", "e4e5", "b7b6", "e5e6"] : ["d8h4"],
+    initial_fen: process.env.BATTLE_PROMOTION === 'black' ? "8/8/8/8/8/6k1/p7/7K b - - 0 1" : process.env.BATTLE_PROMOTION ? "7k/P7/6K1/8/8/8/8/8 w - - 0 1" : process.env.BATTLE_MULTIMOVE ? new Chess().fen() : chess.fen(),
+    moves: process.env.BATTLE_PROMOTION === 'black' ? ["a2a1q"] : process.env.BATTLE_PROMOTION ? ["a7a8q"] : process.env.BATTLE_MULTIMOVE ? ["e2e4", "a7a6", "e4e5", "b7b6", "e5e6"] : ["d8h4"],
     start_mode: "direct",
     accepted_moves: [],
     themes: ["mateIn1"],

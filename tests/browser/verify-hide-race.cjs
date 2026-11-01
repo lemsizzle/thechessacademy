@@ -59,7 +59,7 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9486";
     await b.getByText("Wrong square — you lost this battle.",{exact:true}).waitFor();
     assert.equal(await b.locator("[data-square]:not(:disabled)").count(),0,"Wrong tap locks instantly, before network reply");
     release();
-    await b.getByRole("button",{name:"Retry",exact:true}).click();
+    await result(b,false);
     await b.unroute("**/api/student/puzzle-battles/"+ra.id);
     await result(a,true); await result(b,false);
     const lost=await state(ra.id);

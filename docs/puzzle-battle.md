@@ -48,6 +48,12 @@ The local preview uses fixture students and a small deterministic Survival pool.
 
 ## Verification
 
+Survival input recovery: move requests time out after six seconds, reconcile authoritative progress, and retry the same action at most once after a network/server failure. An HTTP 200 with unchanged personal progress is not treated as a saved move: move, finish, and skip responses must acknowledge the action ID, advance the personal revision, or end the match. Unacknowledged responses use the same bounded recovery; the original ID/revision is preserved and never rebased onto another puzzle. Confirmed progress or a finished match is accepted without replay; client/auth rejections are not retried. A continuing failure leaves a visible Resume puzzle control on the board. Healthy moves still use one request. Promotion uses the shared regular-game graphical dialog, rendered above the board layout so it stays visible. It supports all four pieces, keyboard focus trapping, Cancel, and Escape. Error details stay in the controls column so they cannot push the board and resume control below the viewport.
+
+`tests/puzzle-battle/client-recovery.test.ts` covers recovery limits, lost responses, stale revisions, and auth rejection. Run the isolated server with `BATTLE_PROMOTION=1` and `BATTLE_PREVIEW_PORT=9490`, then `node tests/browser/verify-survival-input-recovery.cjs` for desktop/tablet/phone promotion, timeout, dropped-request, dropped-response, prolonged-outage, resume, and reload checks. `BATTLE_PUZZLE_FILE` optionally supplies a local JSON puzzle array for replaying real puzzle sequences; the server remains isolated from production.
+
+`node tests/browser/verify-battle-move-ack.cjs` against the normal fixture on port 9482 reproduces the silent snap-back with unchanged HTTP 200 responses, then verifies automatic recovery, a single saved score/revision, bounded failure, and manual resume. This is a reproduced failure path, not proof of the cause of every reported stalled puzzle.
+
 ```powershell
 npm run lint
 npm run build
