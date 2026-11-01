@@ -144,7 +144,7 @@ describe("Hide and Seek leaderboard", () => {
   it("ranks hard mode independently, including legitimate zero-point failures", () => {
     const html = renderToStaticMarkup(createElement(LeaderboardTable, {
       students: students.slice(0, 2), lichessAccounts: [], survivalScores: [], badges: [],
-      initialFocus: "Hide and Seek Hard Mode",
+      initialFocus: "Hide and Seek Star Detective",
       hideAndSeekScores: [
         { ...score, studentId: "stu-001", mode: "standard", allTimeScore: 999 },
         { ...score, studentId: "stu-001", mode: "hard", allTimeScore: 0 },
@@ -154,6 +154,6 @@ describe("Hide and Seek leaderboard", () => {
     expect(html).toContain("0 points");
     expect(html).not.toContain("999 points");
     expect(html).not.toContain(students[1].name);
-    expect(html).toContain("Best Hide and Seek Hard Mode Score");
+    expect(html).toContain("Best Hide and Seek Star Detective Score");
   });
 });

@@ -768,7 +768,7 @@ export function HideAndSeekTraining({
                       {([
                         ["classic", "Classic", "Open-ended", "Search carefully, then stop the clock when you are ready."],
                         ["time_trial", "Time Trial", "60 seconds", "Race the countdown. Your board scores automatically at zero."],
-                        ["hard", "Hard Mode", "One strike", "Every click is final. A dangerous square explodes your stars and ends the round."]
+                        ["hard", "Star Detective", "One strike", "Every click is final. A dangerous square explodes your stars and ends the round."]
                       ] as const).map(([mode, name, label, description]) => {
                         const selected = searchMode === mode;
                         return (
@@ -805,7 +805,7 @@ export function HideAndSeekTraining({
                         : searchMode === "time_trial"
                           ? "Start 60-Second Trial"
                           : searchMode === "hard"
-                            ? "Start Hard Search"
+                            ? "Start Star Detective"
                             : "Start Classic Search"}
                   </Button>
                 </>
@@ -863,7 +863,7 @@ export function HideAndSeekTraining({
               {phase === "result" && result ? (
                 <>
                   <div className="rounded-xl border border-emerald-300/30 bg-emerald-300/10 p-4 text-center">
-                    <p className="text-xs font-black uppercase tracking-widest text-cyan-100">{result.mode === "time_trial" ? "60-second Time Trial" : result.mode === "hard" ? "One-strike Hard Mode" : "Classic search"}</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-cyan-100">{result.mode === "time_trial" ? "60-second Time Trial" : result.mode === "hard" ? "Star Detective" : "Classic search"}</p>
                     {result.mode === "hard" && result.wrongCount > 0 ? <p className="mt-2 font-black text-rose-200">Dangerous square — all stars exploded.</p> : null}
                     <p className="text-xs font-black uppercase tracking-widest text-emerald-200">Final score</p>
                     <p className="mt-1 text-5xl font-black text-white">{result.score}</p>

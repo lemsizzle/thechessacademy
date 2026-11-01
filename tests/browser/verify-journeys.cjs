@@ -53,13 +53,13 @@ const visible=async locator=>{await locator.first().waitFor({state:'attached'});
      assert.equal(await page.getByText('Local QA message',{exact:true}).count(),1);
     },
     async trainingVariants(page){
-     for(const [variant,start]of [[null,'Start Classic Search'],['Time Trial','Start 60-Second Trial'],['Hard Mode','Start Hard Search']]){
+     for(const [variant,start]of [[null,'Start Classic Search'],['Time Trial','Start 60-Second Trial'],['Star Detective','Start Star Detective']]){
       await page.goto('http://127.0.0.1:9420/?fixture=rewards&hide&retry');
       const text=await page.getByRole('complementary',{name:'Test instructions'}).innerText();const square=text.split(': ')[1].split(', ')[0];
       if(variant)await page.getByRole('radio',{name:new RegExp(variant)}).check();
       await page.getByRole('button',{name:start,exact:true}).click();
       await page.getByRole('gridcell',{name:new RegExp('^'+square+':')}).click();
-      if(variant==='Hard Mode') {
+      if(variant==='Star Detective') {
        const safe=text.split(': ')[1].split(', ');
        const unsafe=await page.getByRole('gridcell').evaluateAll((cells,safe)=>cells.find(el=>el.getAttribute('aria-disabled')!=='true'&&!safe.includes(el.getAttribute('aria-label').slice(0,2)))?.getAttribute('aria-label'),safe);
        assert(unsafe,'No unsafe empty square in fixture');
@@ -67,8 +67,8 @@ const visible=async locator=>{await locator.first().waitFor({state:'attached'});
       }
       else await page.getByRole('button',{name:variant?'Finish Now':'Stop & Score',exact:true}).click();
       await page.getByText('Simulated save failure',{exact:true}).waitFor();
-      if(variant==='Hard Mode')assert.equal(await page.getByRole('gridcell').evaluateAll(cells=>cells.filter(c=>c.getAttribute('aria-disabled')!=='true').length),0,'Completed hard board unlocked after failed save');
-      await page.getByRole('button',{name:variant==='Hard Mode'?'Retry Score':variant?'Finish Now':'Stop & Score',exact:true}).click();
+      if(variant==='Star Detective')assert.equal(await page.getByRole('gridcell').evaluateAll(cells=>cells.filter(c=>c.getAttribute('aria-disabled')!=='true').length),0,'Completed hard board unlocked after failed save');
+      await page.getByRole('button',{name:variant==='Star Detective'?'Retry Score':variant?'Finish Now':'Stop & Score',exact:true}).click();
       await page.getByRole('button',{name:'Play Again',exact:true}).waitFor();
       const attempts=await page.evaluate(()=>window.trainingQA.finishRequests);
       assert.equal(attempts.length,2);assert.deepEqual(attempts[0],attempts[1],'Retry changed submitted round');

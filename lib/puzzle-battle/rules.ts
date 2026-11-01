@@ -182,12 +182,19 @@ export function applyBattleAction(
       )
         throw new BattleError("Invalid square selection.");
       const selected = new Set(action.squares);
-      solved =
-        selected.size === challenge.puzzle.safeSquares.length &&
-        [...selected].every((s) =>
-          challenge.puzzle.safeSquares.includes(s as Square),
+      if (
+        selected.size !== action.squares.length ||
+        challenge.puzzle.pieces.some((p) => selected.has(p.square))
+      )
+        throw new BattleError("Choose empty squares once each.");
+      failed = [...selected].some(
+        (s) => !challenge.puzzle.safeSquares.includes(s as Square),
+      );
+      solved = selected.size === challenge.puzzle.safeSquares.length && !failed;
+      if (!solved && !failed)
+        throw new BattleError(
+          "Find every safe square to finish this Star Detective board.",
         );
-      failed = !solved;
     } else if (!failed)
       throw new BattleError("That action doesn't belong to this mode.");
     if (solved || failed) {
@@ -212,6 +219,7 @@ export function publicChallenge(
     const prepared = prepareTrainingPuzzle(item.puzzle);
     return {
       kind: item.kind,
+      boardId: item.puzzle.id,
       index: player.index,
       fen: replayPuzzleToIndex(
         item.puzzle,
@@ -223,6 +231,7 @@ export function publicChallenge(
   if (item.kind === "star-wars")
     return {
       kind: item.kind,
+      boardId: item.puzzle.id,
       index: player.index,
       fen: initialStarWarsState(item.puzzle).fen,
       orientation: "white",
@@ -231,6 +240,7 @@ export function publicChallenge(
     };
   return {
     kind: item.kind,
+    boardId: item.puzzle.seed,
     index: player.index,
     fen: hideAndSeekBoardFen(item.puzzle.pieces),
     orientation: "white",
@@ -257,10 +267,7 @@ export function battleView(
     serverNow: now,
     expiresAt: record.expires_at,
     topic: `puzzle-battle:${record.id}:${record.realtime_token}`,
-    challenge:
-      state.status === "playing" && now >= state.startsAt!
-        ? publicChallenge(deck, me)
-        : null,
+    challenge: state.status === "playing" ? publicChallenge(deck, me) : null,
     totalChallenges: deck.length,
   };
 }

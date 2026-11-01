@@ -49,7 +49,7 @@ describe("Hide and Seek training UI", () => {
     expect(source).toContain('height="10"');
   });
 
-  it("uses distinct Hard Mode failure and completion sounds only once the result is known", () => {
+  it("uses distinct Star Detective failure and completion sounds only once the result is known", () => {
     expect(hideAndSeekResultSound({ mode: "hard", wrongCount: 1 })).toBe("explosion");
     expect(hideAndSeekResultSound({ mode: "hard", wrongCount: 0 })).toBe("victory");
     expect(hideAndSeekResultSound({ mode: "classic", wrongCount: 1 })).toBeNull();
@@ -65,7 +65,7 @@ describe("Hide and Seek training UI", () => {
     expect(html).toContain("Board hidden");
     expect(html).toContain("Start Classic Search");
     expect(html).toContain("Time Trial");
-    expect(html).toContain("Hard Mode");
+    expect(html).toContain("Star Detective");
     expect(html).toContain("One strike");
     expect(html).toContain("60 seconds");
     expect(html).toContain("40% speed");

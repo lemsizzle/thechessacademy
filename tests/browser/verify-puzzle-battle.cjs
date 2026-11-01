@@ -122,11 +122,16 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9482";
         await a.setViewportSize({ width: 1440, height: 1000 });
         // Save the move, then lose its response. Retrying must not award twice.
         let dropped = false;
+        let releaseMove;
+        const heldMove = new Promise((resolve) => {
+          releaseMove = resolve;
+        });
         await a.route(
           `**/api/student/puzzle-battles/${battle.id}`,
           async (route) => {
             if (route.request().method() === "POST" && !dropped) {
               dropped = true;
+              await heldMove;
               await route.fetch();
               await route.abort("failed");
             } else await route.continue();
@@ -134,6 +139,23 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9482";
         );
         await square(a, "d8");
         await square(a, "h4");
+        await a
+          .locator('[data-board-square="h4"]')
+          .filter({ hasNotText: "never-matches" })
+          .waitFor();
+        assert.match(
+          await a
+            .locator('[data-board-square="h4"]')
+            .getAttribute("aria-label"),
+          /black queen/i,
+          "Piece must move before the answer request is released",
+        );
+        assert.equal(
+          await a.getByTestId("my-score").innerText(),
+          "0",
+          "Score still waits for server verification",
+        );
+        releaseMove();
         await a.getByRole("button", { name: "Retry", exact: true }).click();
         await a.unroute(`**/api/student/puzzle-battles/${battle.id}`);
         // A legal but incorrect move costs the opponent one life, no points.
@@ -153,11 +175,63 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9482";
           await square(a, move.to);
         }
       } else {
+        assert.equal(
+          await a
+            .getByRole("button", { name: "Check board", exact: true })
+            .count(),
+          0,
+        );
+        const firstSafe = deck[0].puzzle.safeSquares[0];
+        await square(a, firstSafe);
+        await square(a, firstSafe);
+        assert.equal(
+          await a
+            .locator(`[data-square="${firstSafe}"]`)
+            .getAttribute("aria-pressed"),
+          "true",
+          "A second tap cannot remove a star",
+        );
         for (const squareName of deck[0].puzzle.safeSquares)
           await square(a, squareName);
-        await a
-          .getByRole("button", { name: "Check board", exact: true })
-          .click();
+        const unsafe = Array.from(
+          { length: 64 },
+          (_, i) =>
+            `${String.fromCharCode(97 + (i % 8))}${1 + Math.floor(i / 8)}`,
+        ).find(
+          (s) =>
+            !deck[0].puzzle.safeSquares.includes(s) &&
+            !deck[0].puzzle.pieces.some((p) => p.square === s),
+        );
+        let lostHideResponse = false;
+        await b.route(
+          `**/api/student/puzzle-battles/${battle.id}`,
+          async (route) => {
+            if (route.request().method() === "POST" && !lostHideResponse) {
+              lostHideResponse = true;
+              await route.fetch();
+              await route.abort("failed");
+            } else await route.continue();
+          },
+        );
+        await square(b, firstSafe);
+        await square(b, unsafe);
+        await b.getByRole("button", { name: "Retry", exact: true }).waitFor();
+        assert.equal(
+          await b.locator("[data-square]:not(:disabled)").count(),
+          0,
+          "Failed save must not reopen a finished board",
+        );
+        await b.getByRole("button", { name: "Retry", exact: true }).click();
+        await b
+          .getByText("Keep going — try the next board.", { exact: true })
+          .waitFor();
+        await b.unroute(`**/api/student/puzzle-battles/${battle.id}`);
+        assert.equal(
+          (await state(battle.id, cb)).state.players[1].mistakes,
+          1,
+          "One dangerous tap immediately loses a life",
+        );
+        await a.screenshot({ path: "work/puzzle-battle/star-detective.png" });
       }
       await a.getByTestId("my-score").filter({ hasText: "1" }).waitFor();
       assert.equal((await state(battle.id)).state.players[0].score, 1);

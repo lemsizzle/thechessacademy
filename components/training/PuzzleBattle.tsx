@@ -1,10 +1,14 @@
 "use client";
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
 import { ResponsiveChessboard } from "@/chess/components/ResponsiveChessboard";
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
+import {
+  calculateHideAndSeekSafeSquares,
+  type HideAndSeekPiecePlacement,
+} from "@/lib/puzzle-training/hideAndSeek";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   attemptStarWarsMove,
@@ -30,7 +34,7 @@ const RULES: Record<BattleMode, string> = {
   "star-wars":
     "Collect a star on every move. Clear the whole route for one point. A missed star, stranded route, or skip costs one life.",
   "hide-and-seek":
-    "Mark every empty square that the black pieces do not attack, then press Check board. A wrong or incomplete board costs one life.",
+    "Star Detective: every tap is final. Find all safe squares to finish automatically. A dangerous square ends this board and costs one life.",
 };
 const clock = (ms: number) => {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
@@ -72,6 +76,9 @@ export function PuzzleBattle() {
   const currentId = useRef<string | null>(null),
     lastBoard = useRef<PublicChallenge | null>(null);
   const retryRef = useRef<BattleAction | null>(null);
+  const invalidationVersion = useRef(-1);
+  const realtimeReady = useRef(false);
+  const lastReadAt = useRef(0);
   const install = useCallback((next: BattleView) => {
     if (
       next.id !== currentId.current ||
@@ -99,6 +106,7 @@ export function PuzzleBattle() {
     current.current = null;
     lastBoard.current = null;
     retryRef.current = null;
+    invalidationVersion.current = -1;
     setBattle(null);
     setId(nextId);
     setError("");
@@ -120,8 +128,9 @@ export function PuzzleBattle() {
     setCode(query.get("code") ?? "");
   }, []);
   const refresh = useCallback(async () => {
-    if (reading.current || document.hidden) return;
+    if (reading.current || mutating.current || document.hidden) return;
     reading.current = true;
+    lastReadAt.current = performance.now();
     const wanted = currentId.current;
     try {
       const data = await api(
@@ -145,16 +154,22 @@ export function PuzzleBattle() {
   }, [install]);
   useEffect(() => {
     void refresh();
-    const timer = setInterval(
-      () => {
-        if (
-          !current.current ||
-          ["waiting", "playing"].includes(current.current.state.status)
-        )
-          void refresh();
-      },
-      id ? 10000 : 15000,
-    );
+    const timer = setInterval(() => {
+      const status = current.current?.state.status;
+      const interval = !current.current
+        ? 15000
+        : realtimeReady.current
+          ? 30000
+          : status === "waiting"
+            ? 2000
+            : 10000;
+      if (
+        performance.now() - lastReadAt.current >= interval &&
+        (!current.current ||
+          ["waiting", "playing"].includes(current.current.state.status))
+      )
+        void refresh();
+    }, 1000);
     const visible = () => {
       if (!document.hidden) void refresh();
     };
@@ -179,7 +194,10 @@ export function PuzzleBattle() {
     );
     return () => clearInterval(timer);
   }, [battle?.state.status]);
-  const topic = battle && ["waiting", "playing"].includes(battle.state.status) ? battle.topic : undefined;
+  const topic =
+    battle && ["waiting", "playing"].includes(battle.state.status)
+      ? battle.topic
+      : undefined;
   useEffect(() => {
     if (!topic) return;
     const db = getSupabaseClient();
@@ -187,16 +205,29 @@ export function PuzzleBattle() {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const channel = db
       .channel(topic)
-      .on("broadcast", { event: "battle_changed" }, () => {
+      .on("broadcast", { event: "battle_changed" }, (message) => {
+        const version = Number(message.payload?.version);
+        if (
+          !Number.isSafeInteger(version) ||
+          version <= (current.current?.version ?? -1)
+        )
+          return;
+        invalidationVersion.current = Math.max(
+          invalidationVersion.current,
+          version,
+        );
         if (!timer)
           timer = setTimeout(() => {
             timer = undefined;
             void refresh();
           }, 200);
       })
-      .subscribe();
+      .subscribe((status) => {
+        realtimeReady.current = status === "SUBSCRIBED";
+      });
     return () => {
       clearTimeout(timer);
+      realtimeReady.current = false;
       void db.removeChannel(channel);
     };
   }, [topic, refresh]);
@@ -276,9 +307,11 @@ export function PuzzleBattle() {
       } finally {
         mutating.current = false;
         setBusy(false);
+        if (invalidationVersion.current > (current.current?.version ?? -1))
+          void refresh();
       }
     },
-    [install],
+    [install, refresh],
   );
   const errorPanel = error ? (
     <div
@@ -310,7 +343,9 @@ export function PuzzleBattle() {
           </h2>
           <p className="mt-2 text-sm text-slate-300">
             Three lives each. One point per completed board. Highest score wins;
-            equal scores draw. Both players press Ready before the countdown.
+            equal scores draw. The puzzle order is identical; each player
+            advances at their own pace. Both players press Ready before the
+            countdown.
           </p>
           <fieldset className="mt-5">
             <legend className="font-bold">Battle mode</legend>
@@ -400,7 +435,11 @@ export function PuzzleBattle() {
                   <div>
                     <strong>
                       {item.host}
-                      {item.opponent ? ` vs ${item.opponent}` : item.status === "waiting" ? " is waiting" : ""}
+                      {item.opponent
+                        ? ` vs ${item.opponent}`
+                        : item.status === "waiting"
+                          ? " is waiting"
+                          : ""}
                     </strong>
                     <p className="text-sm text-slate-400">
                       {BATTLE_LABELS[item.mode]} · {item.duration / 60} min ·{" "}
@@ -557,7 +596,7 @@ export function PuzzleBattle() {
                 </span>
               </div>
             </div>
-            {board ? (
+            {board && (finished || now >= state.startsAt!) ? (
               <BattleBoard
                 key={`${battle.id}:${board.index}`}
                 challenge={board}
@@ -707,7 +746,53 @@ const BattleBoard = memo(function BattleBoard({
       null,
     );
   const [starSelection, setStarSelection] = useState<string | null>(null);
+  const [moving, setMoving] = useState<{ source: string; fen: string } | null>(
+    null,
+  );
+  const movingRef = useRef(false);
+  const hideFinished = useRef(false);
+  const hideSelection = useRef<string[]>([]);
+  const hideBoard = useMemo(() => {
+    if (challenge.kind !== "hide-and-seek") return null;
+    const pieces: HideAndSeekPiecePlacement[] = [];
+    challenge.fen
+      .split(" ")[0]
+      .split("/")
+      .forEach((row, r) => {
+        let file = 0;
+        for (const token of row) {
+          if (/\d/.test(token)) file += Number(token);
+          else {
+            pieces.push({
+              square: `${String.fromCharCode(97 + file)}${8 - r}` as Square,
+              piece:
+                `b${token.toUpperCase()}` as HideAndSeekPiecePlacement["piece"],
+            });
+            file++;
+          }
+        }
+      });
+    return {
+      placements: Object.fromEntries(pieces.map((p) => [p.square, p.piece])),
+      safe: new Set<string>(calculateHideAndSeekSafeSquares(pieces)),
+    };
+  }, [challenge.kind, challenge.fen]);
   const { pieces, squareStyles } = useBoardAppearance();
+  function submitMove(input: NonNullable<BattleAction["move"]>) {
+    if (!interactive || movingRef.current) return;
+    const position = new Chess(challenge.fen);
+    try {
+      position.move(input);
+    } catch {
+      return;
+    }
+    movingRef.current = true;
+    setMoving({ source: challenge.fen, fen: position.fen() });
+    void submit({ type: "move", move: input }).finally(() => {
+      movingRef.current = false;
+      setMoving(null);
+    });
+  }
   function move(from: string, to: string) {
     if (!interactive) return;
     if (challenge.kind === "survival") {
@@ -719,7 +804,7 @@ const BattleBoard = memo(function BattleBoard({
         setPromotion({ from, to });
         return;
       }
-      void submit({ type: "move", move: { from, to } });
+      submitMove({ from, to });
       return;
     }
     const result = attemptStarWarsMove(star, {
@@ -734,21 +819,25 @@ const BattleBoard = memo(function BattleBoard({
       void submit({ type: "finish", moves: [...route.current] });
   }
   if (challenge.kind === "hide-and-seek") {
-    const placements: Record<string, string> = {};
-    challenge.fen
-      .split(" ")[0]
-      .split("/")
-      .forEach((row, r) => {
-        let f = 0;
-        for (const token of row) {
-          if (/\d/.test(token)) f += Number(token);
-          else {
-            placements[`${String.fromCharCode(97 + f)}${8 - r}`] =
-              `b${token.toUpperCase()}`;
-            f++;
-          }
-        }
-      });
+    const { placements, safe } = hideBoard!;
+    function markSquare(square: string) {
+      if (
+        !interactive ||
+        hideFinished.current ||
+        hideSelection.current.includes(square)
+      )
+        return;
+      const next = [...hideSelection.current, square];
+      hideSelection.current = next;
+      const failed = !safe.has(square);
+      setSelected(failed ? [] : next);
+      if (failed || next.length === safe.size) {
+        // Lock immediately, including during a failed save/retry. Checking the
+        // visible army locally keeps taps instant; the server verifies the result.
+        hideFinished.current = true;
+        void submit({ type: "finish", squares: next });
+      }
+    }
     return (
       <div className="space-y-2">
         <div
@@ -768,14 +857,10 @@ const BattleBoard = memo(function BattleBoard({
                 data-square={square}
                 aria-label={`${square}${piece ? ` ${piece}` : ""}`}
                 aria-pressed={marked}
-                disabled={!interactive || Boolean(piece)}
-                onClick={() =>
-                  setSelected((s) =>
-                    s.includes(square)
-                      ? s.filter((v) => v !== square)
-                      : [...s, square],
-                  )
+                disabled={
+                  !interactive || hideFinished.current || Boolean(piece)
                 }
+                onClick={() => markSquare(square)}
                 className="relative flex aspect-square min-w-0 items-center justify-center p-1 text-3xl text-amber-400 focus-visible:z-10 focus-visible:outline focus-visible:outline-4 focus-visible:outline-cyan-400"
                 style={
                   (Math.floor(i / 8) + (i % 8)) % 2
@@ -793,14 +878,9 @@ const BattleBoard = memo(function BattleBoard({
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm">
-            {selected.length} / {challenge.totalSafe} stars marked
+            {selected.length} / {challenge.totalSafe} stars found · Star
+            Detective
           </span>
-          <Button
-            disabled={!interactive || !selected.length}
-            onClick={() => void submit({ type: "finish", squares: selected })}
-          >
-            Check board
-          </Button>
         </div>
       </div>
     );
@@ -856,7 +936,7 @@ const BattleBoard = memo(function BattleBoard({
         </div>
       </div>
     );
-  const fen = challenge.fen;
+  const fen = moving?.source === challenge.fen ? moving.fen : challenge.fen;
   return (
     <div className="space-y-2">
       <div className="relative">
@@ -865,7 +945,7 @@ const BattleBoard = memo(function BattleBoard({
           fen={fen}
           orientation={challenge.orientation}
           humanColor={challenge.orientation}
-          interactive={interactive && !promotion}
+          interactive={interactive && !promotion && !moving}
           lastMove={null}
           onMove={move}
           allowDrawingArrows
@@ -892,7 +972,7 @@ const BattleBoard = memo(function BattleBoard({
               onClick={() => {
                 const move = { ...promotion, promotion: piece };
                 setPromotion(null);
-                void submit({ type: "move", move });
+                submitMove(move);
               }}
             >
               {label}

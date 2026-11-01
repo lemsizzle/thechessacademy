@@ -62,6 +62,7 @@ export type BattleAction = {
   squares?: string[];
 };
 export type PublicChallenge = {
+  boardId: string;
   index: number;
   kind: BattleMode;
   fen: string;

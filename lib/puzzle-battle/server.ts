@@ -1,5 +1,7 @@
 import "server-only";
 import { randomBytes, randomUUID } from "node:crypto";
+import type { StudentSession } from "@/lib/types";
+import { StudentAuthenticationError } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { generateStarWarsPuzzle } from "@/lib/puzzle-training/starWars";
 import { generateHideAndSeekBoard } from "@/lib/puzzle-training/hideAndSeek";
@@ -72,6 +74,42 @@ async function recordFor(id: string) {
   if (!data) throw new BattleError("Battle not found.", 404);
   return data as BattleRecord;
 }
+async function loadForSession(id: string, session: StudentSession) {
+  if (!uuid.test(id)) throw new BattleError("Invalid battle.", 404);
+  const cached = cache.get(id);
+  const warm = cached && cached.until > Date.now();
+  const identity =
+    session.authProvider === "academy"
+      ? { provider: "academy", username: session.academyUsername }
+      : session.authProvider === "supabase"
+        ? { provider: "supabase", authUserId: session.authUserId }
+        : {
+            provider: "lichess",
+            lichessId: session.lichessUserId,
+            username: session.lichessUsername,
+          };
+  const { data, error } = await client().rpc("load_puzzle_battle", {
+    p_id: id,
+    p_student_id: session.studentId,
+    p_identity: identity,
+    p_include_deck: !warm,
+  });
+  if (error) {
+    if (error.code === "28000")
+      throw new StudentAuthenticationError("Student login no longer exists.");
+    if (error.code === "42501")
+      throw new BattleError("This battle belongs to other players.", 403);
+    if (error.code === "P0002") throw new BattleError("Battle not found.", 404);
+    throw new BattleError("Puzzle Battle couldn't load. Please retry.", 503);
+  }
+  if (!data?.record || (!warm && !Array.isArray(data.deck)))
+    throw new BattleError(
+      "The battle boards couldn't load. Please retry.",
+      503,
+    );
+  if (!warm) remember(id, data.deck);
+  return data.record as BattleRecord;
+}
 export async function buildBattleDeck(
   mode: BattleMode,
 ): Promise<BattleChallenge[]> {
@@ -86,56 +124,64 @@ export async function buildBattleDeck(
       kind: mode,
       puzzle: generateHideAndSeekBoard(`${seed}:${index}`),
     }));
-  const result: BattleChallenge[] = [];
-  // Five bounded indexed reads, easy to harder. Snapshot answers once, reuse
-  // across both players and hot requests; never download full decks on polls.
-  for (const [minimum, maximum] of [
-    [400, 800],
-    [800, 1100],
-    [1100, 1400],
-    [1400, 1700],
-    [1700, 2100],
-  ]) {
-    const pivot = Math.random();
-    const load = async (after: boolean) => {
-      let query = client()
-        .from("chess_puzzles")
-        .select(
-          "id,initial_fen,moves,start_mode,accepted_moves,themes,rating,game_url",
-        )
-        .eq("is_active", true)
-        .eq("source_kind", "lichess")
-        .gte("rating", minimum)
-        .lt("rating", maximum)
-        .order("random_key")
-        .limit(14);
-      query = after
-        ? query.gte("random_key", pivot)
-        : query.lt("random_key", pivot);
-      const { data, error } = await query;
-      if (error)
-        throw new BattleError("Puzzle pool couldn't load. Please retry.", 503);
-      return (data ?? []) as PuzzleSessionPuzzle[];
-    };
-    let rows = await load(true);
-    if (rows.length < 10) rows = [...rows, ...(await load(false))];
-    let added = 0;
-    for (const puzzle of rows) {
-      if (added === 10) break;
-      try {
-        const prepared = prepareTrainingPuzzle(puzzle);
-        const first = prepared.firstStudentMove;
-        validatePuzzleMove(puzzle, firstStudentMoveIndex(puzzle), {
-          from: first.slice(0, 2),
-          to: first.slice(2, 4),
-        });
-        result.push({ kind: mode, puzzle });
-        added++;
-      } catch {
-        /* Skip unusable imported positions. */
+  const bands = await Promise.all(
+    [
+      [400, 800],
+      [800, 1100],
+      [1100, 1400],
+      [1400, 1700],
+      [1700, 2100],
+    ].map(async ([minimum, maximum]) => {
+      const result: BattleChallenge[] = [];
+      // Five bounded indexed reads, easy to harder. Snapshot answers once, reuse
+      // across both players and hot requests; never download full decks on polls.
+      const pivot = Math.random();
+      const load = async (after: boolean) => {
+        let query = client()
+          .from("chess_puzzles")
+          .select(
+            "id,initial_fen,moves,start_mode,accepted_moves,themes,rating,game_url",
+          )
+          .eq("is_active", true)
+          .eq("source_kind", "lichess")
+          .gte("rating", minimum)
+          .lt("rating", maximum)
+          .order("random_key")
+          .limit(14);
+        query = after
+          ? query.gte("random_key", pivot)
+          : query.lt("random_key", pivot);
+        const { data, error } = await query;
+        if (error)
+          throw new BattleError(
+            "Puzzle pool couldn't load. Please retry.",
+            503,
+          );
+        return (data ?? []) as PuzzleSessionPuzzle[];
+      };
+      let rows = await load(true);
+      if (rows.length < 10) rows = [...rows, ...(await load(false))];
+      let added = 0;
+      for (const puzzle of rows) {
+        if (added === 10) break;
+        try {
+          const prepared = prepareTrainingPuzzle(puzzle);
+          const first = prepared.firstStudentMove;
+          validatePuzzleMove(puzzle, firstStudentMoveIndex(puzzle), {
+            from: first.slice(0, 2),
+            to: first.slice(2, 4),
+          });
+          result.push({ kind: mode, puzzle });
+          added++;
+        } catch {
+          /* Skip unusable imported positions. */
+        }
       }
-    }
-  }
+      return result;
+    }),
+  );
+  // Promise.all preserves band order, independently of which query returns first.
+  const result = bands.flat();
   if (result.length < 10)
     throw new BattleError(
       "Not enough puzzles are available for a fair battle. Try Star Wars or Hide and Seek.",
@@ -190,8 +236,14 @@ export async function createBattle(
   remember(id, deck);
   return readBattle(id, student.id);
 }
-export async function readBattle(id: string, studentId: string) {
-  let record = await recordFor(id);
+export async function readBattle(
+  id: string,
+  studentId: string,
+  session?: StudentSession,
+) {
+  let record = session
+    ? await loadForSession(id, session)
+    : await recordFor(id);
   if (!record.state.players.some((p) => p.id === studentId))
     throw new BattleError("This battle belongs to other players.", 403);
   const settled = settleBattle(record.state, record.expires_at, Date.now());
@@ -210,6 +262,7 @@ export async function actOnBattle(
   id: string,
   student: { id: string; name: string },
   action: BattleAction,
+  session?: StudentSession,
 ) {
   if (
     !action ||
@@ -220,7 +273,9 @@ export async function actOnBattle(
   )
     throw new BattleError("Invalid battle action.");
   for (let attempt = 0; attempt < 4; attempt++) {
-    const record = await recordFor(id);
+    const record = session
+      ? await loadForSession(id, session)
+      : await recordFor(id);
     if (
       action.type !== "join" &&
       !record.state.players.some((p) => p.id === student.id)
@@ -230,6 +285,24 @@ export async function actOnBattle(
       state = applyBattleAction(record, deck, student, action, Date.now());
     if (JSON.stringify(state) === JSON.stringify(record.state))
       return battleView(record, deck, student.id, Date.now());
+    if (
+      ["move", "finish", "skip"].includes(action.type) &&
+      state.players.find((p) => p.id === student.id)!.revision >
+        record.state.players.find((p) => p.id === student.id)!.revision
+    ) {
+      const before = record.state.players.find((p) => p.id === student.id)!;
+      const { data, error } = await client().rpc("write_puzzle_battle_player", {
+        p_id: id,
+        p_student_id: student.id,
+        p_revision: before.revision,
+        p_player: state.players.find((p) => p.id === student.id),
+      });
+      if (error)
+        throw new BattleError("Your move couldn't save. Please retry.", 503);
+      if (data)
+        return battleView(data as BattleRecord, deck, student.id, Date.now());
+      continue;
+    }
     const { data, error } = await client().rpc("write_puzzle_battle", {
       p_id: id,
       p_version: record.version,

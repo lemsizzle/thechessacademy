@@ -64,6 +64,24 @@ const action = (extra: Partial<BattleAction> = {}): BattleAction => ({
   ...extra,
 });
 describe("Puzzle Battle", () => {
+  it("keeps the same complete deck order for both players, even at different speeds", () => {
+    for (const kind of ["survival", "star-wars", "hide-and-seek"] as const) {
+      const deck: BattleChallenge[] = Array.from({ length: 50 }, (_, i) =>
+        kind === "survival"
+          ? { ...puzzle, puzzle: { ...puzzle.puzzle, id: `shared-${i}` } }
+          : kind === "star-wars"
+            ? { kind, puzzle: generateStarWarsPuzzle(i, 419) }
+            : { kind, puzzle: generateHideAndSeekBoard(`shared-${i}`) },
+      );
+      const r = room();
+      for (let i = 0; i < deck.length; i++) {
+        r.state.players[0].index = i;
+        const first = battleView(r, deck, a.id, now).challenge;
+        r.state.players[1].index = i;
+        expect(battleView(r, deck, b.id, now).challenge).toEqual(first);
+      }
+    }
+  }, 15000);
   it("gives both players the same board but never discloses solutions or future boards", () => {
     const r = room(),
       av = battleView(r, [puzzle], a.id, now),
@@ -72,7 +90,8 @@ describe("Puzzle Battle", () => {
     expect(JSON.stringify(av)).not.toContain("d8h4");
     expect(av).not.toHaveProperty("deck");
     r.state.startsAt = now + 1000;
-    expect(battleView(r, [puzzle], a.id, now).challenge).toBeNull();
+    // Preload the shared position during the countdown, without any solution.
+    expect(battleView(r, [puzzle], a.id, now).challenge).toEqual(av.challenge);
     expect(() => battleView(r, [puzzle], "intruder", now)).toThrow(
       "other players",
     );
@@ -219,15 +238,54 @@ describe("Puzzle Battle", () => {
         now,
       ).players[0].score,
     ).toBe(1);
-    expect(
+    expect(() =>
       applyBattleAction(
         r,
         deck,
         a,
         action({ type: "finish", squares: hide.safeSquares.slice(1) }),
         now,
+      ),
+    ).toThrow("Find every safe square");
+    const unsafe = Array.from(
+      { length: 64 },
+      (_, i) =>
+        `${String.fromCharCode(97 + (i % 8))}${1 + Math.floor(i / 8)}` as import("chess.js").Square,
+    ).find(
+      (s) =>
+        !hide.safeSquares.includes(s) &&
+        !hide.pieces.some((p) => p.square === s),
+    )!;
+    const failed = applyBattleAction(
+      r,
+      deck,
+      a,
+      action({ type: "finish", squares: [hide.safeSquares[0], unsafe] }),
+      now,
+    );
+    expect(failed.players[0]).toMatchObject({
+      score: 0,
+      mistakes: 1,
+      index: 1,
+    });
+    expect(
+      applyBattleAction(
+        { ...r, state: failed },
+        deck,
+        a,
+        action({ type: "finish", squares: [hide.safeSquares[0], unsafe] }),
+        now,
       ).players[0].mistakes,
     ).toBe(1);
+    expect(() =>
+      applyBattleAction(
+        r,
+        deck,
+        a,
+        action({ type: "finish", squares: [hide.pieces[0].square] }),
+        now,
+      ),
+    ).toThrow("empty squares");
     const view = battleView(r, deck, a.id, now);
     expect(view.challenge).not.toHaveProperty("safeSquares");
   });

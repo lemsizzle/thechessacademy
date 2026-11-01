@@ -53,8 +53,8 @@ export const PUZZLE_MODE_OPTIONS: ReadonlyArray<PuzzleModeOption> = [
     id: "hideAndSeek",
     name: "Hide and Seek",
     icon: "✦",
-    summary: "Classic, Time Trial, or Hard Mode",
-    description: "Find every empty square the black pieces cannot see. Race the clock, or try one-strike Hard Mode where a dangerous square ends the round.",
+    summary: "Classic, Time Trial, or Star Detective",
+    description: "Find every empty square the black pieces cannot see. Race the clock, or try Star Detective where a dangerous square ends the round.",
     startLabel: "Start Hide and Seek"
   },
   {

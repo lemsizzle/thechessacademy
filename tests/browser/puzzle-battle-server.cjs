@@ -84,8 +84,13 @@ function filtered(rows, params) {
     "../fixtures/puzzle-battle-db.mjs"
   );
   const pg = await createBattleTestDatabase();
-  for (const student of students)
-    await pg.query("insert into students values($1)", [student.id]);
+  for (const student of students) {
+    await pg.query("insert into students(id) values($1)", [student.id]);
+    await pg.query("insert into student_login_credentials values($1,$2)", [
+      student.id,
+      student.username,
+    ]);
+  }
   const chess = new Chess();
   ["f3", "e5", "g4"].forEach((move) => chess.move(move));
   const puzzles = Array.from({ length: 100 }, (_, i) => ({
@@ -103,12 +108,41 @@ function filtered(rows, params) {
   }));
   const db = http.createServer(async (req, res) => {
     try {
+      const delay = Number(process.env.BATTLE_DB_DELAY_MS || 0);
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
       const url = new URL(req.url, origin),
         table = url.pathname.split("/").pop();
       if (url.pathname.includes("/rpc/")) {
         let text = "";
         for await (const chunk of req) text += chunk;
         const args = JSON.parse(text || "{}");
+        if (table === "load_puzzle_battle")
+          return json(
+            res,
+            (
+              await pg.query("select load_puzzle_battle($1,$2,$3,$4) value", [
+                args.p_id,
+                args.p_student_id,
+                JSON.stringify(args.p_identity),
+                args.p_include_deck,
+              ])
+            ).rows[0].value,
+          );
+        if (table === "write_puzzle_battle_player")
+          return json(
+            res,
+            (
+              await pg.query(
+                "select write_puzzle_battle_player($1,$2,$3,$4) value",
+                [
+                  args.p_id,
+                  args.p_student_id,
+                  args.p_revision,
+                  JSON.stringify(args.p_player),
+                ],
+              )
+            ).rows[0].value,
+          );
         if (table === "create_puzzle_battle") {
           const values = [
             args.p_id,
@@ -172,7 +206,7 @@ function filtered(rows, params) {
       );
     } catch (error) {
       console.error(error.message);
-      return json(res, { message: error.message }, 400);
+      return json(res, { message: error.message, code: error.code }, 400);
     }
   });
   const nativeFetch = global.fetch;

@@ -18,7 +18,7 @@ import { getLevelFromXp } from "@/lib/xp";
 import { useEffect, useMemo, useState } from "react";
 
 type TimeWindow = LeaderboardTimeWindow;
-type Focus = "Overall XP" | "Survival Puzzles" | "Hide and Seek" | "Star Wars" | "Star Wars Time Trial" | "Hide and Seek Hard Mode";
+type Focus = "Overall XP" | "Survival Puzzles" | "Hide and Seek" | "Star Wars" | "Star Wars Time Trial" | "Hide and Seek Star Detective";
 
 const timeOptions: Array<{ value: TimeWindow; label: string }> = [
   { value: "week", label: "This Week" },
@@ -84,13 +84,13 @@ export function LeaderboardTable({
   const [focus, setFocus] = useState<Focus>(initialFocus);
   const [survivalTheme, setSurvivalTheme] = useState<PuzzleThemeSlug>("mixed");
   const [trialDuration, setTrialDuration] = useState(60_000);
-  const isHideAndSeek = focus === "Hide and Seek" || focus === "Hide and Seek Hard Mode";
+  const isHideAndSeek = focus === "Hide and Seek" || focus === "Hide and Seek Star Detective";
   const isStarWars = focus === "Star Wars" || focus === "Star Wars Time Trial";
   const [recentXpEvents, setRecentXpEvents] = useState<XpEvent[]>(initialXpEvents ?? xpEvents);
   const defaultEquippedItems = useMemo(() => getDefaultEquippedItems(avatarItems), [avatarItems]);
   const survivalScoresByStudentAndTheme = useMemo(() => new Map(survivalScores.map((score) => [survivalLeaderboardScoreKey(score.studentId, score.theme), score])), [survivalScores]);
   const hideAndSeekScoresByStudent = useMemo(() => new Map((hideAndSeekScores ?? [])
-    .filter((score) => (score.mode ?? "standard") === (focus === "Hide and Seek Hard Mode" ? "hard" : "standard"))
+    .filter((score) => (score.mode ?? "standard") === (focus === "Hide and Seek Star Detective" ? "hard" : "standard"))
     .map((score) => [score.studentId, score])), [hideAndSeekScores, focus]);
   const starWarsScoresByStudent = useMemo(() => new Map((starWarsScores ?? [])
     .filter((score) => focus === "Star Wars Time Trial"
@@ -151,7 +151,7 @@ export function LeaderboardTable({
     ? (timeWindow === "all" ? "Total XP" : "XP Earned")
     : focus === "Survival Puzzles"
       ? "Best Survival Run"
-      : focus === "Hide and Seek Hard Mode" ? "Best Hide and Seek Hard Mode Score"
+      : focus === "Hide and Seek Star Detective" ? "Best Hide and Seek Star Detective Score"
       : focus === "Star Wars Time Trial" ? `Best Star Wars Time Trial · ${trialDuration / 60_000} min`
       : focus === "Hide and Seek"
         ? "Best Hide and Seek Score"
@@ -194,7 +194,7 @@ export function LeaderboardTable({
                   <option>Overall XP</option>
                   <option>Survival Puzzles</option>
                   {hasHideAndSeekFocus ? <option>Hide and Seek</option> : null}
-                  {hasHideAndSeekFocus ? <option>Hide and Seek Hard Mode</option> : null}
+                  {hasHideAndSeekFocus ? <option>Hide and Seek Star Detective</option> : null}
                   {hasStarWarsFocus ? <option>Star Wars</option> : null}
                   {hasStarWarsFocus ? <option>Star Wars Time Trial</option> : null}
                 </select>

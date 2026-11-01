@@ -42,7 +42,7 @@ const write = (who, version, next) =>
     JSON.stringify(next),
   ]);
 try {
-  await db.query("insert into students values($1),($2),($3)", [a, b, c]);
+  await db.query("insert into students(id) values($1),($2),($3)", [a, b, c]);
   await db.exec("set role service_role");
   await create(a, id);
   await assert.rejects(() => create(a), /current puzzle battle/);
