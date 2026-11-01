@@ -3,6 +3,8 @@ import { randomBytes, randomUUID } from "node:crypto";
 import type { StudentSession } from "@/lib/types";
 import { StudentAuthenticationError } from "@/lib/auth/requireActiveStudent";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
+import { BATTLE_BOTS, BATTLE_BOT_LEVELS, type BattleBotLevel } from "./bots";
+import { buildBotPlan } from "./botPlan";
 import { generateStarWarsPuzzle } from "@/lib/puzzle-training/starWars";
 import { generateHideAndSeekBoard } from "@/lib/puzzle-training/hideAndSeek";
 import {
@@ -19,6 +21,7 @@ import {
   type BattleLobbyItem,
   type BattleMode,
   type BattleRecord,
+  type BattleState,
 } from "./types";
 import {
   applyBattleAction,
@@ -204,12 +207,16 @@ export async function createBattle(
   student: { id: string; name: string },
   mode: unknown,
   duration: unknown,
+  botLevel?: unknown,
+  rematchOf?: string,
 ) {
   if (
     !BATTLE_MODES.includes(mode as BattleMode) ||
     !BATTLE_TIMES.includes(duration as (typeof BATTLE_TIMES)[number])
   )
     throw new BattleError("Choose a battle mode and time control.");
+  if (botLevel !== undefined && !BATTLE_BOT_LEVELS.includes(botLevel as BattleBotLevel))
+    throw new BattleError("Choose Gentle, Steady, or Swift for your bot opponent.");
   // Check before expensive preparation as well as atomically inside the RPC.
   const lobby = await listBattles(student.id, true);
   if (lobby.some((b) => b.mine && ["waiting", "playing"].includes(b.status)))
@@ -220,14 +227,22 @@ export async function createBattle(
   const deck = await buildBattleDeck(mode as BattleMode),
     id = randomUUID(),
     code = randomBytes(4).toString("hex").toUpperCase();
-  const state = {
+  const state: BattleState = {
     status: "waiting",
     players: [newBattlePlayer(student.id, student.name)],
     startsAt: null,
     endsAt: null,
     winnerId: null,
   };
-  const { error } = await client().rpc("create_puzzle_battle", {
+  const plan = botLevel ? buildBotPlan(deck, botLevel as BattleBotLevel) : undefined;
+  if (botLevel) {
+    const level = botLevel as BattleBotLevel;
+    state.players.push(newBattlePlayer(`bot:${level}`, `${BATTLE_BOTS[level].name} Bot`));
+    state.status = "playing";
+    state.bot = { level, nextAt: null };
+    // The database sets the shared countdown and first event from its own clock.
+  }
+  const { data, error } = await client().rpc(botLevel ? "create_puzzle_bot_battle" : "create_puzzle_battle", {
     p_id: id,
     p_code: code,
     p_student_id: student.id,
@@ -235,6 +250,7 @@ export async function createBattle(
     p_duration: duration,
     p_state: state,
     p_deck: deck,
+    ...(plan ? { p_plan: plan, p_source_id: rematchOf ?? null } : {}),
   });
   if (error)
     throw new BattleError(
@@ -244,8 +260,9 @@ export async function createBattle(
         : "Couldn't create the battle. Please retry.",
       409,
     );
-  remember(id, deck);
-  return readBattle(id, student.id);
+  const createdId = (data as string | null) ?? id;
+  if (createdId === id) remember(id, deck);
+  return readBattle(createdId, student.id);
 }
 export async function readBattle(
   id: string,
@@ -257,6 +274,11 @@ export async function readBattle(
     : await recordFor(id);
   if (!record.state.players.some((p) => p.id === studentId))
     throw new BattleError("This battle belongs to other players.", 403);
+  if (record.state.bot && !session) {
+    const { data, error } = await client().rpc("advance_puzzle_battle_bot", { p_id: id });
+    if (error || !data) throw new BattleError("The bot couldn't update. Please retry.", 503);
+    record = data as BattleRecord;
+  }
   let settled = settleBattle(record.state, record.expires_at, Date.now());
   // Resume two-player rooms created by an older client that still required Ready.
   if (settled.status === "waiting" && settled.players.length === 2)
@@ -392,6 +414,10 @@ export async function rematchBattle(id: unknown, student: { id: string; name: st
   const previous = await readBattle(id, student.id);
   if (previous.state.status !== "finished" || previous.state.players.length !== 2)
     throw new BattleError("Finish this battle before a rematch.", 409);
+  if (previous.state.bot) {
+    if (previous.state.rematchId) return readBattle(previous.state.rematchId, student.id);
+    return createBattle(student, previous.mode, previous.duration, previous.state.bot.level, id);
+  }
   let nextId = previous.state.rematchId;
   if (nextId) {
     const next = await recordFor(nextId);

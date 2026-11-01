@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Chess, type Square } from "chess.js";
+import { BATTLE_BOTS, BATTLE_BOT_LEVELS, type BattleBotLevel } from "@/lib/puzzle-battle/bots";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
 import { ResponsiveChessboard } from "@/chess/components/ResponsiveChessboard";
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
@@ -57,6 +58,8 @@ async function api(url: string, body?: unknown) {
   return data;
 }
 export function PuzzleBattle() {
+  const [opponentType, setOpponentType] = useState<"classmate" | "bot">("classmate");
+  const [botLevel, setBotLevel] = useState<BattleBotLevel>("gentle");
   const [id, setId] = useState<string | null>(null),
     [battle, setBattle] = useState<BattleView | null>(null),
     [lobby, setLobby] = useState<BattleLobbyItem[]>([]);
@@ -156,17 +159,25 @@ export function PuzzleBattle() {
     void refresh();
     const timer = setInterval(() => {
       const status = current.current?.state.status;
+      const botBoundary = current.current?.state.bot && status === "playing"
+        ? Math.min(current.current.state.bot.nextAt ?? Infinity, current.current.state.endsAt!)
+        : Infinity;
+      const botOverdue = botBoundary + 1000 < clockAnchor.current.server +
+        performance.now() - clockAnchor.current.local;
       const interval = !current.current
         ? 15000
         : status === "waiting"
           ? 2000
-          : realtimeReady.current
+          : botOverdue
+            ? 5000 // Recover a missed boundary request; normal play remains event-driven.
+          : realtimeReady.current || current.current.state.bot
             ? 30000
             : 10000;
       if (
         performance.now() - lastReadAt.current >= interval &&
         (!current.current ||
-          ["waiting", "playing", "finished"].includes(current.current.state.status))
+          (["waiting", "playing", "finished"].includes(current.current.state.status) &&
+            !(current.current.state.bot && current.current.state.status === "finished")))
       )
         void refresh();
     }, 1000);
@@ -195,7 +206,7 @@ export function PuzzleBattle() {
     return () => clearInterval(timer);
   }, [battle?.state.status]);
   const topic =
-    battle && ["waiting", "playing", "finished"].includes(battle.state.status)
+    battle && !battle.state.bot && ["waiting", "playing", "finished"].includes(battle.state.status)
       ? battle.topic
       : undefined;
   useEffect(() => {
@@ -232,22 +243,23 @@ export function PuzzleBattle() {
     };
   }, [topic, refresh]);
   const startsAt = battle?.state.startsAt,
-    endsAt = battle?.state.endsAt;
+    endsAt = battle?.state.endsAt,
+    botNextAt = battle?.state.bot?.nextAt;
   useEffect(() => {
     if (battle?.state.status !== "playing") return;
     const currentTime =
       clockAnchor.current.server +
       performance.now() -
       clockAnchor.current.local;
-    const timers = [startsAt!, endsAt!]
-      .filter((boundary) => boundary >= currentTime)
+    const timers = [startsAt!, endsAt!].filter((boundary) => boundary >= currentTime)
+      .concat(botNextAt ? [Math.max(botNextAt, currentTime)] : [])
       .map((boundary) =>
         setTimeout(() => void refresh(), boundary - currentTime + 100),
       );
     return () => timers.forEach(clearTimeout);
     // Schedule at a boundary, not every clock tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startsAt, endsAt, battle?.state.status, refresh]);
+  }, [startsAt, endsAt, botNextAt, battle?.state.status, refresh]);
   async function enter(joinCode?: string) {
     if (mutating.current) return;
     mutating.current = true;
@@ -256,7 +268,9 @@ export function PuzzleBattle() {
     try {
       const data = await api(
         "/api/student/puzzle-battles",
-        joinCode ? { action: "join", code: joinCode } : { mode, duration },
+        joinCode ? { action: "join", code: joinCode } : {
+          mode, duration, ...(opponentType === "bot" ? { botLevel } : {}),
+        },
       );
       open(data.battle.id);
       install(data.battle);
@@ -307,7 +321,10 @@ export function PuzzleBattle() {
       } finally {
         mutating.current = false;
         setBusy(false);
-        if (invalidationVersion.current > (current.current?.version ?? -1))
+        const botDue = current.current?.state.status === "playing" &&
+          current.current.state.bot?.nextAt && current.current.state.bot.nextAt <=
+            clockAnchor.current.server + performance.now() - clockAnchor.current.local;
+        if (botDue || invalidationVersion.current > (current.current?.version ?? -1))
           void refresh();
       }
     },
@@ -363,8 +380,25 @@ export function PuzzleBattle() {
             Survival and Star Wars: three lives each, one point per board,
             highest score wins. Hide and Seek: race on one shared board; the first
             finish wins, and one wrong square loses. Both players get identical
-            puzzles. The countdown starts automatically when a classmate joins.
+            puzzles. Play a classmate or choose a computer opponent below.
           </p>
+          <fieldset className="mt-5">
+            <legend className="font-bold">Opponent</legend>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button aria-pressed={opponentType === "classmate"} variant={opponentType === "classmate" ? "primary" : "secondary"} onClick={() => setOpponentType("classmate")}>Classmate</Button>
+              <Button aria-pressed={opponentType === "bot"} variant={opponentType === "bot" ? "primary" : "secondary"} onClick={() => setOpponentType("bot")}>Computer</Button>
+            </div>
+          </fieldset>
+          {opponentType === "bot" && <fieldset className="mt-4">
+            <legend className="font-bold">Bot difficulty</legend>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {BATTLE_BOT_LEVELS.map(level => <Button key={level} aria-pressed={botLevel === level}
+                variant={botLevel === level ? "primary" : "secondary"} onClick={() => setBotLevel(level)}>
+                {BATTLE_BOTS[level].name}
+              </Button>)}
+            </div>
+            <p className="mt-2 text-sm text-slate-300">{BATTLE_BOTS[botLevel].description} Your match starts after a five-second countdown.</p>
+          </fieldset>}
           <fieldset className="mt-5">
             <legend className="font-bold">Battle mode</legend>
             <div className="mt-2 grid gap-2 sm:grid-cols-3">
@@ -399,7 +433,7 @@ export function PuzzleBattle() {
             </div>
           </fieldset>
           <Button className="mt-5" disabled={busy} onClick={() => void enter()}>
-            {busy ? "Preparing boards…" : "Create challenge"}
+            {busy ? "Preparing boards…" : opponentType === "bot" ? "Play against bot" : "Create challenge"}
           </Button>
           <p className="mt-3 text-xs text-slate-400">
             One board in Hide and Seek; up to 50 in Survival and Star Wars.
@@ -649,6 +683,7 @@ export function PuzzleBattle() {
             )}
           </div>
           <Card className="space-y-4 self-start p-4">
+            {state.bot && <p className="text-sm font-bold text-violet-200">Computer opponent · {BATTLE_BOTS[state.bot.level].name}</p>}
             {finished ? (
               <>
                 <p className="text-xs font-black uppercase text-cyan-200">
@@ -679,6 +714,8 @@ export function PuzzleBattle() {
                   onClick={() => {
                     setMode(battle.mode);
                     setDuration(battle.duration);
+                    setOpponentType(state.bot ? "bot" : "classmate");
+                    if (state.bot) setBotLevel(state.bot.level);
                     open(null);
                   }}
                 >

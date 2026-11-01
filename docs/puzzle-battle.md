@@ -28,6 +28,14 @@ The follow-up optimization measured **137 ms** under the same conditions (46% fa
 
 ## Release
 
+### Computer opponents
+
+Choose Computer in the lobby, then Gentle, Steady, or Swift. All three modes and all existing time controls support bots, with an automatic five-second countdown and a fresh-board rematch. Bots are paced practice opponents, not chess engines with Elo ratings. Their solve times and mistakes are generated once from the shared deck and difficulty, stored privately, and advanced using database time. Reloading or switching tabs never rerolls or pauses them. Existing match rules and the absence of battle XP/coin rewards are unchanged.
+
+`20261101180002_puzzle_battle_bot_opponents.sql` was applied to production on November 2, 2026 (Asia/Bangkok), as remote version `20261101181850`, before releasing these handlers. It adds a service-only private bot plan, creation/advancement functions, and bot settlement before human writes. No synthetic student accounts or continuously running workers are needed. Bot rooms skip Realtime broadcasts/subscriptions; clients refresh at scheduled board boundaries, on foreground/reconnect, and with a 30-second backup (five-second recovery when a boundary update is missed). Regular warm answers still use one RPC. Only the next event time is public; future outcomes remain private. Human opponents keep their existing flow. Production permissions, creation, first-finish settlement, and idempotent replay were verified; test writes were rolled back.
+
+Additional checks: `node tests/puzzle-battle/verify-bots-db.mjs`, `npx vitest run tests/puzzle-battle/bots.test.ts`, and `node tests/browser/verify-battle-bots.cjs` against the isolated local preview.
+
 `supabase/migrations/20261101173014_puzzle_battle_cached_answers.sql` and `supabase/migrations/20261101174411_puzzle_battle_single_board_rematches.sql` were applied to production on November 2, 2026 (Asia/Bangkok), before deploying the handlers. Their remote versions are `20261101175511` and `20261101175515`. Service-only execution and empty search paths were verified for all affected functions.
 
 For the continuation browser check, start the isolated server on port 9486 with `BATTLE_MULTIMOVE=1`, then run `node tests/browser/verify-battle-continuation.cjs`. Its three-move fixture exercises desktop drag followed by destination clicks, tablet/phone taps, switching pieces, resetting selection on new boards, and failed-save retries. The regular three-mode browser suite also solves Star Wars by clicking consecutive destinations.

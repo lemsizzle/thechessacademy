@@ -31,7 +31,7 @@ export async function POST(request: Request) {
             ? await joinBattle(body.code, student)
             : body?.action === "rematch"
               ? await rematchBattle(body.battleId, student)
-            : await createBattle(student, body?.mode, body?.duration),
+            : await createBattle(student, body?.mode, body?.duration, body?.botLevel),
       },
       201,
     );

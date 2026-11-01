@@ -116,6 +116,13 @@ function filtered(rows, params) {
         let text = "";
         for await (const chunk of req) text += chunk;
         const args = JSON.parse(text || "{}");
+        if (table === "create_puzzle_bot_battle")
+          return json(res, (await pg.query("select create_puzzle_bot_battle($1,$2,$3,$4,$5,$6,$7,$8,$9) value", [
+            args.p_id,args.p_code,args.p_student_id,args.p_mode,args.p_duration,
+            JSON.stringify(args.p_state),JSON.stringify(args.p_deck),JSON.stringify(args.p_plan),args.p_source_id,
+          ])).rows[0].value);
+        if (table === "advance_puzzle_battle_bot")
+          return json(res, (await pg.query("select advance_puzzle_battle_bot($1) value", [args.p_id])).rows[0].value);
         if (table === "load_puzzle_battle")
           return json(
             res,

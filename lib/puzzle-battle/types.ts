@@ -7,6 +7,7 @@ import type {
   StarWarsMove,
 } from "@/lib/puzzle-training/starWars";
 import type { HideAndSeekBoard } from "@/lib/puzzle-training/hideAndSeek";
+import type { BattleBotLevel } from "./bots";
 
 export const BATTLE_MODES = ["survival", "star-wars", "hide-and-seek"] as const;
 export type BattleMode = (typeof BATTLE_MODES)[number];
@@ -42,6 +43,7 @@ export type BattleState = {
   /** A waiting rematch is reserved for the previous opponent. */
   invitedId?: string;
   rematchId?: string;
+  bot?: { level: BattleBotLevel; nextAt: number | null };
 };
 export type BattleRecord = {
   id: string;
