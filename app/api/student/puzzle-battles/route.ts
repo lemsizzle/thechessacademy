@@ -2,7 +2,7 @@ import { requireActiveStudent } from "@/lib/auth/requireActiveStudent";
 import {
   createBattle,
   joinBattle,
-  listBattles,
+  battleLobby,
   rematchBattle,
 } from "@/lib/puzzle-battle/server";
 import {
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const user = await requireActiveStudent();
-    return battleJson({ battles: await listBattles(user.studentId) });
+    return battleJson(await battleLobby(user.studentId));
   } catch (error) {
     return battleHttpError(error);
   }

@@ -1,6 +1,6 @@
 # Puzzle Battle
 
-Students open **Train → Puzzle Battle**, choose Survival, Star Wars, or Hide and Seek, and select 1, 3, 5, or 10 minutes. Create a challenge and share its code/link, or join an open challenge. The lobby lists only unexpired waiting challenges with an open seat, excluding started, finished, cancelled, and expired rooms. It no longer loads personal battle history. Joining automatically starts the shared five-second countdown; there are no Ready buttons.
+Students open **Train → Puzzle Battle**, choose Survival, Star Wars, or Hide and Seek, and select 1, 3, 5, or 10 minutes. Create a challenge and share its code/link, or join an open challenge. **Open challenges** lists only unexpired waiting challenges with an open seat. A separate **Your current battle** card exposes the student's unfinished room, with Resume, Close challenge (waiting), or Leave battle with a forfeit confirmation (playing). Completed history is not loaded. A creation conflict from another tab refreshes this card immediately. Joining automatically starts the shared five-second countdown; there are no Ready buttons.
 
 In Survival and Star Wars, both players receive the same ordered deck of up to 50 boards. A fully completed board scores one point. A wrong answer or skip costs one of three lives. With no lives left, the student watches the opponent's score until that run or the clock ends. Highest score wins; equal scores draw. Leaving a started match forfeits it. Waiting challenges expire after ten minutes.
 
@@ -27,6 +27,10 @@ With an injected 100 ms delay on each database request and five pairs of simulta
 The follow-up optimization measured **137 ms** under the same conditions (46% faster than 254 ms). A bounded server cache retains up to 32 recently verified room positions for one minute. When both the position and deck are warm and the submitting player's revision matches, validation can use that trusted snapshot. `submit_puzzle_battle_player` checks current active credentials and membership, then performs the existing revision/deadline-guarded save in one database round trip. Cold instances, expired snapshots, retries, and conflicts reload authoritative state; correctness never depends on cache affinity. No answers or future boards are sent to the browser. Unit tests cover another instance updating the room and access being revoked while a snapshot is cached.
 
 ## Release
+
+`20261102181916_puzzle_battle_creation_limit.sql` was applied to production on November 3, 2026 (Asia/Bangkok), as remote version `20261102182452`, before shipping the lobby recovery update. Service-only execution, invoker security, the empty search path, and the new limit were verified. The existing creation function keeps its per-student advisory lock and one-active-room rule; the old ten-creations-in-ten-minutes limit becomes a burst limit of 20 creations per minute. This allows rapid completed single-board races without a long lockout. No results or current battles are deleted. Creation also refreshes an existing room before rejecting it, allowing overdue bot results to settle. The lobby adds one bounded, indexed personal-active-room read; live move traffic is unchanged.
+
+Verification: `node tests/puzzle-battle/verify-creation-limit.mjs`, `node tests/puzzle-battle/verify-db.mjs`, and `node tests/browser/verify-battle-lobby-recovery.cjs` against the isolated preview on port 9482.
 
 ### Computer opponents
 

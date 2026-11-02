@@ -27,5 +27,6 @@ export async function createBattleTestDatabase() {
   await db.exec(readFileSync("supabase/migrations/20261101173014_puzzle_battle_cached_answers.sql", "utf8"));
   await db.exec(readFileSync("supabase/migrations/20261101174411_puzzle_battle_single_board_rematches.sql", "utf8"));
   await db.exec(readFileSync("supabase/migrations/20261101180002_puzzle_battle_bot_opponents.sql", "utf8"));
+  await db.exec(readFileSync("supabase/migrations/20261102181916_puzzle_battle_creation_limit.sql", "utf8"));
   return db;
 }

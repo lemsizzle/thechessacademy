@@ -66,6 +66,8 @@ export function PuzzleBattle() {
   const [id, setId] = useState<string | null>(null),
     [battle, setBattle] = useState<BattleView | null>(null),
     [lobby, setLobby] = useState<BattleLobbyItem[]>([]);
+  const [unfinishedBattle, setUnfinishedBattle] = useState<BattleLobbyItem | null>(null);
+  const [confirmLobbyLeave, setConfirmLobbyLeave] = useState(false);
   const [mode, setMode] = useState<BattleMode>("survival"),
     [duration, setDuration] = useState<number>(180),
     [code, setCode] = useState("");
@@ -119,6 +121,7 @@ export function PuzzleBattle() {
     setError("");
     setRetry(null);
     setConfirmLeave(false);
+    setConfirmLobbyLeave(false);
     history.replaceState(
       null,
       "",
@@ -147,7 +150,10 @@ export function PuzzleBattle() {
       );
       if (wanted !== currentId.current) return;
       if (wanted) install(data.battle);
-      else setLobby(data.battles);
+      else {
+        setLobby(data.battles);
+        setUnfinishedBattle(data.currentBattle ?? null);
+      }
       if (!mutating.current && !retryRef.current) setError("");
     } catch (e) {
       setError(
@@ -280,6 +286,36 @@ export function PuzzleBattle() {
       install(data.battle);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't open this battle.");
+      // Another tab may have started a room since the last lobby refresh.
+      // Surface that room immediately instead of trapping the student in 409s.
+      if ((e as { status?: number })?.status === 409) {
+        try {
+          const data = await api("/api/student/puzzle-battles");
+          setLobby(data.battles);
+          setUnfinishedBattle(data.currentBattle ?? null);
+        } catch { /* Keep the original actionable error if refresh also fails. */ }
+      }
+    } finally {
+      mutating.current = false;
+      setBusy(false);
+    }
+  }
+  async function leaveFromLobby() {
+    if (mutating.current || !unfinishedBattle) return;
+    mutating.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await api(`/api/student/puzzle-battles/${unfinishedBattle.id}`, {
+        type: "leave", actionId: crypto.randomUUID(),
+      });
+      setUnfinishedBattle(null);
+      setConfirmLobbyLeave(false);
+      const data = await api("/api/student/puzzle-battles");
+      setLobby(data.battles);
+      setUnfinishedBattle(data.currentBattle ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't close the battle. Please retry.");
     } finally {
       mutating.current = false;
       setBusy(false);
@@ -382,6 +418,24 @@ export function PuzzleBattle() {
       <div className="space-y-5">
         <h1 className="text-3xl font-black">Puzzle Battle</h1>
         {errorPanel}
+        {unfinishedBattle && <section aria-label="Your current battle" className="space-y-3 rounded-xl border border-amber-200/40 bg-slate-950 p-4" data-testid="current-battle">
+          <h2 className="text-lg font-black">Your current battle</h2>
+          <p className="text-sm text-slate-300">
+            {BATTLE_LABELS[unfinishedBattle.mode]} · {unfinishedBattle.duration / 60} min · {unfinishedBattle.opponent ? `${unfinishedBattle.host} vs ${unfinishedBattle.opponent}` : "Waiting for an opponent"}.
+            {" "}Resume it, or {unfinishedBattle.status === "waiting" ? "close the challenge" : "leave the battle"} to start a new one.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={busy} onClick={() => open(unfinishedBattle.id)}>Resume battle</Button>
+            {!confirmLobbyLeave ? <Button variant="secondary" disabled={busy}
+              onClick={() => unfinishedBattle.status === "waiting" ? void leaveFromLobby() : setConfirmLobbyLeave(true)}>
+              {unfinishedBattle.status === "waiting" ? "Close challenge" : "Leave battle"}
+            </Button> : <>
+              <p className="basis-full text-sm text-amber-100">Leaving an ongoing battle gives your opponent the win.</p>
+              <Button disabled={busy} onClick={() => void leaveFromLobby()}>Confirm leave</Button>
+              <Button variant="secondary" disabled={busy} onClick={() => setConfirmLobbyLeave(false)}>Keep playing</Button>
+            </>}
+          </div>
+        </section>}
         <Card className="border-cyan-200/25 p-4 sm:p-6">
           <p className="text-xs font-black uppercase tracking-widest text-cyan-200">
             Challenge a classmate

@@ -55,6 +55,8 @@ function filtered(rows, params) {
       target = parts.join(".");
     if (op === "eq")
       rows = rows.filter((row) => scalar(get(row, key)) === target);
+    if (op === "in")
+      rows = rows.filter((row) => target.replace(/^\(|\)$/g, "").split(",").includes(scalar(get(row, key))));
     if (op === "is")
       rows = rows.filter((row) =>
         target === "null"
@@ -289,8 +291,15 @@ function filtered(rows, params) {
           );
         if (url.pathname === "/__qa/expire") {
           await pg.query(
-            "update puzzle_battles set state=jsonb_set(state,'{endsAt}',to_jsonb($2::numeric)) where id=$1",
+            "update puzzle_battles set expires_at=clock_timestamp()-interval '1 second',state=jsonb_set(state,'{endsAt}',to_jsonb($2::numeric)) where id=$1",
             [url.searchParams.get("id"), Date.now() - 100],
+          );
+          return json(res, { ok: true });
+        }
+        if (url.pathname === "/__qa/bot-due") {
+          await pg.query(
+            "update puzzle_battles set state=jsonb_set(jsonb_set(state,'{startsAt}',to_jsonb($2::numeric)),'{endsAt}',to_jsonb($3::numeric)) where id=$1 and mode='hide-and-seek' and state?'bot'",
+            [url.searchParams.get("id"), Date.now()-3600000, Date.now()+600000],
           );
           return json(res, { ok: true });
         }

@@ -219,7 +219,11 @@ export async function createBattle(
     throw new BattleError("Choose Gentle, Steady, or Swift for your bot opponent.");
   // Check before expensive preparation as well as atomically inside the RPC.
   const lobby = await listBattles(student.id, true);
-  if (lobby.some((b) => b.mine && ["waiting", "playing"].includes(b.status)))
+  const existing = lobby.find((b) => b.mine && ["waiting", "playing"].includes(b.status));
+  // A bot can finish while its page is closed. Settle its scheduled progress
+  // before rejecting creation; this also reconciles expired/stale room state.
+  const current = existing ? await readBattle(existing.id, student.id) : null;
+  if (current && ["waiting", "playing"].includes(current.state.status))
     throw new BattleError(
       "Finish or leave your current puzzle battle first.",
       409,
@@ -258,7 +262,7 @@ export async function createBattle(
       error.message.includes("Please wait")
         ? error.message
         : "Couldn't create the battle. Please retry.",
-      409,
+      error.message.includes("Please wait") ? 429 : 409,
     );
   const createdId = (data as string | null) ?? id;
   if (createdId === id) remember(id, deck);
@@ -437,7 +441,7 @@ export async function rematchBattle(id: unknown, student: { id: string; name: st
       },
       p_deck: deck,
     });
-    if (error || !data) throw new BattleError(error?.message.includes("current puzzle battle") || error?.message.includes("Please wait") ? error.message : "Couldn't start the rematch. Please retry.", 409);
+    if (error || !data) throw new BattleError(error?.message.includes("current puzzle battle") || error?.message.includes("Please wait") ? error.message : "Couldn't start the rematch. Please retry.", error?.message.includes("Please wait") ? 429 : 409);
     nextId = data as string;
     if (nextId === proposedId) remember(nextId, deck);
   }
@@ -453,6 +457,7 @@ export async function listBattles(
       .from("puzzle_battles")
       .select(fields)
       .or(`host_id.eq.${studentId},guest_id.eq.${studentId}`)
+      .in("state->>status", ["waiting", "playing"])
       .order("created_at", { ascending: false })
       .limit(12) : Promise.resolve({ data: [], error: null }),
     db
@@ -495,4 +500,14 @@ export async function listBattles(
       createdAt: record.created_at,
     };
   });
+}
+
+export async function battleLobby(studentId: string) {
+  const items = await listBattles(studentId, true);
+  return {
+    // Keep the public challenge list limited to joinable seats. A student's
+    // unfinished room belongs in its own recovery card, never hidden history.
+    battles: items.filter(item => item.status === "waiting" && !item.opponent),
+    currentBattle: items.find(item => item.mine && ["waiting", "playing"].includes(item.status)) ?? null,
+  };
 }
