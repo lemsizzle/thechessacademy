@@ -929,7 +929,7 @@ const BattleBoard = memo(function BattleBoard({
       <div className="space-y-2">
         <div
           data-chess-board
-          className="grid aspect-square grid-cols-8 overflow-hidden rounded-lg"
+          className="grid aspect-square grid-cols-8 grid-rows-[repeat(8,minmax(0,1fr))] overflow-hidden rounded-lg"
           aria-label="Find safe squares"
         >
           {Array.from({ length: 64 }, (_, i) => {
@@ -948,14 +948,17 @@ const BattleBoard = memo(function BattleBoard({
                   !interactive || hideFinished.current || Boolean(piece)
                 }
                 onClick={() => markSquare(square)}
-                className="relative flex aspect-square min-w-0 items-center justify-center p-1 text-3xl text-amber-400 focus-visible:z-10 focus-visible:outline focus-visible:outline-4 focus-visible:outline-cyan-400"
+                className="relative h-full min-h-0 w-full min-w-0 overflow-hidden p-0 text-3xl text-amber-400 focus-visible:z-10 focus-visible:outline focus-visible:outline-4 focus-visible:outline-cyan-400"
                 style={
                   (Math.floor(i / 8) + (i % 8)) % 2
                     ? squareStyles.darkSquareStyle
                     : squareStyles.lightSquareStyle
                 }
               >
-                {Piece ? <Piece /> : wrongSquare === square ? <span className="text-red-600">✕</span> : marked ? "★" : null}
+                {/* Artwork must never contribute an intrinsic height to a grid row. */}
+                <span className="pointer-events-none absolute inset-1 flex items-center justify-center" aria-hidden="true">
+                  {Piece ? <Piece /> : wrongSquare === square ? <span className="text-red-600">✕</span> : marked ? "★" : null}
+                </span>
                 <span className="absolute bottom-0 right-1 text-[9px] text-slate-700">
                   {square}
                 </span>
