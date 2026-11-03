@@ -3,6 +3,7 @@ import { build } from "esbuild";
 import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, extname } from "node:path";
+import { pathToFileURL } from "node:url";
 import postcss from "postcss";
 import tailwindcss from "tailwindcss";
 
@@ -52,7 +53,9 @@ const css = await postcss([tailwindcss({ content: ["./chess/**/*.tsx", "./compon
 const js = result.outputFiles.find((file) => file.path.endsWith(".js")).contents;
 const boardCss = result.outputFiles.find((file) => file.path.endsWith(".css"))?.text ?? "";
 const html = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/bundle.css"></head><body><main class="mx-auto max-w-7xl p-4"><div id="root"></div></main><script src="/bundle.js"></script></body></html>';
-createServer((req, res) => {
+const apiFixture = process.env.GAMEPLAY_API_FIXTURE ? await import(pathToFileURL(resolve(process.env.GAMEPLAY_API_FIXTURE)).href) : null;
+createServer(async (req, res) => {
+  if (apiFixture && await apiFixture.handle(req, res)) return;
   const assetPath = resolve('public', '.' + new URL(req.url, 'http://localhost').pathname);
   const imageTypes = { '.webp': 'image/webp', '.png': 'image/png', '.svg': 'image/svg+xml' };
   if (assetPath.startsWith(resolve('public') + '/') || assetPath.startsWith(resolve('public') + '\\')) {

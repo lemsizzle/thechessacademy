@@ -1,5 +1,6 @@
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { BadgeCard } from "@/components/BadgeCard";
+import { FreeClassCoupons } from "@/components/student/FreeClassCoupons";
 import { DisplayedBadge } from "@/components/DisplayedBadge";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -340,7 +341,7 @@ function TrophyCase({
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Academy honors</p>
             <Heading id={headingId} className="mt-1 text-2xl font-black text-white">Trophy Case</Heading>
-            <p className="mt-1 text-sm text-slate-300">{readOnly ? "Select a badge for a closer look." : "Open a badge and choose Feature badge to show it beside your name."}</p>
+            <p className="mt-1 text-sm text-slate-300">{readOnly ? "Select a badge for a closer look." : "Open an achievement badge and choose Feature badge to show it beside your name."}</p>
           </div>
         </div>
         <span className="w-fit rounded-full border border-amber-200/25 bg-amber-300/10 px-3 py-1.5 text-sm font-black text-amber-100">
@@ -348,6 +349,7 @@ function TrophyCase({
         </span>
       </div>
 
+      {!readOnly && headingLevel === "h2" && <FreeClassCoupons studentId={data.student.id}/>}
       {!readOnly && <Button href="/student/achievements" variant="secondary" className="mt-4">Explore Game Achievements</Button>}
       {badgesUnavailable ? (
         <div className="mt-5">

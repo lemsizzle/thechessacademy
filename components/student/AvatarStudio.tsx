@@ -12,6 +12,7 @@ import { avatarCategories, avatarCategoryLabels, avatarRarities, avatarRaritySty
 import type { AvatarCategory, AvatarItem, AvatarRarity, StudentAvatarConfig, StudentInventoryItem, StudentWallet } from "@/lib/types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./AvatarStudio.module.css";
+import { StoreSpecialRewards } from "./StoreSpecialRewards";
 
 type AvatarPayload = {
   items: AvatarItem[];
@@ -214,6 +215,11 @@ export function AvatarStudio() {
       </Card>
 
       <div className="min-w-0 space-y-4">
+        {state && <StoreSpecialRewards state={state} disabled={Boolean(busyItemId)}
+          beginPurchase={()=>{if(mutationPending.current)return false;mutationPending.current=true;setBusyItemId("store-reward");return true;}}
+          endPurchase={()=>{mutationPending.current=false;setBusyItemId(null);}}
+          onState={next=>{setState(next);setEquipped(next.avatar.equippedItems);refreshCelebrations();}}
+          onEquip={equip}/>}
         <Card className="p-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="grid gap-1 text-xs font-black uppercase text-slate-400">Category

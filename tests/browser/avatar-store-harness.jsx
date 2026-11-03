@@ -17,6 +17,7 @@ window.fetch = async (url, options = {}) => {
   const path = String(url), body = options.body ? JSON.parse(options.body) : {};
   await new Promise(resolve => setTimeout(resolve, 100));
   if (path.includes('/board-themes')) return Response.json({ studentId: 'store-fixture', ownedThemes: ownedItemIds.includes('paper-set') ? ['paper'] : [] });
+  if (path.endsWith('/avatar/rewards')) return Response.json({ receipts: [], availableCouponCount: 0 });
   if (path.endsWith('/avatar/purchase')) {
     const item = items.find(item => item.id === body.itemId);
     if (!ownedItemIds.includes(item.id)) { coins -= item.price; ownedItemIds.push(item.id); purchases++; }
