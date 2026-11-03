@@ -10,9 +10,10 @@ import { createPortal } from "react-dom";
 import { Button } from "@/components/Button";
 import { AvatarRenderer } from "@/components/avatar/AvatarRenderer";
 import { useGameDialogFocus } from "@/chess/hooks/useGameDialogFocus";
-import { FreeClassCouponArt } from "./StoreRewardArt";
+import { FreeClassCouponArt, MysteryChestArt } from "./StoreRewardArt";
 import {
   mysteryBoxPool,
+  isFreeClassReward,
   STORE_REWARD_PRICES,
   type StoreRewardKind,
   type StoreRewardReceipt,
@@ -38,11 +39,7 @@ function Chest({ opening = false }: { opening?: boolean }) {
       aria-hidden="true"
     >
       <div className={styles.glow} />
-      <div className={styles.chest}>
-        <div className={styles.body} />
-        <div className={styles.lid} />
-        <div className={styles.lock}>♟</div>
-      </div>
+      <MysteryChestArt />
       {opening &&
         Array.from({ length: 16 }, (_, i) => (
           <i
@@ -84,6 +81,7 @@ function RewardOpening({
     return () => clearTimeout(timer);
   }, [receipt.kind]);
   const item = state.items.find((i) => i.id === receipt.item_id);
+  const isCoupon = isFreeClassReward(receipt);
   return createPortal(
     <div className={styles.overlay}>
       <section
@@ -100,8 +98,12 @@ function RewardOpening({
         <h2 id="store-reward-title" className="mt-2 text-2xl font-black">
           {!revealed
             ? "Something magical inside…"
-            : receipt.kind === "free_class"
-              ? "Your FREE coupon is ready!"
+            : isCoupon
+              ? receipt.status === "refunded"
+                ? "This coupon was refunded"
+                : receipt.status === "fulfilled"
+                  ? "This coupon was redeemed"
+                  : "Your FREE coupon is ready!"
               : "A new treasure for you!"}
         </h2>
         {!revealed ? (
@@ -114,7 +116,7 @@ function RewardOpening({
         ) : (
           <div className={styles.prize}>
             <div className={styles.rewardArt}>
-              {receipt.kind === "free_class" ? (
+              {isCoupon ? (
                 <FreeClassCouponArt />
               ) : item ? (
                 <AvatarRenderer
@@ -131,13 +133,13 @@ function RewardOpening({
               )}
             </div>
             <h3 className="text-xl font-black text-amber-100">
-              {receipt.kind === "free_class"
-                ? "One free class"
-                : receipt.item_snapshot?.name}
+              {isCoupon ? "One free class" : receipt.item_snapshot?.name}
             </h3>
             <p className="my-3 text-sm text-slate-200">
-              {receipt.kind === "free_class"
-                ? "Added to your Trophy Case. Coach Lem will arrange your class. Each purchase adds one coupon."
+              {isCoupon
+                ? receipt.status === "pending"
+                  ? "Added to your Trophy Case. Coach Lem will arrange your class. Your FREE coupons stack!"
+                  : "This coupon has already been used or refunded. Open your Trophy Case to see your available coupons."
                 : "Saved to your collection. It's yours to keep!"}
             </p>
             <div className="flex flex-wrap justify-center gap-2">
@@ -155,7 +157,7 @@ function RewardOpening({
                 Done
               </Button>
             </div>
-            {receipt.kind === "free_class" && (
+            {isCoupon && (
               <a
                 href="/student#trophy-case"
                 className="mt-4 block text-sm text-cyan-200 underline"
@@ -298,8 +300,8 @@ export function StoreSpecialRewards({
             Mystery Box <span className="text-amber-200">· 500 coins</span>
           </h3>
           <p className="my-3 text-sm text-slate-300">
-            One random, unowned avatar item. Higher-priced items are rarer; item
-            values vary. No duplicates.
+            Win an unowned avatar item or a rare FREE class coupon! Higher-value
+            prizes are rarer. Avatar items never repeat; class coupons stack.
           </p>
           <Button
             disabled={
@@ -317,27 +319,9 @@ export function StoreSpecialRewards({
                 ? "Need 500 coins"
                 : "Buy Mystery Box"}
           </Button>
-          <details className="mt-3 text-xs text-slate-300">
-            <summary className="cursor-pointer">
-              Possible items & chances ({pool.length})
-            </summary>
-            <p className="my-2">
-              Avatar cosmetics sold in the store only. Chess sets and
-              achievement-only items are excluded. Chances update as your
-              collection changes; each item's weight is 1 ÷ its price.
-            </p>
-            <ul className="max-h-48 space-y-1 overflow-auto">
-              {pool.map(({ item, chance }) => (
-                <li key={item.id}>
-                  {item.name} · {item.price} coins · {(chance * 100).toFixed(2)}
-                  %
-                </li>
-              ))}
-            </ul>
-          </details>
         </article>
         <article className={styles.offer}>
-          <div className="mx-auto h-[180px] w-40">
+          <div className="mx-auto h-[200px] w-52">
             <FreeClassCouponArt />
           </div>
           <h3 className="text-xl font-black">
@@ -421,8 +405,10 @@ export function StoreSpecialRewards({
                 className="flex flex-wrap items-center justify-between gap-2"
               >
                 <span>
-                  {r.kind === "free_class"
-                    ? "Free Class"
+                  {isFreeClassReward(r)
+                    ? r.kind === "mystery_box"
+                      ? "Mystery Box · FREE Class"
+                      : "Free Class"
                     : r.item_snapshot?.name}{" "}
                   · {r.status} · {new Date(r.created_at).toLocaleDateString()}
                 </span>

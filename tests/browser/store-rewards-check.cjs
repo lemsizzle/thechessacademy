@@ -216,6 +216,73 @@ mkdirSync("work/store-rewards", { recursive: true });
   );
   await phone.screenshot({ path: "work/store-rewards/phone-reward.png" });
   await phone.getByRole("button", { name: "Done", exact: true }).click();
+  assert.equal(await phone.getByText(/Possible items & chances/).count(), 0);
+  for (let i = 0; i < 2; i++) {
+    assert.equal(
+      (await phone.request.post(origin + "/__store/prepare-coupon")).status(),
+      200,
+    );
+    await phone.reload();
+    await phone
+      .getByRole("button", { name: "Buy Mystery Box", exact: true })
+      .click();
+    await phone
+      .getByRole("button", { name: "Confirm purchase", exact: true })
+      .click();
+    await phone
+      .getByRole("button", { name: "Skip animation", exact: true })
+      .click();
+    await phone
+      .getByRole("heading", { name: "Your FREE coupon is ready!" })
+      .waitFor();
+    await phone.getByRole("dialog").getByRole("img", { name: "FREE class coupon badge" }).waitFor();
+    await phone.waitForTimeout(600);
+    if (i === 0)
+      await phone.screenshot({
+        path: "work/store-rewards/box-coupon-phone.png",
+      });
+    await phone.getByRole("button", { name: "Done", exact: true }).click();
+  }
+  await phone.goto(origin + "/?view=trophies");
+  await phone.getByRole("button", { name: /FREE Class × 2/ }).click();
+  await phone
+    .getByRole("heading", { name: "2 FREE class coupons", exact: true })
+    .waitFor();
+  await phone.screenshot({ path: "work/store-rewards/won-coupon-stack.png" });
+  const balanceBeforeRefund = await phone.evaluate(
+    async () =>
+      (await (await fetch("/api/student/avatar")).json()).wallet.academyCoins,
+  );
+  await phone.goto(origin + "/?view=teacher");
+  await phone
+    .getByRole("button", { name: "Refund coins", exact: true })
+    .first()
+    .click();
+  await phone
+    .getByText(
+      "Return 500 coins (the amount paid) and cancel this one coupon?",
+      { exact: true },
+    )
+    .waitFor();
+  await phone.getByRole("button", { name: "Confirm", exact: true }).click();
+  await phone.waitForFunction(
+    () =>
+      [...document.querySelectorAll("button")].filter(
+        (e) => e.textContent === "Mark redeemed",
+      ).length === 1,
+  );
+  const balanceAfterRefund = await phone.evaluate(
+    async () =>
+      (await (await fetch("/api/student/avatar")).json()).wallet.academyCoins,
+  );
+  assert.equal(balanceAfterRefund, balanceBeforeRefund + 500);
+  await phone
+    .getByRole("button", { name: "Mark redeemed", exact: true })
+    .click();
+  await phone.getByRole("button", { name: "Confirm", exact: true }).click();
+  await phone
+    .getByText("No pending class requests.", { exact: true })
+    .waitFor();
   await safari.close();
   console.log(
     "PASS: purchases, equip, stacked coupons, teacher redeem/refund, lost-response reload recovery, desktop/tablet/mobile, reduced motion and WebKit.",

@@ -149,3 +149,11 @@ it("teacher resolution validates action and uses one receipt at a time", async (
     { p_receipt_id: requestId, p_resolution: "fulfilled" },
   );
 });
+it("teacher requests include coupons won from boxes", async () => {
+  mocks.admin.mockResolvedValue(true);
+  expect((await adminGET(new Request("http://localhost/rewards"))).status).toBe(
+    200,
+  );
+  expect(mocks.filters).toContainEqual(["prize_kind", "free_class"]);
+  expect(mocks.filters).not.toContainEqual(["kind", "free_class"]);
+});

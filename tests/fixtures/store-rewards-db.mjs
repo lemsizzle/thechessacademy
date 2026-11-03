@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 
 // Disposable PostgreSQL instance. No production credentials or network access.
-export async function createStoreTestDatabase() {
+export async function createStoreTestDatabase({ legacy = false } = {}) {
   const db = new PGlite();
   await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
     create table students(id uuid primary key,is_active boolean default true,display_name text);
@@ -25,6 +25,13 @@ export async function createStoreTestDatabase() {
       "utf8",
     ),
   );
+  if (!legacy)
+    await db.exec(
+      readFileSync(
+        "supabase/migrations/20261103115233_mystery_box_free_class_prize.sql",
+        "utf8",
+      ),
+    );
   return db;
 }
 export async function addStudent(db, coins = 12000) {

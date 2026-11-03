@@ -3,7 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/Button";
 import { useGameDialogFocus } from "@/chess/hooks/useGameDialogFocus";
-import type { StoreRewardReceipt } from "@/lib/avatar/storeRewards";
+import {
+  isFreeClassReward,
+  type StoreRewardReceipt,
+} from "@/lib/avatar/storeRewards";
 import { FreeClassCouponArt } from "./StoreRewardArt";
 import styles from "./StoreRewards.module.css";
 type CouponData = { receipts: StoreRewardReceipt[]; available: number };
@@ -21,7 +24,7 @@ function load(studentId: string) {
     if (!r.ok) throw Error(data.error);
     return {
       receipts: (data.receipts as StoreRewardReceipt[]).filter(
-        (r) => r.kind === "free_class",
+        isFreeClassReward,
       ),
       available: data.availableCouponCount,
     };

@@ -6,6 +6,8 @@ type Redemption = {
   id: string;
   student_id: string;
   status: string;
+  kind: string;
+  price_paid: number;
   created_at: string;
   students: { display_name: string } | null;
 };
@@ -21,6 +23,7 @@ export function AdminStoreRewards({
     [confirm, setConfirm] = useState<{
       id: string;
       status: "fulfilled" | "refunded";
+      pricePaid: number;
     } | null>(null);
   async function refresh(showResolved: boolean) {
     const r = await fetch(
@@ -70,8 +73,8 @@ export function AdminStoreRewards({
         <div>
           <h2 className="text-xl font-black">Free Class requests</h2>
           <p className="text-sm text-slate-300">
-            Each purchase costs 5,000 coins and creates one Trophy Case coupon.
-            Arrange the class with the student, then mark one coupon redeemed.
+            Coupons can be purchased directly or won in a Mystery Box. Arrange
+            the class with the student, then mark one coupon redeemed.
           </p>
         </div>
         <Button
@@ -108,20 +111,35 @@ export function AdminStoreRewards({
               <p className="text-sm">
                 Coupon {r.id.slice(0, 8).toUpperCase()} ·{" "}
                 {new Date(r.created_at).toLocaleDateString()} · {r.status}
+                {r.kind === "mystery_box"
+                  ? " · Mystery Box prize"
+                  : " · Direct purchase"}
               </p>
             </div>
             {r.status === "pending" && (
               <div className="flex gap-2">
                 <Button
                   disabled={busy}
-                  onClick={() => setConfirm({ id: r.id, status: "fulfilled" })}
+                  onClick={() =>
+                    setConfirm({
+                      id: r.id,
+                      status: "fulfilled",
+                      pricePaid: r.price_paid,
+                    })
+                  }
                 >
                   Mark redeemed
                 </Button>
                 <Button
                   variant="secondary"
                   disabled={busy}
-                  onClick={() => setConfirm({ id: r.id, status: "refunded" })}
+                  onClick={() =>
+                    setConfirm({
+                      id: r.id,
+                      status: "refunded",
+                      pricePaid: r.price_paid,
+                    })
+                  }
                 >
                   Refund coins
                 </Button>
@@ -135,7 +153,7 @@ export function AdminStoreRewards({
           <p className="mb-3">
             {confirm.status === "fulfilled"
               ? "Mark this one coupon redeemed? The student's available coupon count will decrease by one."
-              : "Return 5,000 coins and cancel this one coupon?"}
+              : `Return ${confirm.pricePaid.toLocaleString()} coins (the amount paid) and cancel this one coupon?`}
           </p>
           <div className="flex gap-2">
             <Button disabled={busy} onClick={() => void resolve()}>

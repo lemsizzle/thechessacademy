@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     .select(
       "id,student_id,kind,price_paid,status,created_at,resolved_at,students(display_name)",
     )
-    .eq("kind", "free_class");
+    .eq("prize_kind", "free_class");
   query = pending
     ? query.eq("status", "pending")
     : query.in("status", ["fulfilled", "refunded"]);

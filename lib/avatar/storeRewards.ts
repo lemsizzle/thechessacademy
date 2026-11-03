@@ -9,6 +9,7 @@ export type StoreRewardReceipt = {
   id: string;
   student_id: string;
   kind: StoreRewardKind;
+  prize_kind?: "avatar_item" | "free_class";
   price_paid: number;
   item_id: string | null;
   item_snapshot: {
@@ -23,6 +24,9 @@ export type StoreRewardReceipt = {
   created_at: string;
   resolved_at: string | null;
 };
+export function isFreeClassReward(receipt: StoreRewardReceipt) {
+  return receipt.prize_kind === "free_class" || receipt.kind === "free_class";
+}
 export function mysteryBoxPool(
   items: AvatarItem[],
   ownedIds: readonly string[],

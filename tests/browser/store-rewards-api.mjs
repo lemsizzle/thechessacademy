@@ -54,9 +54,45 @@ export async function handle(req, res) {
     let raw = "";
     for await (const chunk of req) raw += chunk;
     const body = raw ? JSON.parse(raw) : {};
-    if (url.pathname === "/__store/init") {
+    if (url.pathname === "/__store/prepare-coupon") {
+      // Only this local fixture can prepare a deterministic prize. Probe the real
+      // RPC in rolled-back transactions, then replay its RNG seed on purchase.
+      const eligible = items
+        .filter(
+          (i) =>
+            i.isActive &&
+            i.unlockType === "purchase" &&
+            i.price > 0 &&
+            i.category !== "board_theme",
+        )
+        .sort((a, b) => b.price - a.price);
+      for (const i of eligible.slice(1))
+        await db.query(
+          "insert into student_inventory(student_id,item_id,acquisition_type) values($1,$2,'purchase') on conflict do nothing",
+          [student, i.id],
+        );
+      await db.query(
+        "delete from student_inventory where student_id=$1 and item_id=$2",
+        [student, eligible[0].id],
+      );
+      let seed = null;
+      for (let n = 0; n < 1000; n++) {
+        await db.exec("begin");
+        await db.query("select setseed($1)", [n / 1000]);
+        const receipt = await buy(db, student, "mystery_box");
+        await db.exec("rollback");
+        if (receipt.prize_kind === "free_class") {
+          seed = n / 1000;
+          break;
+        }
+      }
+      if (seed === null) throw Error("Could not prepare fixture coupon");
+      await db.query("select setseed($1)", [seed]);
+      json({ ok: true });
+    } else if (url.pathname === "/__store/init") {
       if (!items.length) {
         items = body;
+        await db.query("select setseed(0.42)");
         for (const item of items) {
           await db.query(
             "insert into avatar_items(id,name,price,category,unlock_type,is_active,rarity,asset_url,thumbnail_url) values($1,$2,$3,$4,$5,$6,$7,$8,$9)",
@@ -107,7 +143,7 @@ export async function handle(req, res) {
       else {
         const rows = (
           await db.query(
-            "select r.*,jsonb_build_object('display_name','Explorer') students from store_reward_receipts r where kind='free_class' order by created_at",
+            "select r.*,jsonb_build_object('display_name','Explorer') students from store_reward_receipts r where prize_kind='free_class' order by created_at",
             [],
           )
         ).rows;
