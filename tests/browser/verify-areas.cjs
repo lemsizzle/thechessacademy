@@ -11,7 +11,7 @@ const { chromium, webkit } = require(process.env.PLAYWRIGHT_MODULE || 'playwrigh
             const page = await browser.newPage({ viewport: { width, height: 1100 }, hasTouch: true });
             page.setDefaultTimeout(8000);
             const errors = [];
-            page.on('pageerror', e => errors.push(e.message));
+            page.on('pageerror', e => errors.push(e.stack || e.message));
             let area;
             try {
                 for (area of (process.env.GAMEPLAY_AREAS?.split(',') || ['analysis', 'promotion', 'review', 'star', 'hide', 'puzzle', 'adventure', 'boss', 'bot', 'spectator', 'arena'])) {
@@ -63,6 +63,13 @@ const { chromium, webkit } = require(process.env.PLAYWRIGHT_MODULE || 'playwrigh
                         await tap('e4');
                         await page.waitForFunction(() => window.audit.requests.some(r => r.path.endsWith('/move')));
                         assert.equal(await page.evaluate(() => window.audit.requests.filter(r => r.path.endsWith('/move')).length), 1);
+                        // A request being sent does not mean React has committed the
+                        // completion UI or finished moving the pawn. Capture the
+                        // resulting board, including its effects, before navigating.
+                        await page.getByRole('heading', { name: 'Puzzle complete', exact: true }).waitFor();
+                        await page.waitForFunction(() =>
+                            !document.querySelector('[data-square="e2"] [data-piece]') &&
+                            document.querySelector('[data-square="e4"] [data-piece="wP"]'));
                     }
                     if (area === 'star') {
                         const moves = await page.evaluate(() => window.audit.starSolution());
@@ -129,6 +136,15 @@ assert.equal(geometry.count,64);assert(Math.abs(geometry.w-geometry.h)<1 && Math
                 }
             }
             catch (e) {
+                // Keep the stack and board geometry in the uploaded JSON artifacts;
+                // failure.txt is useful locally but is not collected by CI.
+                const boards = await page.locator('[data-chess-board]').evaluateAll(elements => elements.map(element => {
+                    const { x, y, width, height } = element.getBoundingClientRect();
+                    return { x, y, width, height, squares: element.querySelectorAll('[data-square]').length };
+                }));
+                fs.writeFileSync(`work/gameplay-audit/FAILED-${engine}-${area}-${width}.json`, JSON.stringify({
+                    engine, width, area, url: page.url(), error: e.stack || String(e), pageErrors: errors, boards
+                }, null, 2));
                 await page.screenshot({ path: `work/gameplay-audit/FAILED-${engine}-${area}-${width}.png`, fullPage: true });
                 fs.writeFileSync('work/gameplay-audit/failure.txt', await page.locator('body').innerText());
                 throw e;

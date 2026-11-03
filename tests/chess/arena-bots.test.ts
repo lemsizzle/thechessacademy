@@ -80,10 +80,19 @@ describe("server-run Arena Stockfish", () => {
     expect(() => chess.move({ from: move.slice(0, 2), to: move.slice(2, 4), promotion: move[4] })).not.toThrow();
   }, 15_000);
 
-  it("handles promotion on the server", async () => {
-    const chess = new Chess("8/2P5/8/8/8/6k1/8/7K w - - 0 1");
+  it.each([
+    ["white", "8/2P5/8/8/8/6b1/5k2/7K w - - 0 1", "c7c8"],
+    ["black", "7k/5K2/6B1/8/8/8/2p5/8 b - - 0 1", "c2c1"]
+  ])("handles forced %s promotion on the server", async (_color, fen, movePrefix) => {
+    // The king has no legal moves. The previous fixture also allowed h1g1,
+    // which the intentionally varied bot can legitimately choose instead.
+    const chess = new Chess(fen);
+    expect(chess.isGameOver()).toBe(false);
+    expect(chess.moves({ verbose: true }).map(move => move.lan).sort()).toEqual(
+      ["b", "n", "q", "r"].map(suffix => movePrefix + suffix)
+    );
     const move = await chooseArenaBotMove(chess.fen(), "queen", { moveHistory: [] });
-    expect(move).toMatch(/^c7c8[qrbn]$/);
+    expect(move).toMatch(new RegExp(`^${movePrefix}[qrbn]$`));
     expect(chess.move({ from: move.slice(0, 2), to: move.slice(2, 4), promotion: move[4] }).promotion).toBeTruthy();
   }, 15_000);
 });
