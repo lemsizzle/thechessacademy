@@ -266,7 +266,7 @@ export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle
       return;
     }
     if (mistakeReviewActive) {
-      mistakeReview.submitMove(from, to, promotion);
+      void mistakeReview.submitMove(from, to, promotion);
       return;
     }
     if (guidedExercise) {
@@ -401,6 +401,11 @@ export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle
     activePuzzle={mistakeReview.activePuzzle}
     result={mistakeReview.result}
     explorationMoveCount={mistakeReview.explorationMoveCount}
+    checking={mistakeReview.checking}
+    checkError={mistakeReview.checkError}
+    hint={mistakeReview.hint}
+    hintLevel={mistakeReview.hintLevel}
+    onHint={mistakeReview.showHint}
     queueSave={mistakeReview.queueSave}
     onScan={mistakeReview.scan}
     onCancel={mistakeReview.cancel}
@@ -442,7 +447,7 @@ export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle
                   fen={displayFen}
                   orientation={orientation}
                   humanColor={moveColor}
-                  interactive={mistakeReviewActive ? mistakeReview.result?.status !== "revealed" : guidedExercise ? guidedResult?.status !== "correct" && !guidedBusy : editable}
+                  interactive={mistakeReviewActive ? !mistakeReview.checking && mistakeReview.result?.status !== "revealed" : guidedExercise ? guidedResult?.status !== "correct" && !guidedBusy : editable}
                   lastMove={lastMove}
                   onMove={makeMove}
                   arrows={boardArrows}

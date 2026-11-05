@@ -7,6 +7,7 @@ import { continueExploration, playReviewMove, resetExploration as resetExplorati
 import type { AnalysisTree } from "@/chess/analysis/types";
 import { AnalysisStockfishService } from "@/chess/engine/AnalysisStockfishService";
 import type { StockfishCandidate } from "@/chess/types";
+import { isGoodReviewMove, reviewHint, scoreReviewMove, type ReviewScore } from "@/chess/analysis/reviewFeedback";
 
 type PuzzleResult = { status: "incorrect" | "correct" | "revealed"; attemptedSan: string; attemptedUci: string } | null;
 
@@ -24,6 +25,12 @@ function lineToSan(fen: string, pv: string[]) {
 }
 
 function normalizeEvaluation(nodeId: string, fen: string, lines: StockfishCandidate[]): PositionEvaluation | null {
+  const position = new Chess(fen);
+  if (position.isGameOver()) return {
+    nodeId, scoreWhiteCp: position.isCheckmate() ? null : 0,
+    mateWhite: position.isCheckmate() ? (position.turn() === "w" ? -1 : 1) : null,
+    bestMoveUci: "", acceptedMovesUci: [], bestLineSan: "", depth: 0
+  };
   const line = lines[0];
   if (!line) return null;
   const whiteToMove = fen.split(" ")[1] === "w";
@@ -41,6 +48,13 @@ function normalizeEvaluation(nodeId: string, fen: string, lines: StockfishCandid
 export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "black", reviewGameId?: string) {
   const serviceRef = useRef<AnalysisStockfishService | null>(null);
   const scanRef = useRef(0);
+  const checkRef = useRef(0);
+  const checkServiceRef = useRef<AnalysisStockfishService | null>(null);
+  const checkingRef = useRef(false);
+  const scoresRef = useRef(new Map<string, ReviewScore>());
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState("");
+  const [hintLevel, setHintLevel] = useState(0);
   const [status, setStatus] = useState<"idle" | "scanning" | "ready" | "error">("idle");
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState("");
@@ -51,12 +65,23 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
   const [explorationLine, setExplorationLine] = useState<ExplorationPosition[]>([]);
   const [queueSave, setQueueSave] = useState<{ status: "idle" | "saving" | "saved" | "error"; message: string }>({ status: "idle", message: "" });
 
+  const cancelCheck = useCallback(() => {
+    checkRef.current += 1;
+    checkServiceRef.current?.terminate();
+    checkServiceRef.current = null;
+    checkingRef.current = false;
+    setChecking(false);
+    setCheckError("");
+    setHintLevel(0);
+  }, []);
+
   const cancel = useCallback(() => {
+    cancelCheck();
     scanRef.current += 1;
     serviceRef.current?.terminate();
     serviceRef.current = null;
     setStatus((value) => value === "scanning" ? "idle" : value);
-  }, []);
+  }, [cancelCheck]);
 
   const scan = useCallback(async () => {
     if (!reviewColor) return;
@@ -68,6 +93,7 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
     setStatus("scanning");
     setError("");
     setPuzzles([]);
+    scoresRef.current.clear();
     setActiveIndex(null);
     setResult(null);
     setDisplayFen(null);
@@ -123,29 +149,32 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
 
   const open = useCallback((index = 0) => {
     if (!puzzles[index]) return;
+    cancelCheck();
     setActiveIndex(index);
     setResult(null);
     setDisplayFen(puzzles[index].fen);
     setExplorationLine([]);
-  }, [puzzles]);
+  }, [cancelCheck, puzzles]);
 
   const close = useCallback(() => {
+    cancelCheck();
     setActiveIndex(null);
     setResult(null);
     setDisplayFen(null);
     setExplorationLine([]);
-  }, []);
+  }, [cancelCheck]);
 
   const goTo = useCallback((index: number) => {
     if (!puzzles[index]) return;
+    cancelCheck();
     setActiveIndex(index);
     setResult(null);
     setDisplayFen(puzzles[index].fen);
     setExplorationLine([]);
-  }, [puzzles]);
+  }, [cancelCheck, puzzles]);
 
-  const submitMove = useCallback((from: string, to: string, promotion?: "q" | "r" | "b" | "n") => {
-    if (activeIndex === null) return;
+  const submitMove = useCallback(async (from: string, to: string, promotion?: "q" | "r" | "b" | "n") => {
+    if (activeIndex === null || checkingRef.current || result?.status === "revealed") return;
     const puzzle = puzzles[activeIndex];
     if (!puzzle) return;
     const uci = `${from}${to}${promotion ?? ""}`;
@@ -158,14 +187,65 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
     }
     const played = playReviewMove(puzzle.fen, uci);
     if (!played) return;
+    const finish = (accepted: boolean) => {
+      if (accepted) {
+        setResult({ status: "correct", attemptedSan: played.san, attemptedUci: uci });
+        setDisplayFen(played.fen);
+        setExplorationLine([{ fen: played.fen, lastMoveUci: uci }]);
+      } else {
+        setResult({ status: "incorrect", attemptedSan: played.san, attemptedUci: uci });
+        setDisplayFen(puzzle.fen);
+        setExplorationLine([]);
+      }
+    };
+    setCheckError("");
     if (puzzle.acceptedMovesUci.includes(uci)) {
-      setResult({ status: "correct", attemptedSan: played.san, attemptedUci: uci });
-      setDisplayFen(played.fen);
-      setExplorationLine([{ fen: played.fen, lastMoveUci: uci }]);
-    } else {
-      setResult({ status: "incorrect", attemptedSan: played.san, attemptedUci: uci });
+      finish(true);
+      return;
+    }
+    // The original mistake must not pass because of a shallow re-analysis.
+    if (uci === puzzle.playedMoveUci) {
+      finish(false);
+      return;
+    }
+    const request = ++checkRef.current;
+    checkingRef.current = true;
+    setChecking(true);
+    setResult(null);
+    setDisplayFen(played.fen);
+    const service = checkServiceRef.current ?? new AnalysisStockfishService();
+    checkServiceRef.current = service;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const score = async (move: string) => {
+        const key = `${puzzle.fen}:${move}`;
+        const cached = scoresRef.current.get(key);
+        if (cached) return cached;
+        const value = await scoreReviewMove(puzzle.fen, move, (fen, ms) => service.analyze(fen, ms));
+        if (request === checkRef.current) scoresRef.current.set(key, value);
+        return value;
+      };
+      const accepted = await Promise.race([
+        (async () => {
+          const best = await score(puzzle.bestMoveUci);
+          if (request !== checkRef.current) return false;
+          return isGoodReviewMove(best, await score(uci));
+        })(),
+        new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("Move checking took too long. Please try again or use a hint.")), 12_000); })
+      ]);
+      if (request === checkRef.current) finish(accepted);
+    } catch (cause) {
+      if (request !== checkRef.current) return;
+      service.terminate();
+      checkServiceRef.current = null;
       setDisplayFen(puzzle.fen);
-      setExplorationLine([]);
+      setCheckError(cause instanceof Error ? cause.message : "Could not check your move. Please try again.");
+    } finally {
+      clearTimeout(timer);
+      if (request === checkRef.current) {
+        checkingRef.current = false;
+        setChecking(false);
+      }
     }
   }, [activeIndex, explorationLine, puzzles, result?.status]);
 
@@ -173,11 +253,12 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
     if (activeIndex === null) return;
     const puzzle = puzzles[activeIndex];
     if (!puzzle) return;
+    cancelCheck();
     const best = playReviewMove(puzzle.fen, puzzle.bestMoveUci);
     setResult({ status: "revealed", attemptedSan: puzzle.bestMoveSan, attemptedUci: puzzle.bestMoveUci });
     setDisplayFen(best?.fen ?? puzzle.fen);
     setExplorationLine([]);
-  }, [activeIndex, puzzles]);
+  }, [activeIndex, cancelCheck, puzzles]);
 
   const undoExplorationMove = useCallback(() => {
     const nextLine = undoExploration(explorationLine);
@@ -197,6 +278,8 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
   useEffect(() => () => {
     scanRef.current += 1;
     serviceRef.current?.terminate();
+    checkRef.current += 1;
+    checkServiceRef.current?.terminate();
   }, []);
 
   const activePuzzle = activeIndex === null ? null : puzzles[activeIndex] ?? null;
@@ -206,6 +289,9 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
   return {
     status, progress, error, puzzles, activeIndex, activePuzzle, result,
     displayFen, lastMoveUci, explorationMoveCount, queueSave,
+    checking, checkError, hintLevel,
+    hint: activePuzzle && hintLevel ? reviewHint(activePuzzle.fen, activePuzzle.bestMoveUci, hintLevel) : "",
+    showHint: () => setHintLevel((level) => Math.min(2, level + 1)),
     scan, cancel, open, close, goTo, submitMove, reveal, undoExplorationMove, resetExploration
   };
 }

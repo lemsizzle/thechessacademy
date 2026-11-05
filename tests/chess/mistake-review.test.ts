@@ -96,6 +96,13 @@ describe("learn from your mistakes", () => {
     expect(evaluationAsCentipawns({ scoreWhiteCp: null, mateWhite: -2 })).toBe(-99_800);
   });
 
+  it("does not create a new blunder just because an already forced mate gets shorter", () => {
+    const tree = gameLine();
+    const ids = mainlineNodeIds(tree);
+    const evaluations = ids.map((id, index) => ({ ...evaluation(id, 0, "d2d4"), mateWhite: index ? -2 : -5 }));
+    expect(buildMistakePuzzles(tree, evaluations, "white")).toEqual([]);
+  });
+
   it("turns only the selected player's evaluation drops into puzzles", () => {
     const tree = gameLine();
     const [root, whiteMove, blackMove, secondWhiteMove, secondBlackMove] = mainlineNodeIds(tree);
@@ -118,7 +125,7 @@ describe("learn from your mistakes", () => {
       bestMoveSan: "d4",
       centipawnLoss: 230,
       severity: "blunder",
-      explanation: expect.stringContaining("keeping your pieces safe and active"),
+      explanation: expect.stringContaining("Look at what e5 threatens"),
       solutionExplanation: expect.stringContaining("d4 improves your position")
     });
     expect(blackPuzzles).toHaveLength(0);

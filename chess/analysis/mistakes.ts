@@ -1,6 +1,7 @@
 import { Chess } from "chess.js";
 import type { AnalysisTree } from "@/chess/analysis/types";
 import type { StockfishCandidate } from "@/chess/types";
+import { concreteMistakeReason } from "./reviewFeedback";
 
 export const MISTAKE_EQUIVALENT_MOVE_MARGIN_CP = 35;
 export const MAX_KEY_MOMENTS = 3;
@@ -217,10 +218,16 @@ export function buildMistakePuzzles(
     const beforeCp = evaluationAsCentipawns(before);
     const afterCp = evaluationAsCentipawns(after);
     if (beforeCp === null || afterCp === null) continue;
+    // Changing the length of an already forced mate is not a new blunder.
+    if (before.mateWhite !== null && after.mateWhite !== null && Math.sign(before.mateWhite) === Math.sign(after.mateWhite)) continue;
     const loss = Math.max(0, Math.round(reviewColor === "white" ? beforeCp - afterCp : afterCp - beforeCp));
     const severity = classifyCentipawnLoss(loss);
     if (!severity || severity === "inaccuracy") continue;
     const bestMoveSan = sanForUci(beforeNode.fen, before.bestMoveUci);
+    const direction = reviewColor === "white" ? 1 : -1;
+    const allowsMate = after.mateWhite !== null && after.mateWhite * direction < 0;
+    const missedMate = !allowsMate && before.mateWhite !== null && before.mateWhite * direction > 0
+      && (after.mateWhite === null || after.mateWhite * direction <= 0);
 
     puzzles.push({
       id: `mistake-${afterNode.id}`,
@@ -236,7 +243,7 @@ export function buildMistakePuzzles(
       bestMoveUci: before.bestMoveUci,
       acceptedMovesUci,
       bestLineSan: before.bestLineSan,
-      explanation: explainMistake({
+      explanation: missedMate ? `${afterNode.san} misses a forced checkmate. You had an attack that could finish the game. Look at your checks and the king's escape squares.` : concreteMistakeReason(beforeNode.fen, afterNode.uci, after.bestLineSan, allowsMate) ?? explainMistake({
         playedMoveSan: afterNode.san,
         bestMoveSan,
         replyLineSan: after.bestLineSan,

@@ -12,6 +12,11 @@ type Props = {
   activePuzzle: MistakePuzzle | null;
   result: { status: "incorrect" | "correct" | "revealed"; attemptedSan: string } | null;
   explorationMoveCount: number;
+  checking: boolean;
+  checkError: string;
+  hint: string;
+  hintLevel: number;
+  onHint: () => void;
   queueSave?: { status: "idle" | "saving" | "saved" | "error"; message: string };
   onScan: () => void;
   onCancel: () => void;
@@ -73,20 +78,28 @@ export function MistakeReviewPanel(props: Props) {
       {props.status === "ready" && props.activeIndex !== null && props.activePuzzle && <div aria-live="polite">
         <div className="flex items-center justify-between gap-3"><span className={`rounded px-2 py-1 text-[10px] font-black uppercase ${severityStyle[props.activePuzzle.severity]}`}>{props.activePuzzle.severity}</span><span className="text-xs font-bold text-slate-400">Key moment {props.activeIndex + 1} of {props.puzzles.length}</span></div>
         <p className="mt-3 text-lg font-black text-white">You played {props.activePuzzle.playedMoveSan}</p>
-        <p className="mt-1 text-sm text-slate-300">The red arrow shows the move played in the game. Find the best move instead.</p>
+        <p className="mt-1 text-sm text-slate-300">The red arrow shows your move from the game. Find a good move instead—it does not have to be the best move.</p>
         <div className="mt-3 rounded-md border border-rose-300/20 bg-rose-300/10 p-3">
           <p className="text-[10px] font-black uppercase tracking-wider text-rose-200">Why this was a mistake</p>
           <p className="mt-1 text-sm leading-5 text-rose-50">{props.activePuzzle.explanation}</p>
         </div>
-        {!props.result && <p className="mt-3 rounded-md bg-black/20 p-3 text-xs text-slate-400">Move {props.activePuzzle.moveNumber} · about {(props.activePuzzle.centipawnLoss / 100).toFixed(1)} pawns lost</p>}
-        {props.result?.status === "incorrect" && <div className="mt-3 rounded-md border border-amber-300/25 bg-amber-300/10 p-3"><p className="text-sm font-black text-amber-100">{props.result.attemptedSan} is not the best move. Try again.</p><button type="button" onClick={props.onReveal} className="mt-2 text-xs font-black text-amber-50 underline underline-offset-2">View the solution</button></div>}
+        {props.checking && <p role="status" className="mt-3 text-sm font-bold text-cyan-100">Checking your move…</p>}
+        {props.checkError && <p role="alert" className="mt-3 text-sm text-amber-100">{props.checkError}</p>}
+        {props.result?.status === "incorrect" && <div className="mt-3 rounded-md border border-amber-300/25 bg-amber-300/10 p-3"><p className="text-sm font-black text-amber-100">{props.result.attemptedSan} still gives too much away. Try another move or use a hint.</p></div>}
+        {props.result?.status !== "correct" && props.result?.status !== "revealed" && <div className="mt-3">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={props.hintLevel >= 2 || props.checking} onClick={props.onHint} className="min-h-11 rounded-md border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-black text-cyan-100 disabled:opacity-40">{props.hintLevel ? "Another hint" : "Hint"}</button>
+            <button type="button" onClick={props.onReveal} className="min-h-11 rounded-md border border-white/15 px-4 py-2 text-sm font-bold text-slate-300">Show a good move</button>
+          </div>
+          {props.hint && <p className="mt-2 rounded-md border border-cyan-300/20 bg-cyan-300/10 p-3 text-sm leading-5 text-cyan-50">{props.hint}</p>}
+        </div>}
         {(props.result?.status === "correct" || props.result?.status === "revealed") && <div className="mt-3 rounded-md border border-emerald-300/25 bg-emerald-300/10 p-3">
-          <p className="text-sm font-black text-emerald-100">{props.result.status === "correct" ? `Correct — ${props.result.attemptedSan}!` : `Best move: ${props.activePuzzle.bestMoveSan}`}</p>
+          <p className="text-sm font-black text-emerald-100">{props.result.status === "correct" ? `Good move — ${props.result.attemptedSan}!` : `One good move: ${props.activePuzzle.bestMoveSan}`}</p>
           <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-emerald-200">Why this move works</p>
           <p className="mt-1 text-sm leading-5 text-emerald-50">{props.result.status === "correct" && props.result.attemptedSan !== props.activePuzzle.bestMoveSan
-            ? `${props.result.attemptedSan} is also a strong move. It avoids the problem from the game and keeps your position active.`
+            ? `${props.result.attemptedSan} also works! The engine confirms it is a sound alternative here. You do not need to match its first choice.`
             : props.activePuzzle.solutionExplanation}</p>
-          {props.activePuzzle.bestLineSan && <p className="mt-2 text-xs leading-5 text-emerald-100/80">Best line: {props.activePuzzle.bestLineSan}</p>}
+          {props.activePuzzle.bestLineSan && props.result.attemptedSan === props.activePuzzle.bestMoveSan && <p className="mt-2 text-xs leading-5 text-emerald-100/80">Example continuation: {props.activePuzzle.bestLineSan}</p>}
         </div>}
         {props.result?.status === "correct" && <div className="mt-3 rounded-md border border-cyan-300/25 bg-cyan-300/10 p-3">
           <p className="text-sm font-black text-cyan-100">Board unlocked</p>
