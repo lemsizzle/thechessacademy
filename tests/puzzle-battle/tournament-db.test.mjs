@@ -19,7 +19,7 @@ test("tournaments persist fair rounds, private bots, final results and access co
       {a:entries[4],b:null}];
     await db.query("select start_puzzle_tournament_round($1,$2,$3,$4)",[tid,initial.version,JSON.stringify(pairs),deck]);
     await assert.rejects(()=>db.query("select start_puzzle_tournament_round($1,$2,$3,$4)",[tid,initial.version,JSON.stringify(pairs),deck]),/changed/);
-    await assert.rejects(()=>db.query("select edit_puzzle_tournament_entry($1,'join',$2)",[tid,JSON.stringify({id:randomUUID(),studentId:humans[0],name:"Late"})]),/locked/);
+    await assert.rejects(()=>db.query("select edit_puzzle_tournament_entry($1,'remove',$2)",[tid,JSON.stringify({id:entries[0]})]),/locked/);
     const t=await snap();assert.equal(t.round,1);assert.equal(t.matches.length,3);
     assert.ok(t.roundStartsAt > Date.now());
     assert.equal((await db.query("select claim_puzzle_tournament_round($1,$2,$3) value",[tid,t.version,randomUUID()])).rows[0].value,false);

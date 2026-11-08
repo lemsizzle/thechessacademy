@@ -18,9 +18,19 @@ it("requires teacher authorization before creation or reads",async()=>{
 it("rejects expired students and student attempts to host or add bots",async()=>{
   expect((await POST(request({action:"bot",id}))).status).toBe(403);
   expect((await POST(request({action:"start",id}))).status).toBe(403);
+  expect((await POST(request({action:"schedule",id}))).status).toBe(403);
   m.auth.mockRejectedValue(new StudentAuthenticationError());
   expect((await GET(request())).status).toBe(401);
   expect(m.rpc).not.toHaveBeenCalled();
+});
+it("accepts explicit timezone schedules for teachers and rejects invalid dates",async()=>{
+  m.admin.mockResolvedValue(true);
+  const startsAt="2027-01-01T14:30:00+07:00";
+  expect((await adminPOST(request({action:"create",requestId:id,title:"Later",mode:"survival",duration:60,rounds:2,startsAt}))).status).toBe(200);
+  expect(m.rpc).toHaveBeenCalledWith("create_scheduled_puzzle_tournament",expect.objectContaining({p_starts_at:"2027-01-01T07:30:00.000Z"}));
+  expect((await adminPOST(request({action:"schedule",id,version:2,startsAt:null}))).status).toBe(200);
+  expect(m.rpc).toHaveBeenCalledWith("set_puzzle_tournament_schedule",{p_id:id,p_version:2,p_starts_at:null});
+  for(const value of ["nonsense","2027-01-01T10:00",123]) expect((await adminPOST(request({action:"schedule",id,version:2,startsAt:value}))).status).toBe(400);
 });
 it("joins only the signed-in student, ignoring supplied identity or rating",async()=>{
   expect((await POST(request({action:"join",id,studentId:"victim",name:"Fake",elo:2400}))).status).toBe(200);

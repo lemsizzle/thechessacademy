@@ -3,10 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { TournamentRoundCountdown } from "./TournamentRoundProgress";
+import { PuzzleTournamentScheduleEditor, ScheduledTournamentStart, ScheduleInput } from "./PuzzleTournamentSchedule";
 import { BATTLE_LABELS, BATTLE_MODES, BATTLE_TIMES, type BattleMode } from "@/lib/puzzle-battle/types";
 import { tournamentStandings, type PuzzleTournament, type TournamentEntry } from "@/lib/puzzle-battle/tournament";
 
-type Summary = Pick<PuzzleTournament, "id" | "title" | "mode" | "duration" | "rounds" | "round" | "status"> & { players: number };
+type Summary = Pick<PuzzleTournament, "id" | "title" | "mode" | "duration" | "rounds" | "round" | "status" | "startsAt"> & { players: number };
 const field = "mt-1 block min-h-11 w-full rounded-lg border border-white/20 bg-slate-950 px-3 py-2 text-white";
 function EloEditor({ entry, disabled, save }: { entry: TournamentEntry; disabled: boolean; save: (elo: number) => void }) {
   const [elo, setElo] = useState(entry.elo ?? 800);
@@ -23,6 +24,7 @@ export function PuzzleTournaments({ teacher = false, adminActionToken = "" }: { 
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [title, setTitle] = useState("Class Puzzle Cup"), [mode, setMode] = useState<BattleMode>("survival");
   const [duration, setDuration] = useState(180), [rounds, setRounds] = useState(3);
+  const [startsAt, setStartsAt] = useState("");
   const [botName, setBotName] = useState("Maple Knight"), [elo, setElo] = useState(800);
   const [confirm, setConfirm] = useState<{ action: string; entryId?: string; label: string } | null>(null);
   const [shownRound, setShownRound] = useState<number | null>(null);
@@ -80,7 +82,8 @@ export function PuzzleTournaments({ teacher = false, adminActionToken = "" }: { 
       if (action === "create") createId.current = null;
       if (action === "bot") { botId.current = null; setBotName(""); }
       setNotice(action === "start" ? `Round ${data.tournament.round} starts after the countdown. Students can open their assigned battles now.` : action === "join" ? "You're in! Stay here for your pairing." : "Saved.");
-    } catch (e) { if (token === generation.current) setError(e instanceof Error ? e.message : "Couldn't save. Please retry."); }
+      return true;
+    } catch (e) { if (token === generation.current) setError(e instanceof Error ? e.message : "Couldn't save. Please retry."); return false; }
     finally { writing.current = false; setBusy(false); }
   }
   const t = tournament;
@@ -88,6 +91,7 @@ export function PuzzleTournaments({ teacher = false, adminActionToken = "" }: { 
   const myMatch = t?.matches.find(m => m.round === t.round && (m.a === t.me || m.b === t.me));
   const roundMatches = t?.matches.filter(m => m.round === (shownRound ?? t.round)) ?? [];
   const canStart = t && ["waiting","active"].includes(t.status) && t.entries.length >= 2 && t.round < t.rounds && !t.matches.some(m => !m.result);
+  const acceptingEntries = t && (t.status === "waiting" || (t.status === "active" && t.round < t.rounds));
   const names = new Map(t?.entries.map(e => [e.id,e.name]));
   return <div className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -99,31 +103,37 @@ export function PuzzleTournaments({ teacher = false, adminActionToken = "" }: { 
     {!loaded && <p role="status" className="text-slate-300">Loading tournaments…</p>}
     {!id && <>
       {teacher && <Card className="p-5"><h3 className="text-lg font-black">Host a Puzzle Battle tournament</h3>
-        <form className="mt-4 grid gap-4 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); createId.current ??= crypto.randomUUID(); void act("create",{ requestId: createId.current, title, mode, duration, rounds }); }}>
+        <form className="mt-4 grid gap-4 sm:grid-cols-2" onSubmit={e => { e.preventDefault(); createId.current ??= crypto.randomUUID(); void act("create",{ requestId: createId.current, title, mode, duration, rounds, startsAt: startsAt ? new Date(startsAt).toISOString() : null }); }}>
           <label className="text-sm font-bold">Tournament name<input required maxLength={80} value={title} onChange={e => { setTitle(e.target.value); createId.current = null; }} className={field} /></label>
           <label className="text-sm font-bold">Battle mode<select className={field} value={mode} onChange={e => { setMode(e.target.value as BattleMode); createId.current=null; }}>{BATTLE_MODES.map(m => <option key={m} value={m}>{BATTLE_LABELS[m]}</option>)}</select></label>
           <label className="text-sm font-bold">Time per battle<select className={field} value={duration} onChange={e => { setDuration(Number(e.target.value)); createId.current=null; }}>{BATTLE_TIMES.map(n => <option key={n} value={n}>{n/60} min</option>)}</select></label>
           <label className="text-sm font-bold">Number of rounds<input className={field} type="number" min={1} max={9} value={rounds} onChange={e => { setRounds(Number(e.target.value)); createId.current=null; }} /></label>
-          <p className="text-sm text-slate-300 sm:col-span-2">Start the tournament once. Later rounds begin automatically when every battle finishes, with a 10-second countdown. Up to 32 players, including bots.</p>
+          <ScheduleInput value={startsAt} onChange={value => { setStartsAt(value); createId.current=null; }} />
+          <p className="text-sm text-slate-300 sm:col-span-2">Schedule a start or start manually. Later rounds begin automatically when every battle finishes, with a 10-second countdown. Up to 32 players, including bots.</p>
           <Button type="submit" disabled={busy}>{busy ? "Creating…" : "Create tournament"}</Button>
         </form></Card>}
       <Card className="p-5"><h3 className="text-lg font-black">Tournament lobbies</h3>{loaded && !list.length && <p className="mt-3 text-slate-400">No Puzzle Battle tournaments yet.{!teacher && " Your teacher can host one here."}</p>}
-        <ul className="divide-y divide-white/10">{list.map(item => <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><p className="font-bold">{item.title}</p><p className="text-sm text-slate-400">{BATTLE_LABELS[item.mode]} · {item.duration/60} min · {item.rounds} rounds · {item.players} players · {item.status === "waiting" ? "Open for entry" : item.status}</p></div><Button onClick={() => open(item.id)} variant="secondary">Open lobby</Button></li>)}</ul>
+        <ul className="divide-y divide-white/10">{list.map(item => <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><p className="font-bold">{item.title}</p><p className="text-sm text-slate-400">{BATTLE_LABELS[item.mode]} · {item.duration/60} min · {item.rounds} rounds · {item.players} players · {item.status === "waiting" ? "Open for entry" : item.status}</p>{item.status === "waiting" && item.startsAt && <p className="mt-1 text-sm font-bold text-cyan-100">Scheduled: {new Date(item.startsAt).toLocaleString()}</p>}</div><Button onClick={() => open(item.id)} variant="secondary">Open lobby</Button></li>)}</ul>
       </Card>
     </>}
     {t && <>
       <Card className="space-y-4 p-5">
+        {t.status === "waiting" && t.startsAt && <ScheduledTournamentStart tournament={t} onDue={load} />}
+        {teacher && t.status === "waiting" && <PuzzleTournamentScheduleEditor key={`${t.id}:${t.startsAt ?? "manual"}`} tournament={t} disabled={busy} save={value => act("schedule", { startsAt: value, version: t.version })} />}
         <p className="font-bold text-cyan-100">{BATTLE_LABELS[t.mode]} · {t.duration/60} min per battle · {t.status === "waiting" ? `${t.rounds} rounds planned` : `Round ${t.round} of ${t.rounds}`} · {t.status === "waiting" ? "Registration open" : t.status}</p>
         <p className="text-sm leading-6 text-slate-300">Win = 2 points, draw = 1, loss = 0. An odd player gets a bye worth 2 points; byes rotate. Players with equal points share a place. Pairings favor similar scores and avoid repeats when possible. Everyone gets the same puzzles each round.</p>
         <p className="text-sm text-slate-300">{t.mode === "hide-and-seek" ? "Hide and Seek: one board. First to find every safe square wins; a wrong square loses immediately. An unfinished race at the time limit is a draw." : "Survival and Star Wars: three lives. Each completed puzzle earns one battle point; the higher score when the battle ends wins."}</p>
         <div className="flex flex-wrap gap-2">
-          {!teacher && t.status === "waiting" && <Button disabled={busy || (!t.me && t.entries.length >= 32)} onClick={() => t.me ? setConfirm({ action:"leave",label:"Leave this tournament before it starts?" }) : void act("join")}>{t.me ? "Leave tournament" : "Join tournament"}</Button>}
+          {!teacher && ((acceptingEntries && !t.me) || (t.status === "waiting" && t.me)) && <Button disabled={busy || (!t.me && t.entries.length >= 32)} onClick={() => t.me ? setConfirm({ action:"leave",label:"Leave this tournament before it starts?" }) : void act("join")}>{t.me ? "Leave tournament" : t.status === "active" ? "Join next round" : "Join tournament"}</Button>}
           <Button variant="secondary" onClick={async () => { const url = `${location.origin}/student/tournaments/puzzle?id=${t.id}`; try { await navigator.clipboard.writeText(url); setNotice("Student lobby link copied."); } catch { setNotice(url); } }}>Copy student link</Button>
-          {teacher && t.status === "waiting" && <Button disabled={busy || !canStart} onClick={() => void act("start",{ version:t.version })}>{busy ? "Preparing…" : "Start tournament"}</Button>}
+          {teacher && t.status === "waiting" && <Button disabled={busy || !canStart} onClick={() => void act("start",{ version:t.version })}>{busy ? "Preparing…" : t.startsAt ? "Start now" : "Start tournament"}</Button>}
           {teacher && ["waiting","active"].includes(t.status) && <Button variant="ghost" disabled={busy} onClick={() => setConfirm({action:"cancel",label:"Cancel this tournament? Unfinished battles will close. Completed round results stay in history."})}>Cancel tournament</Button>}
         </div>
         {t.status === "active" && <><TournamentRoundCountdown tournament={t} /><p className="text-sm text-amber-100">{t.advanceError || (t.matches.some(m => !m.result) ? "Open your battle to play. The next round begins automatically once every battle finishes." : "Round complete. Preparing the next pairings automatically…")}</p></>}
         {!teacher && t.me && t.status === "waiting" && <p className="text-sm text-emerald-200">You're registered. Stay in the lobby for your first pairing.</p>}
+        {t.status === "active" && acceptingEntries && <p className="text-sm text-slate-300">Late entries are open. New players start with 0 points in the next round; current battles stay unchanged.</p>}
+        {!teacher && t.status === "active" && !t.me && !acceptingEntries && <p className="text-sm text-slate-300">The final round is underway. Registration is closed for this tournament.</p>}
+        {!teacher && t.status === "active" && t.me && !myMatch && <p role="status" className="rounded-lg border border-emerald-200/30 p-3 font-bold text-emerald-200">You're registered for round {t.round + 1}. Stay here for your pairing after the current battles finish.</p>}
         {t.status === "finished" && <p className="text-lg font-black text-amber-200">Tournament complete! {rows.filter(r => r.rank === 1).map(r => r.name).join(" and ")} {rows.filter(r => r.rank === 1).length > 1 ? "share first place" : "takes first place"}.</p>}
       </Card>
       {confirm && <Card className="border-amber-200/30 p-4"><p>{confirm.label}</p><div className="mt-3 flex gap-2"><Button disabled={busy} onClick={() => void act(confirm.action,{entryId:confirm.entryId})}>Confirm</Button><Button disabled={busy} variant="secondary" onClick={() => setConfirm(null)}>Keep it</Button></div></Card>}
@@ -131,13 +141,14 @@ export function PuzzleTournaments({ teacher = false, adminActionToken = "" }: { 
         <p className="my-3">{myMatch.b ? `${names.get(myMatch.a)} vs ${names.get(myMatch.b)}` : "You have a bye this round: 2 points. Wait here for the next pairing."}</p>
         {myMatch.battleId && <Button href={`/student/training/battle?id=${myMatch.battleId}`}>{myMatch.result ? "View battle result" : "Play your battle"}</Button>}
       </Card>}
-      {teacher && t.status === "waiting" && <Card className="p-5"><h3 className="text-lg font-black">Add a bot</h3><p className="mt-2 text-sm text-slate-300">Elo controls puzzle solving speed and accuracy. Only you see ratings and bot controls; students see the same player names and presentation for everyone. Elo is an estimated difficulty, not a competitive rating.</p>
+      {teacher && acceptingEntries && <Card className="p-5"><h3 className="text-lg font-black">Add a bot</h3><p className="mt-2 text-sm text-slate-300">Elo controls puzzle solving speed and accuracy. Only you see ratings and bot controls; students see the same player names and presentation for everyone. Elo is an estimated difficulty, not a competitive rating.</p>
+        {t.status === "active" && <p className="mt-2 text-sm text-cyan-100">New players join round {t.round + 1} with 0 points.</p>}
         <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={e => { e.preventDefault(); botId.current ??= crypto.randomUUID(); void act("bot",{requestId:botId.current,name:botName,elo}); }}>
           <label className="grow text-sm font-bold">Player name<input className={field} maxLength={60} required value={botName} onChange={e => { setBotName(e.target.value); botId.current=null; }} /></label>
           <label className="text-sm font-bold">Bot Elo<input className={`${field} max-w-32`} type="number" min={200} max={2400} step={1} value={elo} onChange={e => { setElo(Number(e.target.value)); botId.current=null; }} /></label>
           <Button type="submit" disabled={busy || t.entries.length >= 32}>Add player</Button>
         </form>
-        <div className="mt-4 space-y-3">{t.entries.filter(e => e.elo != null).map(e => <EloEditor key={e.id} entry={e} disabled={busy} save={value => void act("rating",{entryId:e.id,elo:value})} />)}</div>
+        {t.status === "waiting" && <div className="mt-4 space-y-3">{t.entries.filter(e => e.elo != null).map(e => <EloEditor key={e.id} entry={e} disabled={busy} save={value => void act("rating",{entryId:e.id,elo:value})} />)}</div>}
       </Card>}
       <Card className="overflow-hidden p-5"><h3 className="text-lg font-black">{t.status === "waiting" ? `Players (${rows.length}/32)` : "Standings"}</h3>
         <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-slate-400"><tr><th className="p-2">Place</th><th className="p-2">Player</th><th className="p-2">Points</th><th className="p-2">W / D / L</th><th className="p-2">Byes</th>{teacher && <th className="p-2">Teacher controls</th>}</tr></thead>

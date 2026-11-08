@@ -4,7 +4,7 @@ vi.mock("@/lib/supabase/server",()=>({getSupabaseServiceClient:()=>({rpc:m.rpc})
 vi.mock("@/lib/puzzle-battle/server",()=>({buildBattleDeck:m.deck}));
 import { getPuzzleTournament } from "@/lib/puzzle-battle/tournamentServer";
 const id="30000000-0000-4000-8000-000000000001";
-const done={id,status:"active",version:4,round:1,rounds:3,mode:"survival",duration:60,entries:[{id:"a",name:"A",studentId:"sa"},{id:"b",name:"B",studentId:"sb"}],matches:[{round:1,a:"a",b:"b",result:{winnerEntryId:"a",reason:"played"}}]};
+const done={id,status:"active",version:4,round:1,rounds:3,mode:"survival",duration:60,startsAt:null as string|null,entries:[{id:"a",name:"A",studentId:"sa"},{id:"b",name:"B",studentId:"sb"}],matches:[{round:1,a:"a",b:"b",result:{winnerEntryId:"a",reason:"played"}}]};
 const safe=(t:typeof done)=>({...t,entries:t.entries.map(e=>({...e,studentId:null}))});
 let state:typeof done;
 beforeEach(()=>{
@@ -41,4 +41,26 @@ it("releases a failed preparation for retry and keeps the completed results visi
   const t=await getPuzzleTournament(id,false,"sa");
   expect(t.round).toBe(1);expect(t.advanceError).toContain("Retrying automatically");
   expect(m.rpc).toHaveBeenCalledWith("release_puzzle_tournament_round",expect.objectContaining({p_id:id}));
+});
+it("starts a due scheduled tournament from the student lobby",async()=>{
+  state={...state,status:"waiting",round:0,matches:[],startsAt:new Date(Date.now()-1000).toISOString()};
+  await getPuzzleTournament(id,false,"sa");expect(m.deck).toHaveBeenCalledOnce();
+  expect(m.rpc).toHaveBeenCalledWith("claim_puzzle_tournament_round",expect.objectContaining({p_version:4}));
+});
+it("waits for the scheduled time and at least two players",async()=>{
+  state={...state,status:"waiting",round:0,matches:[],startsAt:new Date(Date.now()+60000).toISOString()};
+  await getPuzzleTournament(id,true);expect(m.deck).not.toHaveBeenCalled();
+  state={...state,startsAt:new Date(Date.now()-1000).toISOString(),entries:state.entries.slice(0,1)};
+  await getPuzzleTournament(id,true);expect(m.deck).not.toHaveBeenCalled();
+});
+it("does not start the newly rescheduled version after claiming the old schedule",async()=>{
+  state={...state,status:"waiting",round:0,matches:[],startsAt:new Date(Date.now()-1000).toISOString()};
+  m.rpc.mockImplementation(async(name:string,args:Record<string,unknown>)=>{
+    if(name==="claim_puzzle_tournament_round") {
+      state={...state,version:5,startsAt:new Date(Date.now()+60000).toISOString()};
+      return {data:true};
+    }
+    return {data:name==="puzzle_tournament_snapshot"?(args.p_teacher?state:safe(state)):null};
+  });
+  const t=await getPuzzleTournament(id,false,"sa");expect(t.version).toBe(5);expect(m.deck).not.toHaveBeenCalled();
 });

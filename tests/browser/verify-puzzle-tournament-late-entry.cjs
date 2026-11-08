@@ -1,0 +1,53 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || "C:/Users/lemue/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright");
+const assert=require("node:assert/strict"),{randomUUID}=require("node:crypto"),fs=require("node:fs");
+const base=process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9498";
+(async()=>{
+  const browser=await chromium.launch({headless:true,executablePath:"C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"});
+  try {
+    const tc=await browser.newContext({viewport:{width:1440,height:1000}}),sc=await browser.newContext({viewport:{width:390,height:844},hasTouch:true});
+    await tc.routeWebSocket(/.*/,ws=>ws.close());await sc.routeWebSocket(/.*/,ws=>ws.close());
+    const teacher=await tc.newPage(),student=await sc.newPage(),errors=[];
+    for(const p of [teacher,student]) {p.setDefaultTimeout(20000);p.on("pageerror",e=>errors.push(e.message));}
+    await teacher.goto(base+"/__qa/teacher");await student.goto(base+"/__qa/login?user=1");
+    const act=async(data)=>{const r=await tc.request.post(base+"/api/admin/puzzle-tournaments",{data});assert.equal(r.status(),200);return (await r.json()).tournament;};
+    let t=await act({action:"create",requestId:randomUUID(),title:"Join In Cup",mode:"hide-and-seek",duration:180,rounds:2});
+    for(const name of ["Maple Knight","Cedar Fox"]) t=await act({action:"bot",id:t.id,requestId:randomUUID(),name,elo:400});
+    t=await act({action:"start",id:t.id,version:t.version});
+    const originalMatches=t.matches;
+    await teacher.goto(base+"/admin/tournaments/puzzle?id="+t.id);
+    await student.goto(base+"/student/tournaments/puzzle?id="+t.id);
+    await student.getByRole("button",{name:"Join next round",exact:true}).click();
+    await student.getByText("You're registered for round 2. Stay here for your pairing after the current battles finish.",{exact:true}).waitFor();
+    await student.reload();
+    await student.getByText(/You're registered for round 2/).waitFor();
+    await teacher.getByLabel("Player name",{exact:true}).fill("Copper Rook");
+    await teacher.getByLabel("Bot Elo",{exact:true}).fill("775");
+    await teacher.getByRole("button",{name:"Add player",exact:true}).click();
+    await teacher.getByText("Bot · 775 Elo",{exact:true}).waitFor();
+    await student.getByRole("button",{name:"Refresh",exact:true}).click();
+    await student.getByRole("cell",{name:"Copper Rook",exact:true}).waitFor();
+    assert.doesNotMatch(await student.locator("body").innerText(),/Bot ·|Bot Elo|775 Elo/);
+    let snapshot=(await(await sc.request.get(base+"/api/student/puzzle-tournaments?id="+t.id)).json()).tournament;
+    assert.equal(snapshot.entries.length,4);assert.equal(snapshot.matches.length,1);assert.equal(snapshot.matches[0].id,originalMatches[0].id);
+    assert.ok(!snapshot.matches.some(m=>m.a===snapshot.me||m.b===snapshot.me));
+    fs.mkdirSync("work/puzzle-tournaments",{recursive:true});
+    await student.screenshot({path:"work/puzzle-tournaments/late-entry-phone.png",fullPage:true});
+    await tc.request.get(base+"/__qa/tournament-expire");
+    await student.getByRole("button",{name:"Refresh",exact:true}).click();
+    await student.getByRole("link",{name:"Play your battle",exact:true}).waitFor();
+    snapshot=(await(await sc.request.get(base+"/api/student/puzzle-tournaments?id="+t.id)).json()).tournament;
+    assert.equal(snapshot.round,2);assert.equal(snapshot.matches.filter(m=>m.round===2).length,2);
+    assert.ok(snapshot.matches.some(m=>m.round===2&&(m.a===snapshot.me||m.b===snapshot.me)&&m.battleId));
+    await teacher.getByRole("button",{name:"Refresh",exact:true}).click();
+    await teacher.getByText(/Round 2 of 2/).waitFor();
+    assert.equal(await teacher.getByRole("button",{name:"Add player",exact:true}).count(),0);
+    const outsider=await browser.newContext(),watch=await outsider.newPage();
+    await outsider.routeWebSocket(/.*/,ws=>ws.close());
+    await watch.goto(base+"/__qa/login?user=2");await watch.goto(base+"/student/tournaments/puzzle?id="+t.id);
+    await watch.getByText("The final round is underway. Registration is closed for this tournament.",{exact:true}).waitFor();
+    assert.equal(await watch.getByRole("button",{name:"Join next round",exact:true}).count(),0);
+    assert.equal((await outsider.request.post(base+"/api/student/puzzle-tournaments",{data:{action:"join",id:t.id}})).status(),409);
+    assert.deepEqual(errors,[]);
+    console.log("Late student join, late teacher-added bot, queued reload, unchanged current match, automatic next pairing, private Elo, and final-round closure passed.");
+  } finally {await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

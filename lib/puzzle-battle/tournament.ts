@@ -2,7 +2,7 @@ import type { BattleMode } from "./types";
 export type TournamentEntry = { id: string; name: string; studentId: string | null; elo?: number | null };
 export type TournamentResult = { winnerEntryId: string | null; scoreA: number; scoreB: number; reason: "played" | "bye" | "cancelled" };
 export type TournamentMatch = { id: string; round: number; a: string; b: string | null; battleId: string | null; result: TournamentResult | null; scoreA: number; scoreB: number };
-export type PuzzleTournament = { id: string; title: string; mode: BattleMode; duration: number; rounds: number; round: number; version: number; status: "waiting" | "active" | "finished" | "cancelled"; createdAt: string; roundStartsAt?: number | null; serverNow?: number; advanceError?: string; entries: TournamentEntry[]; matches: TournamentMatch[]; me?: string | null };
+export type PuzzleTournament = { id: string; title: string; mode: BattleMode; duration: number; rounds: number; round: number; version: number; status: "waiting" | "active" | "finished" | "cancelled"; createdAt: string; roundStartsAt?: number | null; startsAt?: string | null; serverNow?: number; advanceError?: string; entries: TournamentEntry[]; matches: TournamentMatch[]; me?: string | null };
 export type Standing = TournamentEntry & { points: number; wins: number; draws: number; losses: number; byes: number; played: number; rank: number };
 
 export function tournamentStandings(t: Pick<PuzzleTournament, "entries" | "matches">): Standing[] {

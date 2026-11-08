@@ -4,6 +4,12 @@ import { ratedBotParameters, simulateTournamentBots } from "@/lib/puzzle-battle/
 const entries: TournamentEntry[] = Array.from({length:5},(_,i)=>({id:String(i),name:`Player ${i}`,studentId:i<3 ? String(i):null,elo:i<3?null:800}));
 const match = (a: string,b: string|null,winnerEntryId: string|null): TournamentMatch => ({id:a+b,round:1,a,b,battleId:null,result:{winnerEntryId,scoreA:1,scoreB:0,reason:b?"played":"bye"},scoreA:1,scoreB:0});
 describe("puzzle tournaments",()=>{
+  it("gives late entrants zero points for missed rounds and includes them in the next pairings",()=>{
+    const late={id:"late",name:"Late player",studentId:"new-student",elo:null};
+    const t={entries:[...entries.slice(0,3),late],matches:[match("0","1","0"),match("2",null,"2")]};
+    expect(tournamentStandings(t).find(e=>e.id==="late")).toMatchObject({points:0,played:0,byes:0});
+    expect(pairTournamentRound(t).flatMap(([a,b])=>[a.id,b?.id])).toContain("late");
+  });
   it("scores wins, draws and rotating byes without eliminating anyone",()=>{
     const matches=[match("0","1","0"),match("2","3",null),match("4",null,"4")];
     const rows=tournamentStandings({entries,matches});

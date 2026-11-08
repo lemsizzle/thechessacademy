@@ -26,13 +26,16 @@ async function snapshot(id: string, teacher: boolean, studentId?: string): Promi
 export async function getPuzzleTournament(id: string, teacher = false, studentId?: string): Promise<PuzzleTournament> {
   let t = await snapshot(id, teacher, studentId);
   let advanceError: string | undefined;
-  if (t.status === "active" && t.round > 0 && t.round < t.rounds && t.matches.every(m => m.result)) {
+  const scheduledDue = t.status === "waiting" && t.round === 0 && t.startsAt && Date.parse(t.startsAt) <= Date.now() && t.entries.length >= 2;
+  if (scheduledDue || (t.status === "active" && t.round > 0 && t.round < t.rounds && t.matches.every(m => m.result))) {
     const token = randomUUID();
     const claimed = await rpc("claim_puzzle_tournament_round", { p_id: id, p_version: t.version, p_token: token });
     if (claimed) {
       try {
         // Private roster data never enters the student response.
-        await startRound(teacher ? t : await snapshot(id, true));
+        const privateSnapshot = teacher ? t : await snapshot(id, true);
+        // A teacher may reschedule while a student request prepares the start.
+        if (privateSnapshot.version === t.version) await startRound(privateSnapshot);
       } catch (error) {
         advanceError = error instanceof BattleError ? error.message : "The next round could not load. Retrying automatically…";
       } finally {
@@ -41,7 +44,7 @@ export async function getPuzzleTournament(id: string, teacher = false, studentId
       t = await snapshot(id, teacher, studentId);
     }
   }
-  return { ...t, serverNow: Date.now(), ...(advanceError && t.status === "active" && t.matches.every(m => m.result) ? { advanceError } : {}) };
+  return { ...t, serverNow: Date.now(), ...(advanceError && ["active", "waiting"].includes(t.status) && t.matches.every(m => m.result) ? { advanceError } : {}) };
 }
 async function startRound(t: PuzzleTournament) {
   const id = t.id;
@@ -67,17 +70,26 @@ function rating(value: unknown) {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 200 || value > 2400) throw new BattleError("Choose a bot Elo from 200 to 2400.");
   return value;
 }
+function schedule(value: unknown) {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value)))
+    throw new BattleError("Choose a valid start date and time.");
+  return new Date(value).toISOString();
+}
 export async function teacherPuzzleTournamentAction(body: Input) {
   if (body.action === "create") {
     const title = text(body.title, 80), mode = body.mode as BattleMode, duration = body.duration as number, rounds = body.rounds as number;
     if (!title || !BATTLE_MODES.includes(mode) || !BATTLE_TIMES.includes(duration as never) || !Number.isInteger(rounds) || rounds < 1 || rounds > 9)
       throw new BattleError("Enter a name, battle mode, time control, and 1–9 rounds.");
     const id = tournamentId(body.requestId);
-    await rpc("create_puzzle_tournament", { p_id: id, p_title: title, p_mode: mode, p_duration: duration, p_rounds: rounds });
+    await rpc("create_scheduled_puzzle_tournament", { p_id: id, p_title: title, p_mode: mode, p_duration: duration, p_rounds: rounds, p_starts_at: schedule(body.startsAt) });
     return getPuzzleTournament(id, true);
   }
   const id = tournamentId(body.id);
-  if (body.action === "bot") {
+  if (body.action === "schedule") {
+    if (!Number.isInteger(body.version)) throw new BattleError("Refresh before saving the schedule.");
+    await rpc("set_puzzle_tournament_schedule", { p_id: id, p_version: body.version, p_starts_at: schedule(body.startsAt) });
+  } else if (body.action === "bot") {
     const name = text(body.name, 60);
     if (!name) throw new BattleError("Give this player a name.");
     await rpc("edit_puzzle_tournament_entry", { p_id: id, p_action: "bot", p_entry: { id: tournamentId(body.requestId), name, elo: rating(body.elo) } });
@@ -95,7 +107,7 @@ export async function teacherPuzzleTournamentAction(body: Input) {
   return getPuzzleTournament(id, true);
 }
 export async function studentPuzzleTournamentAction(body: Input, student: { studentId: string; name: string }) {
-  if (body.action !== "join" && body.action !== "leave") throw new BattleError("Students can join or leave the waiting lobby.", 403);
+  if (body.action !== "join" && body.action !== "leave") throw new BattleError("Students can join open tournaments or leave before they start.", 403);
   const id = tournamentId(body.id);
   await rpc("edit_puzzle_tournament_entry", { p_id: id, p_action: body.action, p_entry: { id: randomUUID(), studentId: student.studentId, name: text(student.name,60) || "Player" } });
   return getPuzzleTournament(id, false, student.studentId);

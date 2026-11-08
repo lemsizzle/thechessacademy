@@ -1,0 +1,66 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || "C:/Users/lemue/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright");
+const assert=require("node:assert/strict"),fs=require("node:fs"),{randomUUID}=require("node:crypto");
+const base=process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9498";
+(async()=>{
+  const browser=await chromium.launch({headless:true,executablePath:"C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"});
+  try {
+    const tc=await browser.newContext({timezoneId:"Asia/Bangkok",viewport:{width:1440,height:1000}});
+    const sc=await browser.newContext({timezoneId:"America/Los_Angeles",viewport:{width:390,height:844},hasTouch:true});
+    await tc.routeWebSocket(/.*/,ws=>ws.close());await sc.routeWebSocket(/.*/,ws=>ws.close());
+    const teacher=await tc.newPage(),student=await sc.newPage(),errors=[];
+    for(const p of [teacher,student]) {p.setDefaultTimeout(30000);p.on("pageerror",e=>errors.push(e.message));}
+    await teacher.goto(base+"/__qa/teacher");await student.goto(base+"/__qa/login");
+    await tc.request.get(base+"/__qa/tournament-expire");
+    const local=async(offset)=>teacher.evaluate(ms=>{
+      const d=new Date(Date.now()+ms);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+    },offset);
+    const future=await local(3600000),later=await local(7200000);
+    await teacher.getByLabel("Tournament name",{exact:true}).fill("Scheduled Puzzle Cup");
+    await teacher.getByLabel(/^Battle mode/).selectOption("hide-and-seek");
+    await teacher.getByLabel("Start time (optional)",{exact:true}).fill(future);
+    await teacher.getByText(/Asia\/Bangkok/).waitFor();
+    await teacher.getByRole("button",{name:"Create tournament",exact:true}).click();
+    await teacher.getByRole("button",{name:"Edit schedule",exact:true}).waitFor();
+    const id=new URL(teacher.url()).searchParams.get("id");
+    const read=async()=>(await(await tc.request.get(base+"/api/admin/puzzle-tournaments?id="+id)).json()).tournament;
+    let t=await read();const expected=await teacher.evaluate(value=>new Date(value).toISOString(),future);
+    assert.equal(Date.parse(t.startsAt),Date.parse(expected));
+    await teacher.getByRole("button",{name:"Edit schedule",exact:true}).click();
+    await teacher.getByLabel("Start time (optional)",{exact:true}).fill(await local(-3600000));
+    await teacher.getByRole("button",{name:"Save schedule",exact:true}).click();
+    await teacher.getByRole("alert").filter({hasText:"future"}).waitFor();
+    await teacher.getByLabel("Start time (optional)",{exact:true}).fill(later);
+    await teacher.getByRole("button",{name:"Save schedule",exact:true}).click();
+    await teacher.getByRole("button",{name:"Edit schedule",exact:true}).waitFor();
+    await teacher.reload();
+    await teacher.getByRole("button",{name:"Edit schedule",exact:true}).click();
+    assert.equal(await teacher.getByLabel("Start time (optional)",{exact:true}).inputValue(),later);
+    await teacher.getByRole("button",{name:"Remove scheduled time",exact:true}).click();
+    await teacher.getByRole("button",{name:"Save schedule",exact:true}).click();
+    await teacher.getByRole("button",{name:"Schedule a start time",exact:true}).waitFor();
+    assert.equal((await read()).startsAt,null);
+    let response=await tc.request.post(base+"/api/admin/puzzle-tournaments",{data:{action:"bot",id,requestId:randomUUID(),name:"Cedar Fox",elo:400}});
+    assert.equal(response.status(),200);
+    await student.goto(base+"/student/tournaments/puzzle?id="+id);
+    await student.getByRole("button",{name:"Join tournament",exact:true}).click();
+    await student.getByRole("button",{name:"Leave tournament",exact:true}).waitFor();
+    t=await read();const due=new Date(Date.now()+15000).toISOString();
+    response=await tc.request.post(base+"/api/admin/puzzle-tournaments",{data:{action:"schedule",id,version:t.version,startsAt:due}});
+    assert.equal(response.status(),200);
+    await teacher.close();
+    await student.reload();
+    await student.getByRole("timer").filter({hasText:"Starts in"}).waitFor();
+    const studentTime=await student.evaluate(value=>new Date(value).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"}),due);
+    await student.getByText("Scheduled for "+studentTime,{exact:true}).waitFor();
+    assert.equal(await student.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+    fs.mkdirSync("work/puzzle-tournaments",{recursive:true});
+    await student.screenshot({path:"work/puzzle-tournaments/scheduled-lobby-phone.png",fullPage:true});
+    await student.getByRole("link",{name:"Play your battle",exact:true}).waitFor();
+    t=(await(await sc.request.get(base+"/api/student/puzzle-tournaments?id="+id)).json()).tournament;
+    assert.equal(t.status,"active");assert.equal(t.round,1);assert.equal(t.matches.length,1);
+    assert.ok(t.roundStartsAt>Date.now());assert.ok(t.entries.every(e=>e.elo===undefined));
+    await student.getByText(/Round 1 starts in/).waitFor();
+    assert.deepEqual(errors,[]);
+    console.log("Schedule creation, timezone conversion, past-date rejection, edit/reload, removing schedule, student countdown, and automatic start with teacher closed passed.");
+  } finally {await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

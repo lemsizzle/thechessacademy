@@ -125,6 +125,8 @@ function filtered(rows, params) {
         const args = JSON.parse(text || "{}");
         const tournamentRpcs = {
           create_puzzle_tournament: ["p_id","p_title","p_mode","p_duration","p_rounds"],
+          create_scheduled_puzzle_tournament: ["p_id","p_title","p_mode","p_duration","p_rounds","p_starts_at"],
+          set_puzzle_tournament_schedule: ["p_id","p_version","p_starts_at"],
           edit_puzzle_tournament_entry: ["p_id","p_action","p_entry"],
           puzzle_tournament_snapshot: ["p_id","p_teacher","p_student_id"],
           start_puzzle_tournament_round: ["p_id","p_version","p_pairs","p_deck"],

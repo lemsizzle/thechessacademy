@@ -30,5 +30,7 @@ export async function createBattleTestDatabase({ tournaments = false } = {}) {
   await db.exec(readFileSync("supabase/migrations/20261102181916_puzzle_battle_creation_limit.sql", "utf8"));
   if (tournaments) await db.exec(readFileSync("supabase/migrations/20261108163105_puzzle_battle_tournaments.sql", "utf8"));
   if (tournaments) await db.exec(readFileSync("supabase/migrations/20261108165226_puzzle_tournament_auto_rounds.sql", "utf8"));
+  if (tournaments) await db.exec(readFileSync("supabase/migrations/20261108172635_puzzle_tournament_schedule.sql", "utf8"));
+  if (tournaments) await db.exec(readFileSync("supabase/migrations/20261108173651_puzzle_tournament_late_entry.sql", "utf8"));
   return db;
 }
