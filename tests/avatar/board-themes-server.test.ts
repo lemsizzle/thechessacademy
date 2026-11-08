@@ -14,6 +14,7 @@ import { POST } from "@/app/api/student/avatar/purchase/route";
 import { paperChessSet } from "@/lib/avatar/paperChessSet";
 import { blossomChessSet } from "@/lib/avatar/blossomChessSet";
 import { eightBitChessSet } from "@/lib/avatar/eightBitChessSet";
+import { minecraftChessSet } from "@/lib/avatar/minecraftChessSet";
 
 describe("board theme ownership and purchases", () => {
   const studentId = "10000000-0000-4000-8000-000000000001";
@@ -35,7 +36,7 @@ describe("board theme ownership and purchases", () => {
     expect(await response.json()).toEqual({ studentId, ownsPaper: true, ownedThemes: ["paper"] });
     expect(from).toHaveBeenCalledExactlyOnceWith("student_inventory");
     expect(query.eq).toHaveBeenCalledWith("student_id", studentId);
-    expect(query.in).toHaveBeenCalledWith("avatar_items.slug", ["paper-chess-set", "blossom-chess-set", "eight-bit-chess-set", "naruto-chess-set"]);
+    expect(query.in).toHaveBeenCalledWith("avatar_items.slug", ["paper-chess-set", "blossom-chess-set", "eight-bit-chess-set", "naruto-chess-set", "minecraft-chess-set"]);
     expect(query.eq).toHaveBeenCalledWith("avatar_items.category", "board_theme");
   });
   it("does not grant Paper without an inventory row", async () => {
@@ -53,11 +54,20 @@ describe("board theme ownership and purchases", () => {
     query.limit.mockResolvedValue({ data: [paperChessSet, blossomChessSet].map((item) => ({ avatar_items: [{ slug: item.slug, category: item.category }] })), error: null });
     expect(await (await GET()).json()).toEqual({ studentId, ownsPaper: true, ownedThemes: ["paper", "blossom"] });
     expect(from).toHaveBeenCalledTimes(1);
-    expect(query.limit).toHaveBeenCalledWith(4);
+    expect(query.limit).toHaveBeenCalledWith(5);
   });
   it("does not unlock unknown or miscategorized items", async () => {
     query.limit.mockResolvedValue({ data: [{ avatar_items: { slug: blossomChessSet.slug, category: "background" } }, { avatar_items: { slug: "unknown", category: "board_theme" } }], error: null });
     expect(await (await GET()).json()).toEqual({ studentId, ownsPaper: false, ownedThemes: [] });
+  });
+  it("unlocks Minecraft only from the student's purchased inventory", async () => {
+    query.limit.mockResolvedValue({ data: [{ avatar_items: {slug: minecraftChessSet.slug, category: "board_theme"} }], error: null });
+    expect(await (await GET()).json()).toEqual({studentId, ownsPaper: false, ownedThemes: ["minecraft"]});
+  });
+  it("purchases Minecraft using the server price rather than the claimed client price", async () => {
+    const response = await POST(new Request("http://localhost/api/student/avatar/purchase", {method: "POST", body: JSON.stringify({itemId: minecraftChessSet.id, price: 0, studentId: "somebody-else"})}));
+    expect(response.status).toBe(200);
+    expect(mocks.purchaseAvatarItem).toHaveBeenCalledExactlyOnceWith(studentId, minecraftChessSet.id);
   });
   it("fails closed on database errors without leaking server details", async () => {
     query.limit.mockResolvedValue({ data: null, error: { message: "private database details" } });
