@@ -21,6 +21,8 @@ test("tournaments persist fair rounds, private bots, final results and access co
     await assert.rejects(()=>db.query("select start_puzzle_tournament_round($1,$2,$3,$4)",[tid,initial.version,JSON.stringify(pairs),deck]),/changed/);
     await assert.rejects(()=>db.query("select edit_puzzle_tournament_entry($1,'join',$2)",[tid,JSON.stringify({id:randomUUID(),studentId:humans[0],name:"Late"})]),/locked/);
     const t=await snap();assert.equal(t.round,1);assert.equal(t.matches.length,3);
+    assert.ok(t.roundStartsAt > Date.now());
+    assert.equal((await db.query("select claim_puzzle_tournament_round($1,$2,$3) value",[tid,t.version,randomUUID()])).rows[0].value,false);
     const decks=(await db.query("select challenges from puzzle_battle_decks")).rows;assert.deepEqual(decks[0],decks[1]);
     const student=await call("select puzzle_tournament_snapshot($1,false,$2) value",[tid,humans[0]]);
     assert.equal(student.me,entries[0]);assert.ok(student.entries.every(e=>e.elo===undefined&&e.studentId===null));
@@ -32,11 +34,22 @@ test("tournaments persist fair rounds, private bots, final results and access co
     await db.query("update puzzle_battles set state=jsonb_set(state,'{endsAt}',to_jsonb($1::numeric)) where state->>'status'='playing'",[Date.now()-10]);
     const done=await snap();assert.equal(done.matches.find(m=>m.id===duel.id).result.winnerEntryId,entries[0]);
     assert.ok(done.matches.every(m=>m.result));
+    const lease=randomUUID(), other=randomUUID();
+    const claim=async(token)=>(await db.query("select claim_puzzle_tournament_round($1,$2,$3) value",[tid,done.version,token])).rows[0].value;
+    assert.equal(await claim(lease),true);
+    assert.equal(await claim(other),false);
+    await db.query("select release_puzzle_tournament_round($1,$2)",[tid,other]);
+    assert.equal(await claim(other),false);
+    await db.exec("update puzzle_battle_tournaments set advance_until=clock_timestamp()-interval '1 second'");
+    assert.equal(await claim(other),true);
+    await db.query("select release_puzzle_tournament_round($1,$2)",[tid,lease]);
+    assert.equal(await claim(lease),false);
     const privateResult={winnerEntryId:entries[3],scoreA:1,scoreB:0,reason:"played"};
     const next=[{a:entries[0],b:entries[2],state:{players:[player(humans[0],"Player 0"),player(humans[2],"Player 2")]}},
       {a:entries[3],b:entries[4],afterMs:15000,result:privateResult},{a:entries[1],b:null}];
     await db.query("select start_puzzle_tournament_round($1,$2,$3,$4)",[tid,done.version,JSON.stringify(next),deck]);
     const pending=await snap();assert.equal(pending.matches.find(m=>m.round===2&&m.a===entries[3]).result,null);
+    assert.equal((await db.query("select advance_token from puzzle_battle_tournaments where id=$1",[tid])).rows[0].advance_token,null);
     assert.ok(!JSON.stringify(pending).includes("bot_result"));
     await db.query("update puzzle_battles set state=jsonb_set(state,'{endsAt}',to_jsonb($1::numeric)) where state->>'status'='playing'",[Date.now()-10]);
     await db.exec("update puzzle_tournament_matches set finishes_at=clock_timestamp()-interval '1 second' where bot_result is not null");

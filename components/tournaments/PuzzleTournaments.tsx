@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { TournamentRoundCountdown } from "./TournamentRoundProgress";
 import { BATTLE_LABELS, BATTLE_MODES, BATTLE_TIMES, type BattleMode } from "@/lib/puzzle-battle/types";
 import { tournamentStandings, type PuzzleTournament, type TournamentEntry } from "@/lib/puzzle-battle/tournament";
 
@@ -103,7 +104,7 @@ export function PuzzleTournaments({ teacher = false, adminActionToken = "" }: { 
           <label className="text-sm font-bold">Battle mode<select className={field} value={mode} onChange={e => { setMode(e.target.value as BattleMode); createId.current=null; }}>{BATTLE_MODES.map(m => <option key={m} value={m}>{BATTLE_LABELS[m]}</option>)}</select></label>
           <label className="text-sm font-bold">Time per battle<select className={field} value={duration} onChange={e => { setDuration(Number(e.target.value)); createId.current=null; }}>{BATTLE_TIMES.map(n => <option key={n} value={n}>{n/60} min</option>)}</select></label>
           <label className="text-sm font-bold">Number of rounds<input className={field} type="number" min={1} max={9} value={rounds} onChange={e => { setRounds(Number(e.target.value)); createId.current=null; }} /></label>
-          <p className="text-sm text-slate-300 sm:col-span-2">Everyone keeps playing. You start each round; pairings and standings update automatically. Up to 32 players, including bots.</p>
+          <p className="text-sm text-slate-300 sm:col-span-2">Start the tournament once. Later rounds begin automatically when every battle finishes, with a 10-second countdown. Up to 32 players, including bots.</p>
           <Button type="submit" disabled={busy}>{busy ? "Creating…" : "Create tournament"}</Button>
         </form></Card>}
       <Card className="p-5"><h3 className="text-lg font-black">Tournament lobbies</h3>{loaded && !list.length && <p className="mt-3 text-slate-400">No Puzzle Battle tournaments yet.{!teacher && " Your teacher can host one here."}</p>}
@@ -118,10 +119,10 @@ export function PuzzleTournaments({ teacher = false, adminActionToken = "" }: { 
         <div className="flex flex-wrap gap-2">
           {!teacher && t.status === "waiting" && <Button disabled={busy || (!t.me && t.entries.length >= 32)} onClick={() => t.me ? setConfirm({ action:"leave",label:"Leave this tournament before it starts?" }) : void act("join")}>{t.me ? "Leave tournament" : "Join tournament"}</Button>}
           <Button variant="secondary" onClick={async () => { const url = `${location.origin}/student/tournaments/puzzle?id=${t.id}`; try { await navigator.clipboard.writeText(url); setNotice("Student lobby link copied."); } catch { setNotice(url); } }}>Copy student link</Button>
-          {teacher && ["waiting","active"].includes(t.status) && <Button disabled={busy || !canStart} onClick={() => void act("start",{ version:t.version })}>{busy ? "Preparing…" : t.round ? `Start round ${Math.min(t.round+1,t.rounds)}` : "Start tournament"}</Button>}
+          {teacher && t.status === "waiting" && <Button disabled={busy || !canStart} onClick={() => void act("start",{ version:t.version })}>{busy ? "Preparing…" : "Start tournament"}</Button>}
           {teacher && ["waiting","active"].includes(t.status) && <Button variant="ghost" disabled={busy} onClick={() => setConfirm({action:"cancel",label:"Cancel this tournament? Unfinished battles will close. Completed round results stay in history."})}>Cancel tournament</Button>}
         </div>
-        {t.status === "active" && <p className="text-sm text-amber-100">{t.matches.some(m => !m.result) ? "Round in progress. Scores update here; open your battle to play." : "Round complete. Waiting for the teacher to start the next round."}</p>}
+        {t.status === "active" && <><TournamentRoundCountdown tournament={t} /><p className="text-sm text-amber-100">{t.advanceError || (t.matches.some(m => !m.result) ? "Open your battle to play. The next round begins automatically once every battle finishes." : "Round complete. Preparing the next pairings automatically…")}</p></>}
         {!teacher && t.me && t.status === "waiting" && <p className="text-sm text-emerald-200">You're registered. Stay in the lobby for your first pairing.</p>}
         {t.status === "finished" && <p className="text-lg font-black text-amber-200">Tournament complete! {rows.filter(r => r.rank === 1).map(r => r.name).join(" and ")} {rows.filter(r => r.rank === 1).length > 1 ? "share first place" : "takes first place"}.</p>}
       </Card>

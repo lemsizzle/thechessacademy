@@ -128,6 +128,8 @@ function filtered(rows, params) {
           edit_puzzle_tournament_entry: ["p_id","p_action","p_entry"],
           puzzle_tournament_snapshot: ["p_id","p_teacher","p_student_id"],
           start_puzzle_tournament_round: ["p_id","p_version","p_pairs","p_deck"],
+          claim_puzzle_tournament_round: ["p_id","p_version","p_token"],
+          release_puzzle_tournament_round: ["p_id","p_token"],
           cancel_puzzle_tournament: ["p_id"], list_puzzle_tournaments: []
         };
         if (process.env.BATTLE_TOURNAMENT_QA === "1" && Object.hasOwn(tournamentRpcs,table)) {

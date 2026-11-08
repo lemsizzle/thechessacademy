@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Chess, type Square } from "chess.js";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
+import { TournamentNextRound } from "@/components/tournaments/TournamentRoundProgress";
 import { submitBattleWithRecovery } from "@/lib/puzzle-battle/clientRecovery";
 import { BATTLE_BOTS, BATTLE_BOT_LEVELS, type BattleBotLevel } from "@/lib/puzzle-battle/bots";
 import { AcademyChessboard } from "@/chess/components/AcademyChessboard";
@@ -787,6 +788,7 @@ export function PuzzleBattle() {
                     A player left the battle.
                   </p>
                 )}
+                {state.tournament && <TournamentNextRound key={battle.id} id={state.tournament.id} battleId={battle.id} round={state.tournament.round} onNext={open} />}
                 {state.tournament ? <Button href={`/student/tournaments/puzzle?id=${state.tournament.id}`}>Return to standings</Button> : <Button variant="secondary"
                   onClick={() => {
                     setMode(battle.mode);

@@ -20,9 +20,47 @@ async function rpc(name: string, args: Record<string, unknown> = {}) {
   return data;
 }
 export const listPuzzleTournaments = () => rpc("list_puzzle_tournaments");
-export async function getPuzzleTournament(id: string, teacher = false, studentId?: string): Promise<PuzzleTournament> {
+async function snapshot(id: string, teacher: boolean, studentId?: string): Promise<PuzzleTournament> {
   return rpc("puzzle_tournament_snapshot", { p_id: tournamentId(id), p_teacher: teacher, p_student_id: studentId ?? null });
 }
+export async function getPuzzleTournament(id: string, teacher = false, studentId?: string): Promise<PuzzleTournament> {
+  let t = await snapshot(id, teacher, studentId);
+  let advanceError: string | undefined;
+  if (t.status === "active" && t.round > 0 && t.round < t.rounds && t.matches.every(m => m.result)) {
+    const token = randomUUID();
+    const claimed = await rpc("claim_puzzle_tournament_round", { p_id: id, p_version: t.version, p_token: token });
+    if (claimed) {
+      try {
+        // Private roster data never enters the student response.
+        await startRound(teacher ? t : await snapshot(id, true));
+      } catch (error) {
+        advanceError = error instanceof BattleError ? error.message : "The next round could not load. Retrying automatically…";
+      } finally {
+        await rpc("release_puzzle_tournament_round", { p_id: id, p_token: token });
+      }
+      t = await snapshot(id, teacher, studentId);
+    }
+  }
+  return { ...t, serverNow: Date.now(), ...(advanceError && t.status === "active" && t.matches.every(m => m.result) ? { advanceError } : {}) };
+}
+async function startRound(t: PuzzleTournament) {
+  const id = t.id;
+  const deck = await buildBattleDeck(t.mode);
+  const pairs = pairTournamentRound(t).map(([a,b]) => {
+    if (!b) return { a: a.id, b: null };
+    if (!a.studentId && !b.studentId) {
+      const simulation = simulateTournamentBots(t.mode, t.duration, [buildRatedBotPlan(deck,a.elo!), buildRatedBotPlan(deck,b.elo!)]);
+      return { a: a.id, b: b.id, afterMs: simulation.afterMs, result: {
+        winnerEntryId: simulation.winnerSlot === null ? null : simulation.winnerSlot === 0 ? a.id : b.id,
+        scoreA: simulation.score[0], scoreB: simulation.score[1], reason: "played"
+      } };
+    }
+    return { a: a.id, b: b.id, state: { players: [newBattlePlayer(a.studentId!,a.name),newBattlePlayer(b.studentId ?? "bot:steady",b.name)] },
+      ...(b.studentId ? {} : { plan: buildRatedBotPlan(deck,b.elo!) }) };
+  });
+  await rpc("start_puzzle_tournament_round", { p_id: id, p_version: t.version, p_pairs: pairs, p_deck: deck });
+}
+
 type Input = Record<string, unknown>;
 function text(value: unknown, limit: number) { return typeof value === "string" ? value.trim().slice(0, limit) : ""; }
 function rating(value: unknown) {
@@ -48,24 +86,11 @@ export async function teacherPuzzleTournamentAction(body: Input) {
   } else if (body.action === "cancel") {
     await rpc("cancel_puzzle_tournament", { p_id: id });
   } else if (body.action === "start") {
-    const t = await getPuzzleTournament(id, true);
+    const t = await snapshot(id, true);
     if (body.version !== t.version) throw new BattleError("The roster or round changed. Refresh and try again.", 409);
-    if (!["waiting", "active"].includes(t.status) || t.round >= t.rounds || t.matches.some(m => !m.result)) throw new BattleError("Finish the current round before starting another.", 409);
+    if (t.status !== "waiting" || t.round !== 0) throw new BattleError("The tournament has started. Later rounds begin automatically.", 409);
     if (t.entries.length < 2) throw new BattleError("At least two players are needed.");
-    const deck = await buildBattleDeck(t.mode);
-    const pairs = pairTournamentRound(t).map(([a,b]) => {
-      if (!b) return { a: a.id, b: null };
-      if (!a.studentId && !b.studentId) {
-        const simulation = simulateTournamentBots(t.mode, t.duration, [buildRatedBotPlan(deck,a.elo!), buildRatedBotPlan(deck,b.elo!)]);
-        return { a: a.id, b: b.id, afterMs: simulation.afterMs, result: {
-          winnerEntryId: simulation.winnerSlot === null ? null : simulation.winnerSlot === 0 ? a.id : b.id,
-          scoreA: simulation.score[0], scoreB: simulation.score[1], reason: "played"
-        } };
-      }
-      return { a: a.id, b: b.id, state: { players: [newBattlePlayer(a.studentId!,a.name),newBattlePlayer(b.studentId ?? "bot:steady",b.name)] },
-        ...(b.studentId ? {} : { plan: buildRatedBotPlan(deck,b.elo!) }) };
-    });
-    await rpc("start_puzzle_tournament_round", { p_id: id, p_version: t.version, p_pairs: pairs, p_deck: deck });
+    await startRound(t);
   } else throw new BattleError("Unknown tournament action.");
   return getPuzzleTournament(id, true);
 }
