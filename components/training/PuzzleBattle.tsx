@@ -437,6 +437,7 @@ export function PuzzleBattle() {
           </div>
         </section>}
         <Card className="border-cyan-200/25 p-4 sm:p-6">
+          <div className="mb-4"><Button href="/student/tournaments/puzzle" variant="secondary">Puzzle tournaments</Button></div>
           <p className="text-xs font-black uppercase tracking-widest text-cyan-200">
             Challenge a classmate
           </p>
@@ -621,14 +622,14 @@ export function PuzzleBattle() {
           {BATTLE_LABELS[battle.mode]} Battle · {battle.duration / 60} min
         </h2>
         <div className="flex flex-wrap gap-2">
-        {state.status === "finished" && opponent && (
+        {state.status === "finished" && opponent && !state.tournament && (
           <Button disabled={busy} onClick={() => void rematch()}>
             {busy ? "Opening rematch…" : state.rematchId ? "Accept rematch" : "Rematch"}
           </Button>
         )}
-        <Button variant="ghost" onClick={() => open(null)}>
+        {state.tournament ? <Button variant="secondary" href={`/student/tournaments/puzzle?id=${state.tournament.id}`}>Tournament lobby</Button> : <Button variant="ghost" onClick={() => open(null)}>
           Battle lobby
-        </Button>
+        </Button>}
         </div>
       </div>
       {state.status === "waiting" ? (
@@ -758,7 +759,8 @@ export function PuzzleBattle() {
           </div>
           <Card className="space-y-4 self-start p-4">
             {errorPanel}
-            {state.bot && <p className="text-sm font-bold text-violet-200">Computer opponent · {BATTLE_BOTS[state.bot.level].name}</p>}
+            {state.tournament && <p className="text-sm font-bold text-cyan-200">{state.tournament.title} · Round {state.tournament.round}</p>}
+            {state.bot && !state.tournament && <p className="text-sm font-bold text-violet-200">Computer opponent · {BATTLE_BOTS[state.bot.level].name}</p>}
             {finished ? (
               <>
                 <p className="text-xs font-black uppercase text-cyan-200">
@@ -785,7 +787,7 @@ export function PuzzleBattle() {
                     A player left the battle.
                   </p>
                 )}
-                <Button variant="secondary"
+                {state.tournament ? <Button href={`/student/tournaments/puzzle?id=${state.tournament.id}`}>Return to standings</Button> : <Button variant="secondary"
                   onClick={() => {
                     setMode(battle.mode);
                     setDuration(battle.duration);
@@ -795,7 +797,7 @@ export function PuzzleBattle() {
                   }}
                 >
                   New challenge
-                </Button>
+                </Button>}
               </>
             ) : (
               <>

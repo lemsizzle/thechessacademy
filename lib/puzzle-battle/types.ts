@@ -35,6 +35,7 @@ export type BattlePlayer = {
   lastAction: string | null;
 };
 export type BattleState = {
+  tournament?: { id: string; round: number; title: string };
   status: "waiting" | "playing" | "finished" | "cancelled";
   players: BattlePlayer[];
   startsAt: number | null;

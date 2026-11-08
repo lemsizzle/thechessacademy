@@ -12,6 +12,7 @@ Object.assign(process.env, {
   STUDENT_SESSION_SECRET: secret,
   SUPABASE_SERVICE_ROLE_KEY: "local-fixture-only",
   NEXT_PUBLIC_APP_URL: origin,
+  ...(process.env.BATTLE_TOURNAMENT_QA === "1" ? { ADMIN_SESSION_SECRET: secret, ADMIN_PASSWORD: "isolated-tournament-teacher" } : {}),
 });
 const students = ["A", "B", "C"].map((letter, i) => ({
   id: `30000000-0000-4000-8000-00000000000${i + 1}`,
@@ -85,7 +86,7 @@ function filtered(rows, params) {
   const { createBattleTestDatabase } = await import(
     "../fixtures/puzzle-battle-db.mjs"
   );
-  const pg = await createBattleTestDatabase();
+  const pg = await createBattleTestDatabase({ tournaments: process.env.BATTLE_TOURNAMENT_QA === "1" });
   for (const student of students) {
     await pg.query("insert into students(id) values($1)", [student.id]);
     await pg.query("insert into student_login_credentials values($1,$2)", [
@@ -122,6 +123,17 @@ function filtered(rows, params) {
         let text = "";
         for await (const chunk of req) text += chunk;
         const args = JSON.parse(text || "{}");
+        const tournamentRpcs = {
+          create_puzzle_tournament: ["p_id","p_title","p_mode","p_duration","p_rounds"],
+          edit_puzzle_tournament_entry: ["p_id","p_action","p_entry"],
+          puzzle_tournament_snapshot: ["p_id","p_teacher","p_student_id"],
+          start_puzzle_tournament_round: ["p_id","p_version","p_pairs","p_deck"],
+          cancel_puzzle_tournament: ["p_id"], list_puzzle_tournaments: []
+        };
+        if (process.env.BATTLE_TOURNAMENT_QA === "1" && Object.hasOwn(tournamentRpcs,table)) {
+          const keys=tournamentRpcs[table];
+          return json(res,(await pg.query(`select ${table}(${keys.map((k,i)=>`${k} => $${i+1}`).join(',')}) value`,keys.map(k=>args[k] && typeof args[k]==='object'?JSON.stringify(args[k]):args[k]))).rows[0].value);
+        }
         if (table === "create_puzzle_bot_battle")
           return json(res, (await pg.query("select create_puzzle_bot_battle($1,$2,$3,$4,$5,$6,$7,$8,$9) value", [
             args.p_id,args.p_code,args.p_student_id,args.p_mode,args.p_duration,
@@ -253,6 +265,16 @@ function filtered(rows, params) {
     http
       .createServer(async (req, res) => {
         const url = new URL(req.url, origin);
+        if (process.env.BATTLE_TOURNAMENT_QA === "1" && url.pathname === "/__qa/teacher") {
+          const {createHash}=require("node:crypto");
+          const cookie="quest-board-admin-v1."+createHash("sha256").update(`quest-board-admin-v1:${secret}`).digest("hex");
+          res.writeHead(302,{"Set-Cookie":`quest_board_admin_session=${cookie}; Path=/; HttpOnly; SameSite=Lax`,Location:"/admin/tournaments/puzzle"});return res.end();
+        }
+        if (process.env.BATTLE_TOURNAMENT_QA === "1" && url.pathname === "/__qa/tournament-expire") {
+          await pg.query("update puzzle_battles set state=jsonb_set(state,'{endsAt}',to_jsonb($1::numeric)) where state->>'status'='playing'",[Date.now()-100]);
+          await pg.exec("update puzzle_tournament_matches set finishes_at=clock_timestamp()-interval '1 second' where bot_result is not null");
+          return json(res,{ok:true});
+        }
         if (url.pathname === "/__qa/login") {
           const student =
             students[Number(url.searchParams.get("user") ?? 0)] ?? students[0];
@@ -306,6 +328,7 @@ function filtered(rows, params) {
         if (
           url.pathname.startsWith("/api/") &&
           !url.pathname.startsWith("/api/student/puzzle-battles") &&
+          !(process.env.BATTLE_TOURNAMENT_QA === "1" && /^\/api\/(admin|student)\/puzzle-tournaments/.test(url.pathname)) &&
           !["/api/auth/session", "/api/student/profile"].includes(url.pathname)
         ) {
           if (url.pathname === "/api/student/online-play")

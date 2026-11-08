@@ -416,6 +416,7 @@ export async function joinBattle(
 export async function rematchBattle(id: unknown, student: { id: string; name: string }) {
   if (typeof id !== "string" || !uuid.test(id)) throw new BattleError("Invalid battle.", 404);
   const previous = await readBattle(id, student.id);
+  if (previous.state.tournament) throw new BattleError("Return to the tournament lobby for your next pairing.", 409);
   if (previous.state.status !== "finished" || previous.state.players.length !== 2)
     throw new BattleError("Finish this battle before a rematch.", 409);
   if (previous.state.bot) {

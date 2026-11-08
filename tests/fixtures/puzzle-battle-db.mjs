@@ -1,6 +1,6 @@
 import { PGlite } from "../../work/achievement-db-test/node_modules/@electric-sql/pglite/dist/index.js";
 import { readFileSync } from "node:fs";
-export async function createBattleTestDatabase() {
+export async function createBattleTestDatabase({ tournaments = false } = {}) {
   const db = new PGlite();
   await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
     create table students(id uuid primary key,is_active boolean default true,lichess_id text,lichess_username text);
@@ -28,5 +28,6 @@ export async function createBattleTestDatabase() {
   await db.exec(readFileSync("supabase/migrations/20261101174411_puzzle_battle_single_board_rematches.sql", "utf8"));
   await db.exec(readFileSync("supabase/migrations/20261101180002_puzzle_battle_bot_opponents.sql", "utf8"));
   await db.exec(readFileSync("supabase/migrations/20261102181916_puzzle_battle_creation_limit.sql", "utf8"));
+  if (tournaments) await db.exec(readFileSync("supabase/migrations/20261108163105_puzzle_battle_tournaments.sql", "utf8"));
   return db;
 }
