@@ -4,6 +4,16 @@ import type { StockfishCandidate } from "@/chess/types";
 type Token = { type: PieceSymbol; color: "w" | "b"; file: number; rank: number };
 const square = (file: number, rank: number) => `${"abcdefgh"[file]}${rank}` as Square;
 
+// Version 1 is also replayed by the reward verifier. Keep this deterministic;
+// future generator changes must issue a new token version.
+export function endgameCandidateFromSeed(topicId: string, seed: number, index: number) {
+  let state = (seed ^ Math.imul(index + 1, 0x9e3779b9)) >>> 0;
+  return generateEndgameCandidate(topicId, () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 4294967296;
+  });
+}
+
 /** Construct from randomized pieces and geometry, never a FEN list. Callers must
  * engine-check the result with winningCandidate before offering it to a learner.
  */

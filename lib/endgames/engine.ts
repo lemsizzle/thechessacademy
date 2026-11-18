@@ -1,19 +1,13 @@
 import { AnalysisStockfishService } from "@/chess/engine/AnalysisStockfishService";
+import { StockfishCancelledError } from "@/chess/engine/StockfishService";
 
-/** Bound worker startup as well as analysis. A failed download must not leave
- * training stuck forever before AnalysisStockfishService's search timer starts.
+/** Startup has its own 60-second bound; a cold download is not a slow move.
+ * Retry a failed worker once. Canceled requests must never restart themselves.
  */
 export async function analyzeEndgame(engine: AnalysisStockfishService, fen: string, timeMs = 500) {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      engine.analyze(fen, timeMs),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          engine.terminate();
-          reject(new Error("The defender could not load. Check your connection and retry."));
-        }, 15_000);
-      })
-    ]);
-  } finally { clearTimeout(timer); }
+  try { return await engine.analyze(fen, timeMs); }
+  catch (error) {
+    if (error instanceof StockfishCancelledError) throw error;
+    return engine.analyze(fen, timeMs);
+  }
 }

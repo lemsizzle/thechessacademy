@@ -1,7 +1,7 @@
 import { Chess } from "chess.js";
 import { ENDGAME_TOPICS } from "./catalog";
 
-export type EndgameAttempt = { fen: string; moves: string[]; assisted: boolean; completed: boolean };
+export type EndgameAttempt = { fen: string; moves: string[]; assisted: boolean; completed: boolean; rewardToken?: string; candidateIndex?: number; rewardXp?: number };
 export type EndgameProgress = { selected: string | null; attempts: Record<string, EndgameAttempt> };
 
 export function replayEndgame(fen: string, moves: readonly string[]) {
@@ -44,7 +44,11 @@ export function readEndgameProgress(raw: string | null): EndgameProgress {
       try {
         if (new Chess(attempt.fen).isGameOver()) continue;
         replayEndgame(attempt.fen, attempt.moves);
-        result.attempts[topic.id] = { fen: attempt.fen, moves: attempt.moves, assisted: attempt.assisted === true, completed: attempt.completed === true };
+        result.attempts[topic.id] = {
+          fen: attempt.fen, moves: attempt.moves, assisted: attempt.assisted === true, completed: attempt.completed === true,
+          ...(typeof attempt.rewardToken === "string" && attempt.rewardToken.length <= 2048 && Number.isInteger(attempt.candidateIndex) && attempt.candidateIndex >= 0 && attempt.candidateIndex < 20 ? { rewardToken: attempt.rewardToken, candidateIndex: attempt.candidateIndex } : {}),
+          ...(attempt.rewardXp === 3 ? { rewardXp: 3 } : {})
+        };
       } catch { /* Discard only the damaged attempt; other practice stays available. */ }
     }
     if (ENDGAME_TOPICS.some(topic => topic.id === saved.selected)) result.selected = saved.selected;

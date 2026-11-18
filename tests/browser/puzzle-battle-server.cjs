@@ -87,6 +87,7 @@ function filtered(rows, params) {
     "../fixtures/puzzle-battle-db.mjs"
   );
   const pg = await createBattleTestDatabase({ tournaments: process.env.BATTLE_TOURNAMENT_QA === "1" });
+  if (process.env.ENDGAME_QA === "1") await (await import('../fixtures/endgame-db.mjs')).installEndgameTestSchema(pg);
   for (const student of students) {
     await pg.query("insert into students(id) values($1)", [student.id]);
     await pg.query("insert into student_login_credentials values($1,$2)", [
@@ -123,6 +124,7 @@ function filtered(rows, params) {
         let text = "";
         for await (const chunk of req) text += chunk;
         const args = JSON.parse(text || "{}");
+        if (process.env.ENDGAME_QA === "1" && table === "save_endgame_training_reward") return json(res, (await pg.query('select save_endgame_training_reward($1,$2,$3,$4,$5) value',[args.p_student_id,args.p_attempt_id,args.p_topic_id,args.p_complete,args.p_assisted])).rows[0].value);
         const tournamentRpcs = {
           create_puzzle_tournament: ["p_id","p_title","p_mode","p_duration","p_rounds"],
           create_scheduled_puzzle_tournament: ["p_id","p_title","p_mode","p_duration","p_rounds","p_starts_at"],
@@ -305,6 +307,7 @@ function filtered(rows, params) {
           });
           return res.end();
         }
+        if (process.env.ENDGAME_QA === "1" && url.pathname === "/__qa/endgame-balance") return json(res, (await pg.query('select total_xp as xp,coalesce((select academy_coins from student_wallets where student_id=students.id),0) as coins,(select count(*)::int from xp_events where student_id=students.id) as events from students where id=$1',[students[0].id])).rows[0]);
         if (url.pathname === "/__qa/deck")
           return json(
             res,
@@ -333,7 +336,7 @@ function filtered(rows, params) {
           url.pathname.startsWith("/api/") &&
           !url.pathname.startsWith("/api/student/puzzle-battles") &&
           !(process.env.BATTLE_TOURNAMENT_QA === "1" && /^\/api\/(admin|student)\/puzzle-tournaments/.test(url.pathname)) &&
-          !["/api/auth/session", "/api/student/profile"].includes(url.pathname)
+          !["/api/auth/session", "/api/student/profile", ...(process.env.ENDGAME_QA === "1" ? ["/api/student/endgames"] : [])].includes(url.pathname)
         ) {
           if (url.pathname === "/api/student/online-play")
             return json(res, {

@@ -19,6 +19,13 @@ export class AnalysisStockfishService {
   private pending: Pending | null = null;
   private uciOk = false;
   private terminated = false;
+  private startupTimer: ReturnType<typeof setTimeout> | null = null;
+  private initialized = false;
+
+  constructor(private readonly options: { startupTimeoutMs?: number; multiPv?: number } = {}) {}
+
+  /** Loading the WASM engine is separate from the time budget for a move. */
+  async initialize() { await this.ready(); }
 
   private async ready() {
     if (this.terminated) throw new Error("Analysis engine has been terminated.");
@@ -27,17 +34,20 @@ export class AnalysisStockfishService {
       this.readyResolve = resolve;
       this.readyReject = reject;
     });
+    const readiness = this.readyPromise;
+    this.startupTimer = setTimeout(() => this.fail(new Error("The computer is taking too long to load. Please retry.")), this.options.startupTimeoutMs ?? 60_000);
     try {
-      this.worker = new Worker(WORKER_URL);
-      this.worker.onmessage = (event: MessageEvent<unknown>) => {
+      const worker = new Worker(WORKER_URL); this.worker = worker;
+      worker.onmessage = (event: MessageEvent<unknown>) => {
+        if (this.worker !== worker) return;
         for (const line of String(event.data ?? "").split(/\r?\n/)) this.handleLine(line.trim());
       };
-      this.worker.onerror = () => this.fail(new Error("Stockfish analysis could not be loaded."));
-      this.worker.postMessage("uci");
+      worker.onerror = () => { if (this.worker === worker) this.fail(new Error("The computer could not load. Please retry or update your browser.")); };
+      worker.postMessage("uci");
     } catch (error) {
       this.fail(error instanceof Error ? error : new Error("Stockfish analysis could not be loaded."));
     }
-    return this.readyPromise;
+    return readiness;
   }
 
   private handleLine(line: string) {
@@ -47,6 +57,9 @@ export class AnalysisStockfishService {
       return;
     }
     if (line === "readyok" && this.uciOk) {
+      if (this.startupTimer) clearTimeout(this.startupTimer);
+      this.startupTimer = null;
+      this.initialized = true;
       this.readyResolve?.();
       this.readyResolve = null;
       this.readyReject = null;
@@ -77,7 +90,7 @@ export class AnalysisStockfishService {
     if (!worker) throw new Error("Stockfish analysis is unavailable.");
     worker.postMessage("setoption name Skill Level value 20");
     worker.postMessage("setoption name UCI_LimitStrength value false");
-    worker.postMessage("setoption name MultiPV value 3");
+    worker.postMessage(`setoption name MultiPV value ${this.options.multiPv ?? 3}`);
     return new Promise<StockfishCandidate[]>((resolve, reject) => {
       const timeout = setTimeout(() => {
         if (!this.pending) return;
@@ -92,6 +105,10 @@ export class AnalysisStockfishService {
   }
 
   stop() {
+    if (this.readyPromise && !this.initialized) {
+      this.readyReject?.(new StockfishCancelledError());
+      this.recycle();
+    }
     if (this.pending) {
       clearTimeout(this.pending.timeout);
       this.pending.reject(new StockfishCancelledError());
@@ -113,6 +130,9 @@ export class AnalysisStockfishService {
   }
 
   private recycle() {
+    if (this.startupTimer) clearTimeout(this.startupTimer);
+    this.startupTimer = null;
+    this.initialized = false;
     this.worker?.terminate();
     this.worker = null;
     this.readyPromise = null;

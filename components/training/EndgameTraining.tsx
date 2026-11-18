@@ -8,8 +8,10 @@ import { AnalysisStockfishService } from "@/chess/engine/AnalysisStockfishServic
 import { useGameDialogFocus } from "@/chess/hooks/useGameDialogFocus";
 import type { ChessColor, PromotionPiece } from "@/chess/types";
 import { ENDGAME_TOPICS, type EndgameTopic } from "@/lib/endgames/catalog";
-import { generateEndgameCandidate, winningCandidate } from "@/lib/endgames/generator";
+import { endgameCandidateFromSeed, winningCandidate } from "@/lib/endgames/generator";
 import { analyzeEndgame } from "@/lib/endgames/engine";
+import { endgameRewardRequest } from "@/lib/endgames/rewardsClient";
+import { refreshCelebrations } from "@/lib/celebrations";
 import { endgameResult, readEndgameProgress, replayEndgame, takeBackEndgame, type EndgameAttempt, type EndgameProgress } from "@/lib/endgames/practice";
 import styles from "./EndgameTraining.module.css";
 
@@ -21,14 +23,22 @@ export function EndgameTraining({ studentId }: { studentId: string }) {
   const [storageWarning, setStorageWarning] = useState(false);
   const [generating, setGenerating] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState("");
+  const [slowLoading, setSlowLoading] = useState(false);
+  const preparedEngine = useRef<AnalysisStockfishService | null>(null);
   const generation = useRef<{ token: number; engine: AnalysisStockfishService | null }>({ token: 0, engine: null });
   const storageKey = `chessquest:endgames:v1:${studentId}`;
   useEffect(() => {
     try { setProgress(readEndgameProgress(localStorage.getItem(storageKey))); }
     catch { setStorageWarning(true); }
     setLoaded(true);
-    return () => { generation.current.token++; generation.current.engine?.terminate(); };
+    return () => { generation.current.token++; generation.current.engine?.terminate(); preparedEngine.current?.terminate(); };
   }, [storageKey]);
+  useEffect(() => {
+    setSlowLoading(false);
+    if (!generating) return;
+    const timer = setTimeout(() => setSlowLoading(true), 3000);
+    return () => clearTimeout(timer);
+  }, [generating]);
   useEffect(() => {
     if (!loaded) return;
     try { localStorage.setItem(storageKey, JSON.stringify(progress)); }
@@ -44,24 +54,28 @@ export function EndgameTraining({ studentId }: { studentId: string }) {
   async function start(topic: EndgameTopic) {
     cancelGeneration();
     const token = generation.current.token;
-    const engine = new AnalysisStockfishService(); generation.current.engine = engine;
+    const engine = new AnalysisStockfishService({ multiPv: 1 }); generation.current.engine = engine;
+    let handedOff = false;
     setGenerating(topic.id); setGenerationError("");
     try {
+      const ticket = await endgameRewardRequest<{ token: string; seed: number }>({ action: "start", topicId: topic.id });
+      if (generation.current.token !== token) return;
       const previous = progress.attempts[topic.id]?.fen;
       for (let tries = 0; tries < 20; tries++) {
-        const fen = generateEndgameCandidate(topic.id);
+        const fen = endgameCandidateFromSeed(topic.id, ticket.seed, tries);
         if (fen === previous) continue;
         const lines = await analyzeEndgame(engine, fen, 650);
         if (generation.current.token !== token) return;
         if (!winningCandidate(lines[0])) continue;
-        setProgress(current => ({ selected: topic.id, attempts: { ...current.attempts, [topic.id]: { fen, moves: [], assisted: false, completed: false } } }));
+        preparedEngine.current = engine; handedOff = true;
+        setProgress(current => ({ selected: topic.id, attempts: { ...current.attempts, [topic.id]: { fen, moves: [], assisted: false, completed: false, rewardToken: ticket.token, candidateIndex: tries } } }));
         return;
       }
       throw new Error("We couldn't verify a winning position this time. Please try generating another.");
     } catch (error) {
       if (generation.current.token === token) setGenerationError(error instanceof Error ? error.message : "Couldn't prepare this position. Please try again.");
     } finally {
-      engine.terminate();
+      if (!handedOff) engine.terminate();
       if (generation.current.token === token) { generation.current.engine = null; setGenerating(null); }
     }
   }
@@ -70,15 +84,15 @@ export function EndgameTraining({ studentId }: { studentId: string }) {
   if (!loaded) return <p role="status" className="p-4 text-slate-300">Preparing endgame practice…</p>;
   return <div className={styles.root}>
     {storageWarning && <p role="status" className="mb-3 text-sm text-amber-200">Practice still works, but this browser cannot save your position. Keep this tab open to continue.</p>}
-    {generating && <div role="status" className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-cyan-200/30 bg-slate-950 p-3 text-sm text-cyan-100">Creating a fresh position and checking the winning advantage…<button type="button" className={buttonClass} onClick={cancelGeneration}>Cancel</button></div>}
+    {generating && <div role="status" className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-cyan-200/30 bg-slate-950 p-3 text-sm text-cyan-100">{slowLoading ? "Still preparing your computer opponent. The first download can take a little longer; keep this tab open." : "Creating a fresh position and checking the winning advantage…"}<button type="button" className={buttonClass} onClick={cancelGeneration}>Cancel</button></div>}
     {generationError && <p role="alert" className="mb-3 rounded-xl border border-amber-200/30 bg-slate-950 p-3 text-sm text-amber-100">{generationError}</p>}
-    {topic && attempt ? <EndgameBoard key={`${topic.id}:${attempt.fen}`} topic={topic} initial={attempt} onSave={save} generating={Boolean(generating)} onNew={() => void start(topic)} onBack={() => { cancelGeneration(); setProgress(current => ({ ...current, selected: null })); }} /> : <>
+    {topic && attempt ? <EndgameBoard key={`${topic.id}:${attempt.fen}`} topic={topic} initial={attempt} preparedEngine={preparedEngine.current} onSave={save} generating={Boolean(generating)} onNew={() => void start(topic)} onBack={() => { cancelGeneration(); preparedEngine.current = null; setProgress(current => ({ ...current, selected: null })); }} /> : <>
       <header className="mb-6">
         <Link href="/student/training" className="text-sm font-bold text-cyan-100">← Training</Link>
         <p className="mt-5 text-xs font-black uppercase tracking-widest text-amber-200">Play it through</p>
         <h1 className="mt-2 text-3xl font-black text-white">Endgame Practice</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Choose a skill. Get a newly generated, engine-checked winning position, then finish it against a defending computer. No clock. Any legal move is welcome—your goal is checkmate.</p>
-        <p className="mt-2 text-xs text-slate-400">Hints and takebacks are available. Your current attempts save on this browser. Practice does not count as a rated game or quest win.</p>
+        <p className="mt-2 text-xs text-slate-400">Earn 3 XP + 3 coins for checkmate without hints or takebacks, once per generated attempt. Your current attempts save on this browser. Practice does not count as a rated game or quest win.</p>
       </header>
       {(["Common endgames", "Convert the win"] as const).map(group => <section key={group} className="mb-8" aria-label={group}>
         <h2 className="mb-3 text-xl font-black text-white">{group}</h2>
@@ -101,8 +115,8 @@ export function EndgameTraining({ studentId }: { studentId: string }) {
   </div>;
 }
 
-function EndgameBoard({ topic, initial, onSave, onBack, onNew, generating }: {
-  topic: EndgameTopic; initial: EndgameAttempt; onSave: (id: string, attempt: EndgameAttempt) => void; onBack: () => void; onNew: () => void; generating: boolean;
+function EndgameBoard({ topic, initial, preparedEngine, onSave, onBack, onNew, generating }: {
+  topic: EndgameTopic; initial: EndgameAttempt; preparedEngine: AnalysisStockfishService | null; onSave: (id: string, attempt: EndgameAttempt) => void; onBack: () => void; onNew: () => void; generating: boolean;
 }) {
   const [attempt, setAttempt] = useState(initial);
   const game = useMemo(() => replayEndgame(initial.fen, attempt.moves), [initial.fen, attempt.moves]);
@@ -115,17 +129,36 @@ function EndgameBoard({ topic, initial, onSave, onBack, onNew, generating }: {
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [promotion, setPromotion] = useState<{ from: string; to: string } | null>(null);
-  const engineRef = useRef<AnalysisStockfishService | null>(null);
+  const engineRef = useRef<AnalysisStockfishService | null>(preparedEngine);
+  const [helpBusy, setHelpBusy] = useState(false);
+  const assistanceRecorded = useRef(false);
+  const [rewardState, setRewardState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [rewardError, setRewardError] = useState("");
   const inputLocked = useRef(false);
   const currentAttempt = useRef(attempt); currentAttempt.current = attempt;
   const thinking = !result && game.turn() !== player;
   useEffect(() => { onSave(topic.id, attempt); }, [attempt, onSave, topic.id]);
+  const claimReward = useCallback(async () => {
+    setRewardState("saving"); setRewardError("");
+    try {
+      const receipt = await endgameRewardRequest<{ rewardXp: number; awarded: boolean; assisted: boolean }>({ action: "complete", token: attempt.rewardToken, candidateIndex: attempt.candidateIndex, moves: attempt.moves, assisted: attempt.assisted });
+      setAttempt(current => ({ ...current, rewardXp: receipt.rewardXp, assisted: current.assisted || receipt.assisted }));
+      setRewardState("saved");
+      if (receipt.rewardXp === 3) refreshCelebrations();
+    } catch (error) {
+      setRewardState("error");
+      setRewardError(error instanceof Error ? error.message : "Couldn't save your reward. Please retry.");
+    }
+  }, [attempt.rewardToken, attempt.candidateIndex, attempt.moves, attempt.assisted]);
+  useEffect(() => {
+    if (result?.won && !attempt.assisted && attempt.rewardToken && !attempt.rewardXp && rewardState === "idle") void claimReward();
+  }, [result?.won, attempt.assisted, attempt.rewardToken, attempt.rewardXp, rewardState, claimReward]);
   useEffect(() => () => { engineRef.current?.terminate(); }, []);
   useEffect(() => {
     if (game.isGameOver() || (game.turn() === player && !hintRequested)) { inputLocked.current = false; return; }
     let active = true, settled = false;
     inputLocked.current = true;
-    const engine = engineRef.current ?? new AnalysisStockfishService(); engineRef.current = engine;
+    const engine = engineRef.current ?? new AnalysisStockfishService({ multiPv: 1 }); engineRef.current = engine;
     void analyzeEndgame(engine, fen).then(lines => {
       if (!active) return;
       const line = lines[0];
@@ -149,7 +182,7 @@ function EndgameBoard({ topic, initial, onSave, onBack, onNew, generating }: {
   }, [fen, game, player, hintRequested, retry]);
 
   function move(from: string, to: string, piece?: PromotionPiece) {
-    if (inputLocked.current || thinking || result || error || generating) return;
+    if (inputLocked.current || thinking || result || error || generating || helpBusy) return;
     if (!piece && game.get(from as Square)?.type === "p" && /[18]$/.test(to)) { setPromotion({ from, to }); return; }
     try {
       const next = replayEndgame(initial.fen, currentAttempt.current.moves);
@@ -162,7 +195,23 @@ function EndgameBoard({ topic, initial, onSave, onBack, onNew, generating }: {
   }
   function reset(takeback: boolean) {
     setHintRequested(false); setHint(null); setPromotion(null); setError(""); setRetry(value => value + 1);
-    setAttempt(current => ({ ...current, moves: takeback ? takeBackEndgame(initial.fen, current.moves) : [], assisted: takeback, completed: false }));
+    setAttempt(current => ({ ...current, moves: takeback ? takeBackEndgame(initial.fen, current.moves) : [], assisted: current.assisted || takeback, completed: false }));
+  }
+  async function useHelp(kind: "hint" | "takeback") {
+    if (helpBusy) return;
+    inputLocked.current = true; setHelpBusy(true); setRewardError("");
+    // Sticky locally immediately; acknowledge server-side before revealing help.
+    setAttempt(current => ({ ...current, assisted: true }));
+    try {
+      if (attempt.rewardToken && !assistanceRecorded.current) {
+        await endgameRewardRequest({ action: "assist", token: attempt.rewardToken });
+        assistanceRecorded.current = true;
+      }
+      if (kind === "hint") setHintRequested(true);
+      else reset(true);
+    } catch {
+      setRewardError("Couldn't record practice help. Please try the hint or takeback again.");
+    } finally { inputLocked.current = false; setHelpBusy(false); }
   }
   const history = game.history({ verbose: true });
   const last = history.at(-1);
@@ -177,24 +226,27 @@ function EndgameBoard({ topic, initial, onSave, onBack, onNew, generating }: {
       <div className={styles.boardColumn}>
         <div className="mb-2 flex items-center justify-between gap-2 text-sm"><span role="status" className="font-bold text-cyan-100">{status}</span><span className="text-xs text-slate-400">Win by checkmate</span></div>
         <div className="relative" data-testid="endgame-board" data-fen={fen} data-color={color}>
-          <AcademyChessboard fen={fen} orientation={color} humanColor={color} interactive={!thinking && !result && !hintRequested && !promotion && !error && !generating} lastMove={last ? [last.from, last.to] : null} onMove={move} onBoardInteraction={() => setHint(null)} allowDrawingArrows boardId="endgame-practice" arrows={currentHint ? [{ startSquare: currentHint.uci.slice(0, 2), endSquare: currentHint.uci.slice(2, 4), color: "rgba(250,204,21,.8)" }] : undefined} />
+          <AcademyChessboard fen={fen} orientation={color} humanColor={color} interactive={!thinking && !result && !hintRequested && !promotion && !error && !generating && !helpBusy} lastMove={last ? [last.from, last.to] : null} onMove={move} onBoardInteraction={() => setHint(null)} allowDrawingArrows boardId="endgame-practice" arrows={currentHint ? [{ startSquare: currentHint.uci.slice(0, 2), endSquare: currentHint.uci.slice(2, 4), color: "rgba(250,204,21,.8)" }] : undefined} />
           {promotion && <EndgamePromotion color={color} file={promotion.to[0]} onCancel={() => setPromotion(null)} onChoose={piece => { const pending = promotion; setPromotion(null); move(pending.from, pending.to, piece); }} />}
         </div>
 
       </div>
       <aside className={styles.panel}>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className={buttonClass} disabled={Boolean(result) || thinking || hintRequested || Boolean(error) || generating} onClick={() => { inputLocked.current = true; setAttempt(current => ({ ...current, assisted: true })); setHintRequested(true); }}>Hint</button>
-          <button type="button" className={buttonClass} disabled={!attempt.moves.length || generating} onClick={() => reset(true)}>Take back</button>
-          <button type="button" className={buttonClass} disabled={generating} onClick={() => reset(false)}>Retry position</button>
+          <button type="button" className={buttonClass} disabled={Boolean(result) || thinking || hintRequested || Boolean(error) || generating || helpBusy} onClick={() => void useHelp("hint")}>Hint</button>
+          <button type="button" className={buttonClass} disabled={!attempt.moves.length || generating || helpBusy} onClick={() => void useHelp("takeback")}>Take back</button>
+          <button type="button" className={buttonClass} disabled={generating || helpBusy || rewardState === "saving"} onClick={() => reset(false)}>Retry position</button>
         </div>
+        <p className="text-xs font-bold text-amber-100">{attempt.rewardXp === 3 ? "3 XP + 3 coins earned for this position" : attempt.assisted ? "Practice with help · no reward for this position" : attempt.rewardToken ? "3 XP + 3 coins for checkmate without help" : "Saved practice · start a new position to earn rewards"}</p>
+        {rewardState === "saving" && <p role="status" className="text-sm text-cyan-100">Saving your 3 XP + 3 coins…</p>}
+        {rewardError && <div role="alert" className="rounded-xl border border-amber-200/30 p-3 text-sm text-amber-100">{rewardError}{rewardState === "error" && result?.won && !attempt.assisted && <button type="button" className={`${buttonClass} mt-2`} onClick={() => void claimReward()}>Retry reward save</button>}</div>}
         {error && <div role="alert" className="rounded-xl border border-amber-200/30 bg-amber-300/10 p-4"><p className="text-sm text-amber-100">{error}</p><button type="button" className={`${buttonClass} mt-3`} onClick={() => { setError(""); setRetry(value => value + 1); }}>Retry defender</button></div>}
         {result && <section role="status" className="rounded-xl border border-amber-200/40 bg-amber-300/10 p-4"><h2 className="text-xl font-black text-amber-100">{result.title}</h2><p className="mt-2 text-sm leading-6 text-slate-200">{result.message}</p>{result.won && <p className="mt-2 text-xs text-slate-300">{attempt.assisted ? "Completed with practice help. Try a fresh position without hints or takebacks next." : "Completed without hints or takebacks. Ready for a new position?"}</p>}</section>}
         <section className="rounded-xl border border-white/10 bg-slate-950/90 p-5"><p className="text-xs font-black uppercase tracking-wider text-cyan-200">Your plan</p><p className="mt-2 text-sm leading-6 text-slate-200">{topic.plan}</p><p className="mt-4 text-xs font-black uppercase tracking-wider text-amber-200">Watch out</p><p className="mt-2 text-sm leading-6 text-slate-300">{topic.watchFor}</p></section>
         {currentHint && <p role="status" className="rounded-xl border border-cyan-200/25 bg-cyan-200/5 p-4 text-sm text-cyan-100">Try <strong>{currentHint.san}</strong> ({currentHint.uci.slice(0, 2)} → {currentHint.uci.slice(2, 4)}). The arrow shows one useful move. Other legal moves are welcome.</p>}
         <div className="rounded-xl border border-white/10 bg-slate-950/70 p-4"><p className="text-xs font-bold text-slate-400">Recent moves</p><p className="mt-2 min-h-6 break-words font-mono text-sm text-slate-200">{history.slice(-8).map((item, index) => `${Math.floor((history.length - Math.min(8, history.length) + index + (player === "b" ? 1 : 0)) / 2) + 1}${item.color === "w" ? "." : "..."} ${item.san}`).join("  ") || "Your first move starts the practice."}</p></div>
         <button type="button" className={`${buttonClass} border-amber-200/40 bg-amber-300/10 text-amber-100`} onClick={onNew} disabled={generating}>New position</button>
-        <p className="text-xs leading-5 text-slate-400">Freshly generated, checked by Stockfish. The defender runs on your device. This attempt saves on this browser; it does not award XP or coins.</p>
+        <p className="text-xs leading-5 text-slate-400">Freshly generated, checked by Stockfish. The defender runs on your device. Rewards are saved to your account once per new position. Hints or takebacks remove reward eligibility, including after Retry position.</p>
       </aside>
     </div>
   </>;

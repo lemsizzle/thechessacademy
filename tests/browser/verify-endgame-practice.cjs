@@ -90,12 +90,13 @@ const route = '/student/training/endgames';
     await page.getByRole('button', { name: 'Cancel promotion', exact: true }).click(); await ready();
     await move('e7', 'e8'); await page.getByRole('button', { name: 'Promote to Rook', exact: true }).click(); await ready();
     assert.equal(new Chess(await fen()).get('e8')?.type, 'r');
-    // Worker failure is recoverable rather than locking input indefinitely.
+    // Cancel an unresponsive startup, then load a real worker successfully.
     await page.getByRole('button', { name: 'All endgames' }).click();
-    await page.route('**/vendor/stockfish/**', route => route.abort());
+    await page.route('**/stockfish-18-lite-single.js', route => route.fulfill({status:200,contentType:'application/javascript',body:'self.onmessage = function () {};'}));
     await page.getByRole('button', { name: titles[0], exact: true }).click();
-    await page.getByRole('alert').waitFor();
-    await page.unroute('**/vendor/stockfish/**');
+    await page.getByText('Still preparing your computer opponent.',{exact:false}).waitFor();
+    await page.getByRole('button', {name:'Cancel',exact:true}).click();
+    await page.unroute('**/stockfish-18-lite-single.js');
     await page.getByRole('button', { name: titles[0], exact: true }).click(); await board.waitFor(); await ready();
     assert.deepEqual(errors, []);
     fs.writeFileSync('work/endgames/generated-positions.json', JSON.stringify(times, null, 2));
