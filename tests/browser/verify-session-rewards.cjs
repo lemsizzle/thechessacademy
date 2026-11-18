@@ -11,14 +11,14 @@ const training=process.env.TRAINING_REWARDS_URL || 'http://127.0.0.1:9508';
  const move=async(from,to)=>{await page.locator(`[data-square="${from}"]`).click();await page.locator(`[data-square="${to}"]`).click();};
  try{
  await page.goto(puzzles+'/student/training');
- await page.getByRole('button',{name:/^♥/}).click();await page.getByRole('button',{name:'Start Survival',exact:true}).click();await tally(0);
+ await page.getByRole('button',{name:'Start Survival',exact:true}).click();await tally(0);
  await move('e5','c6');await tally(2);await page.getByRole('button',{name:'Next Puzzle',exact:true}).click();await page.locator('[data-square="g2"] [data-piece]').waitFor();await move('g2','c6');await tally(4);
  for(const [name,width,height]of [['desktop',1440,900],['tablet',1024,768],['phone',390,844]]){
  await page.setViewportSize({width,height});await page.waitForTimeout(300);await page.getByRole('region',{name:'Training session rewards'}).scrollIntoViewIfNeeded();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
  const box=await page.getByRole('region',{name:'Training session rewards'}).boundingBox(),board=await page.locator('[data-chess-board]').boundingBox();
  assert.ok(box.x>=board.x+board.width-1||box.y>=board.y+board.height-1);await page.screenshot({path:`work/session-tally/${name}.png`});}
- await page.reload();await page.getByRole('button',{name:/^♥/}).click();await page.getByRole('button',{name:'Start Survival',exact:true}).click();await tally(4);
+ await page.reload();await page.getByRole('button',{name:'Start Survival',exact:true}).click();await tally(4);
  await page.getByRole('button',{name:'Reset tally',exact:true}).click();await tally(0);
  console.log('Survival: 0 → 2 → 4, reload preserved, reset, desktop/tablet/phone layout passed.');
  await page.setViewportSize({width:1440,height:900});await page.goto(training+'/?retry=1');

@@ -34,12 +34,12 @@ function renderSetup() {
 }
 
 describe("puzzle mode setup", () => {
-  it("opens as a focused mode chooser without showing settings or stats", () => {
+  it("offers direct starts and separate optional settings without an introductory dialog", () => {
     const html = renderSetup();
 
-    expect(html).toContain('role="dialog"');
+    expect(html).not.toContain('role="dialog"');
     // The mode chooser must allow the persistent navigation to remain usable.
-    expect(html).toContain('aria-modal="false"');
+    expect(html).toContain('aria-label="Survival settings"');
     expect(html).toContain("Choose a puzzle mode");
     expect(html).toContain("Survival");
     expect(html).toContain("Woodpecker Method");
@@ -52,7 +52,9 @@ describe("puzzle mode setup", () => {
     expect(html).not.toContain("Begin with very easy puzzles and climb through five difficulty stages.");
     expect(html).not.toContain("Turn mistakes from analyzed games and Survival training into personal puzzles.");
     expect(html).not.toContain("<select");
-    expect(html).not.toContain("Start Survival");
+    expect(html).toContain('aria-label="Start Survival"');
+    expect(html).toContain('aria-label="Launch Path Finder"');
+    expect(html).toContain('aria-label="Start Hide and Seek"');
     expect(html).not.toContain("Recorded performance");
     expect(html).not.toContain("Survival leaderboard");
   });

@@ -1,480 +1,93 @@
 "use client";
 
 import Link from "next/link";
-
-import {
-  useEffect,
-  useReducer,
-  useRef,
-  type KeyboardEvent,
-  type ReactNode
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { PuzzleTrainingStats } from "@/components/training/PuzzleTrainingStats";
-import {
-  initialPuzzleLauncherState,
-  PUZZLE_MODE_OPTIONS,
-  puzzleLauncherDismissAction,
-  puzzleLauncherReducer,
-  type PuzzleModeChoice
-} from "@/lib/puzzle-training/launcher";
-import {
-  PUZZLE_DIFFICULTY_OPTIONS,
-  SURVIVAL_DIFFICULTY_STAGES,
-  WOODPECKER_SET_SIZE_OPTIONS
-} from "@/lib/puzzle-training/modes";
+import { PUZZLE_MODE_OPTIONS, type PuzzleModeChoice } from "@/lib/puzzle-training/launcher";
+import { PUZZLE_DIFFICULTY_OPTIONS, WOODPECKER_SET_SIZE_OPTIONS } from "@/lib/puzzle-training/modes";
 import type { PuzzleTrainingOverview } from "@/lib/puzzle-training/overview";
-import {
-  puzzleThemeOptions,
-  type PuzzleLevelSlug,
-  type PuzzleThemeSlug
-} from "@/lib/puzzle-training/types";
-
-const SELECT_CLASS = "w-full rounded-lg border border-cyan-200/25 bg-slate-950 px-3 py-3 text-sm font-bold text-white outline-none transition focus:border-cyan-200 focus:ring-2 focus:ring-cyan-200/30";
+import { puzzleThemeOptions, type PuzzleLevelSlug, type PuzzleThemeSlug } from "@/lib/puzzle-training/types";
 
 export type { PuzzleModeChoice };
+const SELECT_CLASS = "mt-2 w-full rounded-lg border border-cyan-200/25 bg-slate-950 px-3 py-3 text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200";
 
-function ThemeControl({
-  selectedTheme,
-  onThemeChange
-}: {
-  selectedTheme: PuzzleThemeSlug;
-  onThemeChange: (theme: PuzzleThemeSlug) => void;
+export function AutoAdvanceSwitch({ checked, onChange, compact = false }: {
+  checked: boolean; onChange: (checked: boolean) => void; compact?: boolean;
 }) {
-  const theme = puzzleThemeOptions.find((option) => option.id === selectedTheme);
-
-  return (
-    <div>
-      <label htmlFor="training-theme" className="mb-2 block text-xs font-black uppercase tracking-wide text-cyan-100">Theme</label>
-      <select
-        id="training-theme"
-        value={selectedTheme}
-        onChange={(event) => onThemeChange(event.target.value as PuzzleThemeSlug)}
-        className={SELECT_CLASS}
-      >
-        {puzzleThemeOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-      </select>
-      <p className="mt-2 text-xs leading-5 text-slate-400">{theme?.description}</p>
-    </div>
-  );
+  return <div className={`flex items-center justify-between gap-4 ${compact ? "rounded-md border border-white/10 bg-white/5 px-3 py-2" : ""}`}>
+    <p className="text-sm font-black text-white">Auto-advance</p>
+    <button type="button" role="switch" aria-checked={checked} aria-label="Automatically move to the next puzzle"
+      onClick={() => onChange(!checked)}
+      className={`relative h-7 w-12 shrink-0 rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${checked ? "border-cyan-200 bg-cyan-300" : "border-white/20 bg-slate-700"}`}>
+      <span className={`absolute left-0 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : "translate-x-1"}`} />
+    </button>
+  </div>;
 }
 
-function SurvivalDetails({
-  selectedTheme,
-  onThemeChange
+export function PuzzleModeSetup({ selectedTheme, onThemeChange, selectedLevel, onLevelChange,
+  woodpeckerSetSize, onWoodpeckerSetSizeChange, autoAdvance, onAutoAdvanceChange, onStart, overview, statsContent
 }: {
-  selectedTheme: PuzzleThemeSlug;
-  onThemeChange: (theme: PuzzleThemeSlug) => void;
+  selectedTheme: PuzzleThemeSlug; onThemeChange: (theme: PuzzleThemeSlug) => void;
+  selectedLevel: PuzzleLevelSlug; onLevelChange: (level: PuzzleLevelSlug) => void;
+  woodpeckerSetSize: number; onWoodpeckerSetSizeChange: (size: number) => void;
+  autoAdvance: boolean; onAutoAdvanceChange: (enabled: boolean) => void;
+  onStart: (mode: PuzzleModeChoice, quickStart?: boolean) => void;
+  overview: PuzzleTrainingOverview; statsContent?: ReactNode;
 }) {
-  return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(220px,0.7fr)_minmax(0,1.3fr)]">
-      <ThemeControl selectedTheme={selectedTheme} onThemeChange={onThemeChange} />
-      <div>
-        <p className="text-xs font-black uppercase tracking-wide text-cyan-100">Adaptive difficulty</p>
-        <div className="mt-2 grid grid-cols-5 gap-1" aria-label="Survival difficulty progression">
-          {SURVIVAL_DIFFICULTY_STAGES.map((stage) => (
-            <div key={stage.level} className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-2 text-center">
-              <p className="text-[9px] font-black uppercase text-white sm:text-[10px]">{stage.name}</p>
-              <p className="mt-1 text-[10px] text-slate-500">{stage.start}–{stage.end}</p>
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-xs leading-5 text-slate-400">Three lives. Difficulty rises every 10 puzzles, from very easy to expert.</p>
-      </div>
-    </div>
-  );
-}
-
-function WoodpeckerDetails({
-  selectedTheme,
-  onThemeChange,
-  selectedLevel,
-  onLevelChange,
-  setSize,
-  onSetSizeChange
-}: {
-  selectedTheme: PuzzleThemeSlug;
-  onThemeChange: (theme: PuzzleThemeSlug) => void;
-  selectedLevel: PuzzleLevelSlug;
-  onLevelChange: (level: PuzzleLevelSlug) => void;
-  setSize: number;
-  onSetSizeChange: (size: number) => void;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-3">
-        <ThemeControl selectedTheme={selectedTheme} onThemeChange={onThemeChange} />
-        <div>
-          <label htmlFor="woodpecker-difficulty" className="mb-2 block text-xs font-black uppercase tracking-wide text-cyan-100">Difficulty</label>
-          <select
-            id="woodpecker-difficulty"
-            value={selectedLevel}
-            onChange={(event) => onLevelChange(event.target.value as PuzzleLevelSlug)}
-            className={SELECT_CLASS}
-          >
-            {PUZZLE_DIFFICULTY_OPTIONS.map((level) => <option key={level.id} value={level.id}>{level.name} · {level.rating}</option>)}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="woodpecker-set-size" className="mb-2 block text-xs font-black uppercase tracking-wide text-cyan-100">Set size</label>
-          <select
-            id="woodpecker-set-size"
-            value={setSize}
-            onChange={(event) => onSetSizeChange(Number(event.target.value))}
-            className={SELECT_CLASS}
-          >
-            {WOODPECKER_SET_SIZE_OPTIONS.map((size) => <option key={size} value={size}>{size} puzzles</option>)}
-          </select>
-        </div>
-      </div>
-      <div className="rounded-lg border border-fuchsia-300/20 bg-fuchsia-300/[0.06] p-4 text-sm leading-6 text-slate-300">
-        You will complete three cycles with the same set in a new order each time. A 20-puzzle set qualifies for the <strong className="text-fuchsia-100">Conquer the Woodpecker</strong> quest.
-      </div>
-    </div>
-  );
-}
-
-function StarWarsDetails() {
-  return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      {[
-        ["1", "Plan first", "Map the complete route before you touch a piece."],
-        ["2", "One move, one star", "Every successful move lands on exactly one remaining star."],
-        ["3", "Protect the run", "Missing a star—or leaving no star reachable next—ends the run."]
-      ].map(([step, title, description]) => (
-        <div key={step} className="rounded-lg border border-violet-200/20 bg-violet-300/5 p-4">
-          <span className="grid size-8 place-items-center rounded-full border border-violet-200/30 bg-violet-300/10 text-sm font-black text-violet-100">{step}</span>
-          <p className="mt-3 font-black text-white">{title}</p>
-          <p className="mt-1 text-sm leading-5 text-slate-400">{description}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function HideAndSeekDetails() {
-  return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      {[
-        ["1", "Study the board", "The timer begins only when you reveal the scattered black pieces."],
-        ["2", "Stamp safe squares", "Tap each empty square that no black piece can see. Pieces block sliding attacks."],
-        ["3", "Choose your pace", "Play an open-ended Classic search or a 60-second Time Trial. Speed can earn up to 40% of your score."]
-      ].map(([step, title, description]) => (
-        <div key={step} className="rounded-lg border border-emerald-200/20 bg-emerald-300/5 p-4">
-          <span className="grid size-8 place-items-center rounded-full border border-emerald-200/30 bg-emerald-300/10 text-sm font-black text-emerald-100">{step}</span>
-          <p className="mt-3 font-black text-white">{title}</p>
-          <p className="mt-1 text-sm leading-5 text-slate-400">{description}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ModeDetails({
-  mode,
-  selectedTheme,
-  onThemeChange,
-  selectedLevel,
-  onLevelChange,
-  woodpeckerSetSize,
-  onWoodpeckerSetSizeChange
-}: {
-  mode: PuzzleModeChoice;
-  selectedTheme: PuzzleThemeSlug;
-  onThemeChange: (theme: PuzzleThemeSlug) => void;
-  selectedLevel: PuzzleLevelSlug;
-  onLevelChange: (level: PuzzleLevelSlug) => void;
-  woodpeckerSetSize: number;
-  onWoodpeckerSetSizeChange: (size: number) => void;
-}) {
-  if (mode === "survival") {
-    return <SurvivalDetails selectedTheme={selectedTheme} onThemeChange={onThemeChange} />;
-  }
-  if (mode === "woodpecker") {
-    return (
-      <WoodpeckerDetails
-        selectedTheme={selectedTheme}
-        onThemeChange={onThemeChange}
-        selectedLevel={selectedLevel}
-        onLevelChange={onLevelChange}
-        setSize={woodpeckerSetSize}
-        onSetSizeChange={onWoodpeckerSetSizeChange}
-      />
-    );
-  }
-  if (mode === "starWars") return <StarWarsDetails />;
-  if (mode === "hideAndSeek") return <HideAndSeekDetails />;
-  if (mode === "daily") {
-    return (
-      <div className="rounded-lg border border-amber-300/25 bg-amber-300/[0.07] p-4">
-        <p className="font-black text-amber-100">Today’s reward: 10 XP + 10 Academy Coins</p>
-        <p className="mt-1 text-sm leading-6 text-slate-300">You can replay the puzzle after claiming the reward, but the bonus is awarded only once per day.</p>
-      </div>
-    );
-  }
-  if (mode === "adaptiveReview") {
-    return (
-      <div className="rounded-lg border border-violet-300/25 bg-violet-300/[0.07] p-4">
-        <p className="font-black text-violet-100">Personal puzzles from your games and Survival training</p>
-        <p className="mt-1 text-sm leading-6 text-slate-300">Due positions open immediately. If you are caught up, you will see when your next review becomes available.</p>
-      </div>
-    );
-  }
-  const unreachableMode: never = mode;
-  return unreachableMode;
-}
-
-export function AutoAdvanceSwitch({
-  checked,
-  onChange,
-  compact = false
-}: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  compact?: boolean;
-}) {
-  return (
-    <div className={`flex items-center justify-between gap-4 ${compact ? "rounded-md border border-white/10 bg-white/5 px-3 py-2" : ""}`}>
-      <div>
-        <p className="text-sm font-black text-white">Auto-advance</p>
-        {compact ? null : <p className="mt-1 text-xs text-slate-400">Open the next puzzle automatically after a correct solution.</p>}
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label="Automatically move to the next puzzle"
-        onClick={() => onChange(!checked)}
-        className={`relative h-7 w-12 shrink-0 rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${checked ? "border-cyan-200 bg-cyan-300" : "border-white/20 bg-slate-700"}`}
-      >
-        <span className={`absolute left-0 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : "translate-x-1"}`} />
-      </button>
-    </div>
-  );
-}
-
-export function PuzzleModeSetup({
-  selectedTheme,
-  onThemeChange,
-  selectedLevel,
-  onLevelChange,
-  woodpeckerSetSize,
-  onWoodpeckerSetSizeChange,
-  autoAdvance,
-  onAutoAdvanceChange,
-  onStart,
-  overview,
-  statsContent
-}: {
-  selectedTheme: PuzzleThemeSlug;
-  onThemeChange: (theme: PuzzleThemeSlug) => void;
-  selectedLevel: PuzzleLevelSlug;
-  onLevelChange: (level: PuzzleLevelSlug) => void;
-  woodpeckerSetSize: number;
-  onWoodpeckerSetSizeChange: (size: number) => void;
-  autoAdvance: boolean;
-  onAutoAdvanceChange: (enabled: boolean) => void;
-  onStart: (mode: PuzzleModeChoice) => void;
-  overview: PuzzleTrainingOverview;
-  statsContent?: ReactNode;
-}) {
-  const [launcher, dispatch] = useReducer(puzzleLauncherReducer, initialPuzzleLauncherState);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  const launcherButtonRef = useRef<HTMLButtonElement>(null);
-  const modeButtonRefs = useRef(new Map<PuzzleModeChoice, HTMLButtonElement>());
-  const lastSelectedMode = useRef<PuzzleModeChoice | null>(null);
-  const hasOpened = useRef(false);
-  const selectedMode = PUZZLE_MODE_OPTIONS.find((mode) => mode.id === launcher.selectedMode) ?? null;
-
+  const [panel, setPanel] = useState<"survival" | "woodpecker" | "stats" | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const previousPanel = useRef(panel);
   useEffect(() => {
-    if (!launcher.open) {
-      if (hasOpened.current) launcherButtonRef.current?.focus();
-      return;
-    }
-
-    hasOpened.current = true;
-  }, [launcher.open]);
-
-  useEffect(() => {
-    if (!launcher.open) return;
-    const frame = window.requestAnimationFrame(() => {
-      if (launcher.screen === "choices" && lastSelectedMode.current) {
-        modeButtonRefs.current.get(lastSelectedMode.current)?.focus();
-      } else {
-        headingRef.current?.focus();
-      }
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [launcher.open, launcher.screen]);
-
-  function showChoices() {
-    dispatch({ type: "OPEN_CHOICES" });
-  }
-
-  function showStats() {
-    lastSelectedMode.current = null;
-    dispatch({ type: "OPEN_STATS" });
-  }
-
-  function handleDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      dispatch(puzzleLauncherDismissAction(launcher.screen));
-      return;
-    }
-    // This picker is non-modal: Tab can reach the persistent navigation.
-  }
-
-  return (
-    <div className="mx-auto max-w-3xl">
-      {!launcher.open ? (
-        <Card className="overflow-hidden border-cyan-200/20">
-          <div className="bg-gradient-to-r from-cyan-300/10 via-slate-950 to-amber-300/10 p-5 sm:p-7">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Puzzle Training</p>
-            <h2 className="mt-2 text-3xl font-black text-white">What do you want to train?</h2>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Choose a focused mode or open your stats. Nothing else competes for attention until you are ready.</p>
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-              <button
-                ref={launcherButtonRef}
-                type="button"
-                onClick={showChoices}
-                className="inline-flex min-h-12 flex-1 items-center justify-center rounded-md border border-amber-300/60 bg-amber-300 px-5 py-3 text-base font-black text-slate-950 shadow-gold transition hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-              >
-                Choose Puzzle Mode
-              </button>
-              <Button type="button" variant="secondary" onClick={showStats} className="min-h-12 flex-1 text-base">View My Stats</Button>
-            </div>
-            <Link href="/student/training/endgames" className="mt-4 block rounded-xl border border-cyan-200/30 bg-cyan-300/5 p-4 hover:bg-cyan-300/10"><span className="block text-lg font-black text-cyan-100">Endgame Practice →</span><span className="mt-1 block text-sm text-slate-300">Fresh positions every time. Learn common endings and turn winning advantages into checkmate.</span></Link>
-          </div>
-        </Card>
-      ) : null}
-
-      {launcher.open ? (
-        <div className="student-hub-overlay fixed inset-0 z-20 overflow-y-auto bg-slate-950/88 p-3 backdrop-blur-md sm:p-6">
-          <div className="flex min-h-full items-center justify-center">
-            <div
-              ref={dialogRef}
-              role="dialog"
-              aria-modal="false"
-              aria-labelledby="puzzle-training-dialog-title"
-              aria-describedby="puzzle-training-dialog-description"
-              tabIndex={-1}
-              onKeyDown={handleDialogKeyDown}
-              className="w-full max-w-6xl"
-            >
-              <Card className="overflow-hidden border-cyan-200/25 bg-slate-950/95 shadow-[0_24px_100px_rgba(0,0,0,0.72)]">
-                <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-gradient-to-r from-cyan-300/10 via-slate-950 to-amber-300/10 px-4 py-4 sm:px-6 sm:py-5">
-                  <div className="min-w-0">
-                    {launcher.screen !== "choices" ? (
-                      <button
-                        type="button"
-                        onClick={() => dispatch({ type: "BACK" })}
-                        className="mb-2 text-xs font-black uppercase tracking-wide text-cyan-200 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-                      >
-                        ← Back to modes
-                      </button>
-                    ) : <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Academy Puzzle Training</p>}
-                    <h2
-                      ref={headingRef}
-                      id="puzzle-training-dialog-title"
-                      tabIndex={-1}
-                      className="text-2xl font-black text-white outline-none sm:text-3xl"
-                    >
-                      {launcher.screen === "choices"
-                        ? "Choose a puzzle mode"
-                        : launcher.screen === "stats"
-                          ? "Puzzle Training Stats"
-                          : selectedMode?.name}
-                    </h2>
-                    <p id="puzzle-training-dialog-description" className="mt-1 max-w-3xl text-sm leading-6 text-slate-300">
-                      {launcher.screen === "choices"
-                        ? "Pick one mode to see how it works and adjust only the settings it needs."
-                        : launcher.screen === "stats"
-                          ? "All of your recorded puzzle-training progress, plus the Survival leaderboard."
-                          : selectedMode?.description}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label={launcher.screen === "choices" ? "Close puzzle training window" : "Back to puzzle mode selector"}
-                    onClick={() => dispatch(puzzleLauncherDismissAction(launcher.screen))}
-                    className="grid size-10 shrink-0 place-items-center rounded-md border border-white/10 bg-white/5 text-xl font-black text-slate-300 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-                  >
-                    ×
-                  </button>
-                </div>
-
-                <div className="p-4 sm:p-6">
-                  {launcher.screen === "choices" ? (
-                    <>
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Puzzle training modes">
-                        <Link href="/student/training/battle" className="rounded-xl border border-cyan-200/40 bg-cyan-300/10 p-4 text-left hover:bg-cyan-300/20 sm:p-5"><span className="text-2xl" aria-hidden>⚔</span><span className="mt-4 block text-lg font-black text-white">Puzzle Battle</span><span className="mt-1 block text-xs font-bold uppercase text-amber-100">Race a classmate · 3 modes · timed rounds</span></Link>
-                        <Link href="/student/training/endgames" className="rounded-xl border border-cyan-200/40 bg-cyan-300/10 p-4 text-left hover:bg-cyan-300/20 sm:p-5"><span className="text-2xl" aria-hidden>♔</span><span className="mt-4 block text-lg font-black text-white">Endgame Practice</span><span className="mt-1 block text-xs font-bold uppercase text-amber-100">Generated positions · Play out the win</span></Link>
-                        {PUZZLE_MODE_OPTIONS.map((mode) => (
-                          <button
-                            key={mode.id}
-                            ref={(node) => {
-                              if (node) modeButtonRefs.current.set(mode.id, node);
-                              else modeButtonRefs.current.delete(mode.id);
-                            }}
-                            type="button"
-                            onClick={() => {
-                              lastSelectedMode.current = mode.id;
-                              dispatch({ type: "SELECT_MODE", mode: mode.id });
-                            }}
-                            className="group rounded-xl border border-white/10 bg-white/[0.035] p-4 text-left transition hover:-translate-y-0.5 hover:border-cyan-200/45 hover:bg-cyan-300/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 sm:p-5"
-                          >
-                            <span className="flex items-start justify-between gap-3">
-                              <span className="grid size-10 place-items-center rounded-lg border border-cyan-200/20 bg-cyan-300/10 text-xl font-black text-cyan-100">{mode.icon}</span>
-                              <span className="text-lg text-slate-500 transition group-hover:translate-x-1 group-hover:text-cyan-100" aria-hidden="true">→</span>
-                            </span>
-                            <span className="mt-4 block text-lg font-black text-white">{mode.name}</span>
-                            <span className="mt-1 block text-xs font-bold uppercase tracking-wide text-amber-100">{mode.summary}</span>
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-5 flex flex-col items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.025] p-4 sm:flex-row">
-                        <Link href="/student/training/dashboard" className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-black text-cyan-100 hover:bg-cyan-300/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200">Puzzle Dashboard · Progress & replays ↗</Link>
-                        <Button type="button" variant="secondary" onClick={showStats}>View My Stats</Button>
-                      </div>
-                    </>
-                  ) : launcher.screen === "stats" ? (
-                    <PuzzleTrainingStats overview={overview} leaderboard={statsContent} />
-                  ) : selectedMode ? (
-                    <div className="space-y-5">
-                      <ModeDetails
-                        mode={selectedMode.id}
-                        selectedTheme={selectedTheme}
-                        onThemeChange={onThemeChange}
-                        selectedLevel={selectedLevel}
-                        onLevelChange={onLevelChange}
-                        woodpeckerSetSize={woodpeckerSetSize}
-                        onWoodpeckerSetSizeChange={onWoodpeckerSetSizeChange}
-                      />
-                      {(selectedMode.id === "survival" || selectedMode.id === "woodpecker") ? (
-                        <div className="rounded-lg border border-white/10 bg-white/[0.025] p-4">
-                          <AutoAdvanceSwitch checked={autoAdvance} onChange={onAutoAdvanceChange} />
-                        </div>
-                      ) : null}
-                      <div className="border-t border-white/10 pt-5">
-                        <Button
-                          type="button"
-                          onClick={() => onStart(selectedMode.id)}
-                          className="min-h-14 w-full px-8 text-base sm:text-lg"
-                        >
-                          {selectedMode.startLabel}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </Card>
-            </div>
-          </div>
-        </div>
-      ) : null}
+    if (panel || previousPanel.current) heading.current?.focus();
+    previousPanel.current = panel;
+  }, [panel]);
+  const selected = PUZZLE_MODE_OPTIONS.find(mode => mode.id === panel);
+  if (panel) return <section className="mx-auto max-w-4xl space-y-4" onKeyDown={event => { if (event.key === "Escape") setPanel(null); }}>
+    <button type="button" onClick={() => setPanel(null)} className="min-h-11 font-bold text-cyan-200">← Back to modes</button>
+    <h2 ref={heading} tabIndex={-1} className="text-2xl font-black text-white outline-none">{panel === "stats" ? "Puzzle Training Stats" : `${selected?.name} settings`}</h2>
+    {panel === "stats" ? <PuzzleTrainingStats overview={overview} leaderboard={statsContent} /> : <Card className="space-y-5 p-5">
+      <label className="block text-sm font-bold text-cyan-100">Theme
+        <select aria-label="Theme" className={SELECT_CLASS} value={selectedTheme} onChange={event => onThemeChange(event.target.value as PuzzleThemeSlug)}>
+          {puzzleThemeOptions.map(theme => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
+        </select>
+      </label>
+      {panel === "woodpecker" && <div className="grid gap-4 sm:grid-cols-2">
+        <label className="block text-sm font-bold text-cyan-100">Difficulty
+          <select aria-label="Difficulty" className={SELECT_CLASS} value={selectedLevel} onChange={event => onLevelChange(event.target.value as PuzzleLevelSlug)}>
+            {PUZZLE_DIFFICULTY_OPTIONS.map(level => <option key={level.id} value={level.id}>{level.name}</option>)}
+          </select>
+        </label>
+        <label className="block text-sm font-bold text-cyan-100">Puzzles per cycle
+          <select aria-label="Puzzles per cycle" className={SELECT_CLASS} value={woodpeckerSetSize} onChange={event => onWoodpeckerSetSizeChange(Number(event.target.value))}>
+            {WOODPECKER_SET_SIZE_OPTIONS.map(size => <option key={size} value={size}>{size}</option>)}
+          </select>
+        </label>
+      </div>}
+      <AutoAdvanceSwitch checked={autoAdvance} onChange={onAutoAdvanceChange} />
+      <Button className="w-full" onClick={() => onStart(panel, true)}>{selected?.startLabel}</Button>
+    </Card>}
+  </section>;
+  return <section className="mx-auto max-w-5xl space-y-4">
+    <h2 ref={heading} tabIndex={-1} className="text-xl font-black text-white outline-none">Choose a puzzle mode</h2>
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Puzzle training modes">
+      {PUZZLE_MODE_OPTIONS.map(mode => <Card key={mode.id} className="flex flex-col overflow-hidden">
+        <button type="button" aria-label={mode.startLabel} onClick={() => onStart(mode.id, true)}
+          className="flex-1 p-4 text-left hover:bg-cyan-300/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200">
+          <span className="flex items-center gap-3"><span aria-hidden="true" className="text-xl text-cyan-100">{mode.icon}</span><span className="font-black text-white">{mode.name}</span><span aria-hidden="true" className="ml-auto text-cyan-200">→</span></span>
+          <span className="mt-2 block text-xs text-slate-400">{mode.summary}</span>
+        </button>
+        {mode.id !== "daily" && mode.id !== "adaptiveReview" && <button type="button" aria-label={`${mode.name} settings`}
+          onClick={() => mode.id === "survival" || mode.id === "woodpecker" ? setPanel(mode.id) : onStart(mode.id, false)}
+          className="min-h-10 border-t border-white/10 px-4 text-left text-xs font-bold text-cyan-200 hover:bg-white/5 focus-visible:outline focus-visible:outline-2">Settings</button>}
+      </Card>)}
+      <Link href="/student/training/endgames" className="rounded-xl border border-cyan-200/25 bg-slate-950/80 p-4 hover:bg-cyan-300/10"><span className="font-black text-white">♔ Endgame Practice →</span><span className="mt-2 block text-xs text-slate-400">Choose a position to play out</span></Link>
+      <Link href="/student/training/battle" className="rounded-xl border border-cyan-200/25 bg-slate-950/80 p-4 hover:bg-cyan-300/10"><span className="font-black text-white">⚔ Puzzle Battle →</span><span className="mt-2 block text-xs text-slate-400">Race a classmate or computer</span></Link>
     </div>
-  );
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-bold text-cyan-200">
+      <Link href="/student/training/dashboard" className="py-3 hover:underline">Progress & replays</Link>
+      <button type="button" className="min-h-11 hover:underline" onClick={() => setPanel("stats")}>View My Stats</button>
+    </div>
+  </section>;
 }

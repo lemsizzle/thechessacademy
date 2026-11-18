@@ -72,14 +72,6 @@ const ANNOTATION_ARROW_COLOR = "#c084fc";
 const WRONG_MOVE_COLOR = "#fb7185";
 const STAR_SVG = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 6 61.8 35.8 94 37.8 69.2 58.4 77.2 89.6 50 72.4 22.8 89.6 30.8 58.4 6 37.8 38.2 35.8Z' fill='%23fde047' stroke='%23fff7b3' stroke-width='7' stroke-linejoin='round'/%3E%3C/svg%3E\")";
 
-const pieceNames = {
-  b: "bishop",
-  k: "king",
-  n: "knight",
-  q: "queen",
-  r: "rook"
-} as const;
-
 function HiddenBoardPiece() {
   return <span aria-hidden="true" className="block h-full w-full opacity-0" />;
 }
@@ -95,7 +87,7 @@ function formatCountdown(remainingMs: number) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-export function StarWarsTraining({ onExit }: { onExit: () => void }) {
+export function StarWarsTraining({ onExit, autoStart = false }: { onExit: () => void; autoStart?: boolean }) {
   const { pieces, squareStyles: themeSquareStyles } = useBoardAppearance();
   const [runId, setRunId] = useState<string | null>(null);
   const [runVariant, setRunVariant] = useState(0);
@@ -110,7 +102,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [puzzle, setPuzzle] = useState(() => starWarsPuzzleForScore(0, 0));
   const [gameState, setGameState] = useState<StarWarsState>(() => initialStarWarsState(puzzle));
-  const [phase, setPhase] = useState<RunPhase>("setup");
+  const [phase, setPhase] = useState<RunPhase>(autoStart ? "loading" : "setup");
   const [scoreSyncState, setScoreSyncState] = useState<ScoreSyncState>("idle");
   const [lastMove, setLastMove] = useState<[string, string] | null>(null);
   const [failedMove, setFailedMove] = useState<StarWarsMove | null>(null);
@@ -231,6 +223,13 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       return nextScore;
     });
   }
+
+  useEffect(() => {
+    if (!autoStart) return;
+    // Defer until mount so Strict Mode's discarded effect cannot start a run.
+    const timer = window.setTimeout(() => { void beginServerRun(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [autoStart]);
 
   async function beginServerRun(
     mode: StarWarsMode = selectedMode,
@@ -470,13 +469,6 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     setFeedback("Choose Classic or a timed score attack.");
   }
 
-  const movesUsed = puzzle.stars.length - gameState.remainingStars.length;
-  const learnerPieceCounts = new Map<string, number>();
-  for (const piece of puzzle.pieces) {
-    const name = pieceNames[piece.type];
-    learnerPieceCounts.set(name, (learnerPieceCounts.get(name) ?? 0) + 1);
-  }
-  const learnerPieces = [...learnerPieceCounts].map(([name, count]) => count === 1 ? name : `${count} ${name}s`);
   const previewArrow = drawingGesture?.endSquare ? {
     startSquare: drawingGesture.startSquare,
     endSquare: drawingGesture.endSquare,
@@ -584,10 +576,8 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
                 </div>
               ) : scoreSyncState === "saving" ? (
                 <p className="mt-3 text-xs font-bold text-cyan-100" role="status">Saving your score and rewards...</p>
-              ) : scoreSyncState === "saved" ? (
-                <p className="mt-3 text-xs font-bold text-emerald-200" role="status">Leaderboard score saved.</p>
               ) : null}
-              {rewardXp > 0 && <p className="mt-3 text-sm font-black text-amber-200" role="status">Earned this run: {rewardXp} XP + {rewardXp} coins</p>}
+              {(phase === "failed" || phase === "finished") && rewardXp > 0 && <p className="mt-3 text-sm font-black text-amber-200" role="status">Earned this run: {rewardXp} XP + {rewardXp} coins</p>}
   </>);
 
   if (phase === "setup") {
@@ -713,27 +703,16 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-200">Path Finder · Level {puzzle.tier}{activeMode === "time_trial" && timeLimitMs ? ` · ${timeLimitMs / 60_000}-minute trial` : ""}</p>
                 <span className="rounded-full border border-rose-200/25 bg-rose-300/10 px-3 py-1 text-xs font-black text-rose-100">1 mistake ends the run</span>
               </div>
-              <h2 className="mt-2 text-3xl font-black text-white">{puzzle.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-300">{puzzle.briefing}</p>
+              <h2 className="mt-2 text-xl font-black text-white">{puzzle.title}</h2>
             </div>
             <div className="p-5">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border border-amber-200/20 bg-amber-300/5 p-3">
-                  <p className="text-xs font-black uppercase text-amber-200">Perfect route</p>
-                  <p className="mt-1 text-lg font-black text-white">{puzzle.stars.length} stars · {puzzle.stars.length} moves</p>
-                </div>
-                <div className="rounded-lg border border-cyan-200/20 bg-cyan-300/5 p-3">
-                  <p className="text-xs font-black uppercase text-cyan-200">Your pieces</p>
-                  <p className="mt-1 text-sm font-black capitalize text-white">{learnerPieces.join(" + ")}</p>
-                </div>
-              </div>
-              <div className={`mt-4 rounded-lg border p-4 text-sm font-bold leading-6 ${phase === "failed" ? "border-rose-300/35 bg-rose-300/10 text-rose-100" : phase === "solved" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-white/10 bg-white/5 text-slate-200"}`} role="status" aria-live="polite" aria-atomic="true">
+              <div className={`rounded-lg border p-4 text-sm font-bold leading-6 ${phase === "failed" ? "border-rose-300/35 bg-rose-300/10 text-rose-100" : phase === "solved" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-white/10 bg-white/5 text-slate-200"}`} role="status" aria-live="polite" aria-atomic="true">
                 {feedback}
               </div>
               {phase !== "failed" && phase !== "finished" ? rewardSummary : null}
               <p className="mt-3 text-xs font-bold text-amber-100">Complete each puzzle to earn 2 XP + 2 coins.</p>
-              <p className="mt-3 text-xs font-bold text-slate-500">Move {Math.min(movesUsed + 1, puzzle.stars.length)} of {puzzle.stars.length} · Missing a star or leaving no reachable star ends the run.</p>
-              <p className="mt-2 text-xs text-slate-500">Right-drag to draw arrows or right-click to circle a square. A normal board click clears your marks.</p>
+
+              <details className="mt-3 text-xs text-slate-400"><summary className="cursor-pointer font-bold text-cyan-200">How to play</summary><p className="mt-2">Collect one star per move. Keep another star reachable until you finish. Right-click a square to circle it; right-drag to draw an arrow.</p></details>
             </div>
           </Card>
 

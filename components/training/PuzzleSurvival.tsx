@@ -109,6 +109,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   const [selectedTheme, setSelectedTheme] = useState<PuzzleThemeSlug>(() => parsePuzzleTheme(searchParams.get("theme")));
   const [selectedLevel, setSelectedLevel] = useState<PuzzleLevelSlug>(() => parsePuzzleLevel(searchParams.get("level")));
   const [trainingMode, setTrainingMode] = useState<TrainingMode>("survival");
+  const [quickStartSideMode, setQuickStartSideMode] = useState(true);
   const [woodpeckerSetSize, setWoodpeckerSetSize] = useState<number>(WOODPECKER_SET_SIZE);
   const [autoAdvance, setAutoAdvance] = useState(false);
   const autoAdvanceRef = useRef(false);
@@ -542,7 +543,8 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
     setPhase("adaptive-review");
   }
 
-  function startSelectedMode(mode: PuzzleModeChoice) {
+  function startSelectedMode(mode: PuzzleModeChoice, quickStart = true) {
+    setQuickStartSideMode(quickStart);
     if (mode === "survival") return startSurvival();
     if (mode === "woodpecker") return startWoodpecker();
     if (mode === "daily") return startDailyPuzzle();
@@ -1307,12 +1309,13 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   }
 
   if (phase === "star-wars") {
-    return <StarWarsTraining onExit={() => setPhase("select")} />;
+    return <StarWarsTraining autoStart={quickStartSideMode} onExit={() => setPhase("select")} />;
   }
 
   if (phase === "hide-and-seek") {
     return (
       <HideAndSeekTraining
+        autoStart={quickStartSideMode}
         initialBestScore={overview.hideAndSeek.personalBest}
         onComplete={(completion) => setOverview((current) => {
           const previous = current.hideAndSeek;
@@ -1417,8 +1420,8 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
         <aside className="puzzle-sidebar min-w-0 space-y-3" aria-label="Training progress and controls">
           <TrainingSessionRewards />
           <Card className="puzzle-stats overflow-hidden">
-            <dl className="grid grid-cols-3 gap-px bg-white/10">
-              {[["Puzzle", primaryProgress], secondaryMetric, ['Timer', <PuzzleTimer key={`${sessionId.current}:${puzzle?.id ?? "loading"}`} running={phase === "turn" || phase === "reply"} />], ['Accuracy', `${activeAccuracy}%`], ['Streak', currentStreak], ['Best', bestStreak]].map(([label, value]) => (
+            <dl className="grid grid-cols-2 gap-px bg-white/10">
+              {[["Puzzle", primaryProgress], secondaryMetric, ['Timer', <PuzzleTimer key={`${sessionId.current}:${puzzle?.id ?? "loading"}`} running={phase === "turn" || phase === "reply"} />], [trainingMode === "woodpecker" ? 'Accuracy' : 'Streak', trainingMode === "woodpecker" ? `${activeAccuracy}%` : currentStreak]].map(([label, value]) => (
                 <div key={String(label)} className="min-w-0 bg-slate-950 px-2 py-3 text-center"><dt className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</dt><dd className="mt-1 text-lg font-black tabular-nums text-white">{value}</dd></div>
               ))}
             </dl>
@@ -1443,9 +1446,9 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
 
           {completion && (
             <Card className="p-4">
-              <p className="text-xs font-black uppercase text-amber-200">Solved Details</p>
+              <details><summary className="cursor-pointer text-xs font-bold text-cyan-200">Puzzle details</summary>
               <dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-slate-500">Themes</dt><dd className="font-bold text-white">{completion.themes.join(", ")}</dd></div><div><dt className="text-slate-500">Rating</dt><dd className="font-bold text-white">{completion.rating ?? "Unrated"}</dd></div><div><dt className="text-slate-500">Mistakes</dt><dd className="font-bold text-white">{completion.mistakes}</dd></div><div><dt className="text-slate-500">Solve time</dt><dd className="font-bold text-white">{formatTime(completion.elapsedSeconds)}</dd></div></dl>
-              {completion.gameUrl && <a href={completion.gameUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-sm font-bold text-cyan-200 underline decoration-cyan-300/40 underline-offset-4">View original Lichess game</a>}
+              {completion.gameUrl && <a href={completion.gameUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block text-sm font-bold text-cyan-200 underline decoration-cyan-300/40 underline-offset-4">View original Lichess game</a>}</details>
             </Card>
           )}
 

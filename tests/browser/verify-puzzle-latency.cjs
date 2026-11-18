@@ -8,7 +8,7 @@ const { chromium, webkit } = require(process.env.PLAYWRIGHT_MODULE || 'playwrigh
       const page = await browser.newPage({ viewport: { width: 390, height: 900 }, hasTouch: true });
       for (const [choice, start] of [[/^♥/, 'Start Survival'], [/^☀/, 'Play Daily Puzzle'], [/^↻/, 'Start Woodpecker']]) {
         await page.goto('http://127.0.0.1:9418/?area=puzzle');
-        await page.getByRole('button', { name: choice }).click();
+
         await page.getByRole('button', { name: start, exact: true }).click();
         await page.waitForSelector('[data-square="e2"]');
         await page.evaluate(() => {

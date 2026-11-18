@@ -1,3 +1,6 @@
+import { StrictMode } from "react";
+import { PuzzleSurvival } from "../../components/training/PuzzleSurvival";
+import { emptyPuzzleTrainingOverview } from "../../lib/puzzle-training/overview";
 import { TrainingSessionRewardsProvider } from "../../components/training/TrainingSessionRewards";
 // Actual game components with isolated reward responses. Never spends or grants real currency.
 import { createRoot } from 'react-dom/client';
@@ -10,19 +13,19 @@ const hide = query.has('hide');
 let board;
 for(let n=0;n<1000;n++) { const b=generateHideAndSeekBoard(n.toString(16).padStart(32,'0')); if(b.safeSquares.length>=10&&b.safeSquares.length<=24){board=b;break;} }
 let savedScore=0, mode='classic', hideResult, failSave=query.has('retry');
-window.trainingQA = { finishRequests: [], safeSquares: board.safeSquares, solution: score => findStarWarsSolution(initialStarWarsState(starWarsPuzzleForScore(score,0))) };
+window.trainingQA = { startRequests: [], finishRequests: [], safeSquares: board.safeSquares, solution: score => findStarWarsSolution(initialStarWarsState(starWarsPuzzleForScore(score,0))) };
 let runId;
 window.fetch=async(url,options={})=>{
   const path=String(url), body=options.body?JSON.parse(options.body):{};
   await new Promise(r=>setTimeout(r,80));
   const now=new Date().toISOString();
-  if(path.endsWith('/star-wars/start')) { savedScore=0; runId=crypto.randomUUID(); return Response.json({run:{runId,runVariant:0,score:0,personalBest:0,mode:body.mode,timeLimitMs:body.timeLimitMs,startedAt:now,serverSentAt:now},serverReceivedAt:now}); }
+  if(path.endsWith('/star-wars/start')) { window.trainingQA.startRequests.push({mode:'path',...body}); savedScore=0; runId=crypto.randomUUID(); return Response.json({run:{runId,runVariant:0,score:0,personalBest:0,mode:body.mode,timeLimitMs:body.timeLimitMs,startedAt:now,serverSentAt:now},serverReceivedAt:now}); }
   if(path.endsWith('/star-wars/progress')) {
     if(failSave){failSave=false;return Response.json({error:'Simulated save failure'},{status:503});}
     savedScore=Math.max(savedScore,body.startScore+body.routes.length);
     return Response.json({result:{score:savedScore,personalBest:savedScore,rewardXp:savedScore*2}});
   }
-  if(path.endsWith('/hide-and-seek/start')) { mode=body.mode;hideResult=null;return Response.json({round:{id:crypto.randomUUID(),pieces:board.pieces,mode,timeLimitMs:mode==='time_trial'?60000:null,startedAt:now,expiresAt:new Date(Date.now()+1800000).toISOString()},token:'fixture',serverReceivedAt:now,serverSentAt:now}); }
+  if(path.endsWith('/hide-and-seek/start')) { window.trainingQA.startRequests.push({mode:'hide',...body}); mode=body.mode;hideResult=null;return Response.json({round:{id:crypto.randomUUID(),pieces:board.pieces,mode,timeLimitMs:mode==='time_trial'?60000:null,startedAt:now,expiresAt:new Date(Date.now()+1800000).toISOString()},token:'fixture',serverReceivedAt:now,serverSentAt:now}); }
   if(path.endsWith('/hide-and-seek/finish')) {
     window.trainingQA.finishRequests.push(body);
     if(failSave){failSave=false;return Response.json({error:'Simulated save failure'},{status:503});}
@@ -33,4 +36,4 @@ window.fetch=async(url,options={})=>{
   return Response.json({events:[],cursor:now});
 };
 const route=findStarWarsSolution(initialStarWarsState(starWarsPuzzleForScore(0,0)));
-createRoot(document.getElementById('root')).render(<TrainingSessionRewardsProvider studentId="fixture"><aside aria-label="Test instructions" className="mb-4 text-sm">{hide?'Safe squares: '+board.safeSquares.join(', '):'First mission: '+route.map(m=>m.from+' → '+m.to).join(', ')}</aside>{hide?<HideAndSeekTraining onExit={()=>{}}/>:<StarWarsTraining onExit={()=>{}}/>}</TrainingSessionRewardsProvider>);
+createRoot(document.getElementById('root')).render(<StrictMode><TrainingSessionRewardsProvider studentId="fixture"><aside aria-label="Test instructions" className="mb-4 text-sm">{hide?'Safe squares: '+board.safeSquares.join(', '):'First mission: '+route.map(m=>m.from+' → '+m.to).join(', ')}</aside>{query.has('launcher')?<PuzzleSurvival initialOverview={emptyPuzzleTrainingOverview}/>:hide?<HideAndSeekTraining onExit={()=>{}}/>:<StarWarsTraining onExit={()=>{}}/>}</TrainingSessionRewardsProvider></StrictMode>);

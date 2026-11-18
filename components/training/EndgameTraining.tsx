@@ -223,7 +223,7 @@ function EndgameBoard({ topic, initial, preparedEngine, onSave, onBack, onNew, g
   return <>
     <header className={styles.heading}>
       <div><button type="button" onClick={onBack} className="text-sm font-bold text-cyan-100">← All endgames</button><h1 className="mt-1 text-xl font-black text-white sm:text-2xl">{topic.title}</h1></div>
-      <span className="text-sm font-bold text-slate-300">You play {color} · No clock</span>
+      <span className="text-sm font-bold text-slate-300">You play {color}</span>
     </header>
     <div className={styles.layout}>
       <div className={styles.boardColumn}>
@@ -235,22 +235,19 @@ function EndgameBoard({ topic, initial, preparedEngine, onSave, onBack, onNew, g
 
       </div>
       <aside className={styles.panel}>
-        <TrainingSessionRewards />
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2" role="group" aria-label="Practice controls">
           <button type="button" className={buttonClass} disabled={Boolean(result) || thinking || hintRequested || Boolean(error) || generating || helpBusy} onClick={() => void useHelp("hint")}>Hint</button>
           <button type="button" className={buttonClass} disabled={!attempt.moves.length || generating || helpBusy} onClick={() => void useHelp("takeback")}>Take back</button>
           <button type="button" className={buttonClass} disabled={generating || helpBusy || rewardState === "saving"} onClick={() => reset(false)}>Retry position</button>
+          <button type="button" className={`${buttonClass} border-amber-200/40 bg-amber-300/10 text-amber-100`} onClick={onNew} disabled={generating}>New position</button>
         </div>
         <p className="text-xs font-bold text-amber-100">{attempt.rewardXp === 3 ? "3 XP + 3 coins earned for this position" : attempt.assisted ? "Practice with help · no reward for this position" : attempt.rewardToken ? "3 XP + 3 coins for checkmate without help" : "Saved practice · start a new position to earn rewards"}</p>
+        <TrainingSessionRewards />
         {rewardState === "saving" && <p role="status" className="text-sm text-cyan-100">Saving your 3 XP + 3 coins…</p>}
         {rewardError && <div role="alert" className="rounded-xl border border-amber-200/30 p-3 text-sm text-amber-100">{rewardError}{rewardState === "error" && result?.won && !attempt.assisted && <button type="button" className={`${buttonClass} mt-2`} onClick={() => void claimReward()}>Retry reward save</button>}</div>}
         {error && <div role="alert" className="rounded-xl border border-amber-200/30 bg-amber-300/10 p-4"><p className="text-sm text-amber-100">{error}</p><button type="button" className={`${buttonClass} mt-3`} onClick={() => { setError(""); setRetry(value => value + 1); }}>Retry defender</button></div>}
-        {result && <section role="status" className="rounded-xl border border-amber-200/40 bg-amber-300/10 p-4"><h2 className="text-xl font-black text-amber-100">{result.title}</h2><p className="mt-2 text-sm leading-6 text-slate-200">{result.message}</p>{result.won && <p className="mt-2 text-xs text-slate-300">{attempt.assisted ? "Completed with practice help. Try a fresh position without hints or takebacks next." : "Completed without hints or takebacks. Ready for a new position?"}</p>}</section>}
-        <section className="rounded-xl border border-white/10 bg-slate-950/90 p-5"><p className="text-xs font-black uppercase tracking-wider text-cyan-200">Your plan</p><p className="mt-2 text-sm leading-6 text-slate-200">{topic.plan}</p><p className="mt-4 text-xs font-black uppercase tracking-wider text-amber-200">Watch out</p><p className="mt-2 text-sm leading-6 text-slate-300">{topic.watchFor}</p></section>
-        {currentHint && <p role="status" className="rounded-xl border border-cyan-200/25 bg-cyan-200/5 p-4 text-sm text-cyan-100">Try <strong>{currentHint.san}</strong> ({currentHint.uci.slice(0, 2)} → {currentHint.uci.slice(2, 4)}). The arrow shows one useful move. Other legal moves are welcome.</p>}
-        <div className="rounded-xl border border-white/10 bg-slate-950/70 p-4"><p className="text-xs font-bold text-slate-400">Recent moves</p><p className="mt-2 min-h-6 break-words font-mono text-sm text-slate-200">{history.slice(-8).map((item, index) => `${Math.floor((history.length - Math.min(8, history.length) + index + (player === "b" ? 1 : 0)) / 2) + 1}${item.color === "w" ? "." : "..."} ${item.san}`).join("  ") || "Your first move starts the practice."}</p></div>
-        <button type="button" className={`${buttonClass} border-amber-200/40 bg-amber-300/10 text-amber-100`} onClick={onNew} disabled={generating}>New position</button>
-        <p className="text-xs leading-5 text-slate-400">Freshly generated, checked by Stockfish. The defender runs on your device. Rewards are saved to your account once per new position. Hints or takebacks remove reward eligibility, including after Retry position.</p>
+        {result && <section role="status" className="rounded-xl border border-amber-200/40 bg-amber-300/10 p-4"><h2 className="text-xl font-black text-amber-100">{result.title}</h2><p className="mt-2 text-sm leading-6 text-slate-200">{result.message}</p></section>}
+        {currentHint && <p role="status" className="rounded-xl border border-cyan-200/25 bg-cyan-200/5 p-3 text-sm text-cyan-100">Try <strong>{currentHint.san}</strong> ({currentHint.uci.slice(0, 2)} → {currentHint.uci.slice(2, 4)}).</p>}
       </aside>
     </div>
   </>;

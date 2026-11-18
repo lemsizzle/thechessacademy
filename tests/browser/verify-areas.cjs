@@ -18,7 +18,7 @@ const { chromium, webkit } = require(process.env.PLAYWRIGHT_MODULE || 'playwrigh
                     await page.goto('http://127.0.0.1:9418/?area=' + area);
                     const tap = async (s) => page.locator(`[data-square="${s}"]`).tap();
                     if (area === 'puzzle') {
-                        await page.getByRole('button', { name: /^♥/ }).click();
+
                         await page.getByRole('button', { name: 'Start Survival', exact: true }).click();
                     }
                     if (area === 'star')

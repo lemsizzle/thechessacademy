@@ -21,10 +21,10 @@ const visible=async locator=>{await locator.first().waitFor({state:'attached'});
      assert.equal(await page.locator('[data-square="e4"] [data-piece]').count(),1,'Reopening Play reset game');
      await (await visible(page.getByRole('link',{name:/^Train$/}))).click();
      await page.waitForURL('**/student/training');
-     await page.getByRole('button',{name:/Survival 50/}).click();
+
      await page.getByRole('button',{name:'Start Survival',exact:true}).click();
      await (await visible(page.getByRole('link',{name:/^Train$/}))).click();
-     await page.getByRole('button',{name:/Survival 50/}).waitFor();
+     await page.getByRole('button',{name:'Start Survival',exact:true}).waitFor();
      assert.equal(await page.locator('[data-square]').count(),0,'Cancelled puzzle restored board');
     },
     async classes(page){

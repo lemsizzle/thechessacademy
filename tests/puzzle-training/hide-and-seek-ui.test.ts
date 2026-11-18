@@ -68,7 +68,7 @@ describe("Hide and Seek training UI", () => {
     expect(html).toContain("Star Detective");
     expect(html).toContain("One strike");
     expect(html).toContain("60 seconds");
-    expect(html).toContain("40% speed");
+    expect(html).not.toContain("40% speed");
     expect(html).toContain("The clock starts when the pieces appear.");
     expect(html).toContain("321");
     expect(html).not.toContain("Stop &amp; Score");

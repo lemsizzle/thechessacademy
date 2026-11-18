@@ -693,6 +693,12 @@ Do not silently invent these decisions. Ask the product owner when they become r
 - For sync/reward changes, test the complete path from Lichess or student action through persisted progress, XP, coins, activity, and every student/teacher view.
 - Do not commit or push unless the user explicitly asks.
 
+### Training page simplicity
+
+- Keep puzzle and training pages uncongested: prioritize the board, essential controls, turn/result feedback, and the running session reward tally.
+- Do not add persistent coaching panels such as “Your plan” or “Watch out”, technical implementation explanations, or redundant status text beside an active board. Show optional guidance when requested through a hint or help control.
+- Start solo puzzles directly from their mode card with sensible defaults. Keep optional settings separate; avoid introductory dialogs or repeated Start/Ready steps before the board becomes playable.
+
 ### Student-facing release notes
 
 - For every change relevant to students, update `lib/student/whatsNew.ts` in the same change, before committing or pushing. This is a standing product-owner requirement; do not wait for a separate request to update What's new.

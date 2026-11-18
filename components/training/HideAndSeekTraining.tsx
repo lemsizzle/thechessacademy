@@ -467,14 +467,16 @@ function SearchBoard({
 
 export function HideAndSeekTraining({
   onExit,
+  autoStart = false,
   initialBestScore = 0,
   onComplete
 }: {
   onExit: () => void;
+  autoStart?: boolean;
   initialBestScore?: number;
   onComplete?: (completion: HideAndSeekCompletion) => void;
 }) {
-  const [phase, setPhase] = useState<HideAndSeekSearchPhase>("ready");
+  const [phase, setPhase] = useState<HideAndSeekSearchPhase>(autoStart ? "preparing" : "ready");
   const [searchMode, setSearchMode] = useState<HideAndSeekMode>("classic");
   const [round, setRound] = useState<ActiveSearchRound | null>(null);
   const [token, setToken] = useState("");
@@ -535,6 +537,12 @@ export function HideAndSeekTraining({
     const frame = window.requestAnimationFrame(() => statusHeadingRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
   }, [phase]);
+
+  useEffect(() => {
+    if (!autoStart) return;
+    const timer = window.setTimeout(() => { void startSearch(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [autoStart]);
 
   async function startSearch() {
     prepareSound();
@@ -717,7 +725,7 @@ export function HideAndSeekTraining({
           ].map(([label, value]) => (
             <div key={String(label)} className="p-3 text-center sm:p-4">
               <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 sm:text-xs">{label}</p>
-              <p className="mt-1 text-xl font-black text-white sm:text-2xl">{value}</p>
+              <p className="mt-1 text-xl font-black text-white sm:text-2xl" aria-label={label === "Time left" ? `Time remaining ${value}` : label === "Timer" ? `Elapsed time ${value}` : undefined} aria-live={label === "Marked" ? "polite" : undefined}>{value}</p>
             </div>
           ))}
         </div>
@@ -745,12 +753,11 @@ export function HideAndSeekTraining({
             <div className="border-b border-white/10 bg-gradient-to-r from-emerald-400/10 via-cyan-300/5 to-transparent p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">Hide and Seek</p>
-                <span className="rounded-full border border-amber-200/25 bg-amber-300/10 px-3 py-1 text-xs font-black text-amber-100">40% speed · 60% accuracy</span>
               </div>
               <h2
                 ref={statusHeadingRef}
                 tabIndex={phase === "result" || phase === "restart-required" ? -1 : undefined}
-                className="mt-2 text-3xl font-black text-white outline-none"
+                className="mt-2 text-xl font-black text-white outline-none"
               >
                 {phase === "result"
                   ? "Search complete"
@@ -759,7 +766,7 @@ export function HideAndSeekTraining({
                     : "Find every hiding place"}
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Mark every empty square that none of the black pieces can see. Sliding pieces cannot see through one another.
+                Mark empty squares that no black piece attacks.
               </p>
             </div>
 
@@ -799,7 +806,7 @@ export function HideAndSeekTraining({
                     </div>
                   </fieldset>
                   <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-200">
-                    The board stays covered until you are ready. When you start, tap safe squares to leave a star. Speed can contribute up to 40% of the score. Find every star to earn 10 XP + 10 coins.
+                    Find every star to earn 10 XP + 10 coins.
                   </div>
                   <Button type="button" onClick={() => void startSearch()} disabled={phase === "preparing"} className="mt-4 min-h-14 w-full text-base">
                     {phase === "preparing"
@@ -817,16 +824,6 @@ export function HideAndSeekTraining({
 
               {phase === "searching" || phase === "finishing" ? (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg border border-cyan-200/20 bg-cyan-300/5 p-3">
-                      <p className="text-xs font-black uppercase text-cyan-200">{activeMode === "time_trial" ? "Time left" : "Time"}</p>
-                      <p className="mt-1 text-2xl font-black text-white" aria-live={activeMode === "time_trial" ? "off" : undefined} aria-label={activeMode === "time_trial" ? `Time remaining ${shownTime}` : `Elapsed time ${shownTime}`}>{shownTime}</p>
-                    </div>
-                    <div className="rounded-lg border border-amber-200/20 bg-amber-300/5 p-3">
-                      <p className="text-xs font-black uppercase text-amber-200">Stars placed</p>
-                      <p className="mt-1 text-2xl font-black text-white" aria-live="polite" aria-atomic="true">{selectedSquares.size}</p>
-                    </div>
-                  </div>
                   {phase === "searching" && !token ? (
                     <p className="mt-4 rounded-lg border border-cyan-200/25 bg-cyan-300/10 p-3 text-sm font-bold text-cyan-100" role="status">
                       Board revealed — you can start marking now. Stop &amp; Score will unlock as soon as the official timer is active.
@@ -835,9 +832,9 @@ export function HideAndSeekTraining({
                   {activeMode === "time_trial" && timeTrialExpired ? (
                     <p className="mt-4 rounded-lg border border-amber-200/25 bg-amber-300/10 p-3 text-sm font-bold text-amber-100" role="status">Time’s up — saving your score.</p>
                   ) : activeMode === "hard" ? (
-                    <p className="mt-4 rounded-lg border border-rose-200/25 bg-rose-300/10 p-3 text-sm font-bold leading-6 text-rose-100">Every click is final. Hit a dangerous square and every star explodes. Find every safe square to stop the timer automatically.</p>
+                    <p className="mt-4 rounded-lg border border-rose-200/25 bg-rose-300/10 p-3 text-sm font-bold leading-6 text-rose-100">One wrong square ends the round. Find every safe square to win.</p>
                   ) : (
-                    <p className="mt-4 text-sm leading-6 text-slate-300">Click or tap to stamp a square. With a keyboard, use the arrow keys to move and Enter or Space to stamp.</p>
+                    <details className="mt-3 text-xs text-slate-400"><summary className="cursor-pointer font-bold text-cyan-200">How to play</summary><p className="mt-2">Tap safe squares to mark them. Sliding pieces cannot attack through another piece. With a keyboard, use the arrow keys and Enter or Space.</p></details>
                   )}
                   {activeMode === "hard" ? (
                     <div className="mt-4 space-y-3">

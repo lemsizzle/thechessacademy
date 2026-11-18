@@ -16,7 +16,7 @@ const output = process.env.PUZZLE_LAYOUT_SCREENSHOTS || 'work/puzzle-layout';
     await page.goto(base + '/student/training');
     await page.evaluate(() => localStorage.setItem('academy-puzzles-auto-advance', 'false'));
     await page.reload();
-    await page.getByRole('button', { name: mode === 'survival' ? /^♥/ : mode === 'woodpecker' ? /^↻/ : /^☀/ }).click();
+
     await page.getByRole('button', { name: mode === 'survival' ? 'Start Survival' : mode === 'woodpecker' ? 'Start Woodpecker' : 'Play Daily Puzzle', exact: true }).click();
     await page.waitForSelector('[data-chess-board]');
     await page.waitForTimeout(200);
@@ -94,7 +94,7 @@ const output = process.env.PUZZLE_LAYOUT_SCREENSHOTS || 'work/puzzle-layout';
     const touch = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
     touch.on('pageerror', error => errors.push(error.message));
     await touch.goto(base + '/student/training');
-    await touch.getByRole('button', { name: /^♥/ }).tap();
+
     await touch.getByRole('button', { name: 'Start Survival', exact: true }).tap();
     await touch.waitForSelector('[data-chess-board]');
     await touch.locator('[data-square="e5"]').tap();

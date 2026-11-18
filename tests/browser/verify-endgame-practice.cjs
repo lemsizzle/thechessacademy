@@ -69,7 +69,7 @@ const route = '/student/training/endgames';
       await page.waitForFunction(() => document.querySelector('[data-testid="endgame-board"]') && ([...document.querySelectorAll('button')].some(b => b.textContent === 'Hint' && !b.disabled) || [...document.querySelectorAll('h2')].some(h => h.textContent === 'Win converted!')));
     }
     await page.getByRole('heading', { name: 'Win converted!', exact: true }).waitFor();
-    await page.getByText('Completed with practice help.', { exact: false }).waitFor();
+    await page.getByText('Practice with help · no reward for this position', { exact: true }).waitFor();
     await page.screenshot({ path: 'work/endgames/completed.png' });
     // Seed browser-only scenarios to exercise terminal rules and promotion UI.
     const seed = async initialFen => {
