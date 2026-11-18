@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { TournamentRoundCountdown } from "./TournamentRoundProgress";
+import { TeacherRoundTimer } from "./TeacherRoundTimer";
 import { PuzzleTournamentScheduleEditor, ScheduledTournamentStart, ScheduleInput } from "./PuzzleTournamentSchedule";
 import { BATTLE_LABELS, BATTLE_MODES, BATTLE_TIMES, type BattleMode } from "@/lib/puzzle-battle/types";
 import { tournamentStandings, type PuzzleTournament, type TournamentEntry } from "@/lib/puzzle-battle/tournament";
@@ -118,6 +119,7 @@ export function PuzzleTournaments({ teacher = false, adminActionToken = "" }: { 
     </>}
     {t && <>
       <Card className="space-y-4 p-5">
+        {teacher && t.round > 0 && <TeacherRoundTimer tournament={t} />}
         {t.status === "waiting" && t.startsAt && <ScheduledTournamentStart tournament={t} onDue={load} />}
         {teacher && t.status === "waiting" && <PuzzleTournamentScheduleEditor key={`${t.id}:${t.startsAt ?? "manual"}`} tournament={t} disabled={busy} save={value => act("schedule", { startsAt: value, version: t.version })} />}
         <p className="font-bold text-cyan-100">{BATTLE_LABELS[t.mode]} · {t.duration/60} min per battle · {t.status === "waiting" ? `${t.rounds} rounds planned` : `Round ${t.round} of ${t.rounds}`} · {t.status === "waiting" ? "Registration open" : t.status}</p>
@@ -129,7 +131,7 @@ export function PuzzleTournaments({ teacher = false, adminActionToken = "" }: { 
           {teacher && t.status === "waiting" && <Button disabled={busy || !canStart} onClick={() => void act("start",{ version:t.version })}>{busy ? "Preparing…" : t.startsAt ? "Start now" : "Start tournament"}</Button>}
           {teacher && ["waiting","active"].includes(t.status) && <Button variant="ghost" disabled={busy} onClick={() => setConfirm({action:"cancel",label:"Cancel this tournament? Unfinished battles will close. Completed round results stay in history."})}>Cancel tournament</Button>}
         </div>
-        {t.status === "active" && <><TournamentRoundCountdown tournament={t} /><p className="text-sm text-amber-100">{t.advanceError || (t.matches.some(m => !m.result) ? "Open your battle to play. The next round begins automatically once every battle finishes." : "Round complete. Preparing the next pairings automatically…")}</p></>}
+        {t.status === "active" && <>{!teacher && <TournamentRoundCountdown tournament={t} />}<p className="text-sm text-amber-100">{t.advanceError || (t.matches.some(m => !m.result) ? teacher ? "Battles are in progress. The next round begins automatically once every battle finishes." : "Open your battle to play. The next round begins automatically once every battle finishes." : "Round complete. Preparing the next pairings automatically…")}</p></>}
         {!teacher && t.me && t.status === "waiting" && <p className="text-sm text-emerald-200">You're registered. Stay in the lobby for your first pairing.</p>}
         {t.status === "active" && acceptingEntries && <p className="text-sm text-slate-300">Late entries are open. New players start with 0 points in the next round; current battles stay unchanged.</p>}
         {!teacher && t.status === "active" && !t.me && !acceptingEntries && <p className="text-sm text-slate-300">The final round is underway. Registration is closed for this tournament.</p>}

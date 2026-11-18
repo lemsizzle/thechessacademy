@@ -346,6 +346,7 @@ export function PuzzleModeSetup({
               </button>
               <Button type="button" variant="secondary" onClick={showStats} className="min-h-12 flex-1 text-base">View My Stats</Button>
             </div>
+            <Link href="/student/training/endgames" className="mt-4 block rounded-xl border border-cyan-200/30 bg-cyan-300/5 p-4 hover:bg-cyan-300/10"><span className="block text-lg font-black text-cyan-100">Endgame Practice →</span><span className="mt-1 block text-sm text-slate-300">Fresh positions every time. Learn common endings and turn winning advantages into checkmate.</span></Link>
           </div>
         </Card>
       ) : null}
@@ -410,6 +411,7 @@ export function PuzzleModeSetup({
                     <>
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Puzzle training modes">
                         <Link href="/student/training/battle" className="rounded-xl border border-cyan-200/40 bg-cyan-300/10 p-4 text-left hover:bg-cyan-300/20 sm:p-5"><span className="text-2xl" aria-hidden>⚔</span><span className="mt-4 block text-lg font-black text-white">Puzzle Battle</span><span className="mt-1 block text-xs font-bold uppercase text-amber-100">Race a classmate · 3 modes · timed rounds</span></Link>
+                        <Link href="/student/training/endgames" className="rounded-xl border border-cyan-200/40 bg-cyan-300/10 p-4 text-left hover:bg-cyan-300/20 sm:p-5"><span className="text-2xl" aria-hidden>♔</span><span className="mt-4 block text-lg font-black text-white">Endgame Practice</span><span className="mt-1 block text-xs font-bold uppercase text-amber-100">Generated positions · Play out the win</span></Link>
                         {PUZZLE_MODE_OPTIONS.map((mode) => (
                           <button
                             key={mode.id}

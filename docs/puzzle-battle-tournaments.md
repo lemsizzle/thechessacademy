@@ -16,6 +16,8 @@ Teachers may edit or remove the schedule before round one starts, or choose **St
 
 Apply `supabase/migrations/20261108163105_puzzle_battle_tournaments.sql` before deploying the associated application changes. It adds service-only tournament tables and RPCs with RLS enabled. The application routes independently verify teacher or active-student sessions. The initial production migration was applied on November 8, 2026; its remote migration timestamp may differ from the local filename. Automatic rounds also require `20261108165226_puzzle_tournament_auto_rounds.sql`, applied to production on November 8, 2026. Scheduling and late entry use `20261108172635_puzzle_tournament_schedule.sql` and `20261108173651_puzzle_tournament_late_entry.sql`, both applied to production on November 9, 2026 (Asia/Bangkok).
 
+The teacher lobby displays a prominent round clock above the rules: ready countdown, time remaining, and completion/cancellation state. It uses the saved round start and duration, ticks locally without additional requests, and resynchronizes after reload or normal lobby refresh.
+
 ## Verification
 
 - `npm test`, `npm run lint`, `npm run build`
@@ -28,3 +30,5 @@ Apply `supabase/migrations/20261108163105_puzzle_battle_tournaments.sql` before 
 - Schedule browser check: `node tests/browser/verify-puzzle-tournament-schedule.cjs`. Covers Bangkok/Los Angeles display, create/edit/remove/reload, invalid past dates, and a timed start with the teacher page closed.
 
 - Late-entry verification: `node --test tests/puzzle-battle/tournament-late-entry-db.test.mjs` and `node tests/browser/verify-puzzle-tournament-late-entry.cjs`. Covers student and bot entry during a live round, zero initial points, retry/capacity protection, unchanged current battles, next-round pairing, and final-round closure.
+
+- Teacher clock: `npm test -- tests/puzzle-battle/round-clock.test.ts` and `node tests/browser/verify-teacher-puzzle-round-timer.cjs`. Checks student-clock agreement, reload, mobile fit, round transitions, cancellation, and no extra per-second polling.
