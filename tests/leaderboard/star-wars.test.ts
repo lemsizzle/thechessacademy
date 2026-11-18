@@ -19,7 +19,7 @@ const score: StarWarsLeaderboardScore = {
   allTimeScore: 21
 };
 
-describe("Star Wars leaderboard", () => {
+describe("Path Finder leaderboard", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("selects and detects scores for each time window", () => {
@@ -62,33 +62,33 @@ describe("Star Wars leaderboard", () => {
       survivalScores: [],
       starWarsScores: [{ ...score, studentId: "stu-001" }],
       badges: [],
-      initialFocus: "Star Wars"
+      initialFocus: "Path Finder"
     }));
 
-    expect(html).toContain("Best Star Wars Run");
+    expect(html).toContain("Best Path Finder Run");
     expect(html).toContain("21 points");
     expect(html).toContain(students[0].name);
     expect(html).not.toContain(students[1].name);
   });
 
-  it("explains an empty Star Wars class and time selection", () => {
+  it("explains an empty Path Finder class and time selection", () => {
     const html = renderToStaticMarkup(createElement(LeaderboardTable, {
       students: students.slice(0, 2),
       lichessAccounts: [],
       survivalScores: [],
       starWarsScores: [],
       badges: [],
-      initialFocus: "Star Wars"
+      initialFocus: "Path Finder"
     }));
 
-    expect(html).toContain("No Star Wars scores found");
+    expect(html).toContain("No Path Finder scores found");
     expect(html).toContain("No verified runs match this class and time period yet.");
   });
 
   it("separates time trials by duration and excludes classic scores", () => {
     const html = renderToStaticMarkup(createElement(LeaderboardTable, {
       students: students.slice(0, 2), lichessAccounts: [], survivalScores: [], badges: [],
-      initialFocus: "Star Wars Time Trial",
+      initialFocus: "Path Finder Time Trial",
       starWarsScores: [
         { ...score, studentId: "stu-001", mode: "classic", allTimeScore: 99 },
         { ...score, studentId: "stu-001", mode: "time_trial", timeLimitMs: 60000, allTimeScore: 7 },

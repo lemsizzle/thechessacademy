@@ -198,7 +198,7 @@ export async function buildBattleDeck(
   const result = bands.flat();
   if (result.length < 10)
     throw new BattleError(
-      "Not enough puzzles are available for a fair battle. Try Star Wars or Hide and Seek.",
+      "Not enough puzzles are available for a fair battle. Try Path Finder or Hide and Seek.",
       503,
     );
   return result;

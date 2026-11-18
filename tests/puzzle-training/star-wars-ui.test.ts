@@ -4,10 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 import { StarWarsTraining } from "@/components/training/StarWarsTraining";
 import { STAR_WARS_TIME_LIMIT_OPTIONS_MS } from "@/lib/puzzle-training/starWars";
 
-describe("Star Wars training UI", () => {
+describe("Path Finder training UI", () => {
   it("starts with Classic and all three Time Trial choices", () => {
     const html = renderToStaticMarkup(createElement(StarWarsTraining, { onExit: vi.fn() }));
 
+    expect(html).toContain("Path Finder");
+    expect(html).not.toContain("Star Wars");
     expect(html).toContain("Choose your mission");
     expect(html).toContain("Classic");
     expect(html).toContain("Time Trial");

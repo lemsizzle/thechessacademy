@@ -9,7 +9,7 @@ export function emptyTrainingTally(): TrainingRewardTally {
   return { xp: 0, coins: 0, receipts: {} };
 }
 
-// Receipts may be cumulative (Star Wars) or repeated after a lost response.
+// Receipts may be cumulative (Path Finder) or repeated after a lost response.
 // Keep their high-water marks even when the visible tally is reset.
 export function applyTrainingReceipt(tally: TrainingRewardTally, receipt: TrainingRewardReceipt): TrainingRewardTally {
   if (!receipt.id || !Number.isSafeInteger(receipt.xp) || !Number.isSafeInteger(receipt.coins)

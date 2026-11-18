@@ -58,7 +58,7 @@ const SQUARE_PATTERN = /^[a-h][1-8]$/;
 
 function serviceClient() {
   const client = getSupabaseServiceClient();
-  if (!client) throw new Error("Star Wars requires Supabase service access.");
+  if (!client) throw new Error("Path Finder requires Supabase service access.");
   return client;
 }
 
@@ -73,19 +73,19 @@ export function parseStarWarsStartOptions(value: unknown): {
 } {
   if (value === undefined || value === null) return { mode: "classic", timeLimitMs: null };
   if (typeof value !== "object" || Array.isArray(value)) {
-    throw new StarWarsInputError("The Star Wars start request must be a JSON object.");
+    throw new StarWarsInputError("The Path Finder start request must be a JSON object.");
   }
   const body = value as { mode?: unknown; timeLimitMs?: unknown };
   const mode = body.mode ?? "classic";
   if (!isStarWarsMode(mode)) throw new StarWarsInputError("Choose Classic or Time Trial mode.");
   if (mode === "classic") {
     if (body.timeLimitMs !== undefined && body.timeLimitMs !== null) {
-      throw new StarWarsInputError("Classic Star Wars does not use a time limit.");
+      throw new StarWarsInputError("Classic Path Finder does not use a time limit.");
     }
     return { mode, timeLimitMs: null };
   }
   if (!isStarWarsTimeLimitMs(body.timeLimitMs)) {
-    throw new StarWarsInputError("Choose a 1, 3, or 5 minute Star Wars time trial.");
+    throw new StarWarsInputError("Choose a 1, 3, or 5 minute Path Finder time trial.");
   }
   return { mode, timeLimitMs: body.timeLimitMs };
 }
@@ -101,25 +101,25 @@ export function isStarWarsTimeTrialSubmissionOpen(input: {
 
 function parseMove(value: unknown): StarWarsMove {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new StarWarsInputError("A Star Wars route contains an invalid move.");
+    throw new StarWarsInputError("A Path Finder route contains an invalid move.");
   }
   const move = value as Record<string, unknown>;
   if (typeof move.from !== "string"
     || typeof move.to !== "string"
     || !SQUARE_PATTERN.test(move.from)
     || !SQUARE_PATTERN.test(move.to)) {
-    throw new StarWarsInputError("A Star Wars route contains an invalid square.");
+    throw new StarWarsInputError("A Path Finder route contains an invalid square.");
   }
   return { from: move.from as StarWarsMove["from"], to: move.to as StarWarsMove["to"] };
 }
 
 export function parseStarWarsRoutes(value: unknown): StarWarsMove[][] {
   if (!Array.isArray(value) || value.length < 1 || value.length > MAX_STAR_WARS_SCORE) {
-    throw new StarWarsInputError("Submit between 1 and 500 completed Star Wars missions.");
+    throw new StarWarsInputError("Submit between 1 and 500 completed Path Finder missions.");
   }
   return value.map((route) => {
     if (!Array.isArray(route) || route.length < 1 || route.length > STAR_WARS_MAX_ROUTE_MOVES) {
-      throw new StarWarsInputError("A Star Wars mission route has an invalid length.");
+      throw new StarWarsInputError("A Path Finder mission route has an invalid length.");
     }
     return route.map(parseMove);
   });
@@ -128,17 +128,17 @@ export function parseStarWarsRoutes(value: unknown): StarWarsMove[][] {
 export function verifyStarWarsRoute(score: number, runVariant: number, route: readonly StarWarsMove[]) {
   const puzzle = starWarsPuzzleForScore(score, runVariant);
   if (route.length !== puzzle.stars.length) {
-    throw new StarWarsInputError("The submitted Star Wars route is incomplete.");
+    throw new StarWarsInputError("The submitted Path Finder route is incomplete.");
   }
   let state = initialStarWarsState(puzzle);
   for (const [index, move] of route.entries()) {
     const result = attemptStarWarsMove(state, move);
     const shouldFinish = index === route.length - 1;
     if (result.status === "illegal" || result.status === "failed") {
-      throw new StarWarsInputError("The submitted Star Wars route is not valid.");
+      throw new StarWarsInputError("The submitted Path Finder route is not valid.");
     }
     if ((result.status === "solved") !== shouldFinish) {
-      throw new StarWarsInputError("The submitted Star Wars route does not match this mission.");
+      throw new StarWarsInputError("The submitted Path Finder route does not match this mission.");
     }
     state = result.state;
   }
@@ -164,7 +164,7 @@ async function getRun(studentId: string, runId: string) {
     .eq("run_id", runId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data) throw new StarWarsInputError("This Star Wars run could not be found. Start a new run.");
+  if (!data) throw new StarWarsInputError("This Path Finder run could not be found. Start a new run.");
   return data as StarWarsRunRow;
 }
 
@@ -209,12 +209,12 @@ export async function saveStarWarsProgress(input: {
   nowMs?: number;
 }): Promise<StarWarsProgressResult> {
   if (typeof input.runId !== "string" || !UUID_PATTERN.test(input.runId)) {
-    throw new StarWarsInputError("A valid Star Wars run is required.");
+    throw new StarWarsInputError("A valid Path Finder run is required.");
   }
   const routes = parseStarWarsRoutes(input.routes);
   const startScore = numberInRange(input.startScore, 0, MAX_STAR_WARS_SCORE - 1);
   if (startScore === null || startScore + routes.length > MAX_STAR_WARS_SCORE) {
-    throw new StarWarsInputError("The submitted Star Wars score range is invalid.");
+    throw new StarWarsInputError("The submitted Path Finder score range is invalid.");
   }
   const submittedScore = startScore + routes.length;
   const run = await getRun(input.studentId, input.runId);
@@ -227,17 +227,17 @@ export async function saveStarWarsProgress(input: {
     : numberInRange(run.time_limit_ms, 1, 300_000);
   const startedAtMs = typeof run.started_at === "string" ? Date.parse(run.started_at) : Number.NaN;
   if (generatorVersion !== STAR_WARS_GENERATOR_VERSION || runVariant === null || savedScore === null) {
-    throw new StarWarsInputError("This Star Wars run uses an unsupported mission generator.");
+    throw new StarWarsInputError("This Path Finder run uses an unsupported mission generator.");
   }
   if (!isStarWarsMode(mode)
     || (mode === "classic" && timeLimitMs !== null)
     || (mode === "time_trial" && !isStarWarsTimeLimitMs(timeLimitMs))
     || !Number.isFinite(startedAtMs)) {
-    throw new StarWarsInputError("This Star Wars run has invalid timing settings.");
+    throw new StarWarsInputError("This Path Finder run has invalid timing settings.");
   }
 
   if (startScore > savedScore) {
-    throw new StarWarsInputError("Star Wars missions must be saved in order. Retry your latest score.");
+    throw new StarWarsInputError("Path Finder missions must be saved in order. Retry your latest score.");
   }
 
   if (submittedScore > savedScore) {
@@ -249,7 +249,7 @@ export async function saveStarWarsProgress(input: {
         timeLimitMs: timeLimitMs as StarWarsTimeLimitMs,
         receivedAtMs: receivedAt
       })) {
-      throw new StarWarsInputError("Time is up for this Star Wars run.");
+      throw new StarWarsInputError("Time is up for this Path Finder run.");
     }
     for (let score = savedScore; score < submittedScore; score += 1) {
       verifyStarWarsRoute(score, runVariant, routes[score - startScore]);
@@ -265,7 +265,7 @@ export async function saveStarWarsProgress(input: {
 
   const authoritative = await getRun(input.studentId, input.runId);
   const score = numberInRange(authoritative.score, 0, MAX_STAR_WARS_SCORE);
-  if (score === null) throw new Error("The saved Star Wars score is invalid.");
+  if (score === null) throw new Error("The saved Path Finder score is invalid.");
   return {
     score,
     personalBest: Math.max(score, await getPersonalBest(input.studentId)),

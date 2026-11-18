@@ -23,7 +23,7 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9482";
     await page.getByRole("button",{name:"Computer",exact:true}).click();
     for (const [label,level,viewport] of [
       ["Survival","Swift",{width:1366,height:900}],
-      ["Star Wars","Steady",{width:1024,height:768}],
+      ["Path Finder","Steady",{width:1024,height:768}],
       ["Hide and Seek","Gentle",{width:390,height:844}],
     ]) {
       await page.setViewportSize(viewport);
@@ -66,7 +66,7 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9482";
         const resumed=await state(battle.id);
         assert.equal(resumed.state.startsAt,battle.state.startsAt);
         assert.equal(resumed.state.players[0].score,1);
-      } else if(label==="Star Wars") {
+      } else if(label==="Path Finder") {
         const moves=findStarWarsSolution(initialStarWarsState(firstDeck[0].puzzle));
         assert.ok(moves?.length); let selected=null;
         for(const move of moves) {if(selected!==move.from) await square(move.from);await square(move.to);selected=move.to;}

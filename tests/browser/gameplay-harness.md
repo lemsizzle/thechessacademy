@@ -37,7 +37,7 @@ Chromium and WebKit. Screenshots and failure details go to `work/gameplay-audit`
 - `verify-live`: tap and keyboard moves, deselection, locked boards, dragging
   during an opponent reply, optimistic moves, premoves, stale responses, rollback.
 - `verify-areas`: board/arrow proportions, overflow, analysis navigation,
-  underpromotion, adaptive review, Star Wars, Hide and Seek, Survival, adventure
+  underpromotion, adaptive review, Path Finder, Hide and Seek, Survival, adventure
   lessons/boss, bot game/takeback/annotations, teacher and tournament spectators.
 - `verify-modes`: modal focus, Tab wrapping, Escape/cancel, correspondence turn
   restrictions, Woodpecker, daily puzzles, and the actual Stockfish WASM worker.

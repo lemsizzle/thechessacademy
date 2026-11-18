@@ -76,6 +76,13 @@ const balances=async()=> (await db.query(`select s.total_xp xp,coalesce(w.academ
 assert.deepEqual(await balances(),{xp:0,coins:0});
 await db.query('update student_star_wars_runs set score=6 where run_id=$1',[historicalRun]);
 assert.deepEqual(await balances(),{xp:3,coins:3}); // No backfill for the five old levels.
+// Upgrade an already-rewarded run without changing any previous payout.
+await db.exec(read('supabase/migrations/20261118182915_path_finder_rewards.sql'));
+assert.deepEqual(await balances(),{xp:3,coins:3});
+await db.query('update student_star_wars_runs set score=7 where run_id=$1',[historicalRun]);
+assert.deepEqual(await balances(),{xp:5,coins:5});
+assert.equal((await db.query('select reward_xp from student_star_wars_runs where run_id=$1',[historicalRun])).rows[0].reward_xp,5);
+assert.equal((await db.query("select count(*)::int n from xp_events where reason like 'Path Finder:%' and amount=2")).rows[0].n,1);
 
 const route=(score,variant)=>api.findStarWarsSolution(api.initialStarWarsState(api.starWarsPuzzleForScore(score,variant)));
 for(const mode of ['classic','time_trial']) {
@@ -83,13 +90,13 @@ for(const mode of ['classic','time_trial']) {
   const routes=[route(0,run.runVariant),route(1,run.runVariant)];
   const input={studentId:student,runId:run.runId,startScore:0,routes:[routes[0]]};
   const first=await api.saveStarWarsProgress(input);
-  assert.equal(first.rewardXp,3);
+  assert.equal(first.rewardXp,2);
   const before=await balances();
-  assert.equal((await api.saveStarWarsProgress(input)).rewardXp,3);
+  assert.equal((await api.saveStarWarsProgress(input)).rewardXp,2);
   assert.deepEqual(await balances(),before);
   const results=await Promise.all([api.saveStarWarsProgress({...input,routes}),api.saveStarWarsProgress({...input,routes})]);
-  assert.ok(results.every(r=>r.rewardXp===6));
-  assert.deepEqual(await balances(),{xp:before.xp+3,coins:before.coins+3});
+  assert.ok(results.every(r=>r.rewardXp===4));
+  assert.deepEqual(await balances(),{xp:before.xp+2,coins:before.coins+2});
   const saved=await balances();
   await assert.rejects(api.saveStarWarsProgress({...input,startScore:2,routes:[[{from:'a1',to:'a2'}]]}));
   await assert.rejects(api.saveStarWarsProgress({...input,studentId:randomUUID()}));
@@ -139,7 +146,7 @@ await assert.rejects(api.finishHideAndSeekRound(failedHideInput),/Simulated wall
 assert.deepEqual(await balances(),beforeFailure);
 assert.equal((await db.query('select count(*)::int n from student_hide_and_seek_attempts where round_id=$1',[failedToken.roundId])).rows[0].n,0);
 await db.exec('drop trigger fail_coin_test on coin_transactions;');
-assert.equal((await api.saveStarWarsProgress(failing)).rewardXp,3);
+assert.equal((await api.saveStarWarsProgress(failing)).rewardXp,2);
 assert.equal((await api.finishHideAndSeekRound(failedHideInput)).rewardXp,10);
 for(const role of ['anon','authenticated']) {
   for(const fn of ['reward_star_wars_progress()','reward_hide_and_seek_completion()']) assert.equal((await db.query('select has_function_privilege($1,$2,\'execute\') allowed',[role,fn])).rows[0].allowed,false);
@@ -148,7 +155,7 @@ for(const role of ['anon','authenticated']) {
 await db.exec('set role service_role');
 await db.query('update student_star_wars_runs set score=2 where run_id=$1',[failedRun.runId]);
 await db.exec('reset role');
-assert.deepEqual(await balances(),{xp:beforeFailure.xp+16,coins:beforeFailure.coins+16});
+assert.deepEqual(await balances(),{xp:beforeFailure.xp+14,coins:beforeFailure.coins+14});
 console.log('PASS: verified routes and star selections → persisted scores, XP, coins and API reward totals; all modes; duplicate and overlapping saves; no historical backfill; incomplete/invalid/foreign runs; atomic wallet failure and retry; server-only permissions.');
 await db.close();
 delete globalThis.trainingRewardTestClient;

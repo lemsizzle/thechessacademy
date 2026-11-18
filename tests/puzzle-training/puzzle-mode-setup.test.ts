@@ -44,7 +44,7 @@ describe("puzzle mode setup", () => {
     expect(html).toContain("Survival");
     expect(html).toContain("Woodpecker Method");
     expect(html).toContain("Puzzle of the Day");
-    expect(html).toContain("Star Wars");
+    expect(html).toContain("Path Finder");
     expect(html).toContain("Hide and Seek");
     expect(html).toContain("Learn From Your Mistakes");
     expect(html).toContain("Games + Survival · spaced review");

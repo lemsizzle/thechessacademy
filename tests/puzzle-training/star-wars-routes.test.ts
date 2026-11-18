@@ -34,7 +34,7 @@ function request(body: unknown) {
   });
 }
 
-describe("Star Wars API routes", () => {
+describe("Path Finder API routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireStarWarsStudent.mockResolvedValue({ studentId });
@@ -81,7 +81,7 @@ describe("Star Wars API routes", () => {
     const response = await progressRoute(request([]));
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "The Star Wars score request must be a JSON object." });
+    expect(await response.json()).toEqual({ error: "The Path Finder score request must be a JSON object." });
     expect(mocks.saveStarWarsProgress).not.toHaveBeenCalled();
   });
 });

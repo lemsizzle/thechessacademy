@@ -252,7 +252,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
     activeRunIdRef.current = null;
     setScoreSyncState("idle");
     setRewardXp(0);
-    setFeedback("Preparing a verified Star Wars run...");
+    setFeedback("Preparing a verified Path Finder run...");
     try {
       const requestStartedAt = monotonicEpochNow();
       const response = await fetch("/api/student/star-wars/start", {
@@ -263,8 +263,8 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       });
       const body = await response.json() as StarWarsStartResponse;
       const responseReceivedAt = monotonicEpochNow();
-      if (!response.ok || !body.run) throw new Error(body.error ?? "Star Wars could not start.");
-      if (!body.serverReceivedAt) throw new Error("Star Wars returned an invalid start time.");
+      if (!response.ok || !body.run) throw new Error(body.error ?? "Path Finder could not start.");
+      if (!body.serverReceivedAt) throw new Error("Path Finder returned an invalid start time.");
       if (!mountedRef.current || operation !== startOperationRef.current) return;
       const startOffset = synchronizedStartOffset({
         startedAt: body.run.startedAt,
@@ -273,7 +273,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
         requestStartedAt,
         responseReceivedAt
       });
-      if (startOffset === null) throw new Error("Star Wars returned an invalid start time.");
+      if (startOffset === null) throw new Error("Path Finder returned an invalid start time.");
       setRunId(body.run.runId);
       activeRunIdRef.current = body.run.runId;
       setRunVariant(body.run.runVariant);
@@ -299,7 +299,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       setRunId(null);
       activeRunIdRef.current = null;
       setPhase("unavailable");
-      setFeedback(error instanceof Error ? error.message : "Star Wars could not start.");
+      setFeedback(error instanceof Error ? error.message : "Path Finder could not start.");
     }
   }
 
@@ -595,7 +595,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       <div className="space-y-5">
         <Card className="overflow-hidden border-violet-300/25">
           <div className="border-b border-white/10 bg-gradient-to-r from-violet-400/10 via-cyan-300/5 to-transparent p-5 sm:p-6">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-200">Star Wars</p>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-200">Path Finder</p>
             <h2 className="mt-2 text-3xl font-black text-white">Choose your mission</h2>
             <p className="mt-2 text-sm leading-6 text-slate-300">Collect exactly one star per move. One miss or dead end ends the run.</p>
           </div>
@@ -652,7 +652,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       <div className="space-y-5">
         <Card className="border-violet-300/25 p-8 text-center">
           <div role="status" aria-live="polite">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-200">Star Wars</p>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-200">Path Finder</p>
             <h2 className="mt-3 text-3xl font-black text-white">Preparing your mission…</h2>
             <p className="mt-2 text-sm text-slate-300">The board and official clock will start together.</p>
           </div>
@@ -686,7 +686,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
         <Card className="border-rose-300/35 bg-rose-300/10 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" role="alert">
             <div>
-              <p className="font-black text-rose-100">Star Wars could not start</p>
+              <p className="font-black text-rose-100">Path Finder could not start</p>
               <p className="mt-1 text-sm text-rose-100/80">{feedback}</p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -710,7 +710,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
           <Card className="overflow-hidden border-violet-300/25">
             <div className="border-b border-white/10 bg-gradient-to-r from-violet-400/10 via-cyan-300/5 to-transparent p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-200">Star Wars · Level {puzzle.tier}{activeMode === "time_trial" && timeLimitMs ? ` · ${timeLimitMs / 60_000}-minute trial` : ""}</p>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-200">Path Finder · Level {puzzle.tier}{activeMode === "time_trial" && timeLimitMs ? ` · ${timeLimitMs / 60_000}-minute trial` : ""}</p>
                 <span className="rounded-full border border-rose-200/25 bg-rose-300/10 px-3 py-1 text-xs font-black text-rose-100">1 mistake ends the run</span>
               </div>
               <h2 className="mt-2 text-3xl font-black text-white">{puzzle.title}</h2>
@@ -731,7 +731,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
                 {feedback}
               </div>
               {phase !== "failed" && phase !== "finished" ? rewardSummary : null}
-              <p className="mt-3 text-xs font-bold text-amber-100">Complete each mission to earn 3 XP + 3 coins.</p>
+              <p className="mt-3 text-xs font-bold text-amber-100">Complete each puzzle to earn 2 XP + 2 coins.</p>
               <p className="mt-3 text-xs font-bold text-slate-500">Move {Math.min(movesUsed + 1, puzzle.stars.length)} of {puzzle.stars.length} · Missing a star or leaving no reachable star ends the run.</p>
               <p className="mt-2 text-xs text-slate-500">Right-drag to draw arrows or right-click to circle a square. A normal board click clears your marks.</p>
             </div>

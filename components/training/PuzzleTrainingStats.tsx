@@ -261,7 +261,7 @@ export function PuzzleTrainingStatsSummary({
 
       <div className="grid gap-4 lg:grid-cols-[minmax(220px,0.65fr)_minmax(0,1.35fr)]">
         <Card className="border-amber-300/20 bg-amber-300/[0.05] p-4 sm:p-5">
-          <p className="text-xs font-black uppercase tracking-wide text-amber-200">Star Wars</p>
+          <p className="text-xs font-black uppercase tracking-wide text-amber-200">Path Finder</p>
           <h3 className="mt-1 text-xl font-black text-white">Best score</h3>
           <p className="mt-4 text-4xl font-black text-white">{starWarsBestScore}</p>
           <p className="mt-2 text-xs leading-5 text-slate-400">Saved on this browser, so it can differ on another device.</p>

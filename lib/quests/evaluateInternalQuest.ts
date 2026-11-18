@@ -40,7 +40,7 @@ export type InternalQuestStarWarsActivity = {
   score: number;
 };
 
-function academyReadError(kind: "game" | "puzzle" | "Star Wars", error: string) {
+function academyReadError(kind: "game" | "puzzle" | "Path Finder", error: string) {
   const clean = error.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   return `Academy ${kind} quest activity could not be read. ${clean}`.trim();
 }
@@ -143,8 +143,8 @@ export function evaluateInternalPuzzleQuest(
       requiredValue,
       completed: currentValue >= requiredValue,
       evidence: fetchError
-        ? academyReadError("Star Wars", fetchError)
-        : `Reached Star Wars level ${currentValue} during ${window.label}.`,
+        ? academyReadError("Path Finder", fetchError)
+        : `Reached Path Finder level ${currentValue} during ${window.label}.`,
       mode: "connected",
       updatedAt: new Date().toISOString()
     };

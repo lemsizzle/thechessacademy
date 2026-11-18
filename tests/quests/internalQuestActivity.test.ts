@@ -122,7 +122,7 @@ describe("internal quest activity", () => {
     expect(progress.evidence).toContain("1 full 20-puzzle Woodpecker set");
   });
 
-  it("completes a Star Wars quest when a verified run reaches the required level", () => {
+  it("completes a Path Finder quest when a verified run reaches the required level", () => {
     const progress = evaluateInternalPuzzleQuest(
       "student",
       quest({
@@ -140,7 +140,7 @@ describe("internal quest activity", () => {
     expect(progress.currentValue).toBe(15);
     expect(progress.requiredValue).toBe(15);
     expect(progress.completed).toBe(true);
-    expect(progress.evidence).toContain("Reached Star Wars level 15");
+    expect(progress.evidence).toContain("Reached Path Finder level 15");
   });
 
   it("exposes both Academy sources as automated teacher options", () => {

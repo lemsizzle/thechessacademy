@@ -187,23 +187,23 @@ function buildPuzzle(blueprint: PuzzleBlueprint): StarWarsPuzzle {
   const { whiteKingSquare, blackKingSquare, ...publicBlueprint } = blueprint;
   const occupied = new Set<Square>();
   for (const piece of blueprint.pieces) {
-    if (occupied.has(piece.square)) throw new Error(`Star Wars square ${piece.square} is occupied twice.`);
+    if (occupied.has(piece.square)) throw new Error(`Path Finder square ${piece.square} is occupied twice.`);
     occupied.add(piece.square);
   }
 
   const hasVisibleKing = blueprint.pieces.some((piece) => piece.type === "k");
   if (!hasVisibleKing) {
     const square = whiteKingSquare ?? "a1";
-    if (occupied.has(square)) throw new Error(`Star Wars square ${square} is occupied twice.`);
+    if (occupied.has(square)) throw new Error(`Path Finder square ${square} is occupied twice.`);
     occupied.add(square);
   }
-  if (occupied.has(blackKingSquare)) throw new Error(`Star Wars square ${blackKingSquare} is occupied twice.`);
+  if (occupied.has(blackKingSquare)) throw new Error(`Path Finder square ${blackKingSquare} is occupied twice.`);
   occupied.add(blackKingSquare);
 
   const stars = new Set<Square>();
   for (const star of blueprint.stars) {
-    if (occupied.has(star)) throw new Error(`Star Wars star ${star} overlaps a chess piece.`);
-    if (stars.has(star)) throw new Error(`Star Wars star ${star} appears twice.`);
+    if (occupied.has(star)) throw new Error(`Path Finder star ${star} overlaps a chess piece.`);
+    if (stars.has(star)) throw new Error(`Path Finder star ${star} appears twice.`);
     stars.add(star);
   }
 
@@ -338,7 +338,7 @@ function keepWhiteToMove(fen: string) {
 }
 
 /**
- * Star Wars uses support kings only to build standards-valid generator FENs.
+ * Path Finder uses support kings only to build standards-valid generator FENs.
  * They are not part of the lesson, so the playable position must contain only
  * learner-controlled pieces. chess.js can safely run this kingless mini-game
  * when FEN validation is skipped.

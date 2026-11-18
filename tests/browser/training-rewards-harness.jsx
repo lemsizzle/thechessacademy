@@ -20,7 +20,7 @@ window.fetch=async(url,options={})=>{
   if(path.endsWith('/star-wars/progress')) {
     if(failSave){failSave=false;return Response.json({error:'Simulated save failure'},{status:503});}
     savedScore=Math.max(savedScore,body.startScore+body.routes.length);
-    return Response.json({result:{score:savedScore,personalBest:savedScore,rewardXp:savedScore*3}});
+    return Response.json({result:{score:savedScore,personalBest:savedScore,rewardXp:savedScore*2}});
   }
   if(path.endsWith('/hide-and-seek/start')) { mode=body.mode;hideResult=null;return Response.json({round:{id:crypto.randomUUID(),pieces:board.pieces,mode,timeLimitMs:mode==='time_trial'?60000:null,startedAt:now,expiresAt:new Date(Date.now()+1800000).toISOString()},token:'fixture',serverReceivedAt:now,serverSentAt:now}); }
   if(path.endsWith('/hide-and-seek/finish')) {

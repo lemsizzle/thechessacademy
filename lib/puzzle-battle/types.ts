@@ -14,7 +14,7 @@ export type BattleMode = (typeof BATTLE_MODES)[number];
 export const BATTLE_TIMES = [60, 180, 300, 600] as const;
 export const BATTLE_LABELS: Record<BattleMode, string> = {
   survival: "Survival",
-  "star-wars": "Star Wars",
+  "star-wars": "Path Finder",
   "hide-and-seek": "Hide and Seek",
 };
 export type BattleChallenge =

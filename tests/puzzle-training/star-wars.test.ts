@@ -119,7 +119,7 @@ function expectPerfectRoute(puzzle: StarWarsPuzzle) {
   expect(state.remainingStars).toHaveLength(0);
 }
 
-describe("Star Wars training", () => {
+describe("Path Finder training", () => {
   it("reads the local best score defensively", () => {
     expect(parseStoredStarWarsBestScore("12")).toBe(12);
     expect(parseStoredStarWarsBestScore("0")).toBe(0);

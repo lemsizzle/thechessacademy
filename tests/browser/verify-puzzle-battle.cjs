@@ -47,7 +47,7 @@ const base = process.env.BATTLE_PREVIEW_URL || "http://127.0.0.1:9482";
     await cc.request.get(base + "/__qa/login?user=2");
     for (const [mode, label] of [
       ["survival", "Survival"],
-      ["star-wars", "Star Wars"],
+      ["star-wars", "Path Finder"],
       ["hide-and-seek", "Hide and Seek"],
     ]) {
       if (mode !== "survival") {

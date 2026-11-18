@@ -18,7 +18,7 @@ import { getLevelFromXp } from "@/lib/xp";
 import { useEffect, useMemo, useState } from "react";
 
 type TimeWindow = LeaderboardTimeWindow;
-type Focus = "Overall XP" | "Survival Puzzles" | "Hide and Seek" | "Star Wars" | "Star Wars Time Trial" | "Hide and Seek Star Detective";
+type Focus = "Overall XP" | "Survival Puzzles" | "Hide and Seek" | "Path Finder" | "Path Finder Time Trial" | "Hide and Seek Star Detective";
 
 const timeOptions: Array<{ value: TimeWindow; label: string }> = [
   { value: "week", label: "This Week" },
@@ -85,7 +85,7 @@ export function LeaderboardTable({
   const [survivalTheme, setSurvivalTheme] = useState<PuzzleThemeSlug>("mixed");
   const [trialDuration, setTrialDuration] = useState(60_000);
   const isHideAndSeek = focus === "Hide and Seek" || focus === "Hide and Seek Star Detective";
-  const isStarWars = focus === "Star Wars" || focus === "Star Wars Time Trial";
+  const isStarWars = focus === "Path Finder" || focus === "Path Finder Time Trial";
   const [recentXpEvents, setRecentXpEvents] = useState<XpEvent[]>(initialXpEvents ?? xpEvents);
   const defaultEquippedItems = useMemo(() => getDefaultEquippedItems(avatarItems), [avatarItems]);
   const survivalScoresByStudentAndTheme = useMemo(() => new Map(survivalScores.map((score) => [survivalLeaderboardScoreKey(score.studentId, score.theme), score])), [survivalScores]);
@@ -93,7 +93,7 @@ export function LeaderboardTable({
     .filter((score) => (score.mode ?? "standard") === (focus === "Hide and Seek Star Detective" ? "hard" : "standard"))
     .map((score) => [score.studentId, score])), [hideAndSeekScores, focus]);
   const starWarsScoresByStudent = useMemo(() => new Map((starWarsScores ?? [])
-    .filter((score) => focus === "Star Wars Time Trial"
+    .filter((score) => focus === "Path Finder Time Trial"
       ? score.mode === "time_trial" && score.timeLimitMs === trialDuration
       : (score.mode ?? "classic") === "classic")
     .map((score) => [score.studentId, score])), [starWarsScores, focus, trialDuration]);
@@ -152,10 +152,10 @@ export function LeaderboardTable({
     : focus === "Survival Puzzles"
       ? "Best Survival Run"
       : focus === "Hide and Seek Star Detective" ? "Best Hide and Seek Star Detective Score"
-      : focus === "Star Wars Time Trial" ? `Best Star Wars Time Trial · ${trialDuration / 60_000} min`
+      : focus === "Path Finder Time Trial" ? `Best Path Finder Time Trial · ${trialDuration / 60_000} min`
       : focus === "Hide and Seek"
         ? "Best Hide and Seek Score"
-        : "Best Star Wars Run";
+        : "Best Path Finder Run";
   const scoreUnit = focus === "Overall XP" ? "XP" : focus === "Survival Puzzles" ? "puzzles" : "points";
   const survivalThemeLabel = survivalTheme === "mixed"
     ? "Mixed themes"
@@ -195,12 +195,12 @@ export function LeaderboardTable({
                   <option>Survival Puzzles</option>
                   {hasHideAndSeekFocus ? <option>Hide and Seek</option> : null}
                   {hasHideAndSeekFocus ? <option>Hide and Seek Star Detective</option> : null}
-                  {hasStarWarsFocus ? <option>Star Wars</option> : null}
-                  {hasStarWarsFocus ? <option>Star Wars Time Trial</option> : null}
+                  {hasStarWarsFocus ? <option>Path Finder</option> : null}
+                  {hasStarWarsFocus ? <option>Path Finder Time Trial</option> : null}
                 </select>
               </label>
             )}
-            {focus === "Star Wars Time Trial" && (
+            {focus === "Path Finder Time Trial" && (
               <label className="grid gap-1 text-xs font-bold uppercase text-slate-400">Trial duration
                 <select className="rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm normal-case text-white" value={trialDuration} onChange={(event) => setTrialDuration(Number(event.target.value))}>
                   {[1, 3, 5].map((minutes) => <option key={minutes} value={minutes * 60_000}>{minutes} {minutes === 1 ? "minute" : "minutes"}</option>)}

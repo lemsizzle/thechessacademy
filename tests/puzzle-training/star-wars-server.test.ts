@@ -19,7 +19,7 @@ import {
   verifyStarWarsRoute
 } from "@/lib/puzzle-training/starWarsServer";
 
-describe("Star Wars server verification", () => {
+describe("Path Finder server verification", () => {
   it("accepts Classic and the three supported Time Trial durations", () => {
     expect(parseStarWarsStartOptions(undefined)).toEqual({ mode: "classic", timeLimitMs: null });
     for (const timeLimitMs of [60_000, 180_000, 300_000]) {

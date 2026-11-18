@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { applyTrainingReceipt, createTrainingRewardStore, emptyTrainingTally, restoreTrainingTally } from "@/lib/puzzle-training/sessionRewards";
 
 describe("running training reward tally", () => {
-  it("adds separate puzzles, badges, daily, endgames and search rounds; cumulative Star Wars receipts only add the difference", () => {
+  it("adds separate puzzles, badges, daily, endgames and search rounds; cumulative Path Finder receipts only add the difference", () => {
     let tally = emptyTrainingTally();
     for (const receipt of [
       { id: "puzzle:run:a", xp: 2, coins: 2 }, { id: "puzzle:run:b", xp: 2, coins: 2 },

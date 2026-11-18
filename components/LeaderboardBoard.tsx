@@ -35,7 +35,7 @@ export function LeaderboardBoard({
   survivalScores?: SurvivalLeaderboardScore[];
   hideAndSeekScores?: HideAndSeekLeaderboardScore[];
   starWarsScores?: StarWarsLeaderboardScore[];
-  initialFocus?: "Overall XP" | "Survival Puzzles" | "Hide and Seek" | "Star Wars" | "Star Wars Time Trial" | "Hide and Seek Star Detective";
+  initialFocus?: "Overall XP" | "Survival Puzzles" | "Hide and Seek" | "Path Finder" | "Path Finder Time Trial" | "Hide and Seek Star Detective";
   lockFocus?: boolean;
   heading?: string;
   enableCorrespondenceChallenges?: boolean;

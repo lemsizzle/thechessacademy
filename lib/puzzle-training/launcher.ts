@@ -43,11 +43,11 @@ export const PUZZLE_MODE_OPTIONS: ReadonlyArray<PuzzleModeOption> = [
   },
   {
     id: "starWars",
-    name: "Star Wars",
+    name: "Path Finder",
     icon: "★",
     summary: "Classic or 1–5 minute Time Trial",
     description: "Collect one star per move while keeping another reachable. Build a classic streak or race a 1, 3, or 5 minute clock.",
-    startLabel: "Launch Star Wars"
+    startLabel: "Launch Path Finder"
   },
   {
     id: "hideAndSeek",

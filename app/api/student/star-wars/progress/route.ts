@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   try {
     const value = await request.json() as unknown;
     if (!value || typeof value !== "object" || Array.isArray(value)) {
-      throw new StarWarsInputError("The Star Wars score request must be a JSON object.");
+      throw new StarWarsInputError("The Path Finder score request must be a JSON object.");
     }
     const body = value as { runId?: unknown; startScore?: unknown; routes?: unknown };
     const student = await requireStarWarsStudent();
@@ -30,14 +30,14 @@ export async function POST(request: NextRequest) {
     const isAuthError = isStarWarsAuthenticationError(error);
     if (!isInputError && !isAuthError) console.error("[star-wars/progress] Unexpected error", error);
     const message = error instanceof SyntaxError
-      ? "The Star Wars score request must contain valid JSON."
+      ? "The Path Finder score request must contain valid JSON."
       : error instanceof Error
         ? error.message
-        : "This Star Wars score could not be saved.";
+        : "This Path Finder score could not be saved.";
     return NextResponse.json({
       error: isInputError || isAuthError
         ? message
-        : "Your Star Wars score could not be saved right now. Please try again."
+        : "Your Path Finder score could not be saved right now. Please try again."
     }, {
       status: isInputError ? 400 : isAuthError ? 401 : 503,
       headers: { "Cache-Control": "no-store" }

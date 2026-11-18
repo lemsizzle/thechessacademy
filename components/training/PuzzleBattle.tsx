@@ -447,7 +447,7 @@ export function PuzzleBattle() {
             Race through the same boards
           </h2>
           <p className="mt-2 text-sm text-slate-300">
-            Survival and Star Wars: three lives each, one point per board,
+            Survival and Path Finder: three lives each, one point per board,
             highest score wins. Hide and Seek: race on one shared board; the first
             finish wins, and one wrong square loses. Both players get identical
             puzzles. Play a classmate or choose a computer opponent below.
@@ -506,7 +506,7 @@ export function PuzzleBattle() {
             {busy ? "Preparing boards…" : opponentType === "bot" ? "Play against bot" : "Create challenge"}
           </Button>
           <p className="mt-3 text-xs text-slate-400">
-            One board in Hide and Seek; up to 50 in Survival and Star Wars.
+            One board in Hide and Seek; up to 50 in Survival and Path Finder.
             No hints or takebacks. Battle scores are separate
             from solo records and rewards.
           </p>

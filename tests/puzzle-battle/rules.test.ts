@@ -204,7 +204,7 @@ describe("Puzzle Battle", () => {
       "cancelled",
     );
   });
-  it("validates complete Star Wars routes, not client scores", () => {
+  it("validates complete Path Finder routes, not client scores", () => {
     const r = room(),
       star = generateStarWarsPuzzle(0, 917),
       deck: BattleChallenge[] = [{ kind: "star-wars", puzzle: star }];

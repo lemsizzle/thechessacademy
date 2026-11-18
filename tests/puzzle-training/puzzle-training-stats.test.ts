@@ -127,7 +127,7 @@ describe("puzzle training stats", () => {
   it("keeps browser-only and adaptive stats clearly separated from server records", () => {
     const html = renderStats();
 
-    expect(html).toContain("Star Wars");
+    expect(html).toContain("Path Finder");
     expect(html).toContain("Best score");
     expect(html).toContain("14");
     expect(html).toContain("Saved on this browser");

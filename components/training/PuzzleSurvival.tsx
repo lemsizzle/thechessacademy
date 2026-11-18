@@ -40,7 +40,7 @@ const AUTO_ADVANCE_STORAGE_KEY = "academy-puzzles-auto-advance";
 
 const StarWarsTraining = dynamic(
   () => import("@/components/training/StarWarsTraining").then((module) => module.StarWarsTraining),
-  { ssr: false, loading: () => <Card className="p-6 text-sm font-bold text-slate-300">Preparing the Star Wars board...</Card> }
+  { ssr: false, loading: () => <Card className="p-6 text-sm font-bold text-slate-300">Preparing the Path Finder board...</Card> }
 );
 
 const HideAndSeekTraining = dynamic(

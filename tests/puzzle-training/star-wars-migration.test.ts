@@ -12,7 +12,7 @@ const challengeModesMigration = readFileSync(
   "utf8"
 ).toLowerCase().replace(/\s+/g, " ");
 
-describe("Star Wars leaderboard database migration", () => {
+describe("Path Finder leaderboard database migration", () => {
   it("keeps runs server-only behind RLS and least-privilege grants", () => {
     expect(migration).toContain("alter table public.student_star_wars_runs enable row level security");
     expect(migration).toContain("revoke all on table public.student_star_wars_runs from public, anon, authenticated, service_role");
@@ -32,7 +32,7 @@ describe("Star Wars leaderboard database migration", () => {
     expect(migration).toContain("where run.score > 0");
   });
 
-  it("stores only the supported Star Wars run modes and countdowns", () => {
+  it("stores only the supported Path Finder run modes and countdowns", () => {
     expect(challengeModesMigration).toContain("check (mode in ('classic', 'time_trial'))");
     expect(challengeModesMigration).toContain("time_limit_ms in (60000, 180000, 300000)");
     expect(challengeModesMigration).toContain("add column if not exists started_at timestamptz not null default now()");
