@@ -1,4 +1,5 @@
 "use client";
+import { TrainingSessionRewards, useTrainingRewards } from "@/components/training/TrainingSessionRewards";
 
 import { refreshCelebrations } from "@/lib/celebrations";
 
@@ -99,6 +100,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
   const [runId, setRunId] = useState<string | null>(null);
   const [runVariant, setRunVariant] = useState(0);
   const [score, setScore] = useState(0);
+  const trainingRewards = useTrainingRewards();
   const [rewardXp, setRewardXp] = useState(0);
   const [bestScore, setBestScore] = useState(0);
   const [selectedMode, setSelectedMode] = useState<StarWarsMode>("classic");
@@ -322,6 +324,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
       });
       const body = await response.json() as StarWarsProgressResponse;
       if (!response.ok || !body.result) throw new Error(body.error ?? "Score save failed.");
+      trainingRewards.record({ id: `star-wars:${targetRunId}`, xp: body.result.rewardXp ?? 0, coins: body.result.rewardXp ?? 0 });
       if (!mountedRef.current || activeRunIdRef.current !== targetRunId) return;
       latestSavedScoreRef.current = Math.max(latestSavedScoreRef.current, body.result.score);
       setRewardXp((current) => Math.max(current, body.result?.rewardXp ?? 0));
@@ -703,6 +706,7 @@ export function StarWarsTraining({ onExit }: { onExit: () => void }) {
         </BoardViewport>
 
         <aside className="space-y-4">
+          <TrainingSessionRewards />
           <Card className="overflow-hidden border-violet-300/25">
             <div className="border-b border-white/10 bg-gradient-to-r from-violet-400/10 via-cyan-300/5 to-transparent p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">

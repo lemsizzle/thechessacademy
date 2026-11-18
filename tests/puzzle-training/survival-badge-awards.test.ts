@@ -11,6 +11,16 @@ const attempt = { studentId: "student-a", puzzleId: "puzzle-a", sessionId: "sess
 
 describe("automatic Survival awards", () => {
   beforeEach(() => { vi.clearAllMocks(); mocks.upsert.mockResolvedValue({ error: null }); mocks.rpc.mockResolvedValue({ data: [], error: null }); });
+  it("returns a stable committed puzzle receipt, with no receipt for failed or daily attempts", async () => {
+    const expected = { id: "puzzle:session-a:puzzle-a", xp: 2, coins: 2 };
+    expect((await saveTrainingAttempt(attempt)).reward).toEqual(expected);
+    expect((await saveTrainingAttempt(attempt)).reward).toEqual(expected);
+    expect((await saveTrainingAttempt({ ...attempt, trainingMode: "woodpecker" })).reward).toEqual(expected);
+    expect((await saveTrainingAttempt({ ...attempt, trainingMode: "daily" })).reward).toBeUndefined();
+    expect((await saveTrainingAttempt({ ...attempt, solved: false })).reward).toBeUndefined();
+    mocks.upsert.mockResolvedValue({ error: { message: "Save failed" } });
+    await expect(saveTrainingAttempt(attempt)).rejects.toThrow("Save failed");
+  });
   it("saves the verified solve before requesting rewards and returns the earned badges", async () => {
     const awards = [{ badgeId: "pin", name: "Pin Bronze", tier: "Bronze", coins: 20 }];
     mocks.rpc.mockImplementation(async () => {

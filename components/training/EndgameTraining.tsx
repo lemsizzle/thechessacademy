@@ -1,4 +1,5 @@
 "use client";
+import { TrainingSessionRewards, useTrainingRewards } from "@/components/training/TrainingSessionRewards";
 
 import Link from "next/link";
 import { Chess, type Square } from "chess.js";
@@ -132,6 +133,7 @@ function EndgameBoard({ topic, initial, preparedEngine, onSave, onBack, onNew, g
   const engineRef = useRef<AnalysisStockfishService | null>(preparedEngine);
   const [helpBusy, setHelpBusy] = useState(false);
   const assistanceRecorded = useRef(false);
+  const trainingRewards = useTrainingRewards();
   const [rewardState, setRewardState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [rewardError, setRewardError] = useState("");
   const inputLocked = useRef(false);
@@ -143,13 +145,14 @@ function EndgameBoard({ topic, initial, preparedEngine, onSave, onBack, onNew, g
     try {
       const receipt = await endgameRewardRequest<{ rewardXp: number; awarded: boolean; assisted: boolean }>({ action: "complete", token: attempt.rewardToken, candidateIndex: attempt.candidateIndex, moves: attempt.moves, assisted: attempt.assisted });
       setAttempt(current => ({ ...current, rewardXp: receipt.rewardXp, assisted: current.assisted || receipt.assisted }));
+      trainingRewards.record({ id: `endgame:${attempt.rewardToken}`, xp: receipt.rewardXp, coins: receipt.rewardXp });
       setRewardState("saved");
       if (receipt.rewardXp === 3) refreshCelebrations();
     } catch (error) {
       setRewardState("error");
       setRewardError(error instanceof Error ? error.message : "Couldn't save your reward. Please retry.");
     }
-  }, [attempt.rewardToken, attempt.candidateIndex, attempt.moves, attempt.assisted]);
+  }, [attempt.rewardToken, attempt.candidateIndex, attempt.moves, attempt.assisted, trainingRewards]);
   useEffect(() => {
     if (result?.won && !attempt.assisted && attempt.rewardToken && !attempt.rewardXp && rewardState === "idle") void claimReward();
   }, [result?.won, attempt.assisted, attempt.rewardToken, attempt.rewardXp, rewardState, claimReward]);
@@ -232,6 +235,7 @@ function EndgameBoard({ topic, initial, preparedEngine, onSave, onBack, onNew, g
 
       </div>
       <aside className={styles.panel}>
+        <TrainingSessionRewards />
         <div className="flex flex-wrap gap-2">
           <button type="button" className={buttonClass} disabled={Boolean(result) || thinking || hintRequested || Boolean(error) || generating || helpBusy} onClick={() => void useHelp("hint")}>Hint</button>
           <button type="button" className={buttonClass} disabled={!attempt.moves.length || generating || helpBusy} onClick={() => void useHelp("takeback")}>Take back</button>

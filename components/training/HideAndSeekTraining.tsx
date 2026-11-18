@@ -1,4 +1,5 @@
 "use client";
+import { TrainingSessionRewards, useTrainingRewards } from "@/components/training/TrainingSessionRewards";
 
 import { refreshCelebrations } from "@/lib/celebrations";
 
@@ -480,6 +481,7 @@ export function HideAndSeekTraining({
   const [selectedSquares, setSelectedSquares] = useState<Set<HideAndSeekSquare>>(() => new Set());
   const [pendingHardFinish, setPendingHardFinish] = useState<ReadonlySet<HideAndSeekSquare> | null>(null);
   const [explodingSquares, setExplodingSquares] = useState<HideAndSeekSquare[]>([]);
+  const trainingRewards = useTrainingRewards();
   const [result, setResult] = useState<SearchResult | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [personalBest, setPersonalBest] = useState(Math.max(0, initialBestScore));
@@ -639,6 +641,7 @@ export function HideAndSeekTraining({
       }
       if (operation !== operationRef.current) return;
       setResult(payload.result);
+      trainingRewards.record({ id: `hide-and-seek:${round.id}`, xp: payload.result.rewardXp ?? 0, coins: payload.result.rewardXp ?? 0 });
       refreshCelebrations();
       setElapsedMs(payload.result.elapsedMs);
       const resultSound = hideAndSeekResultSound(payload.result);
@@ -737,6 +740,7 @@ export function HideAndSeekTraining({
         </BoardViewport>
 
         <aside className="space-y-4">
+          <TrainingSessionRewards />
           <Card className="overflow-hidden border-emerald-300/25">
             <div className="border-b border-white/10 bg-gradient-to-r from-emerald-400/10 via-cyan-300/5 to-transparent p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">

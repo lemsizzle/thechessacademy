@@ -1,4 +1,5 @@
 "use client";
+import { TrainingSessionRewards } from "@/components/training/TrainingSessionRewards";
 
 import { Chess } from "chess.js";
 import Link from "next/link";
@@ -103,7 +104,8 @@ export function PuzzleReplay({ initialPuzzle, backHref, nextHref, initialAutoAdv
     <BoardViewport maxWidth={660}>
       <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold text-cyan-100">{puzzle.sideToMove} to move</p><BoardSettings /></div><AcademyChessboard boardId={`dashboard-replay-${puzzleId}`} fen={fen} orientation={puzzle.orientation} humanColor={puzzle.orientation} interactive={!busy && !advancing && !result?.completed && !promotion} lastMove={lastMove} onMove={(from, to) => void move(from, to)} allowDrawingArrows arrows={arrows} onArrowsChange={setArrows} onClearAnnotations={() => setArrows([])} />
     </BoardViewport>
-    <Card className="h-fit space-y-4 p-5 sm:p-6"><p className="text-xs font-black uppercase tracking-widest text-amber-200">Practice, not a test</p><h2 className="text-2xl font-black text-white">Look. Plan. Try again.</h2><p className="text-sm leading-6 text-slate-300">Look for checks, captures, and threats. What will your opponent do next?</p><p role="status" aria-live="polite" className={`rounded-lg border p-4 text-sm font-bold leading-6 ${result?.completed ? "border-emerald-300/40 bg-emerald-300/10 text-emerald-100" : "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"}`}>{message}</p>
+    <Card className="h-fit space-y-4 p-5 sm:p-6">
+        <TrainingSessionRewards practiceOnly /><p className="text-xs font-black uppercase tracking-widest text-amber-200">Practice, not a test</p><h2 className="text-2xl font-black text-white">Look. Plan. Try again.</h2><p className="text-sm leading-6 text-slate-300">Look for checks, captures, and threats. What will your opponent do next?</p><p role="status" aria-live="polite" className={`rounded-lg border p-4 text-sm font-bold leading-6 ${result?.completed ? "border-emerald-300/40 bg-emerald-300/10 text-emerald-100" : "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"}`}>{message}</p>
       <div className="flex flex-wrap gap-3">
         {!result?.completed ? <Button variant="secondary" onClick={() => void hint()} disabled={busy || advancing}>Give me a hint</Button> : <Button variant="secondary" onClick={() => void start()} disabled={busy || advancing}>Try once more</Button>}
         <Button aria-label="Next missed puzzle" onClick={() => { if (nextUrl && !busy && !advancing) startNavigation(() => router.replace(nextUrl, { scroll: false })); }} disabled={!nextUrl || busy || advancing}>{advancing ? "Loading next…" : "Next →"}</Button>

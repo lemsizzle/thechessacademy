@@ -1,4 +1,5 @@
 "use client";
+import { TrainingSessionRewards, useTrainingRewards } from "@/components/training/TrainingSessionRewards";
 
 import { celebrate, refreshCelebrations } from "@/lib/celebrations";
 import { useStudentMenuDestination } from "@/components/student/StudentMenuNavigation";
@@ -101,6 +102,7 @@ function SurvivalBadgeAwards({ awards }: { awards: TacticalBadgeAward[] }) {
 }
 
 export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverview: PuzzleTrainingOverview; statsContent?: ReactNode }) {
+  const trainingRewards = useTrainingRewards();
   const { pieces, squareStyles: themeSquareStyles } = useBoardAppearance();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -950,6 +952,10 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
       setMessage(result.message);
 
       if (result.completed && result.completion) {
+        if (result.completion.reward) trainingRewards.record(result.completion.reward);
+        const daily = result.completion.dailyReward;
+        if (daily?.awarded) trainingRewards.record({ id: `daily:${puzzle?.daily?.date ?? puzzle?.id}`, xp: daily.xpAwarded, coins: daily.coinsAwarded });
+        for (const award of result.completion.badgeAwards ?? []) trainingRewards.record({ id: `badge:${award.badgeId}`, xp: award.xp ?? 0, coins: award.coins });
         if (result.completion.badgeAwards?.length) {
           const awards = result.completion.badgeAwards;
           awards.forEach(award => celebrate({ id: `badge:${award.badgeId}`, kind: "badge", name: award.name }));
@@ -1338,7 +1344,8 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
   if (phase === "summary") {
     return (
       <Card className="p-6">
-        <p className="text-xs font-black uppercase text-amber-200">{summaryEyebrow}</p>
+        <TrainingSessionRewards />
+        <p className="mt-4 text-xs font-black uppercase text-amber-200">{summaryEyebrow}</p>
         <h2 className="mt-2 text-3xl font-black text-white">{summaryTitle}</h2>
         {trainingMode === "survival" && <SurvivalRoundRewards key={sessionId.current} sessionId={sessionId.current} />}
         {completion?.dailyReward && <div className={`mt-5 rounded-lg border p-4 ${completion.dailyReward.awarded ? "border-emerald-300/40 bg-emerald-300/10 text-emerald-100" : "border-cyan-200/30 bg-cyan-300/10 text-cyan-100"}`}><p className="font-black">{completion.dailyReward.awarded ? `Reward claimed: +${completion.dailyReward.xpAwarded} XP and +${completion.dailyReward.coinsAwarded} Academy Coins` : "Today’s reward was already claimed. Nice practice replay!"}</p></div>}
@@ -1408,6 +1415,7 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
         </section>
 
         <aside className="puzzle-sidebar min-w-0 space-y-3" aria-label="Training progress and controls">
+          <TrainingSessionRewards />
           <Card className="puzzle-stats overflow-hidden">
             <dl className="grid grid-cols-3 gap-px bg-white/10">
               {[["Puzzle", primaryProgress], secondaryMetric, ['Timer', <PuzzleTimer key={`${sessionId.current}:${puzzle?.id ?? "loading"}`} running={phase === "turn" || phase === "reply"} />], ['Accuracy', `${activeAccuracy}%`], ['Streak', currentStreak], ['Best', bestStreak]].map(([label, value]) => (

@@ -1,3 +1,4 @@
+import { TrainingSessionRewardsProvider } from "../../components/training/TrainingSessionRewards";
 // Actual trainer, menus, and chess validation; isolated API responses only.
 import { createRoot } from 'react-dom/client';
 import { Sidebar } from '../../components/Sidebar';
@@ -19,7 +20,7 @@ window.fetch = async (url, options = {}) => {
     const query = new URL(path, location.origin).searchParams;
     const row = puzzles.find(row => row.id === query.get('puzzleId')) ?? puzzles[nextIndex++ % puzzles.length];
     const token = crypto.randomUUID();
-    issued.set(token, { row, mistakes: 0, hints: 0 });
+    issued.set(token, { row, mistakes: 0, hints: 0, sessionId: query.get("sessionId"), mode: query.get("mode") });
     const position = prepareTrainingPuzzle(row);
     return Response.json({ puzzle: {
       id: row.id, displayFen: position.displayFen, orientation: position.orientation,
@@ -44,7 +45,7 @@ window.fetch = async (url, options = {}) => {
     const next = issued.get(input.nextPuzzleToken);
     return Response.json({
       ...result, token: input.token, message: 'Correct! You found the tactic.',
-      completion: { themes: session.row.themes, rating: session.row.rating, mistakes: session.mistakes, hintsUsed: session.hints, elapsedSeconds: 4 },
+      completion: { themes: session.row.themes, rating: session.row.rating, mistakes: session.mistakes, hintsUsed: session.hints, elapsedSeconds: 4, ...(session.mode === "daily" ? { dailyReward: { awarded: true, xpAwarded: 10, coinsAwarded: 10 } } : { reward: { id: `puzzle:${session.sessionId}:${session.row.id}`, xp: 2, coins: 2 } }) },
       ...(next ? { preparedNextPuzzle: { id: next.row.id, token: input.nextPuzzleToken } } : {})
     });
   }
@@ -67,7 +68,7 @@ createRoot(document.getElementById('root')).render(
               <h1 className="mt-1 text-2xl font-black text-white sm:text-3xl">Puzzle Training</h1>
               <p className="mt-2 max-w-3xl text-sm text-slate-400 sm:text-base">Train tactics, build pattern memory, and plan perfect routes before you move.</p>
             </div>
-            <StudentMenuPage><PuzzleSurvival initialOverview={emptyPuzzleTrainingOverview} /></StudentMenuPage>
+            <TrainingSessionRewardsProvider studentId="fixture"><StudentMenuPage><PuzzleSurvival initialOverview={emptyPuzzleTrainingOverview} /></StudentMenuPage></TrainingSessionRewardsProvider>
           </main>
         </div>
       </div>

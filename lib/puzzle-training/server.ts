@@ -241,7 +241,13 @@ export async function saveTrainingAttempt(input: {
       console.error("Survival badge awards pending", { studentId: input.studentId, error: badgeError instanceof Error ? badgeError.message : String(badgeError) });
     }
   }
-  return { elapsedSeconds, firstTryCorrect: record.first_try_correct, badgeAwards };
+  // The committed award_completed_academy_puzzle trigger grants 2 XP, mirrored
+  // atomically into coins, for solved non-daily attempts. Its unique source key
+  // makes this receipt safe on retries, without wallet reads on the move path.
+  const reward = input.solved && input.trainingMode !== "daily"
+    ? { id: `puzzle:${input.sessionId}:${input.puzzleId}`, xp: 2, coins: 2 }
+    : undefined;
+  return { elapsedSeconds, firstTryCorrect: record.first_try_correct, badgeAwards, reward };
 }
 
 export async function saveCompletedWoodpeckerCycle(

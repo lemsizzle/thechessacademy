@@ -1,6 +1,7 @@
 "use client";
 
 import { Sidebar } from "@/components/Sidebar";
+import { TrainingSessionRewardsProvider } from "@/components/training/TrainingSessionRewards";
 import { StudentMenuNavigation, StudentMenuPage } from "@/components/student/StudentMenuNavigation";
 import { AchievementCelebrations } from "@/components/student/AchievementCelebrations";
 import { ActiveLiveGameBanner } from "@/components/student/ActiveLiveGameBanner";
@@ -168,7 +169,7 @@ export function StudentPortalShell({
                 <a className="mt-2 inline-block font-bold text-cyan-200 underline" href="/api/auth/lichess/start?link=1&returnTo=%2Fstudent">Connect Lichess for Lichess progress</a>
                 {linkFailed && <p role="alert" className="mt-2 text-amber-200">Lichess was not connected. Use the account assigned by your teacher, or ask your teacher for help.</p>}
               </div>}
-              <StudentMenuPage>{children}</StudentMenuPage>
+              <TrainingSessionRewardsProvider key={user.studentId} studentId={user.studentId}><StudentMenuPage>{children}</StudentMenuPage></TrainingSessionRewardsProvider>
             </main>
           </div>
         </div>

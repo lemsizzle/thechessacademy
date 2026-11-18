@@ -117,6 +117,7 @@ export type PuzzleMoveInput = {
 };
 
 export type PuzzleCompletionDetails = {
+  reward?: import("./sessionRewards").TrainingRewardReceipt;
   badgeAwards?: TacticalBadgeAward[];
   themes: string[];
   rating: number | null;

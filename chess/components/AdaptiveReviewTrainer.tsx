@@ -1,4 +1,5 @@
 "use client";
+import { TrainingSessionRewards } from "@/components/training/TrainingSessionRewards";
 
 import { BoardViewport } from "@/chess/components/BoardViewport";
 
@@ -243,6 +244,7 @@ export function AdaptiveReviewTrainer({
     </BoardViewport>
     <div className="space-y-4">
       <Card className="p-5">
+        <TrainingSessionRewards practiceOnly />
         <div className="flex items-center justify-between gap-3"><span className={`rounded px-2 py-1 text-xs font-black uppercase ${current.severity === "blunder" ? "bg-rose-300/15 text-rose-100" : "bg-orange-300/15 text-orange-100"}`}>{current.severity}</span><span className="text-xs font-bold text-slate-400">{items.length} due</span></div>
         <h2 className="mt-3 text-2xl font-black text-white">
           {current.sourceKind === "survival"

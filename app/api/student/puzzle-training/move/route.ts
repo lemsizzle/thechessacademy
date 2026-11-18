@@ -227,7 +227,8 @@ export async function POST(request: NextRequest) {
           mistakes: payload.incorrectMoveCount,
           hintsUsed: payload.hintsUsed,
           elapsedSeconds: saved.elapsedSeconds,
-          badgeAwards: saved.badgeAwards
+          badgeAwards: saved.badgeAwards,
+          reward: saved.reward
         },
         nextPuzzle,
         preparedNextPuzzle: preparedNext ? activatePreparedNextPuzzle(preparedNext, payload) : undefined

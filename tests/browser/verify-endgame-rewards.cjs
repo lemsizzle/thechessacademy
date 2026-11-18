@@ -69,6 +69,7 @@ const storageKey = 'chessquest:endgames:v1:30000000-0000-4000-8000-000000000001'
     };
     await finish(); await page.getByRole('button',{name:'Retry reward save'}).click();
     await page.getByText('3 XP + 3 coins earned for this position',{exact:true}).waitFor();
+    await page.waitForFunction(()=>document.querySelector('[data-session-xp]')?.textContent==='3'&&document.querySelector('[data-session-coins]')?.textContent==='3');
     const balance=await (await context.request.get(base+'/__qa/endgame-balance')).json();
     assert.equal(balance.xp-initialBalance.xp,3);assert.equal(balance.coins-initialBalance.coins,3);assert.equal(balance.events-initialBalance.events,1);
     const saved=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)).attempts['queen-mate'],storageKey);
@@ -76,6 +77,7 @@ const storageKey = 'chessquest:endgames:v1:30000000-0000-4000-8000-000000000001'
     const completion={action:'complete',token:won.rewardToken,candidateIndex:won.candidateIndex,moves:won.moves,assisted:false};
     const duplicate=await context.request.post(base+'/api/student/endgames',{data:completion});assert.equal(duplicate.status(),200);assert.equal((await duplicate.json()).awarded,false);
     await page.reload();await page.getByText('3 XP + 3 coins earned for this position',{exact:true}).waitFor();
+    await page.waitForFunction(()=>document.querySelector('[data-session-xp]')?.textContent==='3');
     const second=await browser.newContext();await second.request.get(base+'/__qa/login?user=1');
     assert.equal((await second.request.post(base+'/api/student/endgames',{data:completion})).status(),400);await second.close();
     assert.equal((await context.request.post(base+'/api/student/endgames',{data:{...completion,moves:[]}})).status(),400);
@@ -84,6 +86,7 @@ const storageKey = 'chessquest:endgames:v1:30000000-0000-4000-8000-000000000001'
     await page.getByRole('button',{name:'Retry position',exact:true}).click();await page.reload();await ready();
     await page.getByText('Practice with help · no reward for this position',{exact:true}).waitFor();
     await finish();
+    assert.equal(await page.locator('[data-session-xp]').textContent(),'3');
     const helped=await saved();
     const forged=await context.request.post(base+'/api/student/endgames',{data:{action:'complete',token:helped.rewardToken,candidateIndex:helped.candidateIndex,moves:helped.moves,assisted:false}});
     assert.equal(forged.status(),200);assert.equal((await forged.json()).rewardXp,0);

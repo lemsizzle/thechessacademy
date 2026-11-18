@@ -1,4 +1,5 @@
 "use client";
+import { TrainingSessionRewards } from "@/components/training/TrainingSessionRewards";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -759,6 +760,7 @@ export function PuzzleBattle() {
             )}
           </div>
           <Card className="space-y-4 self-start p-4">
+        <TrainingSessionRewards practiceOnly />
             {errorPanel}
             {state.tournament && <p className="text-sm font-bold text-cyan-200">{state.tournament.title} · Round {state.tournament.round}</p>}
             {state.bot && !state.tournament && <p className="text-sm font-bold text-violet-200">Computer opponent · {BATTLE_BOTS[state.bot.level].name}</p>}
