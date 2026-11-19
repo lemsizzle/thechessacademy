@@ -3,8 +3,6 @@ import { TrainingSessionRewards, useTrainingRewards } from "@/components/trainin
 
 import { refreshCelebrations } from "@/lib/celebrations";
 
-import { BoardViewport } from "@/chess/components/BoardViewport";
-
 import { useBoardAppearance } from "@/chess/appearance/BoardAppearanceProvider";
 import { BoardSettings } from "@/chess/components/BoardSettings";
 import { useChessSounds } from "@/chess/hooks/useChessSounds";
@@ -534,7 +532,7 @@ export function HideAndSeekTraining({
 
   useEffect(() => {
     if (phase !== "result" && phase !== "restart-required") return;
-    const frame = window.requestAnimationFrame(() => statusHeadingRef.current?.focus());
+    const frame = window.requestAnimationFrame(() => statusHeadingRef.current?.focus({ preventScroll: true }));
     return () => window.cancelAnimationFrame(frame);
   }, [phase]);
 
@@ -715,25 +713,16 @@ export function HideAndSeekTraining({
     : formatDuration(shownElapsedMs);
 
   return (
-    <div className="space-y-5">
-      <Card className="overflow-hidden border-emerald-300/25">
-        <div className="grid grid-cols-3 divide-x divide-white/10">
-          {[
-            [activeMode === "time_trial" ? "Time left" : "Timer", shownTime],
-            ["Marked", selectedSquares.size],
-            ["Best", personalBest]
-          ].map(([label, value]) => (
-            <div key={String(label)} className="p-3 text-center sm:p-4">
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 sm:text-xs">{label}</p>
-              <p className="mt-1 text-xl font-black text-white sm:text-2xl" aria-label={label === "Time left" ? `Time remaining ${value}` : label === "Timer" ? `Elapsed time ${value}` : undefined} aria-live={label === "Marked" ? "polite" : undefined}>{value}</p>
+    <div className="puzzle-workspace" data-board-fit-screen>
+      <div className="puzzle-layout">
+        <section className="puzzle-board-column" aria-label="Hide and Seek board">
+          <div className="puzzle-board-toolbar">
+            <h2 className="min-w-0 text-base font-black text-white">Hide and Seek</h2>
+            <div className="flex shrink-0 items-center gap-3">
+              <span className="text-sm font-black tabular-nums text-white" aria-label={activeMode === "time_trial" ? `Time remaining ${shownTime}` : `Elapsed time ${shownTime}`}>{shownTime}</span>
+              <BoardSettings muted={muted} onToggleMuted={() => setMuted((value) => !value)} />
             </div>
-          ))}
-        </div>
-      </Card>
-
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,640px)_minmax(300px,1fr)]">
-        <BoardViewport maxWidth={640}>
-          <BoardSettings muted={muted} onToggleMuted={() => setMuted((value) => !value)} />
+          </div>
           {round ? (
             <SearchBoard
               round={round}
@@ -745,37 +734,56 @@ export function HideAndSeekTraining({
               onToggle={toggleSquare}
             />
           ) : <CoveredBoard />}
-        </BoardViewport>
+        </section>
 
-        <aside className="space-y-4">
+        <aside className="puzzle-sidebar min-w-0 space-y-3" aria-label="Training progress and controls">
+          {(phase === "result" || phase === "restart-required") && <h2 ref={statusHeadingRef} tabIndex={-1} className="text-xl font-black text-white outline-none">{phase === "result" ? "Search complete" : "Start a fresh search"}</h2>}
+          {(phase === "searching" || phase === "finishing") && activeMode !== "hard" ? (
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Search controls">
+              <Button type="button" variant="ghost" onClick={() => setSelectedSquares(new Set())} disabled={phase === "finishing" || timeTrialExpired || selectedSquares.size === 0}>Clear Marks</Button>
+              <Button type="button" onClick={() => void finishSearch()} disabled={!canScoreHideAndSeekBoard({ phase, token, selectedCount: selectedSquares.size, mode: round?.mode })}>{phase === "finishing" ? "Scoring..." : error && timeTrialExpired ? "Retry Score" : token ? activeMode === "time_trial" ? "Finish Now" : "Stop & Score" : "Activating..."}</Button>
+            </div>
+          ) : null}
+          {phase !== "result" && phase !== "restart-required" ? <Button type="button" variant="ghost" className="w-full" onClick={onExit}>Back to Training Modes</Button> : null}
+          {phase === "result" && result ? (
+            <div className="grid gap-2">
+              <Button type="button" onClick={() => void startSearch()}>Play Again</Button>
+              <Button type="button" variant="secondary" onClick={changeMode}>Change Mode</Button>
+              <Button type="button" variant="ghost" onClick={onExit}>Back to Training</Button>
+            </div>
+          ) : null}
+          <Card className="overflow-hidden border-emerald-300/25">
+            <div className="grid grid-cols-2 divide-x divide-white/10">
+              {[
+                ["Marked", selectedSquares.size],
+                ["Best", personalBest]
+              ].map(([label, value]) => (
+                <div key={String(label)} className="p-3 text-center sm:p-4">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 sm:text-xs">{label}</p>
+                  <p className="mt-1 text-xl font-black text-white sm:text-2xl" aria-live={label === "Marked" ? "polite" : undefined}>{value}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+
           <TrainingSessionRewards />
           <Card className="overflow-hidden border-emerald-300/25">
-            <div className="border-b border-white/10 bg-gradient-to-r from-emerald-400/10 via-cyan-300/5 to-transparent p-5">
+            {phase !== "result" && phase !== "restart-required" && <div className="border-b border-white/10 bg-gradient-to-r from-emerald-400/10 via-cyan-300/5 to-transparent p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">Hide and Seek</p>
               </div>
-              <h2
-                ref={statusHeadingRef}
-                tabIndex={phase === "result" || phase === "restart-required" ? -1 : undefined}
-                className="mt-2 text-xl font-black text-white outline-none"
-              >
-                {phase === "result"
-                  ? "Search complete"
-                  : phase === "restart-required"
-                    ? "Start a fresh search"
-                    : "Find every hiding place"}
-              </h2>
+              <h2 className="mt-2 text-xl font-black text-white">Find every hiding place</h2>
               <p className="mt-2 text-sm leading-6 text-slate-300">
                 Mark empty squares that no black piece attacks.
               </p>
-            </div>
+            </div>}
 
-            <div className="p-5">
+            <div className="p-4">
               {phase === "ready" || phase === "preparing" ? (
                 <>
                   <fieldset disabled={phase === "preparing"}>
                     <legend className="text-xs font-black uppercase tracking-[0.16em] text-emerald-200">Choose a mode</legend>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <div className="mt-3 grid gap-3">
                       {([
                         ["classic", "Classic", "Open-ended", "Search carefully, then stop the clock when you are ready."],
                         ["time_trial", "Time Trial", "60 seconds", "Race the countdown. Your board scores automatically at zero."],
@@ -841,12 +849,7 @@ export function HideAndSeekTraining({
                       <p className="text-center text-xs font-black uppercase tracking-widest text-emerald-200" role="status">{phase === "finishing" ? "Round complete - scoring..." : pendingHardFinish ? "Round complete - score not saved yet" : `${selectedSquares.size} safe ${selectedSquares.size === 1 ? "square" : "squares"} found`}</p>
                       {pendingHardFinish && error && phase === "searching" ? <Button type="button" className="w-full" onClick={() => void finishSearch()}>Retry Score</Button> : null}
                     </div>
-                  ) : (
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <Button type="button" variant="ghost" onClick={() => setSelectedSquares(new Set())} disabled={phase === "finishing" || timeTrialExpired || selectedSquares.size === 0}>Clear Marks</Button>
-                      <Button type="button" onClick={() => void finishSearch()} disabled={!canScoreHideAndSeekBoard({ phase, token, selectedCount: selectedSquares.size, mode: round?.mode })}>{phase === "finishing" ? "Scoring..." : error && timeTrialExpired ? "Retry Score" : token ? activeMode === "time_trial" ? "Finish Now" : "Stop & Score" : "Activating..."}</Button>
-                    </div>
-                  )}
+                  ) : null}
                 </>
               ) : null}
 
@@ -882,11 +885,7 @@ export function HideAndSeekTraining({
                     <span className="text-rose-200">× Wrong guess</span>
                     <span className="text-amber-200">□ Safe square missed</span>
                   </div>
-                  <div className="mt-5 grid gap-2 sm:grid-cols-3">
-                    <Button type="button" onClick={() => void startSearch()}>Play Again</Button>
-                    <Button type="button" variant="secondary" onClick={changeMode}>Change Mode</Button>
-                    <Button type="button" variant="ghost" onClick={onExit}>Back to Training</Button>
-                  </div>
+
                 </>
               ) : null}
 
@@ -894,7 +893,6 @@ export function HideAndSeekTraining({
             </div>
           </Card>
 
-          {phase !== "result" && phase !== "restart-required" ? <Button type="button" variant="ghost" className="w-full" onClick={onExit}>Back to Training Modes</Button> : null}
         </aside>
       </div>
     </div>

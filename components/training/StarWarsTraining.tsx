@@ -3,8 +3,6 @@ import { TrainingSessionRewards, useTrainingRewards } from "@/components/trainin
 
 import { refreshCelebrations } from "@/lib/celebrations";
 
-import { BoardViewport } from "@/chess/components/BoardViewport";
-
 import { type Square } from "chess.js";
 import type { ChessboardOptions } from "react-chessboard";
 import { ResponsiveChessboard } from "@/chess/components/ResponsiveChessboard";
@@ -655,23 +653,7 @@ export function StarWarsTraining({ onExit, autoStart = false }: { onExit: () => 
   const remainingTimeMs = timeLimitMs === null ? null : Math.max(0, timeLimitMs - elapsedMs);
 
   return (
-    <div className="space-y-5">
-      <Card className="overflow-hidden border-violet-300/25">
-        <div className="grid grid-cols-4 divide-x divide-white/10">
-          {[
-            ["Score", score],
-            ["Best", bestScore],
-            [activeMode === "time_trial" ? "Time left" : "Mission", activeMode === "time_trial" && remainingTimeMs !== null ? formatCountdown(remainingTimeMs) : score + 1],
-            ["Stars", `${puzzle.stars.length - gameState.remainingStars.length}/${puzzle.stars.length}`]
-          ].map(([label, value]) => (
-            <div key={String(label)} className="p-3 text-center sm:p-4">
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 sm:text-xs">{label}</p>
-              <p className="mt-1 text-xl font-black text-white sm:text-2xl">{value}</p>
-            </div>
-          ))}
-        </div>
-      </Card>
-
+    <div className="puzzle-workspace" data-board-fit-screen>
       {phase === "unavailable" ? (
         <Card className="border-rose-300/35 bg-rose-300/10 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" role="alert">
@@ -687,25 +669,47 @@ export function StarWarsTraining({ onExit, autoStart = false }: { onExit: () => 
         </Card>
       ) : null}
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,640px)_minmax(280px,1fr)]">
-        <BoardViewport maxWidth={640}>
-          <BoardSettings />
-        <div className="aspect-square overflow-hidden rounded-xl border border-violet-200/25 bg-slate-950/80 p-1 sm:p-2">
-          <ResponsiveChessboard key={`star-wars-board-${puzzle.id}-${runVariant}`} options={boardOptions} />
-        </div>
-        </BoardViewport>
+      <div className="puzzle-layout">
+        <section className="puzzle-board-column" aria-label="Path Finder board">
+          <div className="puzzle-board-toolbar">
+            <h2 className="min-w-0 text-base font-black text-white">Path Finder</h2>
+            <div className="flex shrink-0 items-center gap-3">
+              <span className="text-xs font-bold text-amber-100" aria-label="Stars collected">★ {puzzle.stars.length - gameState.remainingStars.length}/{puzzle.stars.length}</span>
+              {remainingTimeMs !== null && <span className="text-sm font-black tabular-nums text-white" aria-label="Time remaining">{formatCountdown(remainingTimeMs)}</span>}
+              <BoardSettings />
+            </div>
+          </div>
+          <div className="aspect-square overflow-hidden rounded-xl border border-violet-200/25 bg-slate-950/80">
+            <ResponsiveChessboard key={`star-wars-board-${puzzle.id}-${runVariant}`} options={boardOptions} />
+          </div>
+        </section>
 
-        <aside className="space-y-4">
+        <aside className="puzzle-sidebar min-w-0 space-y-3" aria-label="Training progress and controls">
+          <Button type="button" variant="ghost" className="w-full" onClick={onExit}>Back to Training Modes</Button>
+          <Card className="overflow-hidden border-violet-300/25">
+            <div className="grid grid-cols-2 divide-x divide-white/10">
+              {[
+                ["Score", score],
+                ["Best", bestScore]
+              ].map(([label, value]) => (
+                <div key={String(label)} className="p-3 text-center sm:p-4">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 sm:text-xs">{label}</p>
+                  <p className="mt-1 text-xl font-black text-white sm:text-2xl">{value}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+
           <TrainingSessionRewards />
           <Card className="overflow-hidden border-violet-300/25">
-            <div className="border-b border-white/10 bg-gradient-to-r from-violet-400/10 via-cyan-300/5 to-transparent p-5">
+            <div className="border-b border-white/10 bg-gradient-to-r from-violet-400/10 via-cyan-300/5 to-transparent p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-violet-200">Path Finder · Level {puzzle.tier}{activeMode === "time_trial" && timeLimitMs ? ` · ${timeLimitMs / 60_000}-minute trial` : ""}</p>
                 <span className="rounded-full border border-rose-200/25 bg-rose-300/10 px-3 py-1 text-xs font-black text-rose-100">1 mistake ends the run</span>
               </div>
               <h2 className="mt-2 text-xl font-black text-white">{puzzle.title}</h2>
             </div>
-            <div className="p-5">
+            <div className="p-4">
               <div className={`rounded-lg border p-4 text-sm font-bold leading-6 ${phase === "failed" ? "border-rose-300/35 bg-rose-300/10 text-rose-100" : phase === "solved" ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-100" : "border-white/10 bg-white/5 text-slate-200"}`} role="status" aria-live="polite" aria-atomic="true">
                 {feedback}
               </div>
@@ -715,8 +719,6 @@ export function StarWarsTraining({ onExit, autoStart = false }: { onExit: () => 
               <details className="mt-3 text-xs text-slate-400"><summary className="cursor-pointer font-bold text-cyan-200">How to play</summary><p className="mt-2">Collect one star per move. Keep another star reachable until you finish. Right-click a square to circle it; right-drag to draw an arrow.</p></details>
             </div>
           </Card>
-
-          <Button type="button" variant="ghost" className="w-full" onClick={onExit}>Back to Training Modes</Button>
         </aside>
       </div>
 

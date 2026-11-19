@@ -1,3 +1,6 @@
+import { Sidebar } from '../../components/Sidebar';
+import { StudentNavigation } from '../../components/student/StudentNavigation';
+import { StudentMenuNavigation, StudentMenuPage } from '../../components/student/StudentMenuNavigation';
 import { StrictMode } from "react";
 import { PuzzleSurvival } from "../../components/training/PuzzleSurvival";
 import { emptyPuzzleTrainingOverview } from "../../lib/puzzle-training/overview";
@@ -36,4 +39,15 @@ window.fetch=async(url,options={})=>{
   return Response.json({events:[],cursor:now});
 };
 const route=findStarWarsSolution(initialStarWarsState(starWarsPuzzleForScore(0,0)));
-createRoot(document.getElementById('root')).render(<StrictMode><TrainingSessionRewardsProvider studentId="fixture"><aside aria-label="Test instructions" className="mb-4 text-sm">{hide?'Safe squares: '+board.safeSquares.join(', '):'First mission: '+route.map(m=>m.from+' → '+m.to).join(', ')}</aside>{query.has('launcher')?<PuzzleSurvival initialOverview={emptyPuzzleTrainingOverview}/>:hide?<HideAndSeekTraining onExit={()=>{}}/>:<StarWarsTraining onExit={()=>{}}/>}</TrainingSessionRewardsProvider></StrictMode>);
+const content = <TrainingSessionRewardsProvider studentId="fixture">{!query.has('layout') && <aside aria-label="Test instructions" className="mb-4 text-sm">{hide?'Safe squares: '+board.safeSquares.join(', '):'First mission: '+route.map(m=>m.from+' → '+m.to).join(', ')}</aside>}{query.has('launcher')?<PuzzleSurvival initialOverview={emptyPuzzleTrainingOverview}/>:hide?<HideAndSeekTraining onExit={()=>{}}/>:<StarWarsTraining onExit={()=>{}}/>}</TrainingSessionRewardsProvider>;
+createRoot(document.getElementById('root')).render(<StrictMode>{query.has('layout') ? <StudentMenuNavigation>
+  <div className="student-portal-shell academy-grid min-h-screen"><div className="flex min-h-screen">
+    <Sidebar variant="student" /><div className="min-w-0 flex-1">
+      <StudentNavigation studentName="Puzzle Explorer" onLogout={()=>{}} />
+      <main className="student-play-area mx-auto w-full max-w-7xl px-4 pb-28 pt-6 md:pb-6 lg:px-6">
+        <div data-page-heading className="mb-6"><h1 className="text-2xl font-black">Puzzle Training</h1></div>
+        <StudentMenuPage>{content}</StudentMenuPage>
+      </main>
+    </div>
+  </div></div>
+</StudentMenuNavigation> : content}</StrictMode>);
