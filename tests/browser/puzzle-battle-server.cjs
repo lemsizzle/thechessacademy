@@ -89,6 +89,7 @@ function filtered(rows, params) {
   const pg = await createBattleTestDatabase({ tournaments: process.env.BATTLE_TOURNAMENT_QA === "1" });
   if (process.env.ENDGAME_QA === "1") await (await import('../fixtures/endgame-db.mjs')).installEndgameTestSchema(pg);
   if (process.env.ASSESSMENT_QA === "1") await pg.exec(require('node:fs').readFileSync('supabase/migrations/20261121081736_chess_knowledge_assessment.sql','utf8'));
+  if (process.env.ASSESSMENT_QA === "1") await pg.exec(require('node:fs').readFileSync('supabase/migrations/20261121083317_chess_skills_assessment.sql','utf8'));
   for (const student of students) {
     await pg.query("insert into students(id) values($1)", [student.id]);
     await pg.query("insert into student_login_credentials values($1,$2)", [
@@ -125,8 +126,10 @@ function filtered(rows, params) {
         let text = "";
         for await (const chunk of req) text += chunk;
         const args = JSON.parse(text || "{}");
+        if (process.env.ASSESSMENT_QA === "1" && table === "finish_expired_chess_assessments_v2") return json(res, (await pg.query('select finish_expired_chess_assessments_v2($1,$2) value',[JSON.stringify(args.p_key),args.p_version])).rows[0].value);
+        if (process.env.ASSESSMENT_QA === "1" && table === "save_chess_assessment_v2") return json(res, (await pg.query('select to_jsonb(save_chess_assessment_v2($1,$2,$3,$4,$5,$6)) value',[args.p_student_id,args.p_attempt_id,JSON.stringify(args.p_answers),args.p_submit,JSON.stringify(args.p_key),args.p_version])).rows[0].value);
         if (process.env.ASSESSMENT_QA === "1" && table === "finish_expired_chess_assessments") return json(res, (await pg.query('select finish_expired_chess_assessments($1) value',[JSON.stringify(args.p_key)])).rows[0].value);
-        if (process.env.ASSESSMENT_QA === "1" && table === "start_chess_assessment") return json(res, (await pg.query('select to_jsonb(start_chess_assessment($1,$2)) value',[args.p_student_id,args.p_version])).rows[0].value);
+        if (process.env.ASSESSMENT_QA === "1" && table === "start_chess_assessment") return json(res, (await pg.query('select to_jsonb(start_chess_assessment($1,$2)) value',[args.p_student_id,process.env.ASSESSMENT_FORM_A === '1' ? 'knowledge-a-v1' : args.p_version])).rows[0].value);
         if (process.env.ASSESSMENT_QA === "1" && table === "save_chess_assessment") return json(res, (await pg.query('select to_jsonb(save_chess_assessment($1,$2,$3,$4,$5)) value',[args.p_student_id,args.p_attempt_id,JSON.stringify(args.p_answers),args.p_submit,JSON.stringify(args.p_key)])).rows[0].value);
         if (process.env.ENDGAME_QA === "1" && table === "save_endgame_training_reward") return json(res, (await pg.query('select save_endgame_training_reward($1,$2,$3,$4,$5) value',[args.p_student_id,args.p_attempt_id,args.p_topic_id,args.p_complete,args.p_assisted])).rows[0].value);
         const tournamentRpcs = {
@@ -275,6 +278,7 @@ function filtered(rows, params) {
     http
       .createServer(async (req, res) => {
         const url = new URL(req.url, origin);
+        if (process.env.ASSESSMENT_QA === "1" && url.pathname === "/__qa/assessment-legacy") return json(res,(await pg.query('select to_jsonb(start_chess_assessment($1,$2)) value',[students[Number(url.searchParams.get('user') || 0)].id,'knowledge-a-v1'])).rows[0].value);
         if (process.env.BATTLE_TOURNAMENT_QA === "1" && url.pathname === "/__qa/teacher") {
           const {createHash}=require("node:crypto");
           const cookie="quest-board-admin-v1."+createHash("sha256").update(`quest-board-admin-v1:${secret}`).digest("hex");

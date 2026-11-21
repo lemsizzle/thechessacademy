@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveStudent, StudentAuthenticationError } from "@/lib/auth/requireActiveStudent";
 import { assessmentPayload, saveAssessment, startAssessment } from "@/lib/assessment/server";
-import { validateAssessmentAnswers } from "@/lib/assessment/questions";
 
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "no-store" };
@@ -28,7 +27,7 @@ export async function POST(request: NextRequest) {
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Invalid request");
     if (body.action === "start") return NextResponse.json(await assessmentPayload(student.studentId, await startAssessment(student.studentId)), { headers });
     if (!["save", "submit"].includes(body.action) || typeof body.attemptId !== "string" || !uuid.test(body.attemptId)) throw new Error("Invalid action");
-    const attempt = await saveAssessment(student.studentId, body.attemptId, validateAssessmentAnswers(body.answers), body.action === "submit");
+    const attempt = await saveAssessment(student.studentId, body.attemptId, body.answers, body.action === "submit");
     // Ordinary autosaves don't fetch history or resend diagrams/the full question set.
     return NextResponse.json(body.action === "submit" || attempt.completed_at ? await assessmentPayload(student.studentId, attempt) : { attempt, serverNow: new Date().toISOString() }, { headers });
   } catch (error) { return failure(error); }

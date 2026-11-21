@@ -1,0 +1,508 @@
+[
+  {
+    "id": "b01",
+    "section": "Board vision",
+    "prompt": "Win material. Play the strongest capture.",
+    "fen": "6k1/pppbq1r1/3p1r2/3Pp3/2P3PQ/5B1P/PP3P2/2KR3R b - - 0 25",
+    "acceptedMoves": [
+      "f6f3"
+    ],
+    "explanation": "Look for loose pieces and calculate recaptures before taking. One continuation is Rxf3 → Qxe7 → Rxe7.",
+    "source": "https://lichess.org/icmvBqO0#49",
+    "sourceRating": 811,
+    "solution": [
+      "f6f3",
+      "h4e7",
+      "g7e7"
+    ]
+  },
+  {
+    "id": "b02",
+    "section": "Board vision",
+    "prompt": "Win material. Play the strongest capture.",
+    "fen": "r3k1nr/pbpB1pQp/1p4nB/4q3/8/8/PPP2PPP/RN3RK1 b kq - 0 11",
+    "acceptedMoves": [
+      "e8d7"
+    ],
+    "explanation": "Look for loose pieces and calculate recaptures before taking. One continuation is Kxd7 → Qxe5 → Nxe5.",
+    "source": "https://lichess.org/67PYm8qL#21",
+    "sourceRating": 922,
+    "solution": [
+      "e8d7",
+      "g7e5",
+      "g6e5"
+    ]
+  },
+  {
+    "id": "b03",
+    "section": "Board vision",
+    "prompt": "Win material. Play the strongest capture.",
+    "fen": "r4knr/pp2qBpp/8/2Q1N3/1n1pPP2/8/PPP1b1PP/RNB2RK1 b - - 0 13",
+    "acceptedMoves": [
+      "e7c5"
+    ],
+    "explanation": "Look for loose pieces and calculate recaptures before taking. One continuation is Qxc5 → Nd7+ → Kxf7.",
+    "source": "https://lichess.org/EbZbK1Qa#25",
+    "sourceRating": 949,
+    "solution": [
+      "e7c5",
+      "e5d7",
+      "f8f7"
+    ]
+  },
+  {
+    "id": "b04",
+    "section": "Board vision",
+    "prompt": "Win material. Play the strongest capture.",
+    "fen": "8/1p1n1kB1/2pp3p/1p1P1K1P/1P2P1P1/P7/8/8 b - - 0 35",
+    "acceptedMoves": [
+      "f7g7"
+    ],
+    "explanation": "Look for loose pieces and calculate recaptures before taking. One continuation is Kxg7 → dxc6 → bxc6.",
+    "source": "https://lichess.org/hoZpODgF#69",
+    "sourceRating": 982,
+    "solution": [
+      "f7g7",
+      "d5c6",
+      "b7c6"
+    ]
+  },
+  {
+    "id": "b05",
+    "section": "Board vision",
+    "prompt": "Win material. Play the strongest capture.",
+    "fen": "6k1/6p1/3P1p2/3q1P2/6PQ/6B1/r3r3/3R3K w - - 0 58",
+    "acceptedMoves": [
+      "d1d5"
+    ],
+    "explanation": "Look for loose pieces and calculate recaptures before taking. One continuation is Rxd5 → Ra1+ → Be1.",
+    "source": "https://lichess.org/JF19cN9z/black#114",
+    "sourceRating": 1097,
+    "solution": [
+      "d1d5",
+      "a2a1",
+      "g3e1"
+    ]
+  },
+  {
+    "id": "b06",
+    "section": "Tactics",
+    "prompt": "Find the move that wins material.",
+    "fen": "2r3k1/p5pp/1pN2p2/8/1P6/8/P4PPP/5K2 w - - 1 29",
+    "acceptedMoves": [
+      "c6e7"
+    ],
+    "explanation": "The knight forks the king and rook, so the king must answer the check. One continuation is Ne7+ → Kf7 → Nxc8.",
+    "source": "https://lichess.org/A4tMmU1U/black#56",
+    "sourceRating": 635,
+    "solution": [
+      "c6e7",
+      "g8f7",
+      "e7c8"
+    ]
+  },
+  {
+    "id": "b07",
+    "section": "Tactics",
+    "prompt": "Find the move that wins material.",
+    "fen": "r7/5pb1/1pk1b2p/p1p3p1/2P5/4Pp2/PPR2PPP/2KB4 w - - 0 23",
+    "acceptedMoves": [
+      "d1f3"
+    ],
+    "explanation": "Bxf3+ skewers the king on c6 and rook on a8. After the king moves, Bxa8 wins the rook.",
+    "source": "https://lichess.org/5HOLmmuu/black#44",
+    "sourceRating": 623,
+    "solution": [
+      "d1f3",
+      "c6c7",
+      "f3a8"
+    ]
+  },
+  {
+    "id": "b08",
+    "section": "Tactics",
+    "prompt": "Find the move that wins material.",
+    "fen": "r3kb1r/ppp1n2p/2n2pq1/3p1b2/3P3Q/8/PPP1BPPP/RNB1R1K1 w kq - 3 11",
+    "acceptedMoves": [
+      "e2h5"
+    ],
+    "explanation": "Bh5 pins the queen on g6 to the king on e8. Castling escapes the pin but still leaves Bxg6 available.",
+    "source": "https://lichess.org/Oi3tM8Fm/black#20",
+    "sourceRating": 1185,
+    "solution": [
+      "e2h5",
+      "e8c8",
+      "h5g6"
+    ]
+  },
+  {
+    "id": "b09",
+    "section": "Tactics",
+    "prompt": "Find the move that wins material.",
+    "fen": "3k4/2bB2N1/2Pp1p2/4p1p1/2r1P1Pp/7P/5PK1/8 w - - 12 44",
+    "acceptedMoves": [
+      "g7e6"
+    ],
+    "explanation": "Ne6+ forces the king away from its defense of the bishop on c7. Nxc7 then wins the bishop.",
+    "source": "https://lichess.org/8D5SxrCB/black#86",
+    "sourceRating": 750,
+    "solution": [
+      "g7e6",
+      "d8e7",
+      "e6c7"
+    ]
+  },
+  {
+    "id": "b10",
+    "section": "Tactics",
+    "prompt": "Find the move that wins material.",
+    "fen": "6k1/p4p1p/4p3/8/8/3p3P/1rqN1PP1/2QR2K1 b - - 2 22",
+    "acceptedMoves": [
+      "c2c1"
+    ],
+    "explanation": "Qxc1 makes the defending rook leave d1 to recapture. The rook on b2 can then take the knight on d2.",
+    "source": "https://lichess.org/XxNRnU2w#43",
+    "sourceRating": 879,
+    "solution": [
+      "c2c1",
+      "d1c1",
+      "b2d2"
+    ]
+  },
+  {
+    "id": "b11",
+    "section": "Checkmate",
+    "prompt": "Deliver checkmate in one move.",
+    "fen": "rn3rk1/pb1p1p2/1p3q2/2pp2NQ/2P5/8/PP3PPP/R4RK1 w - - 0 19",
+    "acceptedMoves": [
+      "h5h7"
+    ],
+    "explanation": "The checking piece and its helpers cover every escape. Check captures and blocks as well as king moves. One continuation is Qh7#.",
+    "source": "https://lichess.org/E97mqiQi/black#36",
+    "sourceRating": 703,
+    "solution": [
+      "h5h7"
+    ]
+  },
+  {
+    "id": "b12",
+    "section": "Checkmate",
+    "prompt": "Deliver checkmate in one move.",
+    "fen": "3r3k/Q5pp/1p3n2/3p3b/2P4q/5P2/PP4RP/5RK1 w - - 0 29",
+    "acceptedMoves": [
+      "a7g7"
+    ],
+    "explanation": "The checking piece and its helpers cover every escape. Check captures and blocks as well as king moves. One continuation is Qxg7#.",
+    "source": "https://lichess.org/FsgHLFk5/black#56",
+    "sourceRating": 756,
+    "solution": [
+      "a7g7"
+    ]
+  },
+  {
+    "id": "b13",
+    "section": "Checkmate",
+    "prompt": "Deliver checkmate in one move.",
+    "fen": "1rb2r2/1pqpppbk/p5pp/3n4/2PQ4/1P4P1/PB2PPBP/R2R2K1 w - - 0 15",
+    "acceptedMoves": [
+      "d4g7"
+    ],
+    "explanation": "The checking piece and its helpers cover every escape. Check captures and blocks as well as king moves. One continuation is Qxg7#.",
+    "source": "https://lichess.org/VmP4TgvO/black#28",
+    "sourceRating": 809,
+    "solution": [
+      "d4g7"
+    ]
+  },
+  {
+    "id": "b14",
+    "section": "Checkmate",
+    "prompt": "Deliver checkmate in one move.",
+    "fen": "8/1r1k4/7R/P1KpBp1p/2bP1PpP/6P1/8/8 b - - 6 48",
+    "acceptedMoves": [
+      "b7b5"
+    ],
+    "explanation": "The checking piece and its helpers cover every escape. Check captures and blocks as well as king moves. One continuation is Rb5#.",
+    "source": "https://lichess.org/zRAcRqLX#95",
+    "sourceRating": 917,
+    "solution": [
+      "b7b5"
+    ]
+  },
+  {
+    "id": "b15",
+    "section": "Checkmate",
+    "prompt": "Deliver checkmate in one move.",
+    "fen": "r2qkbnr/1p1Npppp/p7/3P4/Q4B2/2nB4/P4PPP/R3K2R w KQkq - 0 15",
+    "acceptedMoves": [
+      "d7f6"
+    ],
+    "explanation": "The checking piece and its helpers cover every escape. Check captures and blocks as well as king moves. One continuation is Nf6#.",
+    "source": "https://lichess.org/nyecv2E3/black#28",
+    "sourceRating": 1303,
+    "solution": [
+      "d7f6"
+    ]
+  },
+  {
+    "id": "b16",
+    "section": "Calculation",
+    "prompt": "Calculate a forced checkmate. Play the first move.",
+    "fen": "6k1/5ppp/8/4r3/1P1p4/8/5PPP/R5K1 w - - 0 26",
+    "acceptedMoves": [
+      "a1a8"
+    ],
+    "explanation": "Calculate checks and the opponent’s strongest reply all the way to mate. One continuation is Ra8+ → Re8 → Rxe8#.",
+    "source": "https://lichess.org/P0ydebTf/black#50",
+    "sourceRating": 601,
+    "solution": [
+      "a1a8",
+      "e5e8",
+      "a8e8"
+    ]
+  },
+  {
+    "id": "b17",
+    "section": "Calculation",
+    "prompt": "Calculate a forced checkmate. Play the first move.",
+    "fen": "3r3k/1p1P2p1/p4b1p/P1p2B2/8/7P/1P6/3nR1K1 w - - 0 37",
+    "acceptedMoves": [
+      "e1e8"
+    ],
+    "explanation": "Calculate checks and the opponent’s strongest reply all the way to mate. One continuation is Re8+ → Rxe8 → dxe8=Q#.",
+    "source": "https://lichess.org/PeKata6E/black#72",
+    "sourceRating": 1129,
+    "solution": [
+      "e1e8",
+      "d8e8",
+      "d7e8q"
+    ]
+  },
+  {
+    "id": "b18",
+    "section": "Calculation",
+    "prompt": "Calculate a forced checkmate. Play the first move.",
+    "fen": "6k1/pp6/3n1P1p/3q4/PP3Pp1/4K1P1/2Q4P/8 w - - 5 40",
+    "acceptedMoves": [
+      "c2g6"
+    ],
+    "explanation": "Calculate checks and the opponent’s strongest reply all the way to mate. One continuation is Qg6+ → Kf8 → Qg7+ → Ke8 → Qe7#.",
+    "source": "https://lichess.org/YZPd8UBs/black#78",
+    "sourceRating": 1305,
+    "solution": [
+      "c2g6",
+      "g8f8",
+      "g6g7",
+      "f8e8",
+      "g7e7"
+    ]
+  },
+  {
+    "id": "b19",
+    "section": "Calculation",
+    "prompt": "Calculate a forced checkmate. Play the first move.",
+    "fen": "2k4r/ppp2p2/5p2/3q4/P5rN/2PP2P1/1P3P1K/R2Q1R2 b - - 2 23",
+    "acceptedMoves": [
+      "h8h4"
+    ],
+    "explanation": "Calculate checks and the opponent’s strongest reply all the way to mate. One continuation is Rhxh4+ → gxh4 → Qg2#.",
+    "source": "https://lichess.org/a44IW1NM#45",
+    "sourceRating": 1714,
+    "solution": [
+      "h8h4",
+      "g3h4",
+      "d5g2"
+    ]
+  },
+  {
+    "id": "b20",
+    "section": "Calculation",
+    "prompt": "Calculate a forced checkmate. Play the first move.",
+    "fen": "r1b1Rnk1/ppb2ppp/2p2p2/8/3P1q2/2PB1N1P/PPQ2PP1/6K1 w - - 2 17",
+    "acceptedMoves": [
+      "d3h7"
+    ],
+    "explanation": "Calculate checks and the opponent’s strongest reply all the way to mate. One continuation is Bxh7+ → Kh8 → Rxf8#.",
+    "source": "https://lichess.org/3f3j0hCc/black#32",
+    "sourceRating": 919,
+    "solution": [
+      "d3h7",
+      "g8h8",
+      "e8f8"
+    ]
+  },
+  {
+    "id": "b21",
+    "section": "Defense",
+    "prompt": "Keep your advantage while answering the opponent’s threat. Play the strongest move.",
+    "fen": "6k1/6p1/3N1p2/3pp2R/r5K1/r7/8/7R w - - 7 45",
+    "acceptedMoves": [
+      "g4f5"
+    ],
+    "explanation": "Kf5 escapes the rook check while keeping the king active. After g6+, Kxg6 captures the pawn.",
+    "source": "https://lichess.org/vRlhVIeq/black#88",
+    "sourceRating": 946,
+    "solution": [
+      "g4f5",
+      "g7g6",
+      "f5g6"
+    ]
+  },
+  {
+    "id": "b22",
+    "section": "Defense",
+    "prompt": "Keep your advantage while answering the opponent’s threat. Play the strongest move.",
+    "fen": "1k6/2pr1p2/6p1/p1Q1P2p/P2PqP2/6P1/1PPR2P1/1K6 b - - 10 30",
+    "acceptedMoves": [
+      "e4e1"
+    ],
+    "explanation": "Qe1+ forces the king to move, then Qxd2 wins the rook. After Qb5+, Kc8 keeps the king safe.",
+    "source": "https://lichess.org/MChnoidW#59",
+    "sourceRating": 1005,
+    "solution": [
+      "e4e1",
+      "b1a2",
+      "e1d2",
+      "c5b5",
+      "b8c8"
+    ]
+  },
+  {
+    "id": "b23",
+    "section": "Defense",
+    "prompt": "Keep your advantage while answering the opponent’s threat. Play the strongest move.",
+    "fen": "8/8/ppp1kp1p/6p1/1PPP1KPP/P7/8/8 w - - 0 35",
+    "acceptedMoves": [
+      "h4g5"
+    ],
+    "explanation": "hxg5 removes the advanced g-pawn. After hxg5+, Ke4 activates the king and keeps the winning pawn ending.",
+    "source": "https://lichess.org/fSueCz7r/black#68",
+    "sourceRating": 1118,
+    "solution": [
+      "h4g5",
+      "h6g5",
+      "f4e4"
+    ]
+  },
+  {
+    "id": "b24",
+    "section": "Defense",
+    "prompt": "Keep your advantage while answering the opponent’s threat. Play the strongest move.",
+    "fen": "8/8/4p3/1K4p1/3k4/P5P1/8/8 b - - 1 38",
+    "acceptedMoves": [
+      "e6e5"
+    ],
+    "explanation": "Advance the e-pawn now. This keeps a winning pawn race; pushing the d-pawn first gives the opposing a-pawn time to promote.",
+    "source": "https://lichess.org/GRy8DQ2N#75",
+    "sourceRating": 1176,
+    "solution": [
+      "e6e5",
+      "a3a4",
+      "e5e4"
+    ]
+  },
+  {
+    "id": "b25",
+    "section": "Defense",
+    "prompt": "Keep your advantage while answering the opponent’s threat. Play the strongest move.",
+    "fen": "2r2bk1/1p3Rp1/1p2p3/2n3NQ/2p5/2P4P/2q3K1/8 w - - 8 38",
+    "acceptedMoves": [
+      "f7f2"
+    ],
+    "explanation": "Rf2 blocks the queen check. The king protects the rook, so Qxf2+ is met by Kxf2; after Ne4+, Nxe4 answers the fork.",
+    "source": "https://lichess.org/NeK0sM4d/black#74",
+    "sourceRating": 1211,
+    "solution": [
+      "f7f2",
+      "c2f2",
+      "g2f2",
+      "c5e4",
+      "g5e4"
+    ]
+  },
+  {
+    "id": "b26",
+    "section": "Endgames",
+    "prompt": "Find the move that wins this pawn ending.",
+    "fen": "8/8/p7/5p1P/4pk2/8/6P1/3K4 w - - 1 43",
+    "acceptedMoves": [
+      "h5h6"
+    ],
+    "explanation": "Advance the outside passed pawn before the enemy king can reach it. One continuation is h6 → Ke5 → h7.",
+    "source": "https://lichess.org/Z0vlgtwT/black#84",
+    "sourceRating": 615,
+    "solution": [
+      "h5h6",
+      "f4e5",
+      "h6h7"
+    ]
+  },
+  {
+    "id": "b27",
+    "section": "Endgames",
+    "prompt": "Find the move that wins the pawn race.",
+    "fen": "8/8/8/p7/1k1KP3/3P4/5P2/8 b - - 0 48",
+    "acceptedMoves": [
+      "a5a4"
+    ],
+    "explanation": "Count the moves to promotion: the passed pawn can queen before the enemy king catches it. One continuation is a4 → Kd5 → a3 → e5 → a2 → e6 → a1=Q.",
+    "source": "https://lichess.org/OHKHdOh7#95",
+    "sourceRating": 635,
+    "solution": [
+      "a5a4",
+      "d4d5",
+      "a4a3",
+      "e4e5",
+      "a3a2",
+      "e5e6",
+      "a2a1q"
+    ]
+  },
+  {
+    "id": "b28",
+    "section": "Endgames",
+    "prompt": "Find the move that wins this rook ending.",
+    "fen": "2R5/8/1k6/8/K7/8/8/1r6 w - - 22 83",
+    "acceptedMoves": [
+      "c8b8"
+    ],
+    "explanation": "Check the king on the open file, then take the rook behind it. One continuation is Rb8+ → Kc6 → Rxb1.",
+    "source": "https://lichess.org/OJNi7hB8/black#164",
+    "sourceRating": 710,
+    "solution": [
+      "c8b8",
+      "b6c6",
+      "b8b1"
+    ]
+  },
+  {
+    "id": "b29",
+    "section": "Endgames",
+    "prompt": "Finish the game with checkmate.",
+    "fen": "8/8/8/4B1P1/1R2p3/1P3k2/5P1p/5K2 b - - 0 60",
+    "acceptedMoves": [
+      "h2h1q",
+      "h2h1r"
+    ],
+    "explanation": "Promote with check and cover the king’s remaining escape squares. One continuation is h1=Q#.",
+    "source": "https://lichess.org/naYVfF13#119",
+    "sourceRating": 768,
+    "solution": [
+      "h2h1q"
+    ]
+  },
+  {
+    "id": "b30",
+    "section": "Endgames",
+    "prompt": "Promote without stalemating Black. Keep enough material to force checkmate.",
+    "fen": "8/k1P5/2K5/8/8/8/8/8 w - - 0 1",
+    "acceptedMoves": [
+      "c7c8r"
+    ],
+    "explanation": "c8=R keeps the game alive and leaves king and rook to force mate. c8=Q is stalemate; a lone bishop or knight is not enough.",
+    "source": "Chess Quest composed position",
+    "solution": [
+      "c7c8r"
+    ]
+  }
+]

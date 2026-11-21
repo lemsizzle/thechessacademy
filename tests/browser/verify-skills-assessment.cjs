@@ -1,0 +1,43 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'C:/Users/lemue/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const assert=require('node:assert/strict'),fs=require('node:fs');const {Chess}=require('chess.js');
+const origin=process.env.ASSESSMENT_QA_ORIGIN || 'http://127.0.0.1:9540',output='work/assessment/skills';
+const positions=JSON.parse(fs.readFileSync('lib/assessment/skillsPositions.json','utf8'));
+async function visible(l){await l.waitFor({state:'visible',timeout:25000});}
+(async()=>{fs.mkdirSync(output,{recursive:true});const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});try{
+ const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(origin+'/__qa/login');
+ // An original test predating the skills update remains reviewable and graded by its original key.
+ await context.request.get(origin+'/__qa/assessment-legacy');
+ const legacy=await (await context.request.get(origin+'/api/student/assessment')).json();assert.equal(legacy.attempt.version,'knowledge-a-v1');
+ const original=Object.fromEntries([...fs.readFileSync('lib/assessment/questions.ts','utf8').matchAll(/q\("([^"]+)",[^\n]*?, (\["[^\n]*?"\]), ([0-3]), /g)].map(m=>[m[1],JSON.parse(m[2])[+m[3]]]));
+ const oldAnswers=Object.fromEntries(legacy.questions.map(q=>[q.id,q.options.find(o=>o.text===original[q.id]).id]));
+ assert.equal((await (await context.request.post(origin+'/api/student/assessment',{data:{action:'submit',attemptId:legacy.attempt.id,answers:oldAnswers}})).json()).attempt.correct_count,30);
+ await page.goto(origin+'/student/training/assessment');await page.getByRole('button',{name:'Start 30-minute test'}).click();
+ await visible(page.getByTestId('assessment-board'));
+ let state=await (await context.request.get(origin+'/api/student/assessment')).json();const id=state.attempt.id,deadline=state.attempt.deadline_at;
+ assert.equal(state.attempt.version,'skills-b-v1');assert.ok(state.questions.every(q=>q.kind==='move'&&q.section!=='Rules'&&!('acceptedMoves'in q)&&!('solution'in q)&&!('source'in q)));
+ const board=page.getByTestId('assessment-board');
+ async function coordinates(square){await board.scrollIntoViewIfNeeded();const b=await board.boundingBox(),color=await board.getAttribute('data-color'),f=square.charCodeAt(0)-97,r=+square[1]-1;return{x:b.x+((color==='white'?f:7-f)+.5)*b.width/8,y:b.y+((color==='white'?7-r:r)+.5)*b.height/8};}
+ async function play(uci,drag=false){const a=await coordinates(uci.slice(0,2)),b=await coordinates(uci.slice(2,4));if(drag){await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:12});await page.mouse.up(); /* dnd-kit suppresses synthetic post-drag clicks for 50 ms. */ await page.waitForTimeout(75);}else{await page.mouse.click(a.x,a.y);await page.mouse.click(b.x,b.y);}if(uci[4])await page.getByRole('button',{name:'Promote to '+({q:'Queen',r:'Rook',b:'Bishop',n:'Knight'}[uci[4]])}).click();await visible(page.getByText(/^Your move:/));}
+ for(let i=0;i<30;i++){
+  const q=positions[i];
+  if(i===0){await play(q.acceptedMoves[0],true);await page.getByRole('button',{name:'Change move',exact:true}).click();await page.waitForFunction(fen=>document.querySelector('[data-testid="assessment-board"]')?.getAttribute('data-fen')===fen,q.fen);const wrong=new Chess(q.fen).moves({verbose:true}).map(m=>m.from+m.to+(m.promotion||'')).find(m=>!q.acceptedMoves.includes(m));await play(wrong);}
+  else if(i===3){await context.setOffline(true);await play(q.acceptedMoves[0]);await visible(page.getByText('Not saved yet. Reconnect and retry before time runs out.',{exact:true}));await context.setOffline(false);await visible(page.getByText('All answers saved',{exact:true}));await page.reload();await visible(board);await page.getByRole('button',{name:/All questions/}).click();await page.getByRole('button',{name:'Question 4, answered',exact:true}).click();await visible(page.getByText(/^Your move:/));const resumed=await(await context.request.get(origin+'/api/student/assessment')).json();assert.equal(resumed.attempt.deadline_at,deadline);}
+  else if(i===27){} // Leave one unanswered.
+  else if(i===28)await play('h2h1r'); // Alternate mate must count.
+  else if(i===29){const a=await coordinates('c7'),b=await coordinates('c8');await page.mouse.click(a.x,a.y);await page.mouse.click(b.x,b.y);await visible(page.getByRole('dialog',{name:'Choose a promotion'}));await page.getByRole('button',{name:'Cancel promotion'}).click();assert.equal(await board.getAttribute('data-fen'),q.fen);await play('c7c8q');await page.getByRole('button',{name:'Change move',exact:true}).click();await page.waitForFunction(fen=>document.querySelector('[data-testid="assessment-board"]')?.getAttribute('data-fen')===fen,q.fen);await page.waitForTimeout(120);await play('c7c8r');}
+  else await play(q.acceptedMoves[0]);
+  assert.equal(await page.getByRole('button',{name:'Show solution',exact:true}).count(),0);
+  if(i===5){for(const [name,width,height]of[['desktop',1440,1000],['tablet',820,1180],['phone',390,844]]){await page.setViewportSize({width,height});await page.screenshot({path:`${output}/${name}.png`,fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));}await page.setViewportSize({width:1440,height:1000});}
+  if(i<29)await page.getByRole('button',{name:'Next',exact:true}).click();
+ }
+ await page.getByRole('button',{name:'Finish test',exact:true}).click();await visible(page.getByText(/1 question is unanswered/));await page.getByRole('button',{name:'Submit answers',exact:true}).click();await visible(page.getByRole('heading',{name:'Your score: 93/100'}));
+ await page.getByRole('button',{name:'Show solution',exact:true}).click();await visible(page.getByText('Solution: c8=R',{exact:true}));await page.screenshot({path:output+'/result.png',fullPage:true});
+ const result=await(await context.request.get(origin+'/api/student/assessment?attempt='+id)).json();assert.equal(result.attempt.correct_count,28);assert.equal(result.review.find(r=>r.id==='b29').correct,true);
+ assert.equal((await context.request.post(origin+'/api/student/assessment',{data:{action:'save',attemptId:id,answers:{b01:'a1a1'}}})).status(),400);
+ const old=await(await context.request.get(origin+'/api/student/assessment?attempt='+legacy.attempt.id)).json();assert.equal(old.attempt.correct_count,30);assert.equal(old.review.filter(r=>r.correct).length,30);
+ const teacher=await browser.newContext(),t=await teacher.newPage();await t.goto(origin+'/__qa/teacher');await t.goto(origin+'/admin/assessments');await visible(t.getByRole('cell',{name:'Skills B',exact:true}));await visible(t.getByRole('cell',{name:'Knowledge A (original)',exact:true}));await t.screenshot({path:output+'/teacher.png',fullPage:true});
+ const bctx=await browser.newContext(),b=await bctx.newPage();await b.goto(origin+'/__qa/login?user=1');assert.equal((await(await bctx.request.get(origin+'/api/student/assessment?attempt='+id)).json()).attempt,null);await b.goto(origin+'/student/training/assessment');await b.getByRole('button',{name:'Start 30-minute test'}).click();const active=await(await bctx.request.get(origin+'/api/student/assessment')).json();await bctx.request.get(origin+'/__qa/assessment-expire?id='+active.attempt.id+'&seconds=3');await b.reload();await visible(b.getByRole('heading',{name:'Your score: 0/100'}));
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,checks:['30 board answers','drag and click','change move','legal wrong answer','offline/reload','promotion/cancel/underpromotion','alternate mate credit','no early solution feedback','score/topic breakdown','legacy results retained','teacher form separation','timeout','ownership','desktop/tablet/mobile'],screenshots:output}));
+ }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
+

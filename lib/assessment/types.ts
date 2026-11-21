@@ -1,10 +1,13 @@
-export const ASSESSMENT_VERSION = "knowledge-a-v1";
+export const LEGACY_ASSESSMENT_VERSION = "knowledge-a-v1";
+export const ASSESSMENT_VERSION = "skills-b-v1";
 export const ASSESSMENT_MINUTES = 30;
-export const ASSESSMENT_SECTIONS = ["Rules", "Board vision", "Tactics", "Calculation", "Strategy", "Endgames"] as const;
-export type AssessmentSection = typeof ASSESSMENT_SECTIONS[number];
-export type AssessmentQuestion = { id: string; section: AssessmentSection; prompt: string; options: { id: string; text: string }[]; fen?: string };
+export const ASSESSMENT_SECTIONS = ["Board vision", "Tactics", "Checkmate", "Calculation", "Defense", "Endgames"] as const;
+export const LEGACY_ASSESSMENT_SECTIONS = ["Rules", "Board vision", "Tactics", "Calculation", "Strategy", "Endgames"] as const;
+export const assessmentLabel = (version: string) => version === LEGACY_ASSESSMENT_VERSION ? "Knowledge A (original)" : "Skills B";
+export type AssessmentSection = typeof ASSESSMENT_SECTIONS[number] | typeof LEGACY_ASSESSMENT_SECTIONS[number];
+export type AssessmentQuestion = { id: string; section: AssessmentSection; prompt: string; options: { id: string; text: string }[]; fen?: string; kind?: "move" };
 export type AssessmentAttempt = { id: string; student_id: string; version: string; started_at: string; deadline_at: string; completed_at: string | null; answers: Record<string, string>; correct_count: number | null };
 export type AssessmentSummary = Pick<AssessmentAttempt, "id" | "version" | "started_at" | "deadline_at" | "completed_at" | "correct_count">;
-export type AssessmentReview = { id: string; correct: boolean; answer: string; explanation: string };
+export type AssessmentReview = { id: string; correct: boolean; answer: string; explanation: string; move?: string };
 export type AssessmentPayload = { attempt: AssessmentAttempt | null; history: AssessmentSummary[]; questions: AssessmentQuestion[]; review?: AssessmentReview[]; serverNow: string };
 export const knowledgePercent = (correct: number) => Math.round(correct / 30 * 100);

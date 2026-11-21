@@ -1,5 +1,8 @@
 import "server-only";
 import type { AssessmentQuestion, AssessmentSection } from "./types";
+import { ASSESSMENT_VERSION, LEGACY_ASSESSMENT_VERSION } from "./types";
+import { assessmentMove } from "./moveAnswer";
+import positions from "./skillsPositions.json";
 
 type AuthoredQuestion = AssessmentQuestion & { answer: string; explanation: string };
 const q = (id: string, section: AssessmentSection, prompt: string, choices: string[], correct: number, explanation: string, fen?: string): AuthoredQuestion => {
@@ -50,15 +53,21 @@ export const KNOWLEDGE_FORM_A: readonly AuthoredQuestion[] = [
   q("e5", "Endgames", "White to move. Which promotion avoids immediate stalemate AND leaves enough material to force checkmate?", ["c8=Q", "c8=B", "c8=N", "c8=R"], 3, "c8=Q leaves Black no legal move without check: stalemate. A rook leaves an escape and can later mate with the king. A lone bishop or knight cannot force mate.", "8/k1P5/2K5/8/8/8/8/8 w - - 0 1"),
 ];
 
-export function publicQuestions(): AssessmentQuestion[] {
-  return KNOWLEDGE_FORM_A.map(({ answer: _answer, explanation: _explanation, ...question }) => question);
+export const SKILLS_FORM_B = positions.map(position => ({ ...position, section: position.section as AssessmentSection, kind: "move" as const, options: [] }));
+export function assessmentForm(version: string) {
+  if (version === ASSESSMENT_VERSION) return SKILLS_FORM_B;
+  if (version === LEGACY_ASSESSMENT_VERSION) return KNOWLEDGE_FORM_A;
+  throw new Error("Invalid assessment version");
 }
-export const assessmentKey = () => Object.fromEntries(KNOWLEDGE_FORM_A.map(question => [question.id, question.answer]));
-export function validateAssessmentAnswers(input: unknown): Record<string, string> {
+export function publicQuestions(version = ASSESSMENT_VERSION): AssessmentQuestion[] {
+  return assessmentForm(version).map(q => ({ id: q.id, section: q.section, prompt: q.prompt, options: q.options, ...(q.fen ? { fen: q.fen } : {}), ...("kind" in q ? { kind: q.kind } : {}) }));
+}
+export const assessmentKey = (version = ASSESSMENT_VERSION) => Object.fromEntries(assessmentForm(version).map(q => [q.id, "acceptedMoves" in q ? q.acceptedMoves : q.answer]));
+export function validateAssessmentAnswers(input: unknown, version = ASSESSMENT_VERSION): Record<string, string> {
   if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).length > 30) throw new Error("Invalid answers.");
   for (const [id, answer] of Object.entries(input)) {
-    const question = KNOWLEDGE_FORM_A.find(item => item.id === id);
-    if (!question || typeof answer !== "string" || (answer !== "" && !question.options.some(option => option.id === answer))) throw new Error("Invalid answers.");
+    const question = assessmentForm(version).find(item => item.id === id);
+    if (!question || typeof answer !== "string" || (answer !== "" && (question.kind === "move" ? !assessmentMove(question.fen!, answer) : !question.options.some(option => option.id === answer)))) throw new Error("Invalid answers.");
   }
   return input as Record<string, string>;
 }
