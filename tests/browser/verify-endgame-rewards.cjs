@@ -11,6 +11,7 @@ const storageKey = 'chessquest:endgames:v1:30000000-0000-4000-8000-000000000001'
     const page = await context.newPage(); page.setDefaultTimeout(45000);
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
     await page.goto(base+'/__qa/login'); await page.goto(base+'/student/training/endgames');
+    assert.equal(await page.getByRole('radio',{name:'Challenge',exact:true}).isChecked(),true);
     let coldDownloads=0;
     await page.route('**/stockfish-18-lite-single.wasm',async route=>{
       if (++coldDownloads === 1) await new Promise(resolve=>setTimeout(resolve,18000));
@@ -74,6 +75,9 @@ const storageKey = 'chessquest:endgames:v1:30000000-0000-4000-8000-000000000001'
     assert.equal(balance.xp-initialBalance.xp,3);assert.equal(balance.coins-initialBalance.coins,3);assert.equal(balance.events-initialBalance.events,1);
     const saved=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)).attempts['queen-mate'],storageKey);
     const won=await saved();
+    assert.equal(won.difficulty,'challenge');
+    const signed=JSON.parse(Buffer.from(won.rewardToken.split('.')[0],'base64url').toString());
+    assert.equal(signed.version,2);assert.equal(signed.difficulty,'challenge');
     const completion={action:'complete',token:won.rewardToken,candidateIndex:won.candidateIndex,moves:won.moves,assisted:false};
     const duplicate=await context.request.post(base+'/api/student/endgames',{data:completion});assert.equal(duplicate.status(),200);assert.equal((await duplicate.json()).awarded,false);
     await page.reload();await page.getByText('3 XP + 3 coins earned for this position',{exact:true}).waitFor();
@@ -81,7 +85,11 @@ const storageKey = 'chessquest:endgames:v1:30000000-0000-4000-8000-000000000001'
     const second=await browser.newContext();await second.request.get(base+'/__qa/login?user=1');
     assert.equal((await second.request.post(base+'/api/student/endgames',{data:completion})).status(),400);await second.close();
     assert.equal((await context.request.post(base+'/api/student/endgames',{data:{...completion,moves:[]}})).status(),400);
-    await page.getByRole('button',{name:'All endgames'}).click();await start();await board.waitFor();await ready();
+    await page.getByRole('button',{name:'All endgames'}).click();
+    await page.getByRole('radio',{name:'Standard',exact:true}).check();await page.reload();
+    assert.equal(await page.getByRole('radio',{name:'Standard',exact:true}).isChecked(),true);
+    await start();await board.waitFor();await ready();
+    assert.equal((await saved()).difficulty,'standard');
     await page.getByRole('button',{name:'Hint',exact:true}).click();await page.locator('[role="status"]').filter({hasText:/^Try /}).waitFor();
     await page.getByRole('button',{name:'Retry position',exact:true}).click();await page.reload();await ready();
     await page.getByText('Practice with help · no reward for this position',{exact:true}).waitFor();

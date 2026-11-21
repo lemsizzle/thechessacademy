@@ -1,17 +1,21 @@
 import { Chess, type PieceSymbol, type Square } from "chess.js";
 import type { StockfishCandidate } from "@/chess/types";
+import { generateChallengeEndgame } from "./challengeGenerator";
+
+export type EndgameDifficulty = "standard" | "challenge";
 
 type Token = { type: PieceSymbol; color: "w" | "b"; file: number; rank: number };
 const square = (file: number, rank: number) => `${"abcdefgh"[file]}${rank}` as Square;
 
-// Version 1 is also replayed by the reward verifier. Keep this deterministic;
-// future generator changes must issue a new token version.
-export function endgameCandidateFromSeed(topicId: string, seed: number, index: number) {
+// The default reconstructs legacy version-1 positions. Challenge is version 2.
+// Keep both deterministic; future geometry changes need a new token version.
+export function endgameCandidateFromSeed(topicId: string, seed: number, index: number, difficulty: EndgameDifficulty = "standard") {
   let state = (seed ^ Math.imul(index + 1, 0x9e3779b9)) >>> 0;
-  return generateEndgameCandidate(topicId, () => {
+  const random = () => {
     state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
     return state / 4294967296;
-  });
+  };
+  return difficulty === "challenge" ? generateChallengeEndgame(topicId, random) : generateEndgameCandidate(topicId, random);
 }
 
 /** Construct from randomized pieces and geometry, never a FEN list. Callers must
@@ -81,8 +85,9 @@ export function generateEndgameCandidate(topicId: string, random: () => number =
   throw new Error("Could not construct a legal position. Please try again.");
 }
 
-export function winningCandidate(line: StockfishCandidate | undefined) {
+export function winningCandidate(line: StockfishCandidate | undefined, difficulty: EndgameDifficulty = "standard") {
   if (!line || line.bound || line.depth < 10) return false;
   // These exercises are about playing out a win, not a mate-in-one diagram.
+  if (difficulty === "challenge") return line.mate !== null ? line.mate >= 6 : line.scoreCp !== null && line.scoreCp >= 300;
   return line.mate !== null ? line.mate > 1 : line.scoreCp !== null && line.scoreCp >= 550;
 }

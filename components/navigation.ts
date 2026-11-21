@@ -38,7 +38,7 @@ const studentNavigationHubs: StudentNavHub[] = [
     href: "/student/training",
     label: "Train",
     icon: "\u{1F9E9}",
-    branches: [{ href: "/student/training/endgames", label: "Endgame Practice", icon: "♔" }, { href: "/student/training/battle", label: "Puzzle Battle", icon: "⚔" }, { href: "/student/training/dashboard", label: "Puzzle Dashboard", icon: "\u{1F4C8}" }]
+    branches: [{ href: "/student/training/endgames", label: "Endgame Practice", icon: "♔" }, { href: "/student/training/assessment", label: "Knowledge Test", icon: "✓" }, { href: "/student/training/battle", label: "Puzzle Battle", icon: "⚔" }, { href: "/student/training/dashboard", label: "Puzzle Dashboard", icon: "\u{1F4C8}" }]
   },
   {
     href: "/student/play",
@@ -91,6 +91,7 @@ const teacherSetupLinks: NavLink[] = [
 ];
 
 const teacherToolLinks: NavLink[] = [
+  { href: "/admin/assessments", label: "Knowledge Tests", icon: "✓" },
   { href: "/admin/live-games", label: "Live Games", icon: "\u{1F441}\uFE0F" },
   { href: "/admin/chess-performance", label: "Chess Performance", icon: "\u{1F4CA}" },
   { href: "/admin/adaptive-training", label: "Adaptive Training", icon: "\u{1F9E0}" },

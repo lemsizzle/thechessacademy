@@ -67,7 +67,7 @@ function filtered(rows, params) {
     if (op === "gte")
       rows = rows.filter(
         (row) =>
-          typeof get(row, key) === 'number' ? get(row, key) >= Number(target) : scalar(get(row, key)) >= target,
+          get(row, key) != null && (typeof get(row, key) === 'number' ? get(row, key) >= Number(target) : scalar(get(row, key)) >= target),
       );
     if (op === "gt")
       rows = rows.filter(
@@ -88,6 +88,7 @@ function filtered(rows, params) {
   );
   const pg = await createBattleTestDatabase({ tournaments: process.env.BATTLE_TOURNAMENT_QA === "1" });
   if (process.env.ENDGAME_QA === "1") await (await import('../fixtures/endgame-db.mjs')).installEndgameTestSchema(pg);
+  if (process.env.ASSESSMENT_QA === "1") await pg.exec(require('node:fs').readFileSync('supabase/migrations/20261121081736_chess_knowledge_assessment.sql','utf8'));
   for (const student of students) {
     await pg.query("insert into students(id) values($1)", [student.id]);
     await pg.query("insert into student_login_credentials values($1,$2)", [
@@ -124,6 +125,9 @@ function filtered(rows, params) {
         let text = "";
         for await (const chunk of req) text += chunk;
         const args = JSON.parse(text || "{}");
+        if (process.env.ASSESSMENT_QA === "1" && table === "finish_expired_chess_assessments") return json(res, (await pg.query('select finish_expired_chess_assessments($1) value',[JSON.stringify(args.p_key)])).rows[0].value);
+        if (process.env.ASSESSMENT_QA === "1" && table === "start_chess_assessment") return json(res, (await pg.query('select to_jsonb(start_chess_assessment($1,$2)) value',[args.p_student_id,args.p_version])).rows[0].value);
+        if (process.env.ASSESSMENT_QA === "1" && table === "save_chess_assessment") return json(res, (await pg.query('select to_jsonb(save_chess_assessment($1,$2,$3,$4,$5)) value',[args.p_student_id,args.p_attempt_id,JSON.stringify(args.p_answers),args.p_submit,JSON.stringify(args.p_key)])).rows[0].value);
         if (process.env.ENDGAME_QA === "1" && table === "save_endgame_training_reward") return json(res, (await pg.query('select save_endgame_training_reward($1,$2,$3,$4,$5) value',[args.p_student_id,args.p_attempt_id,args.p_topic_id,args.p_complete,args.p_assisted])).rows[0].value);
         const tournamentRpcs = {
           create_puzzle_tournament: ["p_id","p_title","p_mode","p_duration","p_rounds"],
@@ -233,7 +237,7 @@ function filtered(rows, params) {
             ? students.map((s) => ({ student_id: s.id, username: s.username }))
             : table === "chess_puzzles"
               ? puzzles
-              : ["puzzle_battles", "puzzle_battle_decks"].includes(table)
+              : ["puzzle_battles", "puzzle_battle_decks", ...(process.env.ASSESSMENT_QA === "1" ? ["student_chess_assessments"] : [])].includes(table)
                 ? (await pg.query(`select * from ${table}`)).rows
                 : [];
       rows = filtered(rows, url.searchParams);
@@ -308,6 +312,7 @@ function filtered(rows, params) {
           return res.end();
         }
         if (process.env.ENDGAME_QA === "1" && url.pathname === "/__qa/endgame-balance") return json(res, (await pg.query('select total_xp as xp,coalesce((select academy_coins from student_wallets where student_id=students.id),0) as coins,(select count(*)::int from xp_events where student_id=students.id) as events from students where id=$1',[students[0].id])).rows[0]);
+        if (process.env.ASSESSMENT_QA === "1" && url.pathname === "/__qa/assessment-expire") { await pg.query("update student_chess_assessments set deadline_at=clock_timestamp()+($2::int * interval '1 second') where id=$1",[url.searchParams.get('id'),Number(url.searchParams.get('seconds') || -1)]); return json(res,{ok:true}); }
         if (url.pathname === "/__qa/deck")
           return json(
             res,
@@ -336,7 +341,7 @@ function filtered(rows, params) {
           url.pathname.startsWith("/api/") &&
           !url.pathname.startsWith("/api/student/puzzle-battles") &&
           !(process.env.BATTLE_TOURNAMENT_QA === "1" && /^\/api\/(admin|student)\/puzzle-tournaments/.test(url.pathname)) &&
-          !["/api/auth/session", "/api/student/profile", ...(process.env.ENDGAME_QA === "1" ? ["/api/student/endgames"] : [])].includes(url.pathname)
+          !["/api/auth/session", "/api/student/profile", ...(process.env.ENDGAME_QA === "1" ? ["/api/student/endgames"] : []), ...(process.env.ASSESSMENT_QA === "1" ? ["/api/student/assessment"] : [])].includes(url.pathname)
         ) {
           if (url.pathname === "/api/student/online-play")
             return json(res, {

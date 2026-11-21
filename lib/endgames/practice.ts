@@ -1,8 +1,9 @@
 import { Chess } from "chess.js";
 import { ENDGAME_TOPICS } from "./catalog";
+import type { EndgameDifficulty } from "./generator";
 
-export type EndgameAttempt = { fen: string; moves: string[]; assisted: boolean; completed: boolean; rewardToken?: string; candidateIndex?: number; rewardXp?: number };
-export type EndgameProgress = { selected: string | null; attempts: Record<string, EndgameAttempt> };
+export type EndgameAttempt = { fen: string; moves: string[]; assisted: boolean; completed: boolean; difficulty?: EndgameDifficulty; rewardToken?: string; candidateIndex?: number; rewardXp?: number };
+export type EndgameProgress = { selected: string | null; attempts: Record<string, EndgameAttempt>; difficulty?: EndgameDifficulty };
 
 export function replayEndgame(fen: string, moves: readonly string[]) {
   const game = new Chess(fen);
@@ -38,6 +39,7 @@ export function readEndgameProgress(raw: string | null): EndgameProgress {
   if (!raw) return result;
   try {
     const saved = JSON.parse(raw);
+    if (saved.difficulty === "standard" || saved.difficulty === "challenge") result.difficulty = saved.difficulty;
     for (const topic of ENDGAME_TOPICS) {
       const attempt = saved.attempts?.[topic.id];
       if (!attempt || typeof attempt.fen !== "string" || !Array.isArray(attempt.moves) || attempt.moves.length > 1000) continue;
@@ -46,6 +48,7 @@ export function readEndgameProgress(raw: string | null): EndgameProgress {
         replayEndgame(attempt.fen, attempt.moves);
         result.attempts[topic.id] = {
           fen: attempt.fen, moves: attempt.moves, assisted: attempt.assisted === true, completed: attempt.completed === true,
+          ...(attempt.difficulty === "standard" || attempt.difficulty === "challenge" ? { difficulty: attempt.difficulty } : {}),
           ...(typeof attempt.rewardToken === "string" && attempt.rewardToken.length <= 2048 && Number.isInteger(attempt.candidateIndex) && attempt.candidateIndex >= 0 && attempt.candidateIndex < 20 ? { rewardToken: attempt.rewardToken, candidateIndex: attempt.candidateIndex } : {}),
           ...(attempt.rewardXp === 3 ? { rewardXp: 3 } : {})
         };

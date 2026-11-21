@@ -9,7 +9,7 @@ import { AnalysisStockfishService } from "@/chess/engine/AnalysisStockfishServic
 import { useGameDialogFocus } from "@/chess/hooks/useGameDialogFocus";
 import type { ChessColor, PromotionPiece } from "@/chess/types";
 import { ENDGAME_TOPICS, type EndgameTopic } from "@/lib/endgames/catalog";
-import { endgameCandidateFromSeed, winningCandidate } from "@/lib/endgames/generator";
+import { endgameCandidateFromSeed, winningCandidate, type EndgameDifficulty } from "@/lib/endgames/generator";
 import { analyzeEndgame } from "@/lib/endgames/engine";
 import { endgameRewardRequest } from "@/lib/endgames/rewardsClient";
 import { refreshCelebrations } from "@/lib/celebrations";
@@ -52,24 +52,24 @@ export function EndgameTraining({ studentId }: { studentId: string }) {
     generation.current.token++; generation.current.engine?.terminate(); generation.current.engine = null;
     setGenerating(null);
   };
-  async function start(topic: EndgameTopic) {
+  async function start(topic: EndgameTopic, difficulty: EndgameDifficulty = progress.difficulty ?? "challenge") {
     cancelGeneration();
     const token = generation.current.token;
     const engine = new AnalysisStockfishService({ multiPv: 1 }); generation.current.engine = engine;
     let handedOff = false;
     setGenerating(topic.id); setGenerationError("");
     try {
-      const ticket = await endgameRewardRequest<{ token: string; seed: number }>({ action: "start", topicId: topic.id });
+      const ticket = await endgameRewardRequest<{ token: string; seed: number }>({ action: "start", topicId: topic.id, difficulty });
       if (generation.current.token !== token) return;
       const previous = progress.attempts[topic.id]?.fen;
       for (let tries = 0; tries < 20; tries++) {
-        const fen = endgameCandidateFromSeed(topic.id, ticket.seed, tries);
+        const fen = endgameCandidateFromSeed(topic.id, ticket.seed, tries, difficulty);
         if (fen === previous) continue;
         const lines = await analyzeEndgame(engine, fen, 650);
         if (generation.current.token !== token) return;
-        if (!winningCandidate(lines[0])) continue;
+        if (!winningCandidate(lines[0], difficulty)) continue;
         preparedEngine.current = engine; handedOff = true;
-        setProgress(current => ({ selected: topic.id, attempts: { ...current.attempts, [topic.id]: { fen, moves: [], assisted: false, completed: false, rewardToken: ticket.token, candidateIndex: tries } } }));
+        setProgress(current => ({ ...current, selected: topic.id, attempts: { ...current.attempts, [topic.id]: { fen, difficulty, moves: [], assisted: false, completed: false, rewardToken: ticket.token, candidateIndex: tries } } }));
         return;
       }
       throw new Error("We couldn't verify a winning position this time. Please try generating another.");
@@ -87,7 +87,7 @@ export function EndgameTraining({ studentId }: { studentId: string }) {
     {storageWarning && <p role="status" className="mb-3 text-sm text-amber-200">Practice still works, but this browser cannot save your position. Keep this tab open to continue.</p>}
     {generating && <div role="status" className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-cyan-200/30 bg-slate-950 p-3 text-sm text-cyan-100">{slowLoading ? "Still preparing your computer opponent. The first download can take a little longer; keep this tab open." : "Creating a fresh position and checking the winning advantage…"}<button type="button" className={buttonClass} onClick={cancelGeneration}>Cancel</button></div>}
     {generationError && <p role="alert" className="mb-3 rounded-xl border border-amber-200/30 bg-slate-950 p-3 text-sm text-amber-100">{generationError}</p>}
-    {topic && attempt ? <EndgameBoard key={`${topic.id}:${attempt.fen}`} topic={topic} initial={attempt} preparedEngine={preparedEngine.current} onSave={save} generating={Boolean(generating)} onNew={() => void start(topic)} onBack={() => { cancelGeneration(); preparedEngine.current = null; setProgress(current => ({ ...current, selected: null })); }} /> : <>
+    {topic && attempt ? <EndgameBoard key={`${topic.id}:${attempt.fen}`} topic={topic} initial={attempt} preparedEngine={preparedEngine.current} onSave={save} generating={Boolean(generating)} onNew={() => void start(topic, attempt.difficulty ?? "standard")} onBack={() => { cancelGeneration(); preparedEngine.current = null; setProgress(current => ({ ...current, selected: null })); }} /> : <>
       <header className="mb-6">
         <Link href="/student/training" className="text-sm font-bold text-cyan-100">← Training</Link>
         <p className="mt-5 text-xs font-black uppercase tracking-widest text-amber-200">Play it through</p>
@@ -95,6 +95,16 @@ export function EndgameTraining({ studentId }: { studentId: string }) {
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Choose a skill. Get a newly generated, engine-checked winning position, then finish it against a defending computer. No clock. Any legal move is welcome—your goal is checkmate.</p>
         <p className="mt-2 text-xs text-slate-400">Earn 3 XP + 3 coins for checkmate without hints or takebacks, once per generated attempt. Your current attempts save on this browser. Practice does not count as a rated game or quest win.</p>
       </header>
+      <fieldset disabled={Boolean(generating)} className="mb-6">
+        <legend className="mb-2 text-sm font-bold text-white">Practice difficulty</legend>
+        <div className="flex flex-wrap gap-2">
+          {(["standard", "challenge"] as const).map(difficulty => <label key={difficulty} className={`${buttonClass} flex cursor-pointer items-center gap-2 ${(progress.difficulty ?? "challenge") === difficulty ? "border-cyan-200/60 bg-cyan-300/10" : ""}`}>
+            <input type="radio" name="endgame-difficulty" value={difficulty} checked={(progress.difficulty ?? "challenge") === difficulty} onChange={() => setProgress(current => ({ ...current, difficulty }))} />
+            {difficulty === "standard" ? "Standard" : "Challenge"}
+          </label>)}
+        </div>
+        <p className="mt-2 text-xs text-slate-400">{(progress.difficulty ?? "challenge") === "challenge" ? "Active defenders, more work before promotion, and longer conversions. Every start is checked for a winning advantage." : "Clearer winning positions for learning the basics."}</p>
+      </fieldset>
       {(["Common endgames", "Convert the win"] as const).map(group => <section key={group} className="mb-8" aria-label={group}>
         <h2 className="mb-3 text-xl font-black text-white">{group}</h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -162,7 +172,7 @@ function EndgameBoard({ topic, initial, preparedEngine, onSave, onBack, onNew, g
     let active = true, settled = false;
     inputLocked.current = true;
     const engine = engineRef.current ?? new AnalysisStockfishService({ multiPv: 1 }); engineRef.current = engine;
-    void analyzeEndgame(engine, fen).then(lines => {
+    void analyzeEndgame(engine, fen, attempt.difficulty === "challenge" ? 900 : 500).then(lines => {
       if (!active) return;
       const line = lines[0];
       if (!line) throw new Error("The defender returned no move.");
@@ -182,7 +192,7 @@ function EndgameBoard({ topic, initial, preparedEngine, onSave, onBack, onNew, g
       active = false;
       if (!settled) { engine.terminate(); if (engineRef.current === engine) engineRef.current = null; }
     };
-  }, [fen, game, player, hintRequested, retry]);
+  }, [fen, game, player, hintRequested, retry, attempt.difficulty]);
 
   function move(from: string, to: string, piece?: PromotionPiece) {
     if (inputLocked.current || thinking || result || error || generating || helpBusy) return;
@@ -223,7 +233,7 @@ function EndgameBoard({ topic, initial, preparedEngine, onSave, onBack, onNew, g
   return <>
     <header className={styles.heading}>
       <div><button type="button" onClick={onBack} className="text-sm font-bold text-cyan-100">← All endgames</button><h1 className="mt-1 text-xl font-black text-white sm:text-2xl">{topic.title}</h1></div>
-      <span className="text-sm font-bold text-slate-300">You play {color}</span>
+      <span className="text-sm font-bold text-slate-300">{attempt.difficulty === "challenge" ? "Challenge" : "Standard"} · You play {color}</span>
     </header>
     <div className={styles.layout}>
       <div className={styles.boardColumn}>

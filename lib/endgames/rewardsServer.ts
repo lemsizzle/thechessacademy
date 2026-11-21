@@ -8,7 +8,7 @@ import { EndgameInputError, readEndgameRewardToken } from "./rewardToken";
 export function verifyEndgameCompletion(studentId: string, body: Record<string, unknown>) {
   const session = readEndgameRewardToken(body.token, studentId);
   if (!Number.isInteger(body.candidateIndex) || Number(body.candidateIndex) < 0 || Number(body.candidateIndex) >= 20 || !Array.isArray(body.moves) || body.moves.length < 1 || body.moves.length > 1000 || typeof body.assisted !== "boolean") throw new EndgameInputError("Invalid endgame completion.");
-  const fen = endgameCandidateFromSeed(session.topicId, session.seed, Number(body.candidateIndex));
+  const fen = endgameCandidateFromSeed(session.topicId, session.seed, Number(body.candidateIndex), session.version === 2 ? session.difficulty : "standard");
   try {
     const game = replayEndgame(fen, body.moves);
     if (!game.isCheckmate() || game.turn() === new Chess(fen).turn()) throw new Error("Not a player win");

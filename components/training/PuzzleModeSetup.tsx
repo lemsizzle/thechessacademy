@@ -83,6 +83,7 @@ export function PuzzleModeSetup({ selectedTheme, onThemeChange, selectedLevel, o
           className="min-h-10 border-t border-white/10 px-4 text-left text-xs font-bold text-cyan-200 hover:bg-white/5 focus-visible:outline focus-visible:outline-2">Settings</button>}
       </Card>)}
       <Link href="/student/training/endgames" className="rounded-xl border border-cyan-200/25 bg-slate-950/80 p-4 hover:bg-cyan-300/10"><span className="font-black text-white">♔ Endgame Practice →</span><span className="mt-2 block text-xs text-slate-400">Choose a position to play out</span></Link>
+      <Link href="/student/training/assessment" className="rounded-xl border border-cyan-200/25 bg-slate-950/80 p-4 hover:bg-cyan-300/10"><span className="font-black text-white">✓ Chess Knowledge Test →</span><span className="mt-2 block text-xs text-slate-400">30 questions · 30 minutes · discover your strengths</span></Link>
       <Link href="/student/training/battle" className="rounded-xl border border-cyan-200/25 bg-slate-950/80 p-4 hover:bg-cyan-300/10"><span className="font-black text-white">⚔ Puzzle Battle →</span><span className="mt-2 block text-xs text-slate-400">Race a classmate or computer</span></Link>
     </div>
     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-bold text-cyan-200">

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { Chess } from "chess.js";
+import { createHash } from "node:crypto";
 import { ENDGAME_TOPICS } from "@/lib/endgames/catalog";
-import { generateEndgameCandidate, winningCandidate } from "@/lib/endgames/generator";
+import { endgameCandidateFromSeed, generateEndgameCandidate, winningCandidate } from "@/lib/endgames/generator";
 import { endgameResult, readEndgameProgress, replayEndgame, takeBackEndgame } from "@/lib/endgames/practice";
 
 function seeded(seed: number) {
@@ -9,6 +10,36 @@ function seeded(seed: number) {
 }
 
 describe("procedural endgame positions", () => {
+  it("keeps existing version-1 reward positions unchanged", () => {
+    const fens = ENDGAME_TOPICS.flatMap(topic => [0, 1, 17, 12345, 4294967295].map(seed => endgameCandidateFromSeed(topic.id, seed, 3)));
+    expect(createHash("sha256").update(fens.join("\n")).digest("hex")).toBe("350e0cf10d572ae4c0ea15de81a8272e969275182f8cf05c77cfe662b1e51987");
+  });
+  for (const [index, topic] of ENDGAME_TOPICS.entries()) {
+    it(`creates playable Challenge starts for ${topic.title} without immediate giveaways`, () => {
+      const seen = new Set<string>();
+      for (let sample = 0; sample < 30; sample++) {
+        const fen = endgameCandidateFromSeed(topic.id, sample + 312 + index, 0, "challenge");
+        const game = new Chess(fen), defender = new Chess(fen.replace(/ [wb] /, game.turn() === "w" ? " b " : " w "));
+        seen.add(fen);
+        expect(game.isGameOver()).toBe(false);
+        expect(game.isCheck()).toBe(false);
+        expect(defender.isCheck()).toBe(false);
+        expect(game.moves({ verbose: true }).some(m => m.promotion || (m.captured && m.captured !== "p"))).toBe(false);
+        expect(defender.moves({ verbose: true }).some(m => m.captured && m.captured !== "p")).toBe(false);
+        if (["queen-mate", "rook-mate", "ladder-mate", "bishop-pair"].includes(topic.id)) {
+          const king = game.board().flat().find(p => p?.type === "k" && p.color !== game.turn())!;
+          expect("cdef").toContain(king.square[0]);
+          expect(Number(king.square[1])).toBeGreaterThanOrEqual(3);
+          expect(Number(king.square[1])).toBeLessThanOrEqual(6);
+        }
+        if (topic.id === "extra-rook" || topic.id === "extra-bishop") {
+          expect(game.board().flat().some(p => p?.type === "r" && p.color !== game.turn())).toBe(true);
+        }
+        expect(fen).toBe(endgameCandidateFromSeed(topic.id, sample + 312 + index, 0, "challenge"));
+      }
+      expect(seen.size).toBeGreaterThan(20);
+    });
+  }
   for (const [index, topic] of ENDGAME_TOPICS.entries()) {
     it(`generates varied, legal ${topic.title} positions`, () => {
       const random = seeded(index + 13), seen = new Set<string>();
@@ -43,6 +74,10 @@ describe("procedural endgame positions", () => {
     expect(winningCandidate({ ...line, mate: 1 })).toBe(false);
     expect(winningCandidate({ ...line, mate: -3 })).toBe(false);
     expect(winningCandidate({ ...line, mate: 5 })).toBe(true);
+    expect(winningCandidate({ ...line, mate: 5 }, "challenge")).toBe(false);
+    expect(winningCandidate({ ...line, mate: 6 }, "challenge")).toBe(true);
+    expect(winningCandidate({ ...line, scoreCp: 300 }, "challenge")).toBe(true);
+    expect(winningCandidate({ ...line, scoreCp: 299 }, "challenge")).toBe(false);
   });
 });
 

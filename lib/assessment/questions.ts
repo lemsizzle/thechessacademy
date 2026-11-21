@@ -1,0 +1,64 @@
+import "server-only";
+import type { AssessmentQuestion, AssessmentSection } from "./types";
+
+type AuthoredQuestion = AssessmentQuestion & { answer: string; explanation: string };
+const q = (id: string, section: AssessmentSection, prompt: string, choices: string[], correct: number, explanation: string, fen?: string): AuthoredQuestion => {
+  // Fixed per-item ordering avoids a repeating answer-position pattern while
+  // keeping exactly the same form for every learner and every retake.
+  let seed = [...`knowledge-a-v1:${id}`].reduce((hash, char) => Math.imul(hash ^ char.charCodeAt(0), 16777619), 2166136261) >>> 0;
+  const ordered = choices.map((text, original) => ({ text, original }));
+  for (let i = ordered.length - 1; i > 0; i--) {
+    seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5;
+    const j = (seed >>> 0) % (i + 1);
+    [ordered[i], ordered[j]] = [ordered[j], ordered[i]];
+  }
+  return { id, section, prompt, options: ordered.map((option, index) => ({ id: "abcd"[index], text: option.text })), answer: "abcd"[ordered.findIndex(option => option.original === correct)], explanation, ...(fen ? { fen } : {}) };
+};
+
+// Frozen Form A. Change the form version before changing an item or its key so
+// saved assessments remain comparable and their reviews remain accurate.
+export const KNOWLEDGE_FORM_A: readonly AuthoredQuestion[] = [
+  q("r1", "Rules", "Which piece can jump over other pieces during an ordinary move?", ["Bishop", "Knight", "Rook", "Queen"], 1, "A knight jumps to its destination. Pieces between its starting and ending squares do not block it."),
+  q("r2", "Rules", "Your king and rook have never moved, and the squares between them are empty. When is castling still illegal?", ["Your opponent has a queen", "Your rook is attacked", "Your king is currently in check", "Your king is on its starting square"], 2, "You cannot castle while in check, through an attacked square, or into check. An attacked rook alone does not prevent castling."),
+  q("r3", "Rules", "A pawn reaches the farthest rank. What can it promote to?", ["Only a queen", "Any captured piece, including a king", "A queen or a rook only", "A queen, rook, bishop, or knight"], 3, "Promotion may create a queen, rook, bishop, or knight of the pawn's color, whether or not that piece was captured earlier."),
+  q("r4", "Rules", "An opponent's pawn advances two squares and lands beside your pawn in an en passant position. When may you capture it en passant?", ["Only on your very next move", "At any later time", "Only if it gives check", "Only after moving your king"], 0, "En passant is available only on the move immediately after the opponent's two-square pawn advance."),
+  q("r5", "Rules", "Black to move. What is the result of this position?", ["Black is checkmated", "Stalemate: the game is drawn", "Black must move to g8", "White loses because the queen is too close"], 1, "The black king is not in check, but every escape square is attacked. No legal move without check means stalemate.", "7k/5Q2/5K2/8/8/8/8/8 b - - 0 1"),
+  q("v1", "Board vision", "White to move. Which piece can the rook on d4 capture in one move?", ["The pawn on d6", "The pawn on f4", "The pawn on b4", "The king on h8"], 2, "The rook can travel left through c4 and capture the black pawn on b4. The white pawns on d6 and f4 are friendly pieces.", "7k/8/3P4/8/1p1R1P2/8/8/K7 w - - 0 1"),
+  q("v2", "Board vision", "Which of these squares is attacked by the white knight on d4?", ["e6", "e4", "d6", "f4"], 0, "A knight moves two squares along one direction and one across. From d4, e6 is one of its eight possible destinations.", "7k/8/8/8/3N4/8/8/K7 w - - 0 1"),
+  q("v3", "Board vision", "Why does the bishop on c1 NOT attack the black rook on h6?", ["Bishops cannot capture rooks", "The rook is too far away", "Bishops cannot leave the first rank", "The white pawn on e3 blocks the diagonal"], 3, "The diagonal is c1–d2–e3–f4–g5–h6. The pawn on e3 blocks the bishop; bishops cannot jump.", "7k/8/7r/8/8/4P3/8/K1B5 w - - 0 1"),
+  q("v4", "Board vision", "Black's pawn is on d5. Which pair of squares does it attack?", ["d4 and d3", "c4 and e4", "c6 and e6", "c5 and e5"], 1, "Black pawns capture diagonally toward lower-numbered ranks. A black pawn on d5 attacks c4 and e4.", "7k/8/8/3p4/2N5/8/8/K7 w - - 0 1"),
+  q("v5", "Board vision", "White is in check. Which listed move legally gets White out of check?", ["h3", "Ra2", "Kd1", "Ke2"], 2, "Kd1 leaves the e-file. Ke2 stays on the checking rook's file, and h3 or Ra2 does nothing to stop the check.", "4r1k1/8/8/8/8/8/5PPP/R3KB2 w - - 0 1"),
+  q("t1", "Tactics", "White to move. Which knight move checks the king and attacks the queen at the same time?", ["Nc7+", "Nf6+", "Ne3", "Nb4"], 0, "From c7 the knight attacks both e8 and a8: a royal fork.", "q3k3/8/8/3N4/8/8/8/4K3 w - - 0 1"),
+  q("t2", "Tactics", "Why is Black's knight on e7 unable to move legally?", ["A knight cannot move on the seventh rank", "It is an absolute pin: moving exposes its king to the rook", "It is blocked by the king", "White has more material"], 1, "The knight is shielding the king on e8 from the rook on e1. Moving it would leave its own king in check.", "4k3/4n3/8/8/8/8/8/4R1K1 b - - 0 1"),
+  q("t3", "Tactics", "White plans Re1+, attacking the king in front of the queen. What is this tactical pattern called?", ["A fork", "A discovered attack", "A skewer", "An en passant capture"], 2, "A skewer attacks the more valuable piece in front. After the king moves off the e-file, the rook can attack the queen behind it.", "4q3/4k3/8/8/8/8/8/R5K1 w - - 0 1"),
+  q("t4", "Tactics", "White moves the bishop off e2 and away from the e-file. Which attack is revealed?", ["The king on g1 attacks the queen", "The bishop attacks the king on h8", "The black queen attacks its own king", "The rook on e1 attacks the queen on e8"], 3, "Moving the bishop uncovers the rook's line to the queen: a discovered attack.", "4q2k/8/8/8/8/8/4B3/4R1K1 w - - 0 1"),
+  q("t5", "Tactics", "A piece is guarding an important square. You force it away so you can use that square. What is this idea called?", ["Deflection", "Castling", "Opposition", "Stalemate"], 0, "Deflection forces a defender away from its defensive job. Always calculate whether the opponent is actually forced to leave."),
+  q("c1", "Calculation", "Use the usual values: rook 5, bishop 3, pawn 1. Your rook captures a bishop, then an enemy pawn captures that rook. What is your net material change?", ["Gain 2 points", "Lose 2 points", "Gain 3 points", "Lose 5 points"], 1, "You gained a bishop worth 3 and lost a rook worth 5: 3 − 5 = −2. The capturing pawn is still on the board."),
+  q("c2", "Calculation", "White to move. Which move is checkmate?", ["Qf7", "Qg8+", "Qg7#", "Qh6+"], 2, "Qg7 checks h8, covers the escape squares, and is protected by the white king. Qf7 instead stalemates Black.", "7k/8/5KQ1/8/8/8/8/8 w - - 0 1"),
+  q("c3", "Calculation", "Calculate 1.Nc7+ Kd7. Which next move wins Black's queen?", ["Nb5", "Ne6", "Nd5", "Nxa8"], 3, "The knight on c7 still attacks a8 after the king moves. Nxa8 captures the queen.", "q3k3/8/8/3N4/8/8/8/4K3 w - - 0 1"),
+  q("c4", "Calculation", "White plans Nf7 to fork the queen and rook. Which legal Black reply defeats this plan immediately?", ["Kxf7", "Kh7", "Qa5", "Rh7"], 0, "The knight on f7 would be unprotected. Black's king on g8 can simply capture it with Kxf7.", "3q2kr/8/8/4N3/8/8/8/K7 w - - 0 1"),
+  q("c5", "Calculation", "You see a promising tactic. What is the most reliable way to test it before moving?", ["Assume your opponent will ignore the threat", "Calculate the opponent's strongest replies, then check the final position", "Count only your own attacking pieces", "Play it quickly before the opponent notices"], 1, "A tactic must survive the opponent's best defense. Check forcing replies and evaluate the position at the end of the line."),
+  q("s1", "Strategy", "Which is usually the best general opening plan?", ["Move the queen repeatedly to chase pawns", "Push every edge pawn before developing", "Fight for the center, develop pieces, and make the king safe", "Keep all pieces on their original squares"], 2, "Center control, development, and king safety help your pieces work together. Specific positions can require exceptions."),
+  q("s2", "Strategy", "You moved the same knight three times without gaining anything while your other pieces stayed at home. What is the main risk?", ["The knight permanently loses a move", "Castling becomes illegal automatically", "Your pawns can no longer move", "You fall behind in development"], 3, "Unnecessary repeat moves spend time that could bring other pieces into play. Your opponent may develop an attack first."),
+  q("s3", "Strategy", "An open file has no pawns of either color. Which piece usually benefits most directly from occupying it?", ["Rook", "Knight", "Pawn", "King during the opening"], 0, "A rook can use an open file to enter the opponent's position. Whether an invasion is safe still needs calculation."),
+  q("s4", "Strategy", "Your opponent threatens checkmate on the next move. You can win a pawn, but doing so does not stop the mate. What should you prioritize?", ["Take the pawn", "Find a move that stops the mate or delivers checkmate first", "Attack a distant bishop without check", "Ignore the threat if you have more material"], 1, "King safety comes first. A material gain is useless if you are checkmated immediately afterward."),
+  q("s5", "Strategy", "You are a whole queen ahead and both kings are safe. Which plan is usually sensible?", ["Give away your queen to make the game exciting", "Avoid every trade, even a safe one", "Trade enemy pieces safely and keep enough material to checkmate", "Stop checking the opponent's threats"], 2, "Safe exchanges reduce counterplay. Still check each trade and preserve enough material to finish the win."),
+  q("e1", "Endgames", "White to move. Who has the direct opposition in this king-position diagram?", ["White, because White moves first", "Both kings", "Neither; kings cannot oppose each other", "Black, because White must move first"], 3, "The kings face each other with one square between them. The side NOT to move has direct opposition, so Black has it here.", "8/8/4k3/8/4K3/8/8/8 w - - 0 1"),
+  q("e2", "Endgames", "In many rook-and-pawn endings, where is a rook most useful relative to a passed pawn?", ["Behind it, supporting your pawn or attacking the opponent's pawn", "Always in front of your own king", "Always on a corner square", "Beside it on the same rank, regardless of the position"], 0, "Behind a passer, a rook's activity can grow as the pawn advances. This is a useful guideline, not a rule that replaces calculation."),
+  q("e3", "Endgames", "White has a bishop and an h-pawn. Why is this corner dangerous for White's winning hopes?", ["A bishop can never support a pawn", "The bishop cannot control h8, and Black can use that corner as a drawing shelter", "White must promote to a king", "Black wins automatically by reaching h8"], 1, "This is the wrong-colored bishop for the rook pawn: h8 is a dark square and the bishop travels on light squares. Black's king can hold the corner.", "7k/7P/7K/8/8/8/2B5/8 w - - 0 1"),
+  q("e4", "Endgames", "With king and rook against a lone king, what is normally needed to force checkmate?", ["The rook gives random checks forever", "The attacking king stays far away", "The king and rook cooperate to drive the defender to an edge", "The rook turns into a queen"], 2, "The rook cuts off space while its king takes away escape squares. The king is essential to the final mating net."),
+  q("e5", "Endgames", "White to move. Which promotion avoids immediate stalemate AND leaves enough material to force checkmate?", ["c8=Q", "c8=B", "c8=N", "c8=R"], 3, "c8=Q leaves Black no legal move without check: stalemate. A rook leaves an escape and can later mate with the king. A lone bishop or knight cannot force mate.", "8/k1P5/2K5/8/8/8/8/8 w - - 0 1"),
+];
+
+export function publicQuestions(): AssessmentQuestion[] {
+  return KNOWLEDGE_FORM_A.map(({ answer: _answer, explanation: _explanation, ...question }) => question);
+}
+export const assessmentKey = () => Object.fromEntries(KNOWLEDGE_FORM_A.map(question => [question.id, question.answer]));
+export function validateAssessmentAnswers(input: unknown): Record<string, string> {
+  if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).length > 30) throw new Error("Invalid answers.");
+  for (const [id, answer] of Object.entries(input)) {
+    const question = KNOWLEDGE_FORM_A.find(item => item.id === id);
+    if (!question || typeof answer !== "string" || (answer !== "" && !question.options.some(option => option.id === answer))) throw new Error("Invalid answers.");
+  }
+  return input as Record<string, string>;
+}
