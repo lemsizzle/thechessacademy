@@ -399,7 +399,7 @@ function AchievementsPanel({ data, readOnly = false }: { data: StudentDashboardD
   );
 }
 
-export function StudentJourneyDashboard({ data, readOnly = false, testResults }: { data: StudentDashboardData; readOnly?: boolean; testResults?: ReactNode }) {
+export function StudentJourneyDashboard({ data, readOnly = false, testResults, compact = false }: { data: StudentDashboardData; readOnly?: boolean; testResults?: ReactNode; compact?: boolean }) {
   const latestWoodpecker = data.training.latestWoodpeckerCycle;
   const expiringQuest = data.quests.soonestExpiring;
   const dailyChessQuote = getDailyChessQuote();
@@ -425,10 +425,10 @@ export function StudentJourneyDashboard({ data, readOnly = false, testResults }:
       <div className="space-y-5">
       <Card className="overflow-hidden border-cyan-200/20">
         <div className="bg-gradient-to-r from-cyan-300/10 via-slate-950/75 to-amber-300/10 p-5 sm:p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
+          <div className={`flex gap-4 ${compact ? "flex-wrap items-center" : "flex-col lg:flex-row lg:items-center"}`}>
             <div className="mx-auto shrink-0 lg:mx-0">
               {data.avatar ? (
-                <AvatarRenderer items={data.avatar.items} avatar={data.avatar.config} size="lg" label={`${data.student.name}'s Academy avatar`} />
+                <AvatarRenderer items={data.avatar.items} avatar={data.avatar.config} size={compact ? "sm" : "lg"} label={`${data.student.name}'s Academy avatar`} />
               ) : (
                 <div role="img" aria-label="Academy avatar unavailable" className="grid h-40 w-40 place-items-center rounded-lg border border-cyan-200/25 bg-slate-950 text-6xl text-cyan-100 shadow-glow">♞</div>
               )}
@@ -459,10 +459,10 @@ export function StudentJourneyDashboard({ data, readOnly = false, testResults }:
             </div>
           </div>
 
-          <blockquote className="mt-5 rounded-lg border border-amber-300/20 bg-amber-950 px-4 py-3 text-sm leading-6 text-amber-50">
+          {!compact && <blockquote className="mt-5 rounded-lg border border-amber-300/20 bg-amber-950 px-4 py-3 text-sm leading-6 text-amber-50">
             <span className="mr-2 font-black text-amber-200">Daily chess inspiration:</span>
             <span>“{dailyChessQuote}”</span>
-          </blockquote>
+          </blockquote>}
         </div>
       </Card>
 
@@ -485,7 +485,7 @@ export function StudentJourneyDashboard({ data, readOnly = false, testResults }:
             </div>
           </dl>
         </section>
-      ) : (
+      ) : !compact ? (
       <section aria-labelledby="journey-map-heading">
         <div className="mb-4">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">{readOnly ? "Academy journey" : "Your open journey"}</p>
@@ -546,7 +546,7 @@ export function StudentJourneyDashboard({ data, readOnly = false, testResults }:
           </div>
         </div>
       </section>
-      )}
+      ) : null}
 
       <Card className="relative overflow-hidden border-amber-200/20 bg-gradient-to-br from-amber-950/70 via-slate-950 to-slate-950 p-4 sm:p-5">
         <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-amber-300/10 blur-3xl" />

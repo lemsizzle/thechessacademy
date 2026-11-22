@@ -53,5 +53,7 @@ export function useStudentMenuDestination(href: string, open: () => void) {
 
 export function StudentMenuLink({ href, onClick, ...props }: Omit<ComponentProps<typeof Link>, "href"> & { href: string }) {
   const menu = useContext(Context);
-  return <Link {...props} href={href} onClick={event => { onClick?.(event); menu?.select(event, href); }} />;
+  // Do not execute authenticated page loaders for every visible sidebar link.
+  // Navigation still uses Next's client router and preserves its visited cache.
+  return <Link prefetch={false} {...props} href={href} onClick={event => { onClick?.(event); menu?.select(event, href); }} />;
 }

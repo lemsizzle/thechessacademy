@@ -53,8 +53,8 @@ async function getFreshStudentUser() {
   return getCurrentStudentUser();
 }
 
-async function runStudentQuestRefresh(): Promise<StudentQuestRefreshResult> {
-  const user = await getFreshStudentUser();
+async function runStudentQuestRefresh(verifiedUser?: StudentUser): Promise<StudentQuestRefreshResult> {
+  const user = verifiedUser ?? await getFreshStudentUser();
   if (!user) throw new Error("Student log in is required.");
 
   const store = readAdminStore();
@@ -145,9 +145,9 @@ async function runStudentQuestRefresh(): Promise<StudentQuestRefreshResult> {
   return result;
 }
 
-export async function refreshStudentQuests(): Promise<StudentQuestRefreshResult> {
+export async function refreshStudentQuests(verifiedUser?: StudentUser): Promise<StudentQuestRefreshResult> {
   if (activeFullSync) return activeFullSync;
-  activeFullSync = runStudentQuestRefresh().finally(() => {
+  activeFullSync = runStudentQuestRefresh(verifiedUser).finally(() => {
     activeFullSync = null;
   });
   return activeFullSync;

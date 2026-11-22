@@ -101,7 +101,7 @@ function SurvivalBadgeAwards({ awards }: { awards: TacticalBadgeAward[] }) {
   );
 }
 
-export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverview: PuzzleTrainingOverview; statsContent?: ReactNode }) {
+export function PuzzleSurvival({ initialOverview }: { initialOverview: PuzzleTrainingOverview }) {
   const trainingRewards = useTrainingRewards();
   const { pieces, squareStyles: themeSquareStyles } = useBoardAppearance();
   const router = useRouter();
@@ -554,6 +554,15 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
     const unreachableMode: never = mode;
     return unreachableMode;
   }
+
+  const directMode = searchParams.get("mode");
+  const directStart = useRef(startSelectedMode);
+  directStart.current = startSelectedMode;
+  useEffect(() => {
+    if (directMode !== "survival" && directMode !== "daily") return;
+    const frame = requestAnimationFrame(() => directStart.current(directMode, true));
+    return () => cancelAnimationFrame(frame);
+  }, [directMode]);
 
   async function saveWoodpeckerCycleOverview(input: PendingWoodpeckerCycleSave, operationId: number) {
     const statsSessionGeneration = sessionGenerationRef.current;
@@ -1302,8 +1311,6 @@ export function PuzzleSurvival({ initialOverview, statsContent }: { initialOverv
         autoAdvance={autoAdvance}
         onAutoAdvanceChange={updateAutoAdvance}
         onStart={startSelectedMode}
-        overview={overview}
-        statsContent={statsContent}
       />
     );
   }

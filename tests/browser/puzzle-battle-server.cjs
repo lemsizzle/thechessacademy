@@ -119,6 +119,7 @@ function filtered(rows, params) {
     source_kind: "lichess",
     random_key: (i % 20) / 20,
   }));
+  const soloPathFinderRuns = [];
   const db = http.createServer(async (req, res) => {
     try {
       const delay = Number(process.env.BATTLE_DB_DELAY_MS || 0);
@@ -227,6 +228,18 @@ function filtered(rows, params) {
             ).rows[0].value,
           );
         return json(res, []);
+      }
+      // Local-only persistence for launcher/board QA; rewards are not simulated.
+      if (process.env.SOLO_TRAINING_QA === "1" && table === "student_star_wars_runs") {
+        if (req.method === "POST" || req.method === "PATCH") {
+          let text = "";
+          for await (const chunk of req) text += chunk;
+          const input = JSON.parse(text || "{}");
+          if (req.method === "POST") soloPathFinderRuns.push({ ...input, reward_xp: 0 });
+          else for (const row of filtered(soloPathFinderRuns, url.searchParams)) Object.assign(row, input);
+        }
+        const rows = filtered(soloPathFinderRuns, url.searchParams);
+        return json(res, (req.headers.accept || "").includes("vnd.pgrst.object") ? (rows[0] ?? null) : rows);
       }
       if (!["GET", "HEAD"].includes(req.method))
         return json(res, { message: "Unrelated write blocked" }, 403);
@@ -348,6 +361,7 @@ function filtered(rows, params) {
         if (
           url.pathname.startsWith("/api/") &&
           !url.pathname.startsWith("/api/student/puzzle-battles") &&
+          !(process.env.SOLO_TRAINING_QA === "1" && (/^\/api\/student\/(puzzle-training|hide-and-seek|star-wars)\//.test(url.pathname))) &&
           !(process.env.BATTLE_TOURNAMENT_QA === "1" && /^\/api\/(admin|student)\/puzzle-tournaments/.test(url.pathname)) &&
           !["/api/auth/session", "/api/student/profile", ...(process.env.ENDGAME_QA === "1" ? ["/api/student/endgames"] : []), ...(process.env.ASSESSMENT_QA === "1" ? ["/api/student/assessment", "/api/student/assessment/history"] : [])].includes(url.pathname)
         ) {

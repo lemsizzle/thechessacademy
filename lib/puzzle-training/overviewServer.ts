@@ -19,6 +19,17 @@ const ATTEMPT_PAGE_SIZE = 1_000;
 const RECENT_WOODPECKER_CYCLE_LIMIT = 12;
 const RECENT_WOODPECKER_SET_LIMIT = 6;
 
+// The launcher only needs Hide and Seek's best. Detailed history and the class
+// leaderboard belong on the stats page, never on the path to a playable puzzle.
+export async function getPuzzleTrainingStartup(studentId: string): Promise<PuzzleTrainingOverview> {
+  const client = getSupabaseServiceClient();
+  if (!client) return emptyPuzzleTrainingOverview;
+  const { data, error } = await client.rpc("get_student_hide_and_seek_overview", { p_student_id: studentId });
+  if (error) throw new Error(error.message);
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ...emptyPuzzleTrainingOverview, hideAndSeek: { ...emptyPuzzleTrainingOverview.hideAndSeek, personalBest: nonNegativeInteger(row?.personal_best) } };
+}
+
 type PuzzleAttemptRow = {
   id: string;
   solved: boolean;

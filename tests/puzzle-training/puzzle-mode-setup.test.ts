@@ -14,22 +14,7 @@ function renderSetup() {
     autoAdvance: false,
     onAutoAdvanceChange: vi.fn(),
     onStart: vi.fn(),
-    overview: {
-      overall: { attempts: 0, solved: 0, accuracy: 0, elapsedSeconds: 0 },
-      daily: { completed: 0, xpEarned: 0, coinsEarned: 0, latestCompletedAt: null },
-      survival: { allTimeScore: 29, monthScore: 12, weekScore: 5 },
-      survivalByTheme: [],
-      latestWoodpeckerCycle: null,
-      woodpecker: { completedCycles: 0, completedSets: 0, recentCycles: [], recentSets: [] },
-      hideAndSeek: {
-        attempts: 0,
-        personalBest: 0,
-        averageFoundPercent: 0,
-        averageWrongCount: 0,
-        averageElapsedMs: 0,
-        latestAttemptAt: null
-      }
-    }
+
   }));
 }
 
@@ -48,7 +33,7 @@ describe("puzzle mode setup", () => {
     expect(html).toContain("Hide and Seek");
     expect(html).toContain("Learn From Your Mistakes");
     expect(html).toContain("Games + Survival · spaced review");
-    expect(html).toContain("View My Stats");
+    expect(html).toContain("Stats &amp; leaderboards");
     expect(html).not.toContain("Begin with very easy puzzles and climb through five difficulty stages.");
     expect(html).not.toContain("Turn mistakes from analyzed games and Survival training into personal puzzles.");
     expect(html).not.toContain("<select");

@@ -122,7 +122,7 @@ function SidebarContent({ variant = "public" }: { variant?: NavVariant }) {
             {studentHubs.map((hub) => (
               <div key={hub.href} className={collapsed ? undefined : "space-y-1.5"}>
                 <SidebarLink link={hub} collapsed={collapsed} active={isRouteWithin(pathname, hub.href) || hub.branches.some((branch) => isRouteWithin(pathname, branch.href))} />
-                {!collapsed && hub.branches.length > 0 ? (
+                {!collapsed && hub.branches.length > 0 && (isRouteWithin(pathname, hub.href) || hub.branches.some(branch => isRouteWithin(pathname, branch.href))) ? (
                   <div data-sidebar-branches className="ml-5 space-y-1 border-l border-white/10 pl-2" aria-label={`${hub.label} pages`}>
                     {hub.branches.map((branch) => (
                       <SidebarLink key={branch.href} link={branch} collapsed={false} branch active={isRouteWithin(pathname, branch.href)} />

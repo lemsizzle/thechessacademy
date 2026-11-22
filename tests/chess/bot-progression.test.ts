@@ -38,10 +38,8 @@ function botDefeatsQuery(botIds: string[]) {
 }
 
 function botButton(markup: string, botName: string) {
-  const nameIndex = markup.indexOf(`>${botName}<`);
-  const buttonStart = markup.lastIndexOf("<button", nameIndex);
-  const buttonEnd = markup.indexOf("</button>", nameIndex);
-  return markup.slice(buttonStart, buttonEnd);
+  return [...markup.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)]
+    .map(match => match[0]).find(button => button.includes("aria-pressed=") && button.includes(botName)) ?? "";
 }
 
 describe("computer opponent progression", () => {

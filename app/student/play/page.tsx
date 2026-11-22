@@ -7,11 +7,23 @@ import { getStudentBotProgression } from "@/chess/persistence/botProgressionServ
 import { sessionToStudentUser } from "@/lib/auth/session";
 import { getOwnDisplayedBadge } from "@/lib/badges/displayedBadgeServer";
 import { getStudentSeasonalReductions } from "@/chess/persistence/seasonalAdaptationServer";
+import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentPlayPage() {
   const student = await requireActiveStudent();
+  return <StudentPortalShell initialUser={sessionToStudentUser(student)} title="Play">
+    <div className="space-y-4">
+      <PlayModeGrid />
+      <section id="computer-game" className="scroll-mt-20" aria-label="Computer game">
+        <Suspense fallback={<p role="status" className="py-5 text-slate-300">Getting your opponents ready…</p>}><ComputerContent student={student} /></Suspense>
+      </section>
+    </div>
+  </StudentPortalShell>;
+}
+
+async function ComputerContent({ student }: { student: Awaited<ReturnType<typeof requireActiveStudent>> }) {
   const [avatarDisplay, botProgression, displayedBadge, seasonalReductions] = await Promise.all([
     getStudentAvatarDisplayData([student.studentId]),
     getStudentBotProgression(student.studentId),
@@ -22,15 +34,5 @@ export default async function StudentPlayPage() {
   const equippedItemIds = new Set(Object.values(studentAvatar.equippedItems));
   const equippedAvatarItems = avatarDisplay.items.filter((item) => equippedItemIds.has(item.id));
 
-  return (
-    <StudentPortalShell initialUser={{ ...sessionToStudentUser(student), displayedBadge }} title="Play Chess" subtitle="Choose a mode and start playing.">
-      <div className="space-y-5">
-        <PlayModeGrid />
-        <section id="computer-game" className="scroll-mt-5" aria-labelledby="computer-game-title">
-          <h2 id="computer-game-title" className="mb-3 text-lg font-black text-white">Computer</h2>
-          <VsComputerGame studentName={student.name} studentAvatar={studentAvatar} displayedBadge={displayedBadge} avatarItems={equippedAvatarItems} initialUnlockedBotIds={botProgression.unlockedBotIds} initialSeasonalReductions={seasonalReductions} />
-        </section>
-      </div>
-    </StudentPortalShell>
-  );
+  return <VsComputerGame studentName={student.name} studentAvatar={studentAvatar} displayedBadge={displayedBadge} avatarItems={equippedAvatarItems} initialUnlockedBotIds={botProgression.unlockedBotIds} initialSeasonalReductions={seasonalReductions} />;
 }

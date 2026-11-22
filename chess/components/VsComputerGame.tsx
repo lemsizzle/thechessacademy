@@ -1,4 +1,5 @@
 "use client";
+import { useStudentMenuDestination } from "@/components/student/StudentMenuNavigation";
 
 import { GameBoardWorkspace } from "@/chess/components/GameBoardWorkspace";
 
@@ -37,6 +38,11 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
   const seasonalBots = useMemo(() => personalizedSeasonalBots(seasonalReductions ?? {}), [seasonalReductions]);
   const game = useComputerGame(setUnlockedBotIds, updateSeasonalReductions);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
+  useStudentMenuDestination("/student/play", () => {
+    if (game.config && !game.outcome) setConfirmation("new-game");
+    else if (game.config) game.leaveGame();
+    else document.getElementById("computer-game")?.scrollIntoView({ block: "start" });
+  });
   const [addStudyOpen, setAddStudyOpen] = useState(false);
   const [annotationMode, setAnnotationMode] = useState<"arrow" | "circle" | null>(null);
   const [annotationStart, setAnnotationStart] = useState<string | null>(null);

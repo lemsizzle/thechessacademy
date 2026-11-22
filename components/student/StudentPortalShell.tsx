@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { clearCurrentStudentUser, getCurrentStudentUser, setCurrentStudentUserRecord } from "@/lib/auth/getCurrentUser";
 import { refreshStudentQuests } from "@/lib/studentQuestRefresh";
+import { clearQuestRefreshCooldown, reserveQuestRefresh, retryQuestRefreshLater } from "@/lib/student/questRefreshCooldown";
 import type { StudentUser } from "@/lib/types";
 import { usePathname } from "next/navigation";
 
@@ -39,19 +40,14 @@ export function StudentPortalShell({
   }, [pathname]);
   const supabaseBackedApp = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
   const allowLocalMockSession = process.env.NODE_ENV !== "production" && !supabaseBackedApp;
-  const autoSyncCooldownMs = 10 * 60 * 1000;
-
   async function refreshQuestsForSession(studentUser: StudentUser) {
     if (studentUser.onboardingCompleted === false) return;
-    const syncKey = `quest-board-auto-quest-refresh:${studentUser.studentId}`;
-    const lastSyncedAt = Number(window.sessionStorage.getItem(syncKey) ?? 0);
-    if (Number.isFinite(lastSyncedAt) && Date.now() - lastSyncedAt < autoSyncCooldownMs) return;
-    window.sessionStorage.setItem(syncKey, String(Date.now()));
+    if (!reserveQuestRefresh(studentUser.studentId)) return;
 
     try {
-      await refreshStudentQuests();
+      await refreshStudentQuests(studentUser);
     } catch {
-      window.sessionStorage.setItem(syncKey, String(Date.now() - autoSyncCooldownMs + 30_000));
+      retryQuestRefreshLater(studentUser.studentId);
     }
   }
 
@@ -131,7 +127,7 @@ export function StudentPortalShell({
   function logout() {
     fetch("/api/auth/logout", { method: "POST" }).finally(() => {
       clearCurrentStudentUser({ logout: true });
-      try { if (user) window.sessionStorage.removeItem(`quest-board-auto-quest-refresh:${user.studentId}`); } catch { /* Restricted storage must not prevent logout. */ }
+      if (user) clearQuestRefreshCooldown(user.studentId);
       window.location.href = "/";
     });
   }
@@ -157,18 +153,13 @@ export function StudentPortalShell({
             <TopNav variant="student" studentName={user.name} studentId={user.studentId} displayedBadge={user.displayedBadge} onStudentLogout={logout} />
             <main className="student-play-area mx-auto w-full max-w-7xl px-4 pb-28 pt-6 md:pb-6 lg:px-6">
               <ActiveLiveGameBanner key={user.studentId} />
-              {title && <div data-page-heading className="mb-6">
+              {title && <div data-page-heading className="mb-4">
                 <div>
-                  <p className="text-xs font-bold uppercase text-cyan-100">{user.name}</p>
-                  <h1 className="mt-1 text-2xl font-black text-white sm:text-3xl">{title}</h1>
+                  <h1 className="text-2xl font-black text-white sm:text-3xl">{title}</h1>
                   {subtitle && <p className="mt-2 max-w-3xl text-sm text-slate-400 sm:text-base">{subtitle}</p>}
                 </div>
               </div>}
-              {(user.authProvider === "academy" || user.authProvider === "supabase") && pathname === "/student" && <div className="mb-5 rounded-xl border border-white/10 bg-slate-950/60 p-4 text-sm text-slate-300">
-                <p>Signed in as <strong>{user.academyUsername ?? user.name}</strong>. Lichess is optional for Academy activities.</p>
-                <a className="mt-2 inline-block font-bold text-cyan-200 underline" href="/api/auth/lichess/start?link=1&returnTo=%2Fstudent">Connect Lichess for Lichess progress</a>
-                {linkFailed && <p role="alert" className="mt-2 text-amber-200">Lichess was not connected. Use the account assigned by your teacher, or ask your teacher for help.</p>}
-              </div>}
+              {linkFailed && <p role="alert" className="mb-4 text-sm text-amber-200">Lichess was not connected. Use the account assigned by your teacher, or ask your teacher for help.</p>}
               <TrainingSessionRewardsProvider key={user.studentId} studentId={user.studentId}><StudentMenuPage>{children}</StudentMenuPage></TrainingSessionRewardsProvider>
             </main>
           </div>

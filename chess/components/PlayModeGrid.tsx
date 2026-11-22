@@ -1,74 +1,9 @@
-"use client";
-
 import Link from "next/link";
-import { RouteLauncherDialog, useCloseRouteLauncher } from "@/components/student/RouteLauncherDialog";
-
-function PlayChoices() {
-  const closeLauncher = useCloseRouteLauncher();
-
-  function showComputerGame() {
-    closeLauncher();
-    window.requestAnimationFrame(() => {
-      document.getElementById("computer-game")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={showComputerGame}
-          className="group flex min-h-40 flex-col items-start justify-between rounded-xl border border-amber-300/25 bg-amber-300/[0.08] p-5 text-left transition hover:-translate-y-0.5 hover:border-amber-200/55 hover:bg-amber-300/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
-        >
-          <span aria-hidden="true" className="text-4xl">♟️</span>
-          <span>
-            <span className="block text-xl font-black text-white">Computer</span>
-            <span className="mt-1 block text-sm text-slate-300">Choose a bot and play right away.</span>
-          </span>
-        </button>
-        <Link
-          href="/student/play/live"
-          className="group flex min-h-40 flex-col items-start justify-between rounded-xl border border-cyan-300/25 bg-cyan-300/[0.08] p-5 transition hover:-translate-y-0.5 hover:border-cyan-200/55 hover:bg-cyan-300/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-        >
-          <span aria-hidden="true" className="text-4xl">⚡</span>
-          <span>
-            <span className="block text-xl font-black text-white">Classmate</span>
-            <span className="mt-1 block text-sm text-slate-300">Create or join a live student game.</span>
-          </span>
-        </Link>
-      </div>
-      <Link
-        href="/student/play/correspondence"
-        className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-slate-200 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200"
-      >
-        <span><span aria-hidden="true" className="mr-2">↻</span>Continue a game</span>
-        <span aria-hidden="true" className="text-slate-500">→</span>
-      </Link>
-      <Link
-        href="/student/play/history"
-        className="block rounded-lg border border-cyan-200/25 bg-cyan-300/10 px-4 py-3 transition hover:bg-cyan-300/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
-      >
-        <span className="block font-black text-white">Game History</span>
-        <span className="mt-1 block text-sm text-slate-300">Open past games on the analysis board and try different moves.</span>
-      </Link>
-    </div>
-  );
-}
 
 export function PlayModeGrid() {
-  return (
-    <RouteLauncherDialog
-      id="student-play-launcher"
-      navigationHref="/student/play"
-      contentAnchor="computer-game"
-      eyebrow="Play"
-      title="Choose an opponent"
-      description="Play a bot or challenge a classmate."
-      triggerLabel="Choose how to play"
-      triggerDescription="Computer, classmate, continue a game, or view Game History."
-    >
-      <PlayChoices />
-    </RouteLauncherDialog>
-  );
+  return <nav data-play-options aria-label="Play options" className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-300">
+    <span aria-current="page" className="rounded-lg bg-cyan-300/10 px-3 py-2.5 text-cyan-100">Bots</span>
+    {[["/student/play/live", "Classmates"], ["/student/play/history", "Game History"], ["/student/play/correspondence", "Correspondence"], ["/student/tournaments", "Tournaments"]].map(([href, label]) =>
+      <Link key={href} href={href} prefetch={false} className="inline-flex min-h-11 items-center rounded-lg px-3 hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-cyan-200">{label}</Link>)}
+  </nav>;
 }

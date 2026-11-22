@@ -25,101 +25,54 @@ export function GameSetup({ unlockedBotIds, onStart, seasonalReductions = {} }: 
   const [color, setColor] = useState<PlayerColorChoice>("white");
   const [timeControl, setTimeControl] = useState<TimeControl>(TIME_CONTROLS[0]);
 
-  return (
-    <div className="min-w-0">
-      <Card className="min-w-0 overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3 sm:px-5">
-          <div>
-            <p className="text-xs font-black uppercase tracking-wider text-cyan-200">Opponent</p>
-            <h3 className="mt-0.5 text-lg font-black text-white">Choose a bot</h3>
-          </div>
-          <p className="text-xs font-bold text-slate-500">Win without takebacks to unlock the next bot.</p>
+  const startGame = () => onStart({ bot, humanColor: resolvePlayerColor(color), timeControl });
+  return <section aria-label="Choose a bot" className="min-w-0 space-y-4">
+    <div className="sticky top-16 z-10 rounded-xl border border-cyan-200/25 bg-slate-950 p-3 shadow-lg sm:p-4">
+      <div className="flex items-center gap-3">
+        <BotPortrait src={bot.portrait} selected />
+        <div className="min-w-0 flex-1"><p className="truncate font-black text-white">{bot.name}</p><p className="text-xs text-slate-400">{colorChoices.find(choice => choice.id === color)?.label} · {timeControl.name}</p></div>
+        <Button type="button" onClick={startGame} className="shrink-0">Start vs {bot.name}</Button>
+      </div>
+      <details className="mt-2 text-sm">
+        <summary className="min-h-11 cursor-pointer py-3 font-bold text-cyan-200">Game settings</summary>
+        <div className="grid grid-cols-2 gap-3 border-t border-white/10 pt-3">
+          <label className="text-xs font-bold text-slate-300">Play as<select aria-label="Play as" value={color} onChange={event => setColor(event.target.value as PlayerColorChoice)} className="mt-1 min-h-11 w-full rounded-lg border border-white/15 bg-slate-900 px-2 text-sm text-white">{colorChoices.map(choice => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</select></label>
+          <label className="text-xs font-bold text-slate-300">Clock<select aria-label="Clock" value={timeControl.id} onChange={event => setTimeControl(TIME_CONTROLS.find(control => control.id === event.target.value)!)} className="mt-1 min-h-11 w-full rounded-lg border border-white/15 bg-slate-900 px-2 text-sm text-white">{TIME_CONTROLS.map(control => <option key={control.id} value={control.id}>{control.name}</option>)}</select></label>
         </div>
-        <div className="min-w-0 p-4 sm:p-5">
-          {[...SEASONAL_BOT_HUNTS].reverse().filter((hunt) => seasonalBotsVisible(hunt)).map((hunt) => <fieldset key={hunt.id} className="mb-5 rounded-xl border border-orange-300/30 bg-gradient-to-br from-orange-400/10 to-violet-400/10 p-3 sm:p-4">
-            <legend className="px-2 text-sm font-black text-orange-200">{hunt.label} visitors</legend>
-            <p className="mb-3 text-xs leading-relaxed text-slate-300">
-              {seasonalQuestState(hunt, false) === "active" ? <>Beat all {hunt.bots.length} without hints or takebacks for <strong className="text-amber-200">{hunt.reward} XP + {hunt.reward} coins{hunt.badge ? ` + ${hunt.badge.name} badge` : ""}</strong>. Already active for everyone!<br />Finish by {hunt.deadlineLabel}.</> : <>Meet {hunt.bots.length} seasonal friends. The seasonal quest ends {hunt.deadlineLabel}.</>}
-            </p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {seasonalBots.filter((bot) => hunt.bots.some((entry) => entry.id === bot.id)).map((difficulty) => (
-                <button key={difficulty.id} type="button" onClick={() => setBot(difficulty)} aria-pressed={bot.id === difficulty.id}
-                  className={`min-w-0 rounded-xl border p-2 text-center transition active:scale-[.98] ${bot.id === difficulty.id ? "border-orange-200 bg-orange-300/15" : "border-white/10 bg-slate-950/40 hover:border-orange-200/50"}`}>
-                  <BotPortrait src={difficulty.portrait} size="choice" selected={bot.id === difficulty.id} />
-                  <span className="mt-1 block text-xs font-black text-white">{difficulty.name}</span>
-                  {(seasonalReductions?.[difficulty.id] ?? 0) > 0 && <span className="block text-[10px] text-orange-100">Adjusted for you</span>}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-orange-100">After a qualifying loss, that bot gets a little easier just for you. Keep trying!</p>
-            {seasonalReductions === null && <p role="status" className="mt-2 text-xs text-amber-200">Your adjusted levels could not be loaded. Showing starting levels; reload to try again.</p>}
-            <details className="mt-2 text-xs text-slate-300">
-              <summary className="cursor-pointer font-bold text-orange-200">A little help after a tough game</summary>
-              <p className="mt-2 leading-relaxed">A played-out checkmate loss lowers that bot’s strength by 25 for you. Play at least 12 of your own moves over 2 minutes, using several pieces, without hints or takebacks. Quick losses, resignations, timeouts, and replaying the same game do not count. Up to two reductions per bot per Bangkok day, 200 points total, until this hunt’s deadline. Wins at your adjusted level still count toward the quest.</p>
-            </details>
-          </fieldset>)}
-          <fieldset>
-            <legend className="sr-only">Opponent</legend>
-            <div className="grid min-w-0 grid-cols-3 gap-2 sm:grid-cols-6">
-              {BOT_DIFFICULTIES.map((difficulty) => {
-                const locked = !isBotUnlocked(difficulty.id, unlockedBotIds);
-                const requirement = getBotUnlockRequirement(difficulty.id);
-                const descriptionId = `bot-${difficulty.id}-status`;
-                return (
-                  <button
-                    key={difficulty.id}
-                    type="button"
-                    disabled={locked}
-                    onClick={() => setBot(difficulty)}
-                    aria-pressed={bot.id === difficulty.id}
-                    aria-describedby={descriptionId}
-                    className={`relative min-w-0 overflow-hidden rounded-xl border p-2 text-center transition active:scale-[.98] ${locked ? "cursor-not-allowed border-white/10 bg-slate-950 opacity-45" : bot.id === difficulty.id ? "border-amber-200/70 bg-amber-200/10 shadow-[0_0_22px_rgba(251,191,36,.12)]" : "border-white/10 bg-white/[.035] hover:border-cyan-200/30 hover:bg-white/[.06]"}`}
-                  >
-                    {locked ? <span aria-hidden="true" className="absolute right-1.5 top-1.5 z-10 grid size-6 place-items-center rounded-full border border-white/10 bg-slate-950/90 text-[11px]">🔒</span> : null}
-                    <BotPortrait src={difficulty.portrait} size="choice" selected={!locked && bot.id === difficulty.id} />
-                    <span className="mt-1.5 block truncate text-xs font-black text-white sm:text-sm">{difficulty.name}</span>
-                    <span className="block truncate text-[10px] font-bold text-slate-400 sm:text-xs">{difficulty.title}</span>
-                    <span id={descriptionId} className="sr-only">{locked && requirement ? `Defeat ${requirement.botName} without takebacks to unlock.` : difficulty.description}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          <div className="mt-3 rounded-lg border border-white/10 bg-white/[.035] px-3 py-2.5">
-            <div className="min-w-0">
-              <p className="font-black text-white">{bot.name} <span className="font-bold text-cyan-200">· {bot.title}</span></p>
-              <p className="mt-0.5 text-xs text-slate-400">{bot.description}</p>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)_auto] lg:items-end">
-            <fieldset>
-              <legend className="text-xs font-black uppercase tracking-wider text-slate-400">Play as</legend>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                {colorChoices.map((choice) => (
-                  <button key={choice.id} type="button" onClick={() => setColor(choice.id)} aria-pressed={color === choice.id} className={`rounded-lg border px-2 py-2 text-center transition active:scale-[.98] ${color === choice.id ? "border-cyan-200/70 bg-cyan-200/10 text-white" : "border-white/10 bg-white/[.035] text-slate-300 hover:bg-white/[.07]"}`}>
-                    <span className="text-base" aria-hidden="true">{choice.symbol}</span>
-                    <span className="ml-1.5 text-xs font-black">{choice.label}</span>
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset>
-              <legend className="text-xs font-black uppercase tracking-wider text-slate-400">Clock</legend>
-              <div className="mt-2 grid grid-cols-4 gap-2">
-                {TIME_CONTROLS.map((control) => (
-                  <button key={control.id} type="button" onClick={() => setTimeControl(control)} aria-pressed={timeControl.id === control.id} className={`rounded-lg border px-2 py-2 text-xs font-black transition active:scale-[.98] sm:text-sm ${timeControl.id === control.id ? "border-cyan-200/70 bg-cyan-200/10 text-white" : "border-white/10 bg-white/[.035] text-slate-300 hover:bg-white/[.07]"}`}>
-                    {control.name}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-            <Button type="button" className="w-full shrink-0 px-6 lg:w-auto" onClick={() => onStart({ bot, humanColor: resolvePlayerColor(color), timeControl })}>Start vs {bot.name}</Button>
-          </div>
-        </div>
-      </Card>
+        <p className="mt-3 text-xs leading-relaxed text-slate-400">{bot.description}</p>
+      </details>
     </div>
-  );
+    <Card className="p-3 sm:p-4">
+      <h2 className="mb-3 font-black text-white">Choose your opponent</h2>
+      <fieldset>
+        <legend className="sr-only">Regular bots</legend>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{BOT_DIFFICULTIES.map(difficulty => {
+          const locked = !isBotUnlocked(difficulty.id, unlockedBotIds), requirement = getBotUnlockRequirement(difficulty.id);
+          return <button key={difficulty.id} type="button" disabled={locked} onClick={() => setBot(difficulty)} aria-pressed={bot.id === difficulty.id} aria-describedby={`bot-${difficulty.id}-status`}
+            className={`min-w-0 rounded-xl border p-2 text-center transition-colors focus-visible:outline focus-visible:outline-cyan-200 ${locked ? "border-white/10 opacity-45" : bot.id === difficulty.id ? "border-cyan-200 bg-cyan-200/10" : "border-white/10 hover:bg-white/5"}`}>
+            <BotPortrait src={difficulty.portrait} size="choice" selected={bot.id === difficulty.id} />
+            <span className="mt-2 block text-xs font-black text-white">{locked && <span aria-hidden="true">🔒 </span>}{difficulty.name}</span>
+            <span className="block text-[10px] text-slate-400">{difficulty.title}</span>
+            <span id={`bot-${difficulty.id}-status`} className="sr-only">{locked && requirement ? `Defeat ${requirement.botName} without takebacks to unlock.` : difficulty.description}</span>
+          </button>;
+        })}</div>
+      </fieldset>
+      <p className="mt-3 text-xs text-slate-400">Win without takebacks to unlock the next bot.</p>
+    </Card>
+    {[...SEASONAL_BOT_HUNTS].reverse().filter(hunt => seasonalBotsVisible(hunt)).map(hunt => <Card key={hunt.id} className="border-orange-300/20 p-3 sm:p-4">
+      <h2 className="mb-3 font-black text-orange-100">{hunt.label} visitors</h2>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">{seasonalBots.filter(candidate => hunt.bots.some(entry => entry.id === candidate.id)).map(difficulty =>
+        <button key={difficulty.id} type="button" onClick={() => setBot(difficulty)} aria-pressed={bot.id === difficulty.id} className={`min-w-0 rounded-xl border p-2 text-center transition-colors focus-visible:outline focus-visible:outline-orange-200 ${bot.id === difficulty.id ? "border-orange-200 bg-orange-300/10" : "border-white/10 hover:bg-white/5"}`}>
+          <BotPortrait src={difficulty.portrait} size="choice" selected={bot.id === difficulty.id} />
+          <span className="mt-2 block text-xs font-black text-white">{difficulty.name}</span>
+          {(seasonalReductions?.[difficulty.id] ?? 0) > 0 && <span className="block text-[10px] text-orange-100">Adjusted for you</span>}
+        </button>)}</div>
+      <details className="mt-2 text-xs text-slate-300">
+        <summary className="min-h-11 cursor-pointer py-3 font-bold text-orange-200">{hunt.label} quest · {hunt.reward} XP + {hunt.reward} coins</summary>
+        <p>{seasonalQuestState(hunt, false) === "active" ? <>Beat all {hunt.bots.length} without hints or takebacks. Already active for everyone! {hunt.badge && <>Earn the {hunt.badge.name} badge.</>}</> : <>The seasonal quest has ended.</>} Finish by {hunt.deadlineLabel}.</p>
+        <p className="mt-2 leading-relaxed">After a qualifying checkmate loss, that bot gets a little easier just for you. Play at least 12 of your own moves over 2 minutes, using several pieces, without hints or takebacks. Quick losses, resignations, timeouts, and replaying the same game do not count. Up to two reductions per bot per Bangkok day, 200 points total, until this hunt’s deadline. Wins at your adjusted level still count.</p>
+      </details>
+      {seasonalReductions === null && <p role="status" className="text-xs text-amber-200">Your adjusted levels could not be loaded. Showing starting levels; reload to try again.</p>}
+    </Card>)}
+  </section>;
 }

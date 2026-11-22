@@ -74,6 +74,17 @@ describe("getStudentPuzzleTrainingOverview", () => {
     vi.clearAllMocks();
   });
 
+  it("starts training with one personal-record lookup and no history or class leaderboard", async () => {
+    const client = createServiceClient({}, { get_student_hide_and_seek_overview: { data: [{ personal_best: 91 }] } });
+    mocks.getSupabaseServiceClient.mockReturnValue(client);
+    const { getPuzzleTrainingStartup } = await import("@/lib/puzzle-training/overviewServer");
+    const result = await getPuzzleTrainingStartup("student-a");
+    expect(result.hideAndSeek.personalBest).toBe(91);
+    expect(client.rpc).toHaveBeenCalledExactlyOnceWith("get_student_hide_and_seek_overview", { p_student_id: "student-a" });
+    expect(client.from).not.toHaveBeenCalled();
+    expect(mocks.getSurvivalLeaderboardScores).not.toHaveBeenCalled();
+  });
+
   it("returns an empty overview without a configured service client", async () => {
     mocks.getSupabaseServiceClient.mockReturnValue(null);
     const { emptyPuzzleTrainingOverview } = await import("@/lib/puzzle-training/overview");
