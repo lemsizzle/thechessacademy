@@ -1,14 +1,11 @@
 "use client";
-import { ProfileTestResults } from "@/components/training/ProfileTestResults";
-import { AdminStudentRecentGames } from "@/components/admin/AdminStudentRecentGames";
+import dynamic from "next/dynamic";
 
 import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { StudentActivityTimeline } from "@/components/StudentActivityTimeline";
-import { AdminStudentAvatarRewards } from "@/components/admin/AdminStudentAvatarRewards";
-import { BadgeGeneratorPanel } from "@/components/admin/BadgeGeneratorPanel";
 import { activity } from "@/data/activity";
 import { conceptThemes, allBadges as seedBadges, tacticThemes } from "@/data/badges";
 import { classGroups as seedClassGroups } from "@/data/classGroups";
@@ -31,6 +28,13 @@ import { findAttemptForPeriod, selectPendingQuestAward, selectQuestCompletion, s
 import { buildStudentActivityItems } from "@/lib/studentActivity";
 import type { ArenaTournamentResult, AvatarItem, Badge, BadgeCategory, BadgeTier, ClassGroup, CoinTransaction, ConceptTheme, GameReviewSubmission, LichessConnection, LichessQuestProgress, LichessSyncLog, PendingAward, PendingQuestAward, Quest, QuestCompletionEvent, QuestConditionType, QuestSource, QuestStatus, QuestTimeWindow, QuestType, Student, StudentLichessAccount, StudentQuestAttempt, StudentTacticProgress, TacticTheme, XpEvent } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
+
+function PanelLoading() { return <p role="status" className="py-5 text-sm text-slate-400">Loading this section…</p>; }
+const ProfileTestResults = dynamic(() => import("@/components/training/ProfileTestResults").then(module => module.ProfileTestResults), { loading: PanelLoading });
+const AdminStudentRecentGames = dynamic(() => import("@/components/admin/AdminStudentRecentGames").then(module => module.AdminStudentRecentGames), { loading: PanelLoading });
+const AdminStudentAvatarRewards = dynamic(() => import("@/components/admin/AdminStudentAvatarRewards").then(module => module.AdminStudentAvatarRewards), { loading: PanelLoading });
+const BadgeGeneratorPanel = dynamic(() => import("@/components/admin/BadgeGeneratorPanel").then(module => module.BadgeGeneratorPanel), { loading: PanelLoading });
+const studentSections = ["Profile", "Games", "Tests", "Rewards", "Quests", "Activity"] as const;
 
 type AdminMode = "overview" | "students" | "classes" | "badges" | "xp" | "quests" | "activity" | "resources";
 type DeleteStudentAction = (input: { id: string; slug?: string; lichessUsername?: string; actionToken?: string }) => Promise<{ ok: boolean; error?: string; deleted?: boolean; skipped?: boolean; count?: number; mode?: "local-only" }>;
@@ -135,7 +139,7 @@ export function AdminPanel({
   adminActionToken,
   initialBadges,
   initialQuests,
-  initialAvatarItems = [],
+  initialAvatarItems,
   initialStudentLichessAccounts
 }: {
   mode?: AdminMode;
@@ -148,6 +152,9 @@ export function AdminPanel({
   deleteStudentAction?: DeleteStudentAction;
   adminActionToken?: string;
 }) {
+  const [studentSection, setStudentSection] = useState<typeof studentSections[number]>("Profile");
+  const showStudentSection = (section: typeof studentSections[number]) => mode !== "students" || studentSection === section;
+  const needsQuestTracking = mode === "overview" || (mode === "students" && (studentSection === "Quests" || studentSection === "Activity"));
   const [students, setStudents] = useState<Student[]>(initialStudents ?? seedStudents);
   const [badges, setBadges] = useState<Badge[]>(initialBadges ?? seedBadges);
   const [quests, setQuests] = useState<Quest[]>(initialQuests ?? seedQuests);
@@ -187,8 +194,16 @@ export function AdminPanel({
   const [badgeSaving, setBadgeSaving] = useState(false);
   const [questSaving, setQuestSaving] = useState(false);
   const [questActivationPending, setQuestActivationPending] = useState<string | null>(null);
+  const classGroups = useMemo(() => getClassGroupNames(outschoolGroups, students), [outschoolGroups, students]);
+  const classRoster = useMemo(() => getClassRoster(students, selectedClassGroup), [selectedClassGroup, students]);
+  const selectedClassDetails = outschoolGroups.find((group) => group.name === selectedClassGroup);
+  const currentStudent = selectedClassGroup === ALL_CLASSES
+    ? students.find((student) => student.id === selectedStudent) ?? classRoster[0] ?? students[0]
+    : classRoster.find((student) => student.id === selectedStudent) ?? classRoster[0];
+  const questStudentId = mode === "students" ? currentStudent?.id : undefined;
 
   useEffect(() => {
+    if (!["students", "classes", "quests", "overview"].includes(mode)) return;
     let active = true;
     void fetch("/api/classes", { cache: "no-store" }).then(async response => {
       if (!response.ok) return;
@@ -196,7 +211,7 @@ export function AdminPanel({
       if (active && Array.isArray(data.data)) setOutschoolGroups(data.data);
     }).catch(() => {});
     return () => { active = false; };
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     const parsed = readAdminStore();
@@ -268,14 +283,23 @@ export function AdminPanel({
   }, [badges, loaded, log, outschoolGroups, quests, students, tacticProgress, lichessConnections, studentLichessAccounts, gameReviewSubmissions, pendingAwards, lichessSyncLogs, lichessQuestProgress, studentQuestAttempts, pendingQuestAwards, questCompletionEvents]);
 
   useEffect(() => {
+    if (!needsQuestTracking || (mode === "students" && !questStudentId)) return;
+    let cancelled = false;
+    let inFlight = false;
+    let lastRefresh = 0;
+    const controller = new AbortController();
     async function refreshQuestTrackingFromStore() {
+      if (cancelled || inFlight || document.visibilityState === "hidden" || Date.now() - lastRefresh < 30_000) return;
+      inFlight = true;
+      lastRefresh = Date.now();
       const store = readAdminStore();
       setLichessQuestProgress(store.lichessQuestProgress ?? []);
       setStudentQuestAttempts(store.studentQuestAttempts ?? []);
       setPendingQuestAwards(store.pendingQuestAwards ?? []);
       setQuestCompletionEvents(store.questCompletionEvents ?? []);
       try {
-        const response = await fetch("/api/quest-progress", {
+        const response = await fetch(questStudentId ? `/api/quest-progress?studentId=${encodeURIComponent(questStudentId)}` : "/api/quest-progress", {
+          signal: controller.signal,
           cache: "no-store",
           credentials: "include",
           headers: {
@@ -287,7 +311,7 @@ export function AdminPanel({
           progress?: LichessQuestProgress[];
           completions?: QuestCompletionEvent[];
         };
-        if (!response.ok) return;
+        if (!response.ok || cancelled) return;
         const latestStore = readAdminStore();
         const mergedAttempts = mergeQuestAttempts(data.attempts ?? [], latestStore.studentQuestAttempts ?? []);
         const mergedProgress = mergeLichessQuestProgress(data.progress ?? [], latestStore.lichessQuestProgress ?? []);
@@ -302,6 +326,8 @@ export function AdminPanel({
         });
       } catch {
         // Local storage remains the fallback when shared quest tracking is unavailable.
+      } finally {
+        inFlight = false;
       }
     }
 
@@ -316,10 +342,12 @@ export function AdminPanel({
     window.addEventListener("focus", handleFocus);
     void refreshQuestTrackingFromStore();
     return () => {
+      cancelled = true;
+      controller.abort();
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [adminActionToken]);
+  }, [adminActionToken, needsQuestTracking, questStudentId, mode]);
 
   useEffect(() => {
     if (!requestedStudent || !students.length) return;
@@ -330,12 +358,20 @@ export function AdminPanel({
     }
   }, [requestedStudent, students]);
 
-  const classGroups = useMemo(() => getClassGroupNames(outschoolGroups, students), [outschoolGroups, students]);
-  const classRoster = useMemo(() => getClassRoster(students, selectedClassGroup), [selectedClassGroup, students]);
-  const selectedClassDetails = outschoolGroups.find((group) => group.name === selectedClassGroup);
-  const currentStudent = selectedClassGroup === ALL_CLASSES
-    ? students.find((student) => student.id === selectedStudent) ?? classRoster[0] ?? students[0]
-    : classRoster.find((student) => student.id === selectedStudent) ?? classRoster[0];
+  useEffect(() => { setCurrentStudentCoinTransactions([]); }, [currentStudent?.id]);
+  useEffect(() => {
+    if (mode !== "students" || studentSection !== "Activity" || !currentStudent) return;
+    const controller = new AbortController();
+    void fetch(`/api/admin/wallets/adjust?studentId=${encodeURIComponent(currentStudent.id)}`, {
+      cache: "no-store", signal: controller.signal,
+      headers: adminActionToken ? { "x-admin-action-token": adminActionToken } : {}
+    }).then(async response => {
+      if (!response.ok) return;
+      const data = await response.json() as { transactions?: CoinTransaction[] };
+      if (!controller.signal.aborted) setCurrentStudentCoinTransactions(data.transactions ?? []);
+    }).catch(() => { /* The saved local activity remains available. */ });
+    return () => controller.abort();
+  }, [mode, studentSection, currentStudent?.id, adminActionToken]);
   const currentBadge = badges.find((badge) => badge.id === selectedBadge) ?? badges[0];
   const currentQuest = quests.find((quest) => quest.id === selectedQuest && !quest.source?.startsWith("lichess_")) ?? quests.find((quest) => !quest.source?.startsWith("lichess_"));
   const filteredBadges = useMemo(() => badges.filter((badge) => (
@@ -441,6 +477,7 @@ export function AdminPanel({
   }
 
   function addStudent() {
+    setStudentSection("Profile");
     const classGroup = selectedClassGroup === ALL_CLASSES ? UNASSIGNED_CLASS : selectedClassGroup;
     const student = emptyStudent(students.length, classGroup);
     setStudents((items) => [student, ...items]);
@@ -969,13 +1006,11 @@ export function AdminPanel({
     <Card className="p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-black text-white">Student Editor</h2>
-          <p className="mt-1 text-sm text-slate-400">Choose a class, then manage that roster from one place.</p>
+          <h2 className="font-black text-white">Student workspace</h2>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={addStudent}>Add Student</Button>
-          <Button variant="secondary" onClick={saveStudent}>Save Student</Button>
-          {currentStudent && <Button variant="ghost" onClick={deleteStudent}>Delete Student</Button>}
+          {showStudentSection("Profile") && <Button variant="secondary" onClick={saveStudent}>Save Student</Button>}
         </div>
       </div>
       <div className="mt-4 space-y-4">
@@ -1020,8 +1055,10 @@ export function AdminPanel({
       </div>
       {currentStudent ? (
         <>
-      <ProfileTestResults key={`tests-${currentStudent.id}`} studentId={currentStudent.id} actionToken={adminActionToken} />
-      <AdminStudentRecentGames key={currentStudent.id} studentId={currentStudent.id} studentName={currentStudent.name} actionToken={adminActionToken} />
+      {mode === "students" && <nav aria-label="Student sections" className="mt-4 grid grid-cols-3 gap-1 rounded-lg bg-black/20 p-1 sm:grid-cols-6">{studentSections.map(section => <button key={section} type="button" aria-pressed={studentSection === section} onClick={() => setStudentSection(section)} className={`min-h-11 rounded-md px-2 text-sm font-bold ${studentSection === section ? "bg-cyan-200/15 text-cyan-100" : "text-slate-400 hover:bg-white/5"}`}>{section}</button>)}</nav>}
+      {showStudentSection("Tests") && <ProfileTestResults key={`tests-${currentStudent.id}`} studentId={currentStudent.id} actionToken={adminActionToken} />}
+      {showStudentSection("Games") && <AdminStudentRecentGames key={currentStudent.id} studentId={currentStudent.id} studentName={currentStudent.name} actionToken={adminActionToken} />}
+      {showStudentSection("Profile") && <>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="grid gap-1 text-xs font-bold text-slate-300">Name
           <input className={fieldClass()} value={currentStudent.name} onChange={(event) => updateStudent({ name: event.target.value })} />
@@ -1054,6 +1091,9 @@ export function AdminPanel({
           <textarea className={fieldClass("min-h-24")} value={currentStudent.encouragement} onChange={(event) => updateStudent({ encouragement: event.target.value })} />
         </label>
       </div>
+      <details className="mt-4 border-t border-white/10 pt-2"><summary className="min-h-11 cursor-pointer py-3 text-xs text-slate-400">Remove this student</summary><Button variant="ghost" onClick={deleteStudent}>Delete Student</Button></details>
+      </>}
+      {showStudentSection("Rewards") && <>
       <div className="mt-5 rounded-lg border border-amber-300/20 bg-amber-300/10 p-4">
         <h3 className="font-black text-white">Student XP</h3>
         <div className="mt-3 grid gap-3 lg:grid-cols-[140px_1fr_auto_auto]">
@@ -1085,6 +1125,7 @@ export function AdminPanel({
         adminActionToken={adminActionToken}
         onTransactionsChange={setCurrentStudentCoinTransactions}
       />
+      </>}
         </>
       ) : (
         <div className="mt-5 rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4">
@@ -1100,7 +1141,7 @@ export function AdminPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="font-black text-white">Quest Progress</h2>
-          <p className="mt-1 text-sm text-slate-400">Live synced quest attempts for {currentStudent.name}. Students must press Start before progress counts.</p>
+          <p className="mt-1 text-sm text-slate-400">Chess Quest progress for {currentStudent.name}.</p>
         </div>
         <span className="rounded bg-fuchsia-300/10 px-2 py-1 text-xs font-black text-fuchsia-100">
           {currentStudentQuestAttempts.filter((attempt) => isQuestAttemptActive(attempt)).length} active
@@ -1610,11 +1651,12 @@ export function AdminPanel({
   );
 
   if (mode === "activity") return <ActivityFeed events={activity} />;
-  if (mode === "students") return <div className="space-y-5">{studentEditor}{studentQuestProgressPanel}{studentActivityPanel}{localTools}{logPanel}</div>;
+  const maintenance = <details className="rounded-lg border border-white/10 p-3"><summary className="min-h-11 cursor-pointer py-3 text-xs font-bold text-slate-400">Local backup & diagnostics</summary><div className="space-y-4">{localTools}{logPanel}</div></details>;
+  if (mode === "students") return <div className="space-y-4">{studentEditor}{studentSection === "Quests" && studentQuestProgressPanel}{studentSection === "Activity" && studentActivityPanel}{maintenance}</div>;
   if (mode === "classes") return <div className="space-y-5">{outschoolPanel}{localTools}{logPanel}</div>;
-  if (mode === "badges") return <div className="space-y-5">{badgeEditor}{localTools}{logPanel}</div>;
-  if (mode === "xp") return <div className="space-y-5">{xpEditor}{localTools}{logPanel}</div>;
-  if (mode === "quests") return <div className="space-y-5">{questEditor}{localTools}{logPanel}</div>;
+  if (mode === "badges") return <div className="space-y-5">{badgeEditor}{maintenance}</div>;
+  if (mode === "xp") return <div className="space-y-5">{xpEditor}{maintenance}</div>;
+  if (mode === "quests") return <div className="space-y-5">{questEditor}{maintenance}</div>;
 
   return (
     <div className="space-y-5">

@@ -17,7 +17,7 @@ function TopNavAction({ href, label, className }: { href: string; label: string;
     );
   }
 
-  return <Link className={className} href={href}>{label}</Link>;
+  return <Link prefetch={false} className={className} href={href}>{label}</Link>;
 }
 
 export function TopNav({
@@ -33,7 +33,7 @@ export function TopNav({
   studentId?: string;
   onStudentLogout?: () => void;
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const menuRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     if (menuRef.current) menuRef.current.open = false;
@@ -65,7 +65,7 @@ export function TopNav({
   return (
     <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/78 px-4 py-3 backdrop-blur lg:px-6">
       <div className="flex items-center justify-between gap-3">
-        <Link href={homeHref} className="font-black text-white">The Chess Academy Quest Board</Link>
+        <Link prefetch={false} href={homeHref} className="font-black text-white">{variant === "admin" ? "Chess Quest · Teacher" : "The Chess Academy Quest Board"}</Link>
         <div className="hidden items-center gap-2 text-xs font-bold md:flex">
           {actions.map((link) => (
             <TopNavAction
@@ -91,7 +91,7 @@ export function TopNav({
                   {group.title && <p className="mb-2 text-xs font-black uppercase text-slate-500">{group.title}</p>}
                   <div className="grid gap-1">
                     {group.links.map((link) => (
-                      <Link key={link.href} className="rounded-md px-3 py-2 text-sm font-bold text-slate-200 hover:bg-white/10" href={link.href}>
+                      <Link prefetch={false} key={link.href} className="flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-bold text-slate-200 hover:bg-white/10" href={link.href}>
                         {link.icon ? `${link.icon} ` : ""}{link.label}
                       </Link>
                     ))}
@@ -111,6 +111,9 @@ export function TopNav({
           </div>
         </details>
       </div>
+      {variant === "admin" && <nav aria-label="Teacher quick navigation" className="mt-2 flex gap-1 border-t border-white/10 pt-1 md:hidden">
+        {[{ href: "/admin/students", label: "Students" }, { href: "/admin/live-games", label: "Live games" }, { href: "/admin/tournaments", label: "Tournaments" }].map(link => <Link key={link.href} prefetch={false} href={link.href} aria-current={pathname === link.href || pathname.startsWith(`${link.href}/`) ? "page" : undefined} className="flex min-h-11 flex-1 items-center justify-center rounded-md text-xs font-bold text-slate-300 hover:bg-white/5 aria-[current=page]:bg-cyan-200/10 aria-[current=page]:text-cyan-100">{link.label}</Link>)}
+      </nav>}
     </header>
   );
 }

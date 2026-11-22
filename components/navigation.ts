@@ -76,23 +76,23 @@ const studentMoreLinks: NavLink[] = [
 
 const teacherCoreLinks: NavLink[] = [
   { href: "/admin", label: "Dashboard", icon: "\u{1F9ED}" },
-  { href: "/admin/submissions", label: "Submissions", icon: "\u{1F4E5}" },
   { href: "/admin/students", label: "Students", icon: "\u265F\uFE0F" },
-  { href: "/admin/leaderboard", label: "Leaderboard", icon: "\u{1F3C6}" }
+  { href: "/admin/live-games", label: "Live Games", icon: "\u{1F441}\uFE0F" },
+  { href: "/admin/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" },
+  { href: "/admin/classes", label: "Classes", icon: "\u{1F3EB}" }
 ];
 
 const teacherSetupLinks: NavLink[] = [
-  { href: "/admin/classes", label: "Classes", icon: "\u{1F3EB}" },
   { href: "/admin/badges", label: "Badges", icon: "\u{1F396}\uFE0F" },
   { href: "/admin/quests", label: "Quests", icon: "\u{1F4DC}" },
-  { href: "/admin/tournaments", label: "Tournaments", icon: "\u{1F3DF}\uFE0F" },
   { href: "/admin/resources", label: "Resources", icon: "\u{1F517}" },
   { href: "/admin/avatar", label: "Avatar Studio", icon: "\u{1F9D9}" }
 ];
 
 const teacherToolLinks: NavLink[] = [
+  { href: "/admin/submissions", label: "Submissions", icon: "\u{1F4E5}" },
   { href: "/admin/assessments", label: "Skills Tests", icon: "✓" },
-  { href: "/admin/live-games", label: "Live Games", icon: "\u{1F441}\uFE0F" },
+  { href: "/admin/leaderboard", label: "Leaderboard", icon: "\u{1F3C6}" },
   { href: "/admin/chess-performance", label: "Chess Performance", icon: "\u{1F4CA}" },
   { href: "/admin/adaptive-training", label: "Adaptive Training", icon: "\u{1F9E0}" },
   { href: "/admin/chess-ratings", label: "Chess Ratings", icon: "\u{1F3C5}" },
@@ -104,8 +104,8 @@ export function getNavigationGroups(variant: NavVariant): NavGroup[] {
   if (variant === "admin") {
     return [
       { title: "Teacher", links: teacherCoreLinks },
-      { title: "Setup", links: teacherSetupLinks },
-      { title: "Tools", links: teacherToolLinks }
+      { title: "Review & progress", links: teacherToolLinks },
+      { title: "Content & rewards", links: teacherSetupLinks }
     ];
   }
 

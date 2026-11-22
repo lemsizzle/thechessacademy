@@ -7,6 +7,7 @@ const port = Number(process.env.BATTLE_PREVIEW_PORT || 9482),
   dbPort = port + 1,
   origin = `http://127.0.0.1:${port}`;
 const secret = "puzzle-battle-isolated-session-secret";
+const teacherRequests = [];
 Object.assign(process.env, {
   NODE_ENV: "production",
   STUDENT_SESSION_SECRET: secret,
@@ -296,6 +297,8 @@ function filtered(rows, params) {
       .createServer(async (req, res) => {
         const url = new URL(req.url, origin);
         if (process.env.ASSESSMENT_QA === "1" && url.pathname === "/__qa/assessment-legacy") return json(res,(await pg.query('select to_jsonb(start_chess_assessment($1,$2)) value',[students[Number(url.searchParams.get('user') || 0)].id,'knowledge-a-v1'])).rows[0].value);
+        if (process.env.TEACHER_QA === "1" && url.pathname === "/__qa/teacher-requests") return json(res, teacherRequests);
+        if (process.env.TEACHER_QA === "1" && url.pathname.startsWith("/api/")) teacherRequests.push(`${req.method} ${url.pathname}${url.search}`);
         if (process.env.BATTLE_TOURNAMENT_QA === "1" && url.pathname === "/__qa/teacher") {
           const {createHash}=require("node:crypto");
           const cookie="quest-board-admin-v1."+createHash("sha256").update(`quest-board-admin-v1:${secret}`).digest("hex");
@@ -361,10 +364,14 @@ function filtered(rows, params) {
         if (
           url.pathname.startsWith("/api/") &&
           !url.pathname.startsWith("/api/student/puzzle-battles") &&
+          !(process.env.TEACHER_QA === "1" && (url.pathname === "/api/quest-progress" || /^\/api\/admin\/students\/[^/]+\/games$/.test(url.pathname))) &&
           !(process.env.SOLO_TRAINING_QA === "1" && (/^\/api\/student\/(puzzle-training|hide-and-seek|star-wars)\//.test(url.pathname))) &&
           !(process.env.BATTLE_TOURNAMENT_QA === "1" && /^\/api\/(admin|student)\/puzzle-tournaments/.test(url.pathname)) &&
           !["/api/auth/session", "/api/student/profile", ...(process.env.ENDGAME_QA === "1" ? ["/api/student/endgames"] : []), ...(process.env.ASSESSMENT_QA === "1" ? ["/api/student/assessment", "/api/student/assessment/history"] : [])].includes(url.pathname)
         ) {
+          if (process.env.TEACHER_QA === "1" && url.pathname === "/api/admin/classes") return json(res, { groups: [], revision: 1 });
+          if (process.env.TEACHER_QA === "1" && url.pathname === "/api/classes") return json(res, { data: [] });
+          if (process.env.TEACHER_QA === "1" && url.pathname === "/api/admin/wallets/adjust" && req.method === "GET") return json(res, { wallet: { academyCoins: 0, totalCoinsEarned: 0, totalCoinsSpent: 0 }, transactions: [] });
           if (url.pathname === "/api/student/online-play")
             return json(res, {
               state: {

@@ -164,7 +164,14 @@ function SidebarContent({ variant = "public" }: { variant?: NavVariant }) {
               </div>
             )}
           </>
-        ) : groups.map((group, index) => (
+        ) : variant === "admin" ? groups.map((group, index) => index === 0 ? (
+          <div key="teacher-primary" className="space-y-1">{group.links.map(link => <SidebarLink key={link.href} link={link} collapsed={collapsed} active={isRouteWithin(pathname, link.href)} />)}</div>
+        ) : (
+          <details key={`${group.title}-${group.links.some(link => isRouteWithin(pathname, link.href))}`} open={group.links.some(link => isRouteWithin(pathname, link.href))} className="border-t border-white/10 pt-2">
+            <summary title={group.title} onClick={() => { if (collapsed) saveCollapsed(false); }} className="min-h-11 cursor-pointer rounded-md px-2 py-3 text-xs font-bold text-slate-300 hover:bg-white/5">{collapsed ? "•••" : group.title}</summary>
+            <div className="mt-1 space-y-1">{group.links.map(link => <SidebarLink key={link.href} link={link} collapsed={collapsed} branch active={isRouteWithin(pathname, link.href)} />)}</div>
+          </details>
+        )) : groups.map((group, index) => (
           <div key={group.title ?? `group-${index}`}>
             {group.title && !collapsed ? <p className="mb-2 px-3 text-xs font-black uppercase text-slate-500">{group.title}</p> : null}
             <div className="space-y-1">

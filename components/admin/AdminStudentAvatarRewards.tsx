@@ -7,16 +7,19 @@ import { useEffect, useState } from "react";
 
 export function AdminStudentAvatarRewards({
   student,
-  items,
+  items: initialItems,
   adminActionToken,
   onTransactionsChange
 }: {
   student: Student;
-  items: AvatarItem[];
+  items?: AvatarItem[];
   adminActionToken?: string;
   onTransactionsChange?: (transactions: CoinTransaction[]) => void;
 }) {
-  const [itemId, setItemId] = useState(items[0]?.id ?? "");
+  const [items, setItems] = useState<AvatarItem[]>(initialItems ?? []);
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogRetry, setCatalogRetry] = useState(0);
+  const [itemId, setItemId] = useState(initialItems?.[0]?.id ?? "");
   const [coinAmount, setCoinAmount] = useState(25);
   const [wallet, setWallet] = useState<StudentWallet | null>(null);
   const [message, setMessage] = useState("Choose a cosmetic to grant, or update this student's spendable coins.");
@@ -25,6 +28,23 @@ export function AdminStudentAvatarRewards({
     "Content-Type": "application/json",
     ...(adminActionToken ? { "x-admin-action-token": adminActionToken } : {})
   };
+
+  useEffect(() => {
+    if (initialItems) return;
+    const controller = new AbortController();
+    setCatalogError("");
+    void fetch("/api/admin/avatar-items", {
+      cache: "no-store", signal: controller.signal,
+      headers: adminActionToken ? { "x-admin-action-token": adminActionToken } : {}
+    }).then(async response => {
+      const data = await response.json() as { items?: AvatarItem[]; error?: string };
+      if (!response.ok || !data.items) throw new Error(data.error ?? "Could not load avatar items.");
+      if (controller.signal.aborted) return;
+      setItems(data.items);
+      setItemId(data.items[0]?.id ?? "");
+    }).catch(error => { if (!controller.signal.aborted) setCatalogError(error instanceof Error ? error.message : "Could not load avatar items."); });
+    return () => controller.abort();
+  }, [initialItems, adminActionToken, catalogRetry]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +120,7 @@ export function AdminStudentAvatarRewards({
   return (
     <div className="mt-5 rounded-lg border border-fuchsia-300/20 bg-fuchsia-300/10 p-4">
       <h3 className="font-black text-white">Avatar Rewards & Academy Coins</h3>
+      {catalogError && <p role="alert" className="mt-2 text-sm text-amber-200">{catalogError} <button className="min-h-11 underline" onClick={() => setCatalogRetry(value => value + 1)}>Retry items</button></p>}
       <p className="mt-1 text-sm text-fuchsia-50/80">Changes apply only to {student.name}. Lifetime XP is never spent or changed here.</p>
 
       <div className="mt-4 flex flex-wrap items-end justify-between gap-3 rounded-md border border-amber-300/20 bg-amber-300/10 p-3">

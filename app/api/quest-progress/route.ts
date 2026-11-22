@@ -19,7 +19,10 @@ export async function GET(request: Request) {
   const { student, admin } = await getAccess(request);
   if (!student && !admin) return NextResponse.json({ error: "Log in required." }, { status: 401 });
 
-  const result = await getSupabaseQuestTracking(admin ? undefined : student?.studentId);
+  // Teachers can open one student's progress without downloading the whole roster.
+  // A student-provided query must never override their authenticated identity.
+  const requestedStudentId = new URL(request.url).searchParams.get("studentId") || undefined;
+  const result = await getSupabaseQuestTracking(admin ? requestedStudentId : student?.studentId);
   if (result.error) return NextResponse.json({ ...result, mode: "local-only" });
   return NextResponse.json(result);
 }
