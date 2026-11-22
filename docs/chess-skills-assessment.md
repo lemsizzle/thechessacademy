@@ -22,6 +22,21 @@ position, Student move, and Solution line buttons reset temporary exploration.
 Analysis and optional local engine use never modify answers or grades. Original
 Knowledge A questions without a diagram retain a text-only review.
 
+Completed test results also appear on the teacher's selected student profile
+(`/admin/students?student=...`) and the student's own Academy profile. The list
+shows completion dates, form versions, scores out of 100, and correct answers
+out of 30, newest first, with ten results per page. Each result links directly
+to its analysis review. Students use `/student/training/assessment/[attemptId]`,
+which checks active identity, ownership, and completion before loading solutions.
+Teachers retain their existing protected review route. Other students and public
+visitors cannot see the private profile section or retrieve its results.
+
+`/api/student/assessment/history` returns only summary fields, not question banks
+or answers. It reads once on opening the section, with explicit refresh and
+pagination; there is no background polling or grading on profile views. Failed
+loads offer a retry. Active tests are excluded. This uses the existing assessment
+table without changing stored answers, scores, or the database schema.
+
 The two versions retain independent keys and reviews. Existing active original
 quizzes can finish normally, and completed results remain unchanged. Teacher
 reports identify each form; scores from different forms should not be compared.
@@ -46,3 +61,5 @@ the prompt. Engines and external services are not used while students take tests
 Checks: `tests/assessment/skills.test.ts`,
 `node --test tests/assessment/skills-db.test.mjs`, and
 `tests/browser/verify-skills-assessment.cjs` against the isolated assessment QA server.
+Profile integration and privacy checks: `tests/assessment/profile-history.test.ts`
+and `tests/browser/verify-profile-assessments.cjs`.

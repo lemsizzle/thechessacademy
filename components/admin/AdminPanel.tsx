@@ -1,4 +1,5 @@
 "use client";
+import { ProfileTestResults } from "@/components/training/ProfileTestResults";
 import { AdminStudentRecentGames } from "@/components/admin/AdminStudentRecentGames";
 
 import { BOT_DIFFICULTIES } from "@/chess/bots/difficulties";
@@ -1019,6 +1020,7 @@ export function AdminPanel({
       </div>
       {currentStudent ? (
         <>
+      <ProfileTestResults key={`tests-${currentStudent.id}`} studentId={currentStudent.id} actionToken={adminActionToken} />
       <AdminStudentRecentGames key={currentStudent.id} studentId={currentStudent.id} studentName={currentStudent.name} actionToken={adminActionToken} />
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="grid gap-1 text-xs font-bold text-slate-300">Name

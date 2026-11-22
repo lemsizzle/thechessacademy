@@ -15,6 +15,13 @@ export function assessmentReview(attempt: Pick<AssessmentAttempt, "answers"> & {
     return { id: q.id, correct: attempt.answers[q.id] === q.answer, answer: q.answer, explanation: q.explanation };
   });
 }
+export function assessmentAnalysisQuestions(attempt: AssessmentAttempt) {
+  const review = assessmentReview(attempt), form = assessmentForm(attempt.version);
+  return publicQuestions(attempt.version).map((question, index) => {
+    const result = review[index], source = form[index];
+    return { ...question, studentAnswer: attempt.answers[question.id] || "", answerLabel: question.kind === "move" ? result.answer : question.options.find(option => option.id === result.answer)!.text, correct: result.correct, explanation: result.explanation, solution: "solution" in source ? source.solution : [] };
+  });
+}
 export async function saveAssessment(studentId: string, attemptId: string, answers: unknown, submit = false): Promise<AssessmentAttempt> {
   const db = assessmentDb();
   const { data: rows, error: readError } = await db.from("student_chess_assessments").select("version").eq("id", attemptId).eq("student_id", studentId).limit(1);

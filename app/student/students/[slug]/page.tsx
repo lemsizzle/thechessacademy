@@ -1,3 +1,4 @@
+import { PrivateProfileTestResults } from "@/components/training/PrivateProfileTestResults";
 import { notFound } from "next/navigation";
 import { StudentPortalShell } from "@/components/student/StudentPortalShell";
 import { StudentJourneyDashboard } from "@/components/student/StudentJourneyDashboard";
@@ -11,7 +12,7 @@ export default async function StudentFacingProfilePage({ params }: { params: Pro
   if (!dashboard) notFound();
   return (
     <StudentPortalShell title={`${dashboard.student.name}'s Academy Journey`} subtitle="Student profile · Read-only">
-      <StudentJourneyDashboard data={dashboard} readOnly />
+      <StudentJourneyDashboard testResults={<PrivateProfileTestResults studentId={dashboard.student.id} />} data={dashboard} readOnly />
     </StudentPortalShell>
   );
 }

@@ -399,7 +399,7 @@ function AchievementsPanel({ data, readOnly = false }: { data: StudentDashboardD
   );
 }
 
-export function StudentJourneyDashboard({ data, readOnly = false }: { data: StudentDashboardData; readOnly?: boolean }) {
+export function StudentJourneyDashboard({ data, readOnly = false, testResults }: { data: StudentDashboardData; readOnly?: boolean; testResults?: ReactNode }) {
   const latestWoodpecker = data.training.latestWoodpeckerCycle;
   const expiringQuest = data.quests.soonestExpiring;
   const dailyChessQuote = getDailyChessQuote();
@@ -554,6 +554,8 @@ export function StudentJourneyDashboard({ data, readOnly = false }: { data: Stud
           <TrophyCase data={data} headingId="dashboard-trophy-case-heading" readOnly={readOnly} />
         </div>
       </Card>
+
+      {testResults}
 
       <Card className="p-4 sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

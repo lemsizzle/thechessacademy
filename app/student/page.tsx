@@ -1,3 +1,4 @@
+import { PrivateProfileTestResults } from "@/components/training/PrivateProfileTestResults";
 import { StudentJourneyDashboard } from "@/components/student/StudentJourneyDashboard";
 import { StudentPortalShell } from "@/components/student/StudentPortalShell";
 import { requireStudentPage as requireActiveStudent } from "@/lib/auth/requireStudentPage";
@@ -18,7 +19,7 @@ export default async function StudentHomePage() {
       subtitle="Choose where your chess adventure goes next."
       initialUser={sessionToStudentUser(session)}
     >
-      <StudentJourneyDashboard data={dashboard} />
+      <StudentJourneyDashboard testResults={<PrivateProfileTestResults studentId={dashboard.student.id} />} data={dashboard} />
     </StudentPortalShell>
   );
 }

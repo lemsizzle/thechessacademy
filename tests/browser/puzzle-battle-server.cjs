@@ -43,12 +43,14 @@ function filtered(rows, params) {
       continue;
     }
     if (key === "order") {
-      const [field, dir] = value.split(".");
-      rows.sort(
-        (a, b) =>
-          scalar(get(a, field)).localeCompare(scalar(get(b, field))) *
-          (dir === "desc" ? -1 : 1),
-      );
+      const fields = value.split(",").map(order => order.split("."));
+      rows.sort((a, b) => {
+        for (const [field, dir] of fields) {
+          const difference = scalar(get(a, field)).localeCompare(scalar(get(b, field))) * (dir === "desc" ? -1 : 1);
+          if (difference) return difference;
+        }
+        return 0;
+      });
       continue;
     }
     if (key === "limit" || key === "select") continue;
@@ -80,7 +82,8 @@ function filtered(rows, params) {
           typeof get(row, key) === 'number' ? get(row, key) < Number(target) : scalar(get(row, key)) < target,
       );
   }
-  return rows.slice(0, Number(params.get("limit") ?? rows.length));
+  const offset = Number(params.get("offset") ?? 0);
+  return rows.slice(offset, offset + Number(params.get("limit") ?? rows.length));
 }
 (async () => {
   const { createBattleTestDatabase } = await import(
@@ -232,6 +235,7 @@ function filtered(rows, params) {
           ? students.map((s) => ({
               id: s.id,
               display_name: s.name,
+              public_slug: s.username,
               is_active: true,
               lichess_id: null,
               lichess_username: null,
@@ -345,7 +349,7 @@ function filtered(rows, params) {
           url.pathname.startsWith("/api/") &&
           !url.pathname.startsWith("/api/student/puzzle-battles") &&
           !(process.env.BATTLE_TOURNAMENT_QA === "1" && /^\/api\/(admin|student)\/puzzle-tournaments/.test(url.pathname)) &&
-          !["/api/auth/session", "/api/student/profile", ...(process.env.ENDGAME_QA === "1" ? ["/api/student/endgames"] : []), ...(process.env.ASSESSMENT_QA === "1" ? ["/api/student/assessment"] : [])].includes(url.pathname)
+          !["/api/auth/session", "/api/student/profile", ...(process.env.ENDGAME_QA === "1" ? ["/api/student/endgames"] : []), ...(process.env.ASSESSMENT_QA === "1" ? ["/api/student/assessment", "/api/student/assessment/history"] : [])].includes(url.pathname)
         ) {
           if (url.pathname === "/api/student/online-play")
             return json(res, {

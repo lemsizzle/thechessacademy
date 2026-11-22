@@ -39,7 +39,7 @@ async function visible(l){await l.waitFor({state:'visible',timeout:25000});}
  const teacher=await browser.newContext({viewport:{width:1440,height:1000}}),t=await teacher.newPage();await t.goto(origin+'/__qa/teacher');await t.goto(origin+'/admin/assessments');await visible(t.getByRole('cell',{name:'Skills B',exact:true}));await visible(t.getByRole('cell',{name:'Knowledge A (original)',exact:true}));await t.screenshot({path:output+'/teacher.png',fullPage:true});
  // Every completed question opens in the teacher's interactive analysis workspace.
  await t.getByRole('row').filter({has:t.getByRole('cell',{name:'Skills B',exact:true})}).getByRole('link',{name:'Review test'}).click();
- await visible(t.getByRole('region',{name:'Teacher test review'}));
+ await visible(t.getByRole('region',{name:'Test analysis review'}));
  for(let i=0;i<30;i++){await t.getByLabel('Question',{exact:true}).selectOption(String(i));await visible(t.getByTestId('assessment-review-prompt'));assert.ok((await t.getByTestId('assessment-review-prompt').textContent()).startsWith((i+1)+'. '));assert.equal(await t.locator('[data-chess-board]').count(),1);}
  await t.getByLabel('Question',{exact:true}).selectOption('0');await t.getByRole('button',{name:'Student move',exact:true}).click();await visible(t.getByTestId('assessment-review-status'));assert.ok((await t.getByTestId('assessment-review-status').textContent()).startsWith('Incorrect'));
  await t.getByRole('button',{name:'Solution line',exact:true}).click();await visible(t.getByRole('button',{name:'Next move',exact:true}));await t.getByRole('button',{name:'Next move',exact:true}).click();

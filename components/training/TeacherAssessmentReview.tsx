@@ -27,7 +27,7 @@ export function TeacherAssessmentReview({ questions }: { questions: TeacherAsses
     </div>}
     <p className="text-xs text-slate-400">Explore moves, variations, and annotations here. Analysis is temporary and does not change the submitted test or score.</p>
   </div>;
-  return <section className="space-y-4" aria-label="Teacher test review">
+  return <section className="space-y-4" aria-label="Test analysis review">
     <nav className="grid grid-cols-2 items-center gap-3 sm:flex sm:flex-wrap" aria-label="Review questions">
       <Button variant="ghost" disabled={index === 0} onClick={() => go(index - 1)}>Previous question</Button>
       <label className="order-first col-span-2 min-w-0 flex-1 text-sm font-bold text-slate-300 sm:order-none">Question

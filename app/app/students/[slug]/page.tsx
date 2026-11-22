@@ -1,3 +1,4 @@
+import { PrivateProfileTestResults } from "@/components/training/PrivateProfileTestResults";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { PublicStudentProfileGate } from "@/components/PublicStudentProfileGate";
@@ -13,7 +14,7 @@ export default async function StudentPage({ params }: { params: Promise<{ slug: 
   return (
     <AppShell title={`${dashboard.student.name}'s Academy Journey`} subtitle="Student profile · Read-only">
       <PublicStudentProfileGate key={slug} slug={slug}>
-        <StudentJourneyDashboard data={dashboard} readOnly />
+        <StudentJourneyDashboard testResults={<PrivateProfileTestResults studentId={dashboard.student.id} />} data={dashboard} readOnly />
       </PublicStudentProfileGate>
     </AppShell>
   );
