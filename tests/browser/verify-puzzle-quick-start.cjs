@@ -55,10 +55,8 @@ const base = process.env.TRAINING_REWARDS_URL || 'http://127.0.0.1:9515';
     await page.getByLabel('Theme',{exact:true}).selectOption('fork');
     await page.getByLabel('Puzzles per cycle',{exact:true}).selectOption('30');
     await page.getByRole('button',{name:'← Back to modes',exact:true}).click();
-    await page.getByRole('button',{name:'View My Stats',exact:true}).click();
-    await page.getByRole('heading',{name:'Puzzle Training Stats',exact:true}).waitFor();
-    await page.keyboard.press('Escape');
-    await page.getByRole('button',{name:'Launch Path Finder',exact:true}).waitFor();
+    assert.equal(await page.getByRole('link',{name:'Stats & leaderboards',exact:true}).getAttribute('href'),'/student/training/stats');
+    assert.equal(await page.getByRole('link',{name:'Progress & replays',exact:true}).getAttribute('href'),'/student/training/dashboard');
     assert.deepEqual(errors,[]);
     console.log('One-click Path Finder/Hide and Seek, exactly-once starts, solving/rewards, mode settings, stats, responsive launcher passed.');
   } finally { await browser.close(); }

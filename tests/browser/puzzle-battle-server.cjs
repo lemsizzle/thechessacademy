@@ -365,11 +365,15 @@ function filtered(rows, params) {
         if (
           url.pathname.startsWith("/api/") &&
           !url.pathname.startsWith("/api/student/puzzle-battles") &&
+          !(process.env.STUDENT_QA === "1" && url.pathname === "/api/auth/logout") &&
           !(process.env.TEACHER_QA === "1" && (["/api/quest-progress", "/api/admin/session", "/api/admin/logout", "/api/admin/login"].includes(url.pathname) || /^\/api\/admin\/students\/[^/]+\/games$/.test(url.pathname))) &&
           !(process.env.SOLO_TRAINING_QA === "1" && (/^\/api\/student\/(puzzle-training|hide-and-seek|star-wars)\//.test(url.pathname))) &&
           !(process.env.BATTLE_TOURNAMENT_QA === "1" && /^\/api\/(admin|student)\/puzzle-tournaments/.test(url.pathname)) &&
           !["/api/auth/session", "/api/student/profile", ...(process.env.ENDGAME_QA === "1" ? ["/api/student/endgames"] : []), ...(process.env.ASSESSMENT_QA === "1" ? ["/api/student/assessment", "/api/student/assessment/history"] : [])].includes(url.pathname)
         ) {
+          if (process.env.STUDENT_QA === "1" && url.pathname === "/api/student/seasonal-quest") return json(res, { enabled: true, completed: false, defeatedBotIds: [], botLevels: {} });
+          if (process.env.STUDENT_QA === "1" && url.pathname === "/api/student/avatar") return json(res, { items: [], inventory: [], ownedItemIds: [], wallet: { academyCoins: 0, totalCoinsEarned: 0, totalCoinsSpent: 0 }, avatar: { studentId: students[0].id, equippedItems: {} } });
+          if (process.env.STUDENT_QA === "1" && url.pathname === "/api/student/avatar/rewards") return json(res, { receipts: [], availableCouponCount: 0 });
           if (process.env.TEACHER_QA === "1" && url.pathname === "/api/admin/classes") return json(res, { groups: [], revision: 1 });
           if (process.env.TEACHER_QA === "1" && url.pathname === "/api/admin/store-rewards") return json(res, { receipts: url.searchParams.get("status") === "resolved" ? [] : [{ id: "teacher-qa-coupon", student_id: students[1].id, status: "pending", kind: "free_class", price_paid: 5000, created_at: "2026-11-22T00:00:00Z", students: { display_name: students[1].name } }] });
           if (process.env.TEACHER_QA === "1" && url.pathname === "/api/classes") return json(res, { data: [] });
