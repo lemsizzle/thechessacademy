@@ -423,6 +423,7 @@ export function useComputerGame(onProgressionUpdate?: (unlockedBotIds: string[])
   }), [clockDisplay]);
 
   return {
+    matchId: presenceSession?.gameId ?? "",
     config,
     fen,
     moves,

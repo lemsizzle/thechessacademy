@@ -10,6 +10,7 @@ import { PlayModeGrid } from '../../chess/components/PlayModeGrid';
 import { LiveChessGame } from '../../chess/components/LiveChessGame';
 import { LiveGameSpectator } from '../../chess/components/LiveGameSpectator';
 import { gameMoves } from '../../chess/game/rules';
+import { getDefaultEquippedItems, seedAvatarItems } from '../../lib/avatar/catalog';
 
 const area = new URLSearchParams(location.search).get('area') || 'bot';
 // Fault injection for engine recovery QA. Subsequent workers use real Stockfish.
@@ -46,18 +47,20 @@ if (fixtureWrapper.tagName === 'MAIN') {
 }
 const initial = new Chess().fen();
 const chess = new Chess();
-const avatar = { studentId: 'white', equippedItems: {} };
+const introState = new URLSearchParams(location.search).get('introState');
+if (introState === 'in-progress') chess.move('e4');
+const avatar = { studentId: 'white', equippedItems: getDefaultEquippedItems(seedAvatarItems) };
 const now = () => new Date().toISOString();
-const player = (id, name) => ({ id, name, avatar: { studentId: id, equippedItems: {} } });
+const player = (id, name) => ({ id, name, avatar: { studentId: id, equippedItems: getDefaultEquippedItems(seedAvatarItems) } });
 const game = {
-  id: 'fixture', status: 'active', version: 1, challengeCode: 'fixture', realtimeTopic: '',
+  id: 'fixture', status: introState === 'waiting' ? 'waiting' : introState === 'completed' ? 'completed' : 'active', version: 1, challengeCode: 'fixture', realtimeTopic: '',
   gameMode: area === 'correspondence' ? 'correspondence' : 'live',
   daysPerMove: area === 'correspondence' ? 3 : null,
   turnDeadlineAt: area === 'correspondence' ? new Date(Date.now() + 259200000).toISOString() : null,
   viewer: { id: 'white', color: 'white' },
   players: { white: player('white', 'Puzzle Explorer'), black: player('black', 'Jamie') },
   avatarItems: [], timeControl: { id: '10+0', name: '10 + 0', initialMs: 600000, incrementMs: 0 },
-  initialFen: initial, fen: initial, moves: [], activeColor: 'white',
+  initialFen: initial, fen: chess.fen(), moves: gameMoves(chess), activeColor: chess.turn() === 'w' ? 'white' : 'black',
   clocks: { whiteMs: 600000, blackMs: 600000, startedAt: now() },
   drawOfferedBy: null, winnerColor: null, resultReason: null,
   startedAt: now(), completedAt: null, serverNow: now(),

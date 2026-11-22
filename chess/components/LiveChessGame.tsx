@@ -17,6 +17,7 @@ import { GameDialog } from "@/chess/components/GameDialog";
 import { CompletedGameActions } from "@/chess/components/CompletedGameActions";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
+import { MatchIntro } from "@/chess/components/MatchIntro";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
 import { promotionOptions, tryMove } from "@/chess/game/rules";
 import { oppositeColor } from "@/chess/game/colors";
@@ -543,6 +544,8 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
         player={orientation === viewerColor ? playerPanel : opponentPanel}
         board={
             <div className="game-board-surface">
+              {viewer && opponent && <MatchIntro matchId={`live:${game.id}:${viewer.id}`} eligible={game.status === "active" && game.moves.length === 0}
+                player={viewer} opponent={opponent} avatarItems={game.avatarItems} />}
               <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} allowPremoves={canQueuePremove} premove={displayedPremove} onCancelPremove={() => setPremove(null)} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
               <BoardCaptureParticles effect={captureEffect} orientation={orientation} />
             </div>

@@ -12,6 +12,7 @@ export type StudentUpdate = {
 // the release that makes an item usable.
 // Keep this independent of gameplay/data APIs: opening the popup needs no DB read.
 export const studentUpdates: readonly StudentUpdate[] = [
+  { id: "avatar-match-introductions", date: "2026-11-23", category: "Feature", title: "Meet your match", description: "Start bot, live, tournament, and correspondence chess games with an animated avatar face-off. It clears automatically, or tap anywhere to get straight to your move." },
   { id: "mobile-menu-clearance", date: "2026-11-23", category: "Feature", title: "Easier phone navigation", description: "Moves and challenges now sits above the phone navigation bar, keeping More and your other menu buttons easy to tap." },
   { id: "faster-train-and-play", date: "2026-11-22", category: "Feature", title: "Less waiting, more chess", description: "Start Survival straight from Home. Play opens your bots directly, with a Start button that stays in reach and optional game settings. Training is more compact, with detailed stats and leaderboards on their own page." },
   { id: "profile-test-results", date: "2026-11-22", category: "Feature", title: "Your test results, on your profile", description: "Find completed Skills Tests on your Academy profile with dates and scores. Open analysis review to replay your answers, explore solutions, and try other moves. Results are private to you and your teacher." },

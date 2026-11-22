@@ -1,0 +1,36 @@
+.intro {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: grid;
+  align-items: center;
+  pointer-events: none;
+  container-type: inline-size;
+  animation: introLife 2.1s both;
+}
+.banner {
+  padding: 5% 4%;
+  color: white;
+  text-align: center;
+  border-block: 1px solid rgb(165 243 252 / .65);
+  background: linear-gradient(115deg, #07384cf5, #0b1025fa 45%, #0b1025fa 55%, #553c13f5);
+  box-shadow: 0 12px 45px #02061780;
+}
+.eyebrow { margin: 0 0 5%; font-size: clamp(11px, 3cqw, 18px); font-weight: 900; text-transform: uppercase; letter-spacing: .22em; color: #cffafe; }
+.matchup { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 16%; align-items: start; }
+.contestant { min-width: 0; }
+.player { animation: slideLeft .45s cubic-bezier(.2,.8,.2,1) both; }
+.opponent { animation: slideRight .45s cubic-bezier(.2,.8,.2,1) both; }
+.portrait { width: min(100%, 160px); aspect-ratio: 1; margin: auto; border: 2px solid #67e8f9; border-radius: 18%; overflow: hidden; background: #091d32; box-shadow: 0 0 25px #22d3ee40; }
+.portrait > * { width: 100%; height: 100%; object-fit: contain; border-radius: 0; }
+.opponent .portrait { border-color: #fcd34d; box-shadow: 0 0 25px #fbbf2440; }
+.name { margin: 9px 0 0; font-size: clamp(13px, 4cqw, 25px); line-height: 1.15; font-weight: 900; overflow-wrap: anywhere; text-wrap: balance; }
+.versus { position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%) rotate(-9deg); color: #fde68a; font-size: clamp(28px, 9cqw, 60px); font-style: italic; font-weight: 1000; text-shadow: 0 3px 0 #92400e, 0 0 25px #fbbf2455; animation: impact .5s .12s both; }
+.hint { margin: 5% 0 0; font-size: clamp(10px, 2.6cqw, 14px); color: #cbd5e1; }
+@keyframes introLife { 0% { opacity: 0; } 12%, 82% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes slideLeft { from { transform: translateX(-25%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideRight { from { transform: translateX(25%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes impact { from { scale: 1.7; opacity: 0; } to { scale: 1; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .intro, .player, .opponent, .versus { animation: none; }
+}

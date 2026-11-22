@@ -14,6 +14,7 @@ import { CompletedGameActions } from "@/chess/components/CompletedGameActions";
 import { GameSetup } from "@/chess/components/GameSetup";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
+import { MatchIntro } from "@/chess/components/MatchIntro";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
 import { useComputerGame } from "@/chess/hooks/useComputerGame";
 import { Card } from "@/components/Card";
@@ -168,6 +169,8 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
         player={game.boardOrientation === config.humanColor ? studentPanel : opponentPanel}
         board={
           <div className="game-board-surface">
+            <MatchIntro matchId={`computer:${game.matchId}`} eligible={Boolean(game.matchId) && !game.outcome && game.moves.length === 0}
+              player={{ name: studentName, avatar: studentAvatar }} opponent={{ name: config.bot.name, portrait: config.bot.portrait }} avatarItems={avatarItems} />
             <AcademyChessboard
               fen={game.fen}
               orientation={game.boardOrientation}
