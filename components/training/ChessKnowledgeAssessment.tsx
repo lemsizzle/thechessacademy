@@ -148,6 +148,10 @@ export function ChessKnowledgeAssessment({ studentId }: { studentId: string }) {
     pending.current[id] = value; storePending();
     setAnswers(current => ({ ...current, [id]: value }));
     setSaveStatus("Saving answers…");
+    if (value && data.questions[index]?.id === id && data.questions[index]?.kind === "move") {
+      if (index < data.questions.length - 1) go(index + 1);
+      else setConfirm(true);
+    }
   };
   const go = (next: number) => { setIndex(next); setConfirm(false); setShowQuestions(false); window.setTimeout(() => { questionHeading.current?.focus({ preventScroll: true }); questionTop.current?.scrollIntoView({ block: "start" }); }, 0); };
   const attempt = data?.attempt;
@@ -169,7 +173,7 @@ export function ChessKnowledgeAssessment({ studentId }: { studentId: string }) {
       <h2>Show your skills on the board</h2><p>30 positions · up to 30 minutes · a score out of 100</p>
       <p>Play moves to test your board vision, tactics, checkmate, calculation, defense, and endgames. There are no rules questions or multiple-choice answers. Calculate first, then play one move in each position.</p>
       <ul><li>Work on your own, without hints, an engine, or outside help.</li><li>The timer keeps running if you leave or reload. Answers save as you go; stay connected.</li><li>Each correct answer earns one point. Unanswered questions earn zero. There is no speed bonus.</li></ul>
-      <p>You can change your move, skip a position, or return to it before finishing. Correctness and explanations appear only after submission. This is a Chess Quest skills score, not an Elo rating. Retakes use the same positions; your first attempt is the best baseline.</p>
+      <p>Playing a move takes you straight to the next position. Use Back or All questions to change an answer or revisit a skipped position before finishing. Correctness and explanations appear only after submission. This is a Chess Quest skills score, not an Elo rating. Retakes use the same positions; your first attempt is the best baseline.</p>
       <button className={styles.primary} onClick={() => void start()} disabled={busy}>{busy ? "Starting…" : "Start 30-minute test"}</button>
     </section>}
     {complete && attempt && <section className={styles.card} aria-label="Assessment results">
@@ -185,7 +189,7 @@ export function ChessKnowledgeAssessment({ studentId }: { studentId: string }) {
         {question.fen && <div className={styles.board} aria-label="Question position">{question.kind === "move" ? <AssessmentMoveBoard key={`${attempt.id}:${question.id}`} id={question.id} fen={question.fen} answer={answers[question.id] || ""} disabled={busy || remaining === 0} complete={complete} solution={review?.move} onAnswer={move => select(question.id,move)} /> : <AcademyChessboard key={question.id} boardId={`assessment-${question.id}`} fen={question.fen} orientation="white" humanColor="white" interactive={false} lastMove={null} onMove={noMove} animationDurationInMs={0} />}</div>}
         <section className={styles.card}>
           {question.kind !== "move" && <><h2 ref={questionHeading} tabIndex={-1}>{question.prompt}</h2><fieldset className={styles.options} disabled={busy || complete || remaining === 0}><legend className="sr-only">Choose one answer</legend>{question.options.map(option => <label key={option.id} className={answers[question.id] === option.id ? styles.selected : ""}><input type="radio" name={question.id} value={option.id} checked={answers[question.id] === option.id} onChange={() => select(question.id, option.id)} /><span>{option.text}</span></label>)}</fieldset></>}
-          {question.kind === "move" && !complete && <><h2>Your answer</h2><p>{answers[question.id] ? "Move recorded. Continue when you’re ready, or change your move on the board." : "Make your move on the board. You can also skip this position and come back."}</p></>}
+          {question.kind === "move" && !complete && <><h2>Your answer</h2><p>{answers[question.id] ? "Move recorded. Use Change move to replace your answer." : "Play one move to continue automatically. You can also skip this position and come back."}</p></>}
           {complete && review && <div className={styles.feedback}><strong>{review.correct ? "Correct" : answers[question.id] ? "Not quite" : "Not answered"}</strong><p>Answer: {question.kind === "move" ? review.answer : question.options.find(option => option.id === review.answer)?.text}</p><p>{review.explanation}</p></div>}
           {!complete && <div className={styles.save}><span role="status">{saveStatus}</span>{saveStatus.startsWith("Not saved") && <button onClick={() => void flush()}>Retry save</button>}</div>}
           <div className={styles.actions}><button onClick={() => go(index - 1)} disabled={index === 0}>Back</button>{index < 29 && <button className={styles.primary} onClick={() => go(index + 1)}>Next</button>}{!complete && <button onClick={() => setConfirm(true)} disabled={busy}>Finish test</button>}</div>

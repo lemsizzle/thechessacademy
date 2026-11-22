@@ -9,6 +9,19 @@ There is no correctness feedback during the test. Legal wrong moves are saved;
 students may clear and replace their answer before submission. Promotions require
 an explicit choice on the board. The score is not an Elo rating.
 
+Each legal board answer advances immediately to the next question, including
+incorrect answers. Clearing an answer does not advance. Back and All questions
+allow changes; the final move opens the submission confirmation without grading
+automatically. Pending answers continue through the existing autosave queue.
+
+Teachers open Review test from `/admin/assessments`. The authenticated review
+route loads completed attempts only, with the version-specific question bank.
+Every Skills B position has an interactive analysis board with the student's
+move and solution continuation as separate lines where they differ. Original
+position, Student move, and Solution line buttons reset temporary exploration.
+Analysis and optional local engine use never modify answers or grades. Original
+Knowledge A questions without a diagram retain a text-only review.
+
 The two versions retain independent keys and reviews. Existing active original
 quizzes can finish normally, and completed results remain unchanged. Teacher
 reports identify each form; scores from different forms should not be compared.
