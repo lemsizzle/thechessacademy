@@ -15,6 +15,7 @@ import { GameSetup } from "@/chess/components/GameSetup";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
 import { MatchIntro } from "@/chess/components/MatchIntro";
+import { GameEndAnimation } from "@/chess/components/GameEndAnimation";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
 import { useComputerGame } from "@/chess/hooks/useComputerGame";
 import { Card } from "@/components/Card";
@@ -169,7 +170,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
         player={game.boardOrientation === config.humanColor ? studentPanel : opponentPanel}
         board={
           <div className="game-board-surface">
-            <MatchIntro matchId={`computer:${game.matchId}`} eligible={Boolean(game.matchId) && !game.outcome && game.moves.length === 0}
+            <MatchIntro matchId={`computer:${game.matchId}`} eligible={Boolean(game.matchId) && !game.outcome && !game.moves.some(move => move.color === config.humanColor)}
               player={{ name: studentName, avatar: studentAvatar }} opponent={{ name: config.bot.name, portrait: config.bot.portrait }} avatarItems={avatarItems} />
             <AcademyChessboard
               fen={game.fen}
@@ -193,6 +194,7 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
           </div>
         }
       >
+      {game.outcome && game.resultOpen && <GameEndAnimation key={game.matchId} result={game.outcome.result} />}
       {game.outcome && game.resultOpen && (
         <>
           <GameDialog inline             tone={game.outcome.result === "loss" ? "loss" : "default"}
@@ -207,9 +209,6 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
             {game.saveStatus === "saved" && nextSeasonalBot && nextSeasonalBot.estimatedRating < config.bot.estimatedRating && (
               <p className="mt-3 text-sm text-orange-200" role="status">Keep going! {config.bot.name} will be a little easier next time.</p>
             )}
-            <div className={`mt-4 rounded-lg border p-4 text-center ${game.outcome.result === "win" ? "border-emerald-300/35 bg-emerald-300/10" : game.outcome.result === "loss" ? "border-rose-300/35 bg-rose-300/10" : "border-cyan-200/35 bg-cyan-300/10"}`}>
-              <p className="text-3xl font-black text-white">{game.outcome.result === "win" ? "Victory!" : game.outcome.result === "loss" ? "Defeat — good effort" : "Draw"}</p>
-            </div>
             {game.savedGameId && <Button className="mt-2 w-full" variant="ghost" type="button" onClick={() => setAddStudyOpen(true)}>Add to Study</Button>}
           </GameDialog>
         </>

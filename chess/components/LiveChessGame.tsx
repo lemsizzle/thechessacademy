@@ -18,6 +18,7 @@ import { CompletedGameActions } from "@/chess/components/CompletedGameActions";
 import { MoveHistory } from "@/chess/components/MoveHistory";
 import { PlayerPanel } from "@/chess/components/PlayerPanel";
 import { MatchIntro } from "@/chess/components/MatchIntro";
+import { GameEndAnimation } from "@/chess/components/GameEndAnimation";
 import { PromotionDialog } from "@/chess/components/PromotionDialog";
 import { promotionOptions, tryMove } from "@/chess/game/rules";
 import { oppositeColor } from "@/chess/game/colors";
@@ -551,6 +552,7 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
             </div>
         }
       >
+      {resultOpen && game.status === "completed" && <GameEndAnimation key={game.id} result={!game.winnerColor ? "draw" : game.winnerColor === viewerColor ? "win" : "loss"} />}
       {resultOpen && game.status === "completed" && game.arenaTournamentId ? (
         <GameDialog inline           title={game.winnerColor && game.winnerColor !== viewerColor ? "Defeat — good effort" : game.winnerColor === viewerColor ? "Victory!" : "Arena Game Complete"}
           tone={game.winnerColor && game.winnerColor !== viewerColor ? "loss" : "default"}

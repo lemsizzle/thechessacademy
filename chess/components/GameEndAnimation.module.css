@@ -1,0 +1,32 @@
+.popup { --accent: #fde68a; --glow: #f59e0b40; position: relative; isolation: isolate; overflow: hidden; flex-shrink: 0; display: grid; grid-template-columns: 54px minmax(0, 1fr); align-items: center; gap: 8px 12px; padding: 20px 28px 12px 14px; border: 1px solid var(--accent); border-radius: 16px; color: white; background: radial-gradient(ellipse at 0 0, var(--glow), transparent 75%), #0c1428; box-shadow: 0 6px 24px #02061755; animation: arrive .4s ease-out both, fade .35s 9.65s forwards; }
+.loss { --accent: #c7d2fe; --glow: #818cf830; }
+.draw { --accent: #a5f3fc; --glow: #22d3ee30; }
+.medal { display: grid; place-items: center; width: 54px; height: 54px; border: 1px solid var(--accent); border-radius: 50%; color: var(--accent); background: #0f172ae6; font-size: 38px; line-height: 1; box-shadow: 0 0 20px var(--glow); animation: medal .6s cubic-bezier(.2,.8,.2,1) both; }
+.loss .medal { animation: medal .8s ease-out both; }
+.copy { position: relative; }
+.copy h2 { margin: 0; color: var(--accent); font-size: 21px; font-weight: 900; line-height: 1.15; }
+.copy p { margin: 5px 0 0; font-size: 12px; line-height: 1.4; color: #e2e8f0; }
+.skip { position: relative; grid-column: 1 / -1; margin: 0; color: #94a3b8; font-size: 10px; text-align: center; }
+.close { position: absolute; z-index: 2; right: 0; top: 0; width: 40px; height: 40px; color: #cbd5e1; background: transparent; font-size: 23px; border-radius: 10px; }
+.close:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+.close:hover { background: #ffffff15; }
+.particles { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.particles i { position: absolute; top: -10px; left: calc(var(--i) * 8% + 3%); width: 5px; height: 9px; background: var(--accent); animation: confetti 2.5s calc(var(--i) * .13s) 4 linear both; }
+.particles i:nth-child(3n) { background: #f0abfc; }
+.particles i:nth-child(3n + 1) { background: #67e8f9; }
+.loss .particles i { border-radius: 50%; width: 3px; height: 3px; background: var(--accent); animation-name: starlight; animation-duration: 4s; }
+.draw .particles i { border: 1px solid var(--accent); background: transparent; border-radius: 50%; width: 12px; height: 12px; animation-name: starlight; animation-duration: 3s; }
+.progress { position: absolute; bottom: 0; left: 0; height: 2px; width: 100%; background: var(--accent); transform-origin: left; animation: countdown 10s linear forwards; }
+@keyframes arrive { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes medal { from { transform: scale(.6) rotate(-20deg); } to { transform: scale(1) rotate(0); } }
+@keyframes fade { to { opacity: 0; } }
+@keyframes countdown { to { transform: scaleX(0); } }
+@keyframes confetti { to { transform: translateY(180px) rotate(220deg); opacity: 0; } }
+@keyframes starlight { from { transform: translateY(150px); opacity: 0; } 35% { opacity: .7; } to { transform: translateY(10px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .popup, .medal, .progress, .particles i { animation: none; } .particles, .progress { display: none; } }
+@media (max-height: 500px) and (orientation: landscape) {
+  .popup { grid-template-columns: 32px minmax(0, 1fr); gap: 8px; padding: 8px 32px 8px 8px; }
+  .medal { width: 32px; height: 32px; font-size: 25px; }
+  .copy h2 { font-size: 16px; }
+  .copy p, .skip { display: none; }
+}

@@ -57,6 +57,29 @@ const output = 'work/match-intro';
         console.log(`${device} ${area}: avatars, fit, automatic dismissal, unchanged board and moves passed`);
       }
     }
+    for (const [width, height] of [[1440,900], [820,1180], [1180,820], [390,844]]) {
+      const context = await browser.newContext({ viewport: { width, height } });
+      const page = await context.newPage();
+      page.on('pageerror', e => errors.push(e.message));
+      await page.goto(`${base}/student/play?area=bot`);
+      await page.getByText('Game settings', { exact: true }).click();
+      await page.getByLabel('Play as', { exact: true }).selectOption('black');
+      await page.getByRole('button', { name: 'Start vs Pawny', exact: true }).click();
+      await page.locator('[data-chess-board]').waitFor();
+      // The mock engine immediately makes a legal opening move. White must
+      // leave a starting square, while the black player's intro stays visible.
+      await page.waitForFunction(() => [...document.querySelectorAll('[data-square]')].filter(el => /[12]$/.test(el.dataset.square) && el.querySelector('[data-piece]')).length < 16);
+      assert.equal(await page.locator('[data-match-intro]').count(), 1, 'Bot opening move must not cut short the VS animation');
+      await page.waitForTimeout(300);
+      assert.equal(await page.locator('[data-match-intro]').count(), 1);
+      await page.screenshot({ path: `${output}/bot-first-${width}.png` });
+      await page.locator('[data-match-intro]').waitFor({ state: 'detached', timeout: 3000 });
+      await page.locator('[data-square="e7"]').click();
+      await page.locator('[data-square="e5"]').click();
+      await page.waitForFunction(() => document.querySelector('[data-square="e5"] [data-piece]'));
+      await context.close();
+      console.log(`${width}x${height}: full VS animation when bot moves first, then black's move passed`);
+    }
     for (const area of ['arena', 'correspondence']) {
       const context = await browser.newContext();
       const page = await context.newPage();
