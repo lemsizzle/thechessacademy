@@ -1,13 +1,24 @@
-.popup { --accent: #fde68a; --glow: #f59e0b40; position: relative; isolation: isolate; overflow: hidden; flex-shrink: 0; display: grid; grid-template-columns: 54px minmax(0, 1fr); align-items: center; gap: 8px 12px; padding: 20px 28px 12px 14px; border: 1px solid var(--accent); border-radius: 16px; color: white; background: radial-gradient(ellipse at 0 0, var(--glow), transparent 75%), #0c1428; box-shadow: 0 6px 24px #02061755; animation: arrive .4s ease-out both, fade .35s 9.65s forwards; }
-.loss { --accent: #c7d2fe; --glow: #818cf830; }
-.draw { --accent: #a5f3fc; --glow: #22d3ee30; }
-.medal { display: grid; place-items: center; width: 54px; height: 54px; border: 1px solid var(--accent); border-radius: 50%; color: var(--accent); background: #0f172ae6; font-size: 38px; line-height: 1; box-shadow: 0 0 20px var(--glow); animation: medal .6s cubic-bezier(.2,.8,.2,1) both; }
-.loss .medal { animation: medal .8s ease-out both; }
-.copy { position: relative; }
-.copy h2 { margin: 0; color: var(--accent); font-size: 21px; font-weight: 900; line-height: 1.15; }
-.copy p { margin: 5px 0 0; font-size: 12px; line-height: 1.4; color: #e2e8f0; }
-.skip { position: relative; grid-column: 1 / -1; margin: 0; color: #94a3b8; font-size: 10px; text-align: center; }
-.close { position: absolute; z-index: 2; right: 0; top: 0; width: 40px; height: 40px; color: #cbd5e1; background: transparent; font-size: 23px; border-radius: 10px; }
+.overlay { position: absolute; inset: 0; z-index: 26; display: grid; align-items: center; pointer-events: none; container-type: inline-size; }
+.popup { --accent: #fde68a; --glow: #f59e0b40; position: relative; isolation: isolate; overflow: hidden; padding: 4% 6%; border-block: 1px solid var(--accent); color: white; text-align: center; pointer-events: auto; background: linear-gradient(115deg, #133246f5, #0b1025fa 45%, #0b1025fa 55%, #503910f5); box-shadow: 0 12px 45px #02061780; animation: arrive .4s ease-out both, fade .35s 9.65s forwards; }
+.loss { --accent: #c7d2fe; --glow: #818cf830; background: linear-gradient(115deg, #252d57f5, #0b1025fa 55%, #31354df5); }
+.draw { --accent: #a5f3fc; --glow: #22d3ee30; background: linear-gradient(115deg, #07384cf5, #0b1025fa 50%, #07384cf5); }
+.copy { position: relative; padding-inline: 24px; }
+.copy h2 { margin: 0; color: var(--accent); font-size: clamp(19px, 6cqw, 42px); font-weight: 900; line-height: 1.1; }
+.copy p { margin: 6px 0 0; font-size: clamp(10px, 2.8cqw, 17px); color: #e2e8f0; overflow-wrap: anywhere; }
+.matchup { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 20%; margin-top: 4%; align-items: start; }
+.contestant { min-width: 0; animation: slideLeft .5s both; }
+.contestant:nth-child(2) { animation-name: slideRight; }
+.portrait { width: min(100%, 160px); aspect-ratio: 1; margin: auto; border: 2px solid #94a3b8; border-radius: 18%; overflow: hidden; background: #091d32; }
+.portrait > * { width: 100%; height: 100%; object-fit: contain; border-radius: 0; }
+.winner .portrait { border-color: #fcd34d; box-shadow: 0 0 28px #fbbf2455; }
+.draw .portrait { border-color: #67e8f9; box-shadow: 0 0 20px #22d3ee30; }
+.name { margin: 8px 0 0; font-size: clamp(11px, 3.6cqw, 23px); line-height: 1.15; font-weight: 900; overflow-wrap: anywhere; text-wrap: balance; }
+.playerResult { display: block; margin-top: 3px; color: #cbd5e1; font-size: clamp(9px, 2.4cqw, 14px); }
+.winner .playerResult { color: #fde68a; font-weight: 900; }
+.medal { position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 13cqw; height: 13cqw; max-width: 88px; max-height: 88px; border: 1px solid var(--accent); border-radius: 50%; color: var(--accent); background: #0f172ae6; font-size: clamp(23px, 9cqw, 60px); line-height: 1; box-shadow: 0 0 20px var(--glow); animation: medal .6s ease-out both; }
+.message { position: relative; margin: 4% 0 0; color: #e2e8f0; font-size: clamp(10px, 2.7cqw, 16px); text-wrap: balance; }
+.skip { position: relative; margin: 2% 0 0; color: #94a3b8; font-size: clamp(9px, 2.3cqw, 12px); }
+.close { position: absolute; z-index: 2; right: 0; top: 0; width: 44px; height: 44px; color: #cbd5e1; background: transparent; font-size: 26px; border-radius: 10px; }
 .close:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
 .close:hover { background: #ffffff15; }
 .particles { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
@@ -17,16 +28,21 @@
 .loss .particles i { border-radius: 50%; width: 3px; height: 3px; background: var(--accent); animation-name: starlight; animation-duration: 4s; }
 .draw .particles i { border: 1px solid var(--accent); background: transparent; border-radius: 50%; width: 12px; height: 12px; animation-name: starlight; animation-duration: 3s; }
 .progress { position: absolute; bottom: 0; left: 0; height: 2px; width: 100%; background: var(--accent); transform-origin: left; animation: countdown 10s linear forwards; }
-@keyframes arrive { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes medal { from { transform: scale(.6) rotate(-20deg); } to { transform: scale(1) rotate(0); } }
+@keyframes arrive { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
+@keyframes medal { from { scale: .6; opacity: 0; } to { scale: 1; opacity: 1; } }
+@keyframes slideLeft { from { opacity: 0; translate: -20% 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes slideRight { from { opacity: 0; translate: 20% 0; } to { opacity: 1; translate: 0 0; } }
 @keyframes fade { to { opacity: 0; } }
 @keyframes countdown { to { transform: scaleX(0); } }
-@keyframes confetti { to { transform: translateY(180px) rotate(220deg); opacity: 0; } }
-@keyframes starlight { from { transform: translateY(150px); opacity: 0; } 35% { opacity: .7; } to { transform: translateY(10px); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .popup, .medal, .progress, .particles i { animation: none; } .particles, .progress { display: none; } }
-@media (max-height: 500px) and (orientation: landscape) {
-  .popup { grid-template-columns: 32px minmax(0, 1fr); gap: 8px; padding: 8px 32px 8px 8px; }
-  .medal { width: 32px; height: 32px; font-size: 25px; }
-  .copy h2 { font-size: 16px; }
-  .copy p, .skip { display: none; }
+@keyframes confetti { to { transform: translateY(450px) rotate(220deg); opacity: 0; } }
+@keyframes starlight { from { transform: translateY(350px); opacity: 0; } 35% { opacity: .7; } to { transform: translateY(10px); opacity: 0; } }
+@container (max-width: 260px) {
+  .popup { padding: 3% 5%; }
+  .copy { padding-inline: 20px; }
+  .copy h2 { font-size: clamp(12px, 6cqw, 17px); }
+  .copy p, .message, .skip, .playerResult { display: none; }
+  .portrait { width: 25cqw; }
+  .name { font-size: clamp(7px, 4cqw, 10px); margin-top: 3px; }
+  .close { width: 32px; height: 32px; font-size: 20px; }
 }
+@media (prefers-reduced-motion: reduce) { .popup, .medal, .contestant, .progress, .particles i { animation: none; } .particles, .progress { display: none; } }

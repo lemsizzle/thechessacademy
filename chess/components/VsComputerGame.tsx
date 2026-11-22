@@ -191,10 +191,11 @@ export function VsComputerGame({ studentName, studentAvatar, avatarItems, initia
               onClearAnnotations={clearBoardAnnotations}
             />
             <BoardCaptureParticles effect={game.captureEffect} orientation={game.boardOrientation} />
+            {game.outcome && game.resultOpen && <GameEndAnimation key={game.matchId} result={game.outcome.result}
+              player={{ name: studentName, avatar: studentAvatar }} opponent={{ name: config.bot.name, portrait: config.bot.portrait }} avatarItems={avatarItems} />}
           </div>
         }
       >
-      {game.outcome && game.resultOpen && <GameEndAnimation key={game.matchId} result={game.outcome.result} />}
       {game.outcome && game.resultOpen && (
         <>
           <GameDialog inline             tone={game.outcome.result === "loss" ? "loss" : "default"}

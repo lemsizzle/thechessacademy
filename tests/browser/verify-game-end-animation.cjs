@@ -40,8 +40,13 @@ const output = 'work/game-ending';
         const popup = await card.boundingBox();
         assert.equal(board.width, before.width, 'Result must not shrink board');
         assert.equal(board.height, before.height);
-        const overlap = Math.min(board.x + board.width, popup.x + popup.width) - Math.max(board.x, popup.x) > 1 && Math.min(board.y + board.height, popup.y + popup.height) - Math.max(board.y, popup.y) > 1;
-        assert(!overlap, 'Animation must not cover final board');
+        assert(popup.x >= board.x - 1 && popup.x + popup.width <= board.x + board.width + 1, 'Popup fits board width');
+        assert(popup.y >= board.y - 1 && popup.y + popup.height <= board.y + board.height + 1, 'Popup fits board height');
+        assert(Math.abs(popup.y + popup.height / 2 - board.y - board.height / 2) < 2, 'Popup centered over board');
+        assert.equal(await card.locator('[data-result-contestant]').count(), 2, 'Both players shown');
+        assert.equal(await card.getByRole('img').count(), 2, 'Both avatars shown');
+        assert.equal(await card.locator('[data-winner]').count(), result === 'draw' ? 0 : 1);
+        if (result !== 'draw') assert.equal(await card.locator('[data-winner]').getAttribute('data-result-contestant'), result === 'win' ? 'player' : 'opponent');
         const bottom = await page.evaluate(() => {
           const nav = document.querySelector('nav[aria-label="Primary student navigation"]')?.getBoundingClientRect();
           return nav?.height ? Math.min(innerHeight, nav.top) : innerHeight;
@@ -51,18 +56,19 @@ const output = 'work/game-ending';
         await card.getByRole('heading').click();
         assert.equal(await card.count(), 1, 'Clicking inside does not dismiss');
         if (result === 'win') await page.getByRole('button', { name: 'Dismiss game ending animation' }).click();
-        else if (result === 'loss') await page.locator('[data-chess-board]').click({ position: { x: 20, y: board.height - 20 } });
+        else if (result === 'loss') await page.locator('.game-opponent').click();
         else await page.keyboard.press('Escape');
         assert.equal(await card.count(), 0);
         assert.equal(await page.locator('#game-result-title').count(), 1, 'Result and review controls remain');
         await context.close();
-        console.log(`${device} ${result}: visible, non-overlapping, dismissible, unchanged board passed`);
+        console.log(`${device} ${result}: centered avatar popup, correct winner, dismissal and unchanged board passed`);
       }
     }
     const { context, page } = await open({ width: 1440, height: 900 }, 'bot');
     await page.getByRole('button', { name: /Resign/ }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Resign', exact: true }).click();
     await page.locator('[data-game-end-animation="loss"]').waitFor();
+    assert.equal(await page.locator('[data-result-contestant="opponent"] img[alt="Pawny\'s avatar"]').count(), 1);
     await page.waitForTimeout(8500);
     assert.equal(await page.locator('[data-game-end-animation]').count(), 1, 'Animation remains beyond eight seconds');
     await page.locator('[data-game-end-animation]').waitFor({ state: 'detached', timeout: 2500 });

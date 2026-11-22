@@ -549,10 +549,11 @@ export function LiveChessGame({ gameId, mode = "live" }: { gameId: string; mode?
                 player={viewer} opponent={opponent} avatarItems={game.avatarItems} />}
               <AcademyChessboard fen={optimisticFen ?? game.fen} orientation={orientation} humanColor={viewerColor} interactive={interactive} lastMove={lastMove} onMove={attemptMove} allowPremoves={canQueuePremove} premove={displayedPremove} onCancelPremove={() => setPremove(null)} arrows={boardArrows} circles={boardCircles} allowDrawingArrows annotationMode={annotationMode} onAnnotationSquare={handleAnnotationSquare} onArrowsChange={setBoardArrows} onCircleToggle={toggleCircle} onClearAnnotations={clearBoardAnnotations} boardId={`live-game-${game.id}`} />
               <BoardCaptureParticles effect={captureEffect} orientation={orientation} />
+              {resultOpen && game.status === "completed" && viewer && opponent && <GameEndAnimation key={game.id} result={!game.winnerColor ? "draw" : game.winnerColor === viewerColor ? "win" : "loss"}
+                player={viewer} opponent={opponent} avatarItems={game.avatarItems} />}
             </div>
         }
       >
-      {resultOpen && game.status === "completed" && <GameEndAnimation key={game.id} result={!game.winnerColor ? "draw" : game.winnerColor === viewerColor ? "win" : "loss"} />}
       {resultOpen && game.status === "completed" && game.arenaTournamentId ? (
         <GameDialog inline           title={game.winnerColor && game.winnerColor !== viewerColor ? "Defeat — good effort" : game.winnerColor === viewerColor ? "Victory!" : "Arena Game Complete"}
           tone={game.winnerColor && game.winnerColor !== viewerColor ? "loss" : "default"}
