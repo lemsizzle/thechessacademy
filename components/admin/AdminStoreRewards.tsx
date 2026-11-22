@@ -104,7 +104,7 @@ export function AdminStoreRewards({
             <div>
               <a
                 className="font-bold text-cyan-200 underline"
-                href={`/admin/students/${r.student_id}`}
+                href={`/admin/students?student=${encodeURIComponent(r.student_id)}`}
               >
                 {r.students?.display_name ?? "Student"}
               </a>
