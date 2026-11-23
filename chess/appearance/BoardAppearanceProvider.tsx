@@ -7,6 +7,7 @@ import { blossomPieces } from "./BlossomPieces";
 import { eightBitPieces } from "./EightBitPieces";
 import { narutoPieces } from "./NarutoPieces";
 import { minecraftPieces } from "./MinecraftPieces";
+import { minionsPieces } from "./MinionsPieces";
 import { appearanceStorageKey, BOARD_THEME_STYLES, DEFAULT_BOARD_APPEARANCE, parseBoardAppearance, parseOwnedChessThemes, unlockedAppearance, type BoardAppearance, type PurchasedChessTheme } from "./themes";
 
 type AppearanceContext = {
@@ -17,7 +18,7 @@ type AppearanceContext = {
   refreshOwnership: (force?: boolean) => Promise<readonly PurchasedChessTheme[]>;
 };
 const NO_OWNED_THEMES: readonly PurchasedChessTheme[] = [];
-const themePieces = { academy: defaultPieces, paper: paperPieces, blossom: blossomPieces, eightBit: eightBitPieces, naruto: narutoPieces, minecraft: minecraftPieces };
+const themePieces = { academy: defaultPieces, paper: paperPieces, blossom: blossomPieces, eightBit: eightBitPieces, naruto: narutoPieces, minecraft: minecraftPieces, minions: minionsPieces };
 const BoardAppearanceContext = createContext<AppearanceContext>({ appearance: DEFAULT_BOARD_APPEARANCE, ownedThemes: NO_OWNED_THEMES, loading: false, setAppearance: () => false, refreshOwnership: async () => NO_OWNED_THEMES });
 
 export function BoardAppearanceProvider({ studentId, children }: { studentId: string; children: ReactNode }) {

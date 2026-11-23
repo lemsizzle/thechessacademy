@@ -5,12 +5,14 @@ export const BLOSSOM_CHESS_SET_SLUG = "blossom-chess-set";
 export const EIGHT_BIT_CHESS_SET_SLUG = "eight-bit-chess-set";
 export const NARUTO_CHESS_SET_SLUG = "naruto-chess-set";
 export const MINECRAFT_CHESS_SET_SLUG = "minecraft-chess-set";
+export const MINIONS_CHESS_SET_SLUG = "minions-chess-set";
 export const PURCHASABLE_CHESS_THEMES = {
   paper: { label: "Paper", slug: PAPER_CHESS_SET_SLUG },
   blossom: { label: "Blossom", slug: BLOSSOM_CHESS_SET_SLUG },
   eightBit: { label: "8-Bit", slug: EIGHT_BIT_CHESS_SET_SLUG },
   naruto: { label: "Naruto", slug: NARUTO_CHESS_SET_SLUG },
-  minecraft: { label: "Minecraft", slug: MINECRAFT_CHESS_SET_SLUG }
+  minecraft: { label: "Minecraft", slug: MINECRAFT_CHESS_SET_SLUG },
+  minions: { label: "Minions", slug: MINIONS_CHESS_SET_SLUG }
 } as const;
 export type PurchasedChessTheme = keyof typeof PURCHASABLE_CHESS_THEMES;
 export const purchasedChessThemes = Object.keys(PURCHASABLE_CHESS_THEMES) as PurchasedChessTheme[];
@@ -59,6 +61,12 @@ export function unlockedAppearance(preferences: BoardAppearance, ownedThemes: re
 // CSS-only fibres: no large textures, image requests, filters, or animation work per move.
 const paperTexture = "repeating-linear-gradient(12deg, transparent 0 5px, rgba(70,49,32,.035) 5px 6px), repeating-linear-gradient(102deg, transparent 0 11px, rgba(255,255,255,.09) 11px 12px)";
 export const BOARD_THEME_STYLES: Record<ChessTheme, { lightSquareStyle: CSSProperties; darkSquareStyle: CSSProperties; lightSquareNotationStyle: CSSProperties; darkSquareNotationStyle: CSSProperties }> = {
+  minions: {
+    lightSquareStyle: { backgroundColor: "#f3db88", boxShadow: "inset 0 0 0 1px #d9bd63", backgroundImage: "linear-gradient(135deg, #fff4bd55, transparent)" },
+    darkSquareStyle: { backgroundColor: "#314a6c", boxShadow: "inset 0 0 0 1px #20354f", backgroundImage: "linear-gradient(135deg, #7298bd22, transparent)" },
+    lightSquareNotationStyle: { color: "#56421c", fontWeight: 800 },
+    darkSquareNotationStyle: { color: "#fff0b7", fontWeight: 800 }
+  },
   minecraft: {
     lightSquareStyle: { backgroundColor: "#c9c6ae", backgroundImage: "repeating-conic-gradient(#ffffff0a 0% 25%, transparent 0% 50%)", backgroundSize: "16px 16px", boxShadow: "inset 2px 2px #e2dfc8, inset -2px -2px #aaa78f" },
     darkSquareStyle: { backgroundColor: "#497744", backgroundImage: "repeating-conic-gradient(#b8d98710 0% 25%, transparent 0% 50%)", backgroundSize: "16px 16px", boxShadow: "inset 2px 2px #6a9254, inset -2px -2px #345633" },

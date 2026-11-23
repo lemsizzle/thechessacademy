@@ -4,6 +4,7 @@ import { blossomChessSet } from "@/lib/avatar/blossomChessSet";
 import { eightBitChessSet } from "@/lib/avatar/eightBitChessSet";
 import { narutoChessSet } from "@/lib/avatar/narutoChessSet";
 import { minecraftChessSet } from "@/lib/avatar/minecraftChessSet";
+import { minionsChessSet } from "@/lib/avatar/minionsChessSet";
 import { AVATAR_CANVAS_HEIGHT, AVATAR_CANVAS_WIDTH, AVATAR_LOGICAL_HEIGHT, AVATAR_LOGICAL_WIDTH } from "@/lib/avatar/geometry";
 import type { AvatarCategory, AvatarItem, AvatarRarity, AvatarUnlockType } from "@/lib/types";
 
@@ -111,6 +112,7 @@ export const defaultAvatarItemSlugs = [
 
 export const seedAvatarItems: AvatarItem[] = [
   minecraftChessSet,
+  minionsChessSet,
   eightBitChessSet,
   narutoChessSet,
   blossomChessSet,

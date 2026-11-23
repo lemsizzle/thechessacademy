@@ -3,9 +3,12 @@ import { blossomPieces } from "./BlossomPieces";
 import { eightBitPieces } from "./EightBitPieces";
 import { narutoPieces } from "./NarutoPieces";
 import { minecraftPieces } from "./MinecraftPieces";
+import { minionsPieces } from "./MinionsPieces";
+import { MINIONS_CHESS_SET_SLUG } from "./themes";
 import { BLOSSOM_CHESS_SET_SLUG, EIGHT_BIT_CHESS_SET_SLUG, NARUTO_CHESS_SET_SLUG, MINECRAFT_CHESS_SET_SLUG, BOARD_THEME_STYLES } from "./themes";
 
 export function ChessSetPreview({ slug, large = false }: { slug: string; large?: boolean }) {
+  if (slug === MINIONS_CHESS_SET_SLUG) return <MinionsSetPreview large={large} />;
   if (slug === MINECRAFT_CHESS_SET_SLUG) return <MinecraftSetPreview large={large} />;
   if (slug !== BLOSSOM_CHESS_SET_SLUG && slug !== EIGHT_BIT_CHESS_SET_SLUG && slug !== NARUTO_CHESS_SET_SLUG) return <PaperThemePreview large={large} />;
   const naruto = slug === NARUTO_CHESS_SET_SLUG;
@@ -21,6 +24,17 @@ export function ChessSetPreview({ slug, large = false }: { slug: string; large?:
       })}
     </div>
   );
+}
+
+function MinionsSetPreview({ large }: { large: boolean }) {
+  const pieces: Record<number, string> = { 1: "bR", 2: "bK", 5: "bB", 6: "bN", 9: "wP", 10: "wB", 13: "wQ", 14: "wN" };
+  const styles = BOARD_THEME_STYLES.minions;
+  return <div role="img" aria-label="Minions Chess Set: yellow and purple goggled pieces on a banana-yellow and navy board" className={`grid aspect-square shrink-0 grid-cols-4 overflow-hidden rounded-lg border-4 border-[#e8b944] shadow-lg ${large ? "w-72 max-w-full" : "w-28 sm:w-32"}`}>
+    {Array.from({ length: 16 }, (_, index) => {
+      const Piece = minionsPieces[pieces[index]];
+      return <div key={index} className="aspect-square" style={(Math.floor(index / 4) + index % 4) % 2 ? styles.darkSquareStyle : styles.lightSquareStyle}>{Piece ? <Piece /> : null}</div>;
+    })}
+  </div>;
 }
 
 function MinecraftSetPreview({ large }: { large: boolean }) {
