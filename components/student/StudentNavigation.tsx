@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { DisplayedBadge } from "@/components/DisplayedBadge";
 import { StudentWhatsNewButton } from "@/components/student/StudentWhatsNewButton";
+import { ContactButton } from "@/components/ContactButton";
 import type { DisplayedBadge as BadgeData } from "@/lib/types";
 import {
   getStudentMobileMoreGroups,
@@ -171,6 +172,7 @@ function StudentNavigationContent({ studentName, onLogout, displayedBadge, stude
             <span className="hidden sm:inline">⌂ Academy Home</span>
           </Link>
           <div className="flex shrink-0 items-center gap-2">
+          <ContactButton compact />
           <StudentWhatsNewButton onOpen={() => setOpenMenu(null)} />
           <div className="relative">
             <button

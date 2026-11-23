@@ -7,6 +7,7 @@ import { getNavigationGroups, getTopNavActions, type NavVariant } from "@/compon
 import { StudentNavigation } from "@/components/student/StudentNavigation";
 import { clearStudyDraftsOnLogout } from "@/chess/analysis/studyDraftSession";
 import type { DisplayedBadge } from "@/lib/types";
+import { ContactButton } from "@/components/ContactButton";
 
 function TopNavAction({ href, label, className }: { href: string; label: string; className: string }) {
   if (href === "/api/admin/logout") {
@@ -65,7 +66,8 @@ export function TopNav({
   return (
     <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/78 px-4 py-3 backdrop-blur lg:px-6">
       <div className="flex items-center justify-between gap-3">
-        <Link prefetch={false} href={homeHref} className="font-black text-white">{variant === "admin" ? "Chess Quest · Teacher" : "The Chess Academy Quest Board"}</Link>
+        <Link prefetch={false} href={homeHref} className="min-w-0 flex-1 font-black text-white">{variant === "admin" ? "Chess Quest · Teacher" : "The Chess Academy Quest Board"}</Link>
+        <ContactButton compact />
         <div className="hidden items-center gap-2 text-xs font-bold md:flex">
           {actions.map((link) => (
             <TopNavAction

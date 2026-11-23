@@ -2,6 +2,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ParentStudentLookup } from "@/components/ParentStudentLookup";
 import { StudentFaq } from "@/components/StudentFaq";
+import { ContactButton } from "@/components/ContactButton";
 
 // Reveal the existing registration entry points when public enrollment opens.
 const SHOW_PUBLIC_REGISTRATION = false;
@@ -33,7 +34,7 @@ export default function HomePage() {
         <ParentStudentLookup />
 
         <StudentFaq />
-        <p className="text-center text-xs text-slate-400"><a href="/privacy" className="underline">Privacy</a></p>
+        <footer className="flex items-center justify-center gap-5 text-xs text-slate-400"><ContactButton /><a href="/privacy" className="underline">Privacy</a></footer>
       </div>
     </main>
   );

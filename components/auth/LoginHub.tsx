@@ -4,6 +4,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { StudentLoginForm } from "@/components/student/StudentLoginForm";
 import { useState } from "react";
+import { ContactButton } from "@/components/ContactButton";
 
 type LoginMode = "student" | "admin";
 
@@ -96,6 +97,7 @@ export function LoginHub({ initialMode = "student", initialMethod = "academy" }:
             <p className="mt-4 text-sm text-slate-300">{message}</p>
           </Card>
         )}
+        <div className="mt-5 flex justify-center"><ContactButton /></div>
       </div>
     </main>
   );
