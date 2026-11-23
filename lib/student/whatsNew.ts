@@ -12,6 +12,7 @@ export type StudentUpdate = {
 // the release that makes an item usable.
 // Keep this independent of gameplay/data APIs: opening the popup needs no DB read.
 export const studentUpdates: readonly StudentUpdate[] = [
+  { id: "beginner-learn-puzzles", date: "2026-11-23", category: "Feature", title: "New to puzzles? Start with Learn", description: "Train → Learn has 180 beginner puzzles: 30 each for mate in 1, hanging pieces, defensive moves, forks, pins, and skewers. Play a move, use hints, and learn why it works. No timer or lost lives. Your progress is saved in this browser." },
   { id: "avatar-game-ending-popup", date: "2026-11-23", category: "Feature", title: "Your avatars take the final bow", description: "Game endings now appear over the board like the VS introduction, with both avatars and the winner highlighted. The popup lasts 10 seconds. Click outside, tap ×, or press Escape to reveal the final position immediately." },
   { id: "game-ending-animations", date: "2026-11-23", category: "Feature", title: "Every finish gets a moment", description: "Wins, losses, and draws now have their own animation. It lasts 10 seconds; click or tap outside, use the close button, or press Escape to skip. Your analysis and rematch options stay available." },
   { id: "bot-first-match-introduction", date: "2026-11-23", category: "Feature", title: "Face off against your bot", description: "Your avatar VS the bot’s portrait now stays on screen for the full introduction even when the bot moves first. Tap anywhere to jump straight into play." },

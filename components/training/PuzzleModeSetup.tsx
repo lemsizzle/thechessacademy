@@ -69,6 +69,7 @@ export function PuzzleModeSetup({ selectedTheme, onThemeChange, selectedLevel, o
   return <section className="mx-auto max-w-5xl space-y-4">
     <h2 ref={heading} tabIndex={-1} className="text-xl font-black text-white outline-none">Choose a puzzle mode</h2>
     <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3" aria-label="Puzzle training modes">
+      <Link href="/student/training/learn" className="rounded-xl border border-amber-200/30 bg-amber-200/5 p-3 sm:p-4 hover:bg-amber-200/10"><span className="font-black text-amber-100">♙ Learn →</span><span className="mt-2 block text-xs text-slate-300">New to puzzles? Six beginner sets · 30 puzzles each</span></Link>
       {PUZZLE_MODE_OPTIONS.map(mode => <Card key={mode.id} className="relative flex flex-col overflow-hidden">
         <button type="button" aria-label={mode.startLabel} onClick={() => onStart(mode.id, true)}
           className="min-h-28 flex-1 p-3 text-left sm:p-4 hover:bg-cyan-300/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200">

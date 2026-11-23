@@ -5,7 +5,7 @@ const origin=process.env.STUDENT_QA_ORIGIN||'http://127.0.0.1:9574';
 assert.equal(new URL(origin).hostname,'127.0.0.1');
 const output='work/student-navigation-qa';fs.mkdirSync(output,{recursive:true});
 const links=[['/student'],['/student/training'],['/student/play'],['/student/quests'],['/student/avatar'],
- ...['endgames','assessment','battle','dashboard'].map(p=>['/student/training/'+p,'/student/training']),
+ ...['learn','endgames','assessment','battle','dashboard'].map(p=>['/student/training/'+p,'/student/training']),
  ['/student/play/history','/student/play'],['/student/play/correspondence','/student/play'],['/student/tournaments','/student/play'],
  ...['badges','achievements','studies','submit','?progress=overview','leaderboard','resources'].map(p=>[p.startsWith('?')?'/student'+p:'/student/'+p,'more'])];
 (async()=>{
@@ -17,6 +17,7 @@ const links=[['/student'],['/student/training'],['/student/play'],['/student/que
   await context.routeWebSocket(/.*/,ws=>ws.close());
   const page=await context.newPage();page.setDefaultTimeout(10000);await page.goto(origin+'/__qa/login');
   for(const [href,parent]of links){
+   if(process.env.QA_HREF&&process.env.QA_HREF!==href)continue;
    const errors=[],failures=[];
    const err=e=>errors.push(e.message),response=r=>{if(r.status()>=400&&new URL(r.url()).origin===origin)failures.push(`${r.status()} ${new URL(r.url()).pathname}`)};
    try{

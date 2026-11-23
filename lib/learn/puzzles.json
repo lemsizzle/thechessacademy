@@ -1,0 +1,1897 @@
+[
+  {
+    "id": "mate-in-one-01",
+    "topic": "mate-in-one",
+    "kind": "queen-and-king",
+    "fen": "7k/5K2/8/8/2Q5/8/8/8 w - - 0 1",
+    "solutions": [
+      "c4h4"
+    ]
+  },
+  {
+    "id": "mate-in-one-02",
+    "topic": "mate-in-one",
+    "kind": "queen-and-king",
+    "fen": "5K1k/8/8/8/8/8/5Q2/8 w - - 0 1",
+    "solutions": [
+      "f2h2",
+      "f2h4"
+    ]
+  },
+  {
+    "id": "mate-in-one-03",
+    "topic": "mate-in-one",
+    "kind": "queen-and-king",
+    "fen": "k7/4Q3/2K5/8/8/8/8/8 w - - 0 1",
+    "solutions": [
+      "e7b7"
+    ]
+  },
+  {
+    "id": "mate-in-one-04",
+    "topic": "mate-in-one",
+    "kind": "queen-and-king",
+    "fen": "k1K5/8/8/8/8/8/8/5Q2 w - - 0 1",
+    "solutions": [
+      "f1a1",
+      "f1a6"
+    ]
+  },
+  {
+    "id": "mate-in-one-05",
+    "topic": "mate-in-one",
+    "kind": "queen-and-king",
+    "fen": "k1K5/8/8/8/5Q2/8/8/8 w - - 0 1",
+    "solutions": [
+      "f4a4",
+      "f4b8"
+    ]
+  },
+  {
+    "id": "mate-in-one-06",
+    "topic": "mate-in-one",
+    "kind": "queen-and-king",
+    "fen": "k7/2K5/8/8/8/8/1Q6/8 w - - 0 1",
+    "solutions": [
+      "b2a1",
+      "b2a2",
+      "b2a3",
+      "b2b7",
+      "b2b8"
+    ]
+  },
+  {
+    "id": "mate-in-one-07",
+    "topic": "mate-in-one",
+    "kind": "queen-and-king",
+    "fen": "k7/2K5/8/8/8/8/8/4Q3 w - - 0 1",
+    "solutions": [
+      "e1a1",
+      "e1a5"
+    ]
+  },
+  {
+    "id": "mate-in-one-08",
+    "topic": "mate-in-one",
+    "kind": "queen-and-king",
+    "fen": "k7/5Q2/2K5/8/8/8/8/8 w - - 0 1",
+    "solutions": [
+      "f7b7"
+    ]
+  },
+  {
+    "id": "mate-in-one-09",
+    "topic": "mate-in-one",
+    "kind": "queen-and-king",
+    "fen": "7k/5K2/8/8/8/8/5Q2/8 w - - 0 1",
+    "solutions": [
+      "f2h2",
+      "f2h4"
+    ]
+  },
+  {
+    "id": "mate-in-one-10",
+    "topic": "mate-in-one",
+    "kind": "queen-and-king",
+    "fen": "k1K5/8/8/8/1Q6/8/8/8 w - - 0 1",
+    "solutions": [
+      "b4a3",
+      "b4a4",
+      "b4a5",
+      "b4b7",
+      "b4b8"
+    ]
+  },
+  {
+    "id": "mate-in-one-11",
+    "topic": "mate-in-one",
+    "kind": "back-rank",
+    "fen": "7k/6pp/8/8/8/8/3Q4/K7 w - - 0 1",
+    "solutions": [
+      "d2d8"
+    ]
+  },
+  {
+    "id": "mate-in-one-12",
+    "topic": "mate-in-one",
+    "kind": "back-rank",
+    "fen": "7k/6pp/8/8/8/8/1Q6/K7 w - - 0 1",
+    "solutions": [
+      "b2b8"
+    ]
+  },
+  {
+    "id": "mate-in-one-13",
+    "topic": "mate-in-one",
+    "kind": "back-rank",
+    "fen": "7k/6pp/8/8/8/8/8/K6Q w - - 0 1",
+    "solutions": [
+      "h1a8"
+    ]
+  },
+  {
+    "id": "mate-in-one-14",
+    "topic": "mate-in-one",
+    "kind": "back-rank",
+    "fen": "k7/pp4Q1/8/8/8/8/8/7K w - - 0 1",
+    "solutions": [
+      "g7f8",
+      "g7g8",
+      "g7h8"
+    ]
+  },
+  {
+    "id": "mate-in-one-15",
+    "topic": "mate-in-one",
+    "kind": "back-rank",
+    "fen": "7k/6pp/8/8/8/8/3R4/K7 w - - 0 1",
+    "solutions": [
+      "d2d8"
+    ]
+  },
+  {
+    "id": "mate-in-one-16",
+    "topic": "mate-in-one",
+    "kind": "back-rank",
+    "fen": "k7/pp6/8/8/8/3R4/8/7K w - - 0 1",
+    "solutions": [
+      "d3d8"
+    ]
+  },
+  {
+    "id": "mate-in-one-17",
+    "topic": "mate-in-one",
+    "kind": "back-rank",
+    "fen": "k7/pp6/4Q3/8/8/8/8/7K w - - 0 1",
+    "solutions": [
+      "e6c8",
+      "e6e8",
+      "e6g8"
+    ]
+  },
+  {
+    "id": "mate-in-one-18",
+    "topic": "mate-in-one",
+    "kind": "back-rank",
+    "fen": "k7/pp6/3Q4/8/8/8/8/7K w - - 0 1",
+    "solutions": [
+      "d6d8",
+      "d6f8"
+    ]
+  },
+  {
+    "id": "mate-in-one-19",
+    "topic": "mate-in-one",
+    "kind": "back-rank",
+    "fen": "k7/ppQ5/8/8/8/8/8/7K w - - 0 1",
+    "solutions": [
+      "c7c8",
+      "c7d8"
+    ]
+  },
+  {
+    "id": "mate-in-one-20",
+    "topic": "mate-in-one",
+    "kind": "back-rank",
+    "fen": "7k/6pp/8/8/6Q1/8/8/K7 w - - 0 1",
+    "solutions": [
+      "g4c8"
+    ]
+  },
+  {
+    "id": "mate-in-one-21",
+    "topic": "mate-in-one",
+    "kind": "smothered-knight",
+    "fen": "3N2rk/6pp/8/8/8/8/8/K7 w - - 0 1",
+    "solutions": [
+      "d8f7"
+    ]
+  },
+  {
+    "id": "mate-in-one-22",
+    "topic": "mate-in-one",
+    "kind": "smothered-knight",
+    "fen": "6rk/6pp/3N4/8/8/8/8/K7 w - - 0 1",
+    "solutions": [
+      "d6f7"
+    ]
+  },
+  {
+    "id": "mate-in-one-23",
+    "topic": "mate-in-one",
+    "kind": "smothered-knight",
+    "fen": "kr6/pp6/N7/8/8/8/8/7K w - - 0 1",
+    "solutions": [
+      "a6c7"
+    ]
+  },
+  {
+    "id": "mate-in-one-24",
+    "topic": "mate-in-one",
+    "kind": "smothered-knight",
+    "fen": "kr6/pp6/8/3N4/8/8/8/7K w - - 0 1",
+    "solutions": [
+      "d5c7"
+    ]
+  },
+  {
+    "id": "mate-in-one-25",
+    "topic": "mate-in-one",
+    "kind": "smothered-knight",
+    "fen": "6rk/6pp/8/6N1/8/8/8/K7 w - - 0 1",
+    "solutions": [
+      "g5f7"
+    ]
+  },
+  {
+    "id": "mate-in-one-26",
+    "topic": "mate-in-one",
+    "kind": "smothered-knight",
+    "fen": "6rk/6pp/8/4N3/8/8/8/K7 w - - 0 1",
+    "solutions": [
+      "e5f7"
+    ]
+  },
+  {
+    "id": "mate-in-one-27",
+    "topic": "mate-in-one",
+    "kind": "smothered-knight",
+    "fen": "kr6/pp6/8/1N6/8/8/8/7K w - - 0 1",
+    "solutions": [
+      "b5c7"
+    ]
+  },
+  {
+    "id": "mate-in-one-28",
+    "topic": "mate-in-one",
+    "kind": "smothered-knight",
+    "fen": "6rk/6pp/7N/8/8/8/8/K7 w - - 0 1",
+    "solutions": [
+      "h6f7"
+    ]
+  },
+  {
+    "id": "mate-in-one-29",
+    "topic": "mate-in-one",
+    "kind": "smothered-knight",
+    "fen": "kr2N3/pp6/8/8/8/8/8/7K w - - 0 1",
+    "solutions": [
+      "e8c7"
+    ]
+  },
+  {
+    "id": "mate-in-one-30",
+    "topic": "mate-in-one",
+    "kind": "smothered-knight",
+    "fen": "kr6/pp6/4N3/8/8/8/8/7K w - - 0 1",
+    "solutions": [
+      "e6c7"
+    ]
+  },
+  {
+    "id": "hanging-piece-01",
+    "topic": "hanging-piece",
+    "kind": "p",
+    "fen": "7k/8/8/8/8/5q2/4P3/K7 w - - 0 1",
+    "target": "f3",
+    "solutions": [
+      "e2f3"
+    ]
+  },
+  {
+    "id": "hanging-piece-02",
+    "topic": "hanging-piece",
+    "kind": "p",
+    "fen": "7k/8/6n1/5P2/8/8/8/K7 w - - 0 1",
+    "target": "g6",
+    "solutions": [
+      "f5g6"
+    ]
+  },
+  {
+    "id": "hanging-piece-03",
+    "topic": "hanging-piece",
+    "kind": "p",
+    "fen": "7k/8/8/8/1q6/2P5/8/K7 w - - 0 1",
+    "target": "b4",
+    "solutions": [
+      "c3b4"
+    ]
+  },
+  {
+    "id": "hanging-piece-04",
+    "topic": "hanging-piece",
+    "kind": "p",
+    "fen": "7k/8/8/8/8/3r4/2P5/K7 w - - 0 1",
+    "target": "d3",
+    "solutions": [
+      "c2d3"
+    ]
+  },
+  {
+    "id": "hanging-piece-05",
+    "topic": "hanging-piece",
+    "kind": "p",
+    "fen": "7k/8/8/3r4/4P3/8/8/K7 w - - 0 1",
+    "target": "d5",
+    "solutions": [
+      "e4d5"
+    ]
+  },
+  {
+    "id": "hanging-piece-06",
+    "topic": "hanging-piece",
+    "kind": "p",
+    "fen": "7k/8/8/8/8/6q1/7P/K7 w - - 0 1",
+    "target": "g3",
+    "solutions": [
+      "h2g3"
+    ]
+  },
+  {
+    "id": "hanging-piece-07",
+    "topic": "hanging-piece",
+    "kind": "n",
+    "fen": "7k/8/8/1q6/8/2N5/8/K7 w - - 0 1",
+    "target": "b5",
+    "solutions": [
+      "c3b5"
+    ]
+  },
+  {
+    "id": "hanging-piece-08",
+    "topic": "hanging-piece",
+    "kind": "n",
+    "fen": "7k/8/8/8/3n4/5N2/8/K7 w - - 0 1",
+    "target": "d4",
+    "solutions": [
+      "f3d4"
+    ]
+  },
+  {
+    "id": "hanging-piece-09",
+    "topic": "hanging-piece",
+    "kind": "n",
+    "fen": "7k/8/8/8/8/b7/8/KN6 w - - 0 1",
+    "target": "a3",
+    "solutions": [
+      "b1a3"
+    ]
+  },
+  {
+    "id": "hanging-piece-10",
+    "topic": "hanging-piece",
+    "kind": "n",
+    "fen": "7k/8/8/6N1/8/5b2/8/K7 w - - 0 1",
+    "target": "f3",
+    "solutions": [
+      "g5f3"
+    ]
+  },
+  {
+    "id": "hanging-piece-11",
+    "topic": "hanging-piece",
+    "kind": "n",
+    "fen": "7k/8/8/4N3/2n5/8/8/K7 w - - 0 1",
+    "target": "c4",
+    "solutions": [
+      "e5c4"
+    ]
+  },
+  {
+    "id": "hanging-piece-12",
+    "topic": "hanging-piece",
+    "kind": "n",
+    "fen": "7k/8/8/5r2/3N4/8/8/K7 w - - 0 1",
+    "target": "f5",
+    "solutions": [
+      "d4f5"
+    ]
+  },
+  {
+    "id": "hanging-piece-13",
+    "topic": "hanging-piece",
+    "kind": "b",
+    "fen": "7k/8/8/6B1/7q/8/8/K7 w - - 0 1",
+    "target": "h4",
+    "solutions": [
+      "g5h4"
+    ]
+  },
+  {
+    "id": "hanging-piece-14",
+    "topic": "hanging-piece",
+    "kind": "b",
+    "fen": "7k/8/8/4n3/8/6B1/8/K7 w - - 0 1",
+    "target": "e5",
+    "solutions": [
+      "g3e5"
+    ]
+  },
+  {
+    "id": "hanging-piece-15",
+    "topic": "hanging-piece",
+    "kind": "b",
+    "fen": "7k/8/8/8/5B2/4n3/8/K7 w - - 0 1",
+    "target": "e3",
+    "solutions": [
+      "f4e3"
+    ]
+  },
+  {
+    "id": "hanging-piece-16",
+    "topic": "hanging-piece",
+    "kind": "b",
+    "fen": "7k/8/B7/8/2r5/8/8/K7 w - - 0 1",
+    "target": "c4",
+    "solutions": [
+      "a6c4"
+    ]
+  },
+  {
+    "id": "hanging-piece-17",
+    "topic": "hanging-piece",
+    "kind": "b",
+    "fen": "7k/8/8/8/8/1r6/B7/K7 w - - 0 1",
+    "target": "b3",
+    "solutions": [
+      "a2b3"
+    ]
+  },
+  {
+    "id": "hanging-piece-18",
+    "topic": "hanging-piece",
+    "kind": "b",
+    "fen": "7k/8/8/8/5n2/6B1/8/K7 w - - 0 1",
+    "target": "f4",
+    "solutions": [
+      "g3f4"
+    ]
+  },
+  {
+    "id": "hanging-piece-19",
+    "topic": "hanging-piece",
+    "kind": "r",
+    "fen": "7k/8/8/8/R6r/8/8/K7 w - - 0 1",
+    "target": "h4",
+    "solutions": [
+      "a4h4"
+    ]
+  },
+  {
+    "id": "hanging-piece-20",
+    "topic": "hanging-piece",
+    "kind": "r",
+    "fen": "7k/8/2r1R3/8/8/8/8/K7 w - - 0 1",
+    "target": "c6",
+    "solutions": [
+      "e6c6"
+    ]
+  },
+  {
+    "id": "hanging-piece-21",
+    "topic": "hanging-piece",
+    "kind": "r",
+    "fen": "7k/2R5/8/8/2r5/8/8/K7 w - - 0 1",
+    "target": "c4",
+    "solutions": [
+      "c7c4"
+    ]
+  },
+  {
+    "id": "hanging-piece-22",
+    "topic": "hanging-piece",
+    "kind": "r",
+    "fen": "7k/8/8/1r6/8/1R6/8/K7 w - - 0 1",
+    "target": "b5",
+    "solutions": [
+      "b3b5"
+    ]
+  },
+  {
+    "id": "hanging-piece-23",
+    "topic": "hanging-piece",
+    "kind": "r",
+    "fen": "7k/8/2b5/8/8/8/2R5/K7 w - - 0 1",
+    "target": "c6",
+    "solutions": [
+      "c2c6"
+    ]
+  },
+  {
+    "id": "hanging-piece-24",
+    "topic": "hanging-piece",
+    "kind": "r",
+    "fen": "7k/8/8/1R1q4/8/8/8/K7 w - - 0 1",
+    "target": "d5",
+    "solutions": [
+      "b5d5"
+    ]
+  },
+  {
+    "id": "hanging-piece-25",
+    "topic": "hanging-piece",
+    "kind": "q",
+    "fen": "7k/8/8/2Qr4/8/8/8/K7 w - - 0 1",
+    "target": "d5",
+    "solutions": [
+      "c5d5"
+    ]
+  },
+  {
+    "id": "hanging-piece-26",
+    "topic": "hanging-piece",
+    "kind": "q",
+    "fen": "7k/8/8/8/r7/8/Q7/K7 w - - 0 1",
+    "target": "a4",
+    "solutions": [
+      "a2a4"
+    ]
+  },
+  {
+    "id": "hanging-piece-27",
+    "topic": "hanging-piece",
+    "kind": "q",
+    "fen": "7k/8/8/8/8/3Qq3/8/K7 w - - 0 1",
+    "target": "e3",
+    "solutions": [
+      "d3e3"
+    ]
+  },
+  {
+    "id": "hanging-piece-28",
+    "topic": "hanging-piece",
+    "kind": "q",
+    "fen": "7k/8/8/8/2Q1b3/8/8/K7 w - - 0 1",
+    "target": "e4",
+    "solutions": [
+      "c4e4"
+    ]
+  },
+  {
+    "id": "hanging-piece-29",
+    "topic": "hanging-piece",
+    "kind": "q",
+    "fen": "7k/8/8/8/8/1Q5n/8/K7 w - - 0 1",
+    "target": "h3",
+    "solutions": [
+      "b3h3"
+    ]
+  },
+  {
+    "id": "hanging-piece-30",
+    "topic": "hanging-piece",
+    "kind": "q",
+    "fen": "7k/8/8/8/1Q3n2/8/8/K7 w - - 0 1",
+    "target": "f4",
+    "solutions": [
+      "b4f4"
+    ]
+  },
+  {
+    "id": "defensive-move-01",
+    "topic": "defensive-move",
+    "kind": "escape",
+    "fen": "7k/8/8/R7/8/8/8/K3b3 w - - 0 1",
+    "focus": "a5",
+    "solutions": [
+      "a5a2",
+      "a5a3",
+      "a5a4",
+      "a5a6",
+      "a5a7",
+      "a5a8",
+      "a5b5",
+      "a5c5",
+      "a5d5",
+      "a5e5",
+      "a5f5",
+      "a5g5",
+      "a5h5"
+    ]
+  },
+  {
+    "id": "defensive-move-02",
+    "topic": "defensive-move",
+    "kind": "escape",
+    "fen": "7k/5r2/5N2/8/8/8/8/K7 w - - 0 1",
+    "focus": "f6",
+    "solutions": [
+      "f6d5",
+      "f6e4",
+      "f6e8",
+      "f6g4",
+      "f6h5"
+    ]
+  },
+  {
+    "id": "defensive-move-03",
+    "topic": "defensive-move",
+    "kind": "escape",
+    "fen": "7k/8/8/7N/6b1/8/8/K7 w - - 0 1",
+    "focus": "h5",
+    "solutions": [
+      "h5f4",
+      "h5f6",
+      "h5g3"
+    ]
+  },
+  {
+    "id": "defensive-move-04",
+    "topic": "defensive-move",
+    "kind": "escape",
+    "fen": "7k/8/8/Br6/8/8/8/K7 w - - 0 1",
+    "focus": "a5",
+    "solutions": [
+      "a5c3",
+      "a5c7",
+      "a5d2",
+      "a5d8",
+      "a5e1"
+    ]
+  },
+  {
+    "id": "defensive-move-05",
+    "topic": "defensive-move",
+    "kind": "escape",
+    "fen": "7k/8/8/8/4Q3/8/3n4/K7 w - - 0 1",
+    "focus": "e4",
+    "solutions": [
+      "e4a4",
+      "e4a8",
+      "e4b4",
+      "e4b7",
+      "e4c2",
+      "e4c6",
+      "e4d3",
+      "e4d4",
+      "e4d5",
+      "e4e1",
+      "e4e2",
+      "e4e3",
+      "e4e5",
+      "e4e6",
+      "e4e7",
+      "e4e8",
+      "e4f4",
+      "e4f5",
+      "e4g2",
+      "e4g4",
+      "e4g6",
+      "e4h1",
+      "e4h4"
+    ]
+  },
+  {
+    "id": "defensive-move-06",
+    "topic": "defensive-move",
+    "kind": "escape",
+    "fen": "7k/8/1b6/8/8/4Q3/8/K7 w - - 0 1",
+    "focus": "e3",
+    "solutions": [
+      "e3a3",
+      "e3b3",
+      "e3b6",
+      "e3c1",
+      "e3c3",
+      "e3d2",
+      "e3d3",
+      "e3e1",
+      "e3e2",
+      "e3e4",
+      "e3e5",
+      "e3e6",
+      "e3e7",
+      "e3e8",
+      "e3f3",
+      "e3f4",
+      "e3g3",
+      "e3g5",
+      "e3h3",
+      "e3h6"
+    ]
+  },
+  {
+    "id": "defensive-move-07",
+    "topic": "defensive-move",
+    "kind": "escape",
+    "fen": "7k/8/8/8/6Q1/8/7n/K7 w - - 0 1",
+    "focus": "g4",
+    "solutions": [
+      "g4a4",
+      "g4b4",
+      "g4c4",
+      "g4c8",
+      "g4d1",
+      "g4d4",
+      "g4d7",
+      "g4e2",
+      "g4e4",
+      "g4e6",
+      "g4f4",
+      "g4f5",
+      "g4g1",
+      "g4g2",
+      "g4g3",
+      "g4g5",
+      "g4g6",
+      "g4h3",
+      "g4h4",
+      "g4h5"
+    ]
+  },
+  {
+    "id": "defensive-move-08",
+    "topic": "defensive-move",
+    "kind": "escape",
+    "fen": "7k/8/8/4n3/2R5/8/8/K7 w - - 0 1",
+    "focus": "c4",
+    "solutions": [
+      "c4a4",
+      "c4b4",
+      "c4c1",
+      "c4c2",
+      "c4c3",
+      "c4c5",
+      "c4c7",
+      "c4c8",
+      "c4d4",
+      "c4e4",
+      "c4f4",
+      "c4h4"
+    ]
+  },
+  {
+    "id": "defensive-move-09",
+    "topic": "defensive-move",
+    "kind": "escape",
+    "fen": "7k/8/8/2R5/4n3/8/8/K7 w - - 0 1",
+    "focus": "c5",
+    "solutions": [
+      "c5a5",
+      "c5b5",
+      "c5c1",
+      "c5c2",
+      "c5c4",
+      "c5c6",
+      "c5c7",
+      "c5c8",
+      "c5d5",
+      "c5e5",
+      "c5f5",
+      "c5h5"
+    ]
+  },
+  {
+    "id": "defensive-move-10",
+    "topic": "defensive-move",
+    "kind": "escape",
+    "fen": "7k/8/7N/5n2/8/8/8/K7 w - - 0 1",
+    "focus": "h6",
+    "solutions": [
+      "h6f5",
+      "h6f7",
+      "h6g4"
+    ]
+  },
+  {
+    "id": "defensive-move-11",
+    "topic": "defensive-move",
+    "kind": "block",
+    "fen": "7k/1r6/8/8/8/B7/8/1K6 w - - 0 1",
+    "solutions": [
+      "a3b2"
+    ]
+  },
+  {
+    "id": "defensive-move-12",
+    "topic": "defensive-move",
+    "kind": "block",
+    "fen": "7k/2r5/8/8/8/1B6/8/2K5 w - - 0 1",
+    "solutions": [
+      "b3c2"
+    ]
+  },
+  {
+    "id": "defensive-move-13",
+    "topic": "defensive-move",
+    "kind": "block",
+    "fen": "7k/3r4/8/8/8/8/1R6/3K4 w - - 0 1",
+    "solutions": [
+      "b2d2"
+    ]
+  },
+  {
+    "id": "defensive-move-14",
+    "topic": "defensive-move",
+    "kind": "block",
+    "fen": "7k/2r5/8/5B2/8/8/8/2K5 w - - 0 1",
+    "solutions": [
+      "f5c2"
+    ]
+  },
+  {
+    "id": "defensive-move-15",
+    "topic": "defensive-move",
+    "kind": "block",
+    "fen": "7k/5r2/8/8/8/8/6R1/5K2 w - - 0 1",
+    "solutions": [
+      "g2f2"
+    ]
+  },
+  {
+    "id": "defensive-move-16",
+    "topic": "defensive-move",
+    "kind": "block",
+    "fen": "7k/2r5/8/8/8/N7/8/2K5 w - - 0 1",
+    "solutions": [
+      "a3c2"
+    ]
+  },
+  {
+    "id": "defensive-move-17",
+    "topic": "defensive-move",
+    "kind": "block",
+    "fen": "7k/2r5/6B1/8/8/8/8/2K5 w - - 0 1",
+    "solutions": [
+      "g6c2"
+    ]
+  },
+  {
+    "id": "defensive-move-18",
+    "topic": "defensive-move",
+    "kind": "block",
+    "fen": "7k/4r3/8/8/6B1/8/8/4K3 w - - 0 1",
+    "solutions": [
+      "g4e2"
+    ]
+  },
+  {
+    "id": "defensive-move-19",
+    "topic": "defensive-move",
+    "kind": "block",
+    "fen": "7k/5r2/8/2B5/8/8/8/5K2 w - - 0 1",
+    "solutions": [
+      "c5f2"
+    ]
+  },
+  {
+    "id": "defensive-move-20",
+    "topic": "defensive-move",
+    "kind": "block",
+    "fen": "7k/4r3/8/8/8/8/2R5/4K3 w - - 0 1",
+    "solutions": [
+      "c2e2"
+    ]
+  },
+  {
+    "id": "defensive-move-21",
+    "topic": "defensive-move",
+    "kind": "capture-checker",
+    "fen": "4B2k/8/8/1n6/8/2K5/8/8 w - - 0 1",
+    "target": "b5",
+    "solutions": [
+      "e8b5"
+    ]
+  },
+  {
+    "id": "defensive-move-22",
+    "topic": "defensive-move",
+    "kind": "capture-checker",
+    "fen": "7k/8/8/8/8/2K5/3Q4/3n4 w - - 0 1",
+    "target": "d1",
+    "solutions": [
+      "d2d1"
+    ]
+  },
+  {
+    "id": "defensive-move-23",
+    "topic": "defensive-move",
+    "kind": "capture-checker",
+    "fen": "7k/8/8/1nQ5/8/2K5/8/8 w - - 0 1",
+    "target": "b5",
+    "solutions": [
+      "c5b5"
+    ]
+  },
+  {
+    "id": "defensive-move-24",
+    "topic": "defensive-move",
+    "kind": "capture-checker",
+    "fen": "7k/8/8/8/4n3/2K5/8/1B6 w - - 0 1",
+    "target": "e4",
+    "solutions": [
+      "b1e4"
+    ]
+  },
+  {
+    "id": "defensive-move-25",
+    "topic": "defensive-move",
+    "kind": "capture-checker",
+    "fen": "7k/8/8/8/8/2K5/n1R5/8 w - - 0 1",
+    "target": "a2",
+    "solutions": [
+      "c2a2"
+    ]
+  },
+  {
+    "id": "defensive-move-26",
+    "topic": "defensive-move",
+    "kind": "capture-checker",
+    "fen": "7k/8/8/8/8/2K5/8/R2n4 w - - 0 1",
+    "target": "d1",
+    "solutions": [
+      "a1d1"
+    ]
+  },
+  {
+    "id": "defensive-move-27",
+    "topic": "defensive-move",
+    "kind": "capture-checker",
+    "fen": "7k/R7/8/8/8/2K5/n7/8 w - - 0 1",
+    "target": "a2",
+    "solutions": [
+      "a7a2"
+    ]
+  },
+  {
+    "id": "defensive-move-28",
+    "topic": "defensive-move",
+    "kind": "capture-checker",
+    "fen": "7k/8/8/3B4/4n3/2K5/8/8 w - - 0 1",
+    "target": "e4",
+    "solutions": [
+      "d5e4"
+    ]
+  },
+  {
+    "id": "defensive-move-29",
+    "topic": "defensive-move",
+    "kind": "capture-checker",
+    "fen": "7k/8/8/8/nR6/2K5/8/8 w - - 0 1",
+    "target": "a4",
+    "solutions": [
+      "b4a4"
+    ]
+  },
+  {
+    "id": "defensive-move-30",
+    "topic": "defensive-move",
+    "kind": "capture-checker",
+    "fen": "7k/8/8/5B2/4n3/2K5/8/8 w - - 0 1",
+    "target": "e4",
+    "solutions": [
+      "f5e4"
+    ]
+  },
+  {
+    "id": "forks-01",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/8/4r1k1/8/8/7N/K7/8 w - - 0 1",
+    "target": "e6",
+    "solutions": [
+      "h3f4"
+    ]
+  },
+  {
+    "id": "forks-02",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/8/8/8/k1N5/3r4/7K/8 w - - 0 1",
+    "target": "d3",
+    "solutions": [
+      "c4b2"
+    ]
+  },
+  {
+    "id": "forks-03",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "2r5/8/2N3k1/8/8/8/8/7K w - - 0 1",
+    "target": "c8",
+    "solutions": [
+      "c6e7"
+    ]
+  },
+  {
+    "id": "forks-04",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/8/6q1/3N1k2/8/8/7K/8 w - - 0 1",
+    "target": "g6",
+    "solutions": [
+      "d5e7"
+    ]
+  },
+  {
+    "id": "forks-05",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/6k1/5N2/8/5r2/8/8/K7 w - - 0 1",
+    "target": "f4",
+    "solutions": [
+      "f6h5"
+    ]
+  },
+  {
+    "id": "forks-06",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "5k2/8/5r2/6N1/8/8/8/7K w - - 0 1",
+    "target": "f6",
+    "solutions": [
+      "g5h7"
+    ]
+  },
+  {
+    "id": "forks-07",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/N3k3/3q4/8/8/8/K7/8 w - - 0 1",
+    "target": "d6",
+    "solutions": [
+      "a7c8"
+    ]
+  },
+  {
+    "id": "forks-08",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/8/8/2r5/5k2/8/K7/2N5 w - - 0 1",
+    "target": "c5",
+    "solutions": [
+      "c1d3"
+    ]
+  },
+  {
+    "id": "forks-09",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/8/8/8/5k2/8/K4N2/6r1 w - - 0 1",
+    "target": "g1",
+    "solutions": [
+      "f2h3"
+    ]
+  },
+  {
+    "id": "forks-10",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/8/8/8/7k/4q3/K7/4N3 w - - 0 1",
+    "target": "e3",
+    "solutions": [
+      "e1g2"
+    ]
+  },
+  {
+    "id": "forks-11",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "3N4/8/7k/6q1/8/8/8/K7 w - - 0 1",
+    "target": "g5",
+    "solutions": [
+      "d8f7"
+    ]
+  },
+  {
+    "id": "forks-12",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/8/5N2/4k3/8/8/5r2/K7 w - - 0 1",
+    "target": "f2",
+    "solutions": [
+      "f6g4"
+    ]
+  },
+  {
+    "id": "forks-13",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/1k3r2/2N5/8/8/8/8/7K w - - 0 1",
+    "target": "f7",
+    "solutions": [
+      "c6d8"
+    ]
+  },
+  {
+    "id": "forks-14",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/8/8/8/8/3r4/4k1N1/7K w - - 0 1",
+    "target": "d3",
+    "solutions": [
+      "g2f4"
+    ]
+  },
+  {
+    "id": "forks-15",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "3q4/8/3N4/2k5/8/8/7K/8 w - - 0 1",
+    "target": "d8",
+    "solutions": [
+      "d6b7"
+    ]
+  },
+  {
+    "id": "forks-16",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "N1q5/8/8/8/2k5/8/8/7K w - - 0 1",
+    "target": "c8",
+    "solutions": [
+      "a8b6"
+    ]
+  },
+  {
+    "id": "forks-17",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/8/4r3/5N1k/8/8/7K/8 w - - 0 1",
+    "target": "e6",
+    "solutions": [
+      "f5g7"
+    ]
+  },
+  {
+    "id": "forks-18",
+    "topic": "forks",
+    "kind": "knight",
+    "fen": "8/8/8/6N1/5k2/8/5q2/7K w - - 0 1",
+    "target": "f2",
+    "solutions": [
+      "g5h3"
+    ]
+  },
+  {
+    "id": "forks-19",
+    "topic": "forks",
+    "kind": "pawn",
+    "fen": "8/8/3r1k2/8/4PK2/8/8/8 w - - 0 1",
+    "target": "d6",
+    "solutions": [
+      "e4e5"
+    ]
+  },
+  {
+    "id": "forks-20",
+    "topic": "forks",
+    "kind": "pawn",
+    "fen": "8/8/1r1k4/8/2PK4/8/8/8 w - - 0 1",
+    "target": "b6",
+    "solutions": [
+      "c4c5"
+    ]
+  },
+  {
+    "id": "forks-21",
+    "topic": "forks",
+    "kind": "pawn",
+    "fen": "8/8/8/3r1k2/8/4PK2/8/8 w - - 0 1",
+    "target": "d5",
+    "solutions": [
+      "e3e4"
+    ]
+  },
+  {
+    "id": "forks-22",
+    "topic": "forks",
+    "kind": "pawn",
+    "fen": "8/8/2k1r3/8/2KP4/8/8/8 w - - 0 1",
+    "target": "e6",
+    "solutions": [
+      "d4d5"
+    ]
+  },
+  {
+    "id": "forks-23",
+    "topic": "forks",
+    "kind": "pawn",
+    "fen": "8/3k1r2/8/3KP3/8/8/8/8 w - - 0 1",
+    "target": "f7",
+    "solutions": [
+      "e5e6"
+    ]
+  },
+  {
+    "id": "forks-24",
+    "topic": "forks",
+    "kind": "pawn",
+    "fen": "8/1k1r4/8/1KP5/8/8/8/8 w - - 0 1",
+    "target": "d7",
+    "solutions": [
+      "c5c6"
+    ]
+  },
+  {
+    "id": "forks-25",
+    "topic": "forks",
+    "kind": "queen",
+    "fen": "4k3/8/8/6Q1/2n5/8/8/K7 w - - 0 1",
+    "target": "c4",
+    "solutions": [
+      "g5b5",
+      "g5g8"
+    ]
+  },
+  {
+    "id": "forks-26",
+    "topic": "forks",
+    "kind": "queen",
+    "fen": "8/8/k7/7Q/8/8/8/Kn6 w - - 0 1",
+    "target": "b1",
+    "solutions": [
+      "h5g6"
+    ]
+  },
+  {
+    "id": "forks-27",
+    "topic": "forks",
+    "kind": "queen",
+    "fen": "8/7k/8/8/8/5n2/8/K2Q4 w - - 0 1",
+    "target": "f3",
+    "solutions": [
+      "d1d3"
+    ]
+  },
+  {
+    "id": "forks-28",
+    "topic": "forks",
+    "kind": "queen",
+    "fen": "8/6k1/3Q4/8/1n6/8/8/K7 w - - 0 1",
+    "target": "b4",
+    "solutions": [
+      "d6d4",
+      "d6e7"
+    ]
+  },
+  {
+    "id": "forks-29",
+    "topic": "forks",
+    "kind": "queen",
+    "fen": "8/2k5/8/8/8/n7/6Q1/K7 w - - 0 1",
+    "target": "a3",
+    "solutions": [
+      "g2g3"
+    ]
+  },
+  {
+    "id": "forks-30",
+    "topic": "forks",
+    "kind": "queen",
+    "fen": "8/8/3k4/8/8/2Q5/7n/K7 w - - 0 1",
+    "target": "h2",
+    "solutions": [
+      "c3d2",
+      "c3g3"
+    ]
+  },
+  {
+    "id": "pins-01",
+    "topic": "pins",
+    "kind": "r",
+    "fen": "K7/2R5/8/8/8/kb6/8/8 w - - 0 1",
+    "target": "b3",
+    "solutions": [
+      "c7c3"
+    ]
+  },
+  {
+    "id": "pins-02",
+    "topic": "pins",
+    "kind": "r",
+    "fen": "5k2/8/5n2/8/8/8/8/2R4K w - - 0 1",
+    "target": "f6",
+    "solutions": [
+      "c1f1"
+    ]
+  },
+  {
+    "id": "pins-03",
+    "topic": "pins",
+    "kind": "r",
+    "fen": "8/8/8/6k1/6n1/5R2/8/K7 w - - 0 1",
+    "target": "g4",
+    "solutions": [
+      "f3g3"
+    ]
+  },
+  {
+    "id": "pins-04",
+    "topic": "pins",
+    "kind": "r",
+    "fen": "4k3/4n3/1R6/8/8/8/8/K7 w - - 0 1",
+    "target": "e7",
+    "solutions": [
+      "b6e6"
+    ]
+  },
+  {
+    "id": "pins-05",
+    "topic": "pins",
+    "kind": "r",
+    "fen": "8/5b1k/8/8/8/8/8/1R5K w - - 0 1",
+    "target": "f7",
+    "solutions": [
+      "b1b7"
+    ]
+  },
+  {
+    "id": "pins-06",
+    "topic": "pins",
+    "kind": "r",
+    "fen": "K7/8/8/8/3n1k2/8/2R5/8 w - - 0 1",
+    "target": "d4",
+    "solutions": [
+      "c2c4"
+    ]
+  },
+  {
+    "id": "pins-07",
+    "topic": "pins",
+    "kind": "r",
+    "fen": "1kb5/8/8/8/8/8/8/K6R w - - 0 1",
+    "target": "c8",
+    "solutions": [
+      "h1h8"
+    ]
+  },
+  {
+    "id": "pins-08",
+    "topic": "pins",
+    "kind": "r",
+    "fen": "K7/8/8/3kn3/8/6R1/8/8 w - - 0 1",
+    "target": "e5",
+    "solutions": [
+      "g3g5"
+    ]
+  },
+  {
+    "id": "pins-09",
+    "topic": "pins",
+    "kind": "r",
+    "fen": "8/8/8/8/8/7R/5n2/K4k2 w - - 0 1",
+    "target": "f2",
+    "solutions": [
+      "h3f3"
+    ]
+  },
+  {
+    "id": "pins-10",
+    "topic": "pins",
+    "kind": "r",
+    "fen": "7K/8/8/8/5nk1/8/8/1R6 w - - 0 1",
+    "target": "f4",
+    "solutions": [
+      "b1b4"
+    ]
+  },
+  {
+    "id": "skewers-01",
+    "topic": "skewers",
+    "kind": "r",
+    "fen": "K7/8/8/6R1/8/1qk5/8/8 w - - 0 1",
+    "target": "b3",
+    "solutions": [
+      "g5g3"
+    ]
+  },
+  {
+    "id": "skewers-02",
+    "topic": "skewers",
+    "kind": "r",
+    "fen": "7K/8/4R3/1qk5/8/8/8/8 w - - 0 1",
+    "target": "b5",
+    "solutions": [
+      "e6e5"
+    ]
+  },
+  {
+    "id": "skewers-03",
+    "topic": "skewers",
+    "kind": "r",
+    "fen": "7K/4R3/8/8/1k6/1q6/8/8 w - - 0 1",
+    "target": "b3",
+    "solutions": [
+      "e7b7"
+    ]
+  },
+  {
+    "id": "skewers-04",
+    "topic": "skewers",
+    "kind": "r",
+    "fen": "K7/8/R7/8/8/3k4/3q4/8 w - - 0 1",
+    "target": "d2",
+    "solutions": [
+      "a6d6"
+    ]
+  },
+  {
+    "id": "skewers-05",
+    "topic": "skewers",
+    "kind": "r",
+    "fen": "8/5R2/qk6/8/8/8/8/7K w - - 0 1",
+    "target": "a6",
+    "solutions": [
+      "f7f6"
+    ]
+  },
+  {
+    "id": "skewers-06",
+    "topic": "skewers",
+    "kind": "r",
+    "fen": "7q/7k/8/8/3R4/8/8/7K w - - 0 1",
+    "target": "h8",
+    "solutions": [
+      "d4h4"
+    ]
+  },
+  {
+    "id": "skewers-07",
+    "topic": "skewers",
+    "kind": "r",
+    "fen": "8/1R6/8/8/2k5/2q5/8/7K w - - 0 1",
+    "target": "c3",
+    "solutions": [
+      "b7c7"
+    ]
+  },
+  {
+    "id": "skewers-08",
+    "topic": "skewers",
+    "kind": "r",
+    "fen": "8/8/5R2/8/1k6/1q6/8/7K w - - 0 1",
+    "target": "b3",
+    "solutions": [
+      "f6b6"
+    ]
+  },
+  {
+    "id": "skewers-09",
+    "topic": "skewers",
+    "kind": "r",
+    "fen": "8/8/3q4/3k4/8/8/1R6/7K w - - 0 1",
+    "target": "d6",
+    "solutions": [
+      "b2d2"
+    ]
+  },
+  {
+    "id": "skewers-10",
+    "topic": "skewers",
+    "kind": "r",
+    "fen": "1q6/1k6/8/8/8/8/6R1/7K w - - 0 1",
+    "target": "b8",
+    "solutions": [
+      "g2b2"
+    ]
+  },
+  {
+    "id": "pins-11",
+    "topic": "pins",
+    "kind": "b",
+    "fen": "7K/8/8/3n4/2k3B1/8/8/8 w - - 0 1",
+    "target": "d5",
+    "solutions": [
+      "g4e6"
+    ]
+  },
+  {
+    "id": "pins-12",
+    "topic": "pins",
+    "kind": "b",
+    "fen": "1k5K/2r5/8/8/3B4/8/8/8 w - - 0 1",
+    "target": "c7",
+    "solutions": [
+      "d4e5"
+    ]
+  },
+  {
+    "id": "pins-13",
+    "topic": "pins",
+    "kind": "b",
+    "fen": "8/1k6/2r5/8/8/8/8/K2B4 w - - 0 1",
+    "target": "c6",
+    "solutions": [
+      "d1f3"
+    ]
+  },
+  {
+    "id": "pins-14",
+    "topic": "pins",
+    "kind": "b",
+    "fen": "8/8/k7/1r6/6B1/8/8/7K w - - 0 1",
+    "target": "b5",
+    "solutions": [
+      "g4e2"
+    ]
+  },
+  {
+    "id": "pins-15",
+    "topic": "pins",
+    "kind": "b",
+    "fen": "7K/8/3B4/8/8/8/3r4/2k5 w - - 0 1",
+    "target": "d2",
+    "solutions": [
+      "d6f4"
+    ]
+  },
+  {
+    "id": "pins-16",
+    "topic": "pins",
+    "kind": "b",
+    "fen": "8/5B2/8/8/8/5n2/4k3/7K w - - 0 1",
+    "target": "f3",
+    "solutions": [
+      "f7h5"
+    ]
+  },
+  {
+    "id": "pins-17",
+    "topic": "pins",
+    "kind": "b",
+    "fen": "8/8/8/5n2/6k1/8/B7/K7 w - - 0 1",
+    "target": "f5",
+    "solutions": [
+      "a2e6"
+    ]
+  },
+  {
+    "id": "pins-18",
+    "topic": "pins",
+    "kind": "b",
+    "fen": "7K/8/8/8/8/8/1r6/k3B3 w - - 0 1",
+    "target": "b2",
+    "solutions": [
+      "e1c3"
+    ]
+  },
+  {
+    "id": "pins-19",
+    "topic": "pins",
+    "kind": "b",
+    "fen": "8/3k4/4r3/8/8/8/6B1/K7 w - - 0 1",
+    "target": "e6",
+    "solutions": [
+      "g2h3"
+    ]
+  },
+  {
+    "id": "pins-20",
+    "topic": "pins",
+    "kind": "b",
+    "fen": "7K/8/3B4/8/3r4/8/1k6/8 w - - 0 1",
+    "target": "d4",
+    "solutions": [
+      "d6e5"
+    ]
+  },
+  {
+    "id": "skewers-11",
+    "topic": "skewers",
+    "kind": "b",
+    "fen": "8/8/7r/8/5k2/B7/8/K7 w - - 0 1",
+    "target": "h6",
+    "solutions": [
+      "a3c1"
+    ]
+  },
+  {
+    "id": "skewers-12",
+    "topic": "skewers",
+    "kind": "b",
+    "fen": "7K/8/8/8/8/1k6/q7/7B w - - 0 1",
+    "target": "a2",
+    "solutions": [
+      "h1d5"
+    ]
+  },
+  {
+    "id": "skewers-13",
+    "topic": "skewers",
+    "kind": "b",
+    "fen": "7K/8/6B1/1k6/q7/8/8/8 w - - 0 1",
+    "target": "a4",
+    "solutions": [
+      "g6e8"
+    ]
+  },
+  {
+    "id": "skewers-14",
+    "topic": "skewers",
+    "kind": "b",
+    "fen": "8/8/2r5/3k4/8/8/8/5B1K w - - 0 1",
+    "target": "c6",
+    "solutions": [
+      "f1g2"
+    ]
+  },
+  {
+    "id": "skewers-15",
+    "topic": "skewers",
+    "kind": "b",
+    "fen": "K7/8/6r1/8/B3k3/8/8/8 w - - 0 1",
+    "target": "g6",
+    "solutions": [
+      "a4c2"
+    ]
+  },
+  {
+    "id": "skewers-16",
+    "topic": "skewers",
+    "kind": "b",
+    "fen": "7K/8/8/8/8/8/2k3B1/1r6 w - - 0 1",
+    "target": "b1",
+    "solutions": [
+      "g2e4"
+    ]
+  },
+  {
+    "id": "skewers-17",
+    "topic": "skewers",
+    "kind": "b",
+    "fen": "7K/5r2/4k3/8/8/8/4B3/8 w - - 0 1",
+    "target": "f7",
+    "solutions": [
+      "e2c4"
+    ]
+  },
+  {
+    "id": "skewers-18",
+    "topic": "skewers",
+    "kind": "b",
+    "fen": "K7/1r6/2k3B1/8/8/8/8/8 w - - 0 1",
+    "target": "b7",
+    "solutions": [
+      "g6e4"
+    ]
+  },
+  {
+    "id": "skewers-19",
+    "topic": "skewers",
+    "kind": "b",
+    "fen": "8/8/5q2/8/3k4/8/8/K1B5 w - - 0 1",
+    "target": "f6",
+    "solutions": [
+      "c1b2"
+    ]
+  },
+  {
+    "id": "skewers-20",
+    "topic": "skewers",
+    "kind": "b",
+    "fen": "2B5/8/8/8/8/3k4/2r5/7K w - - 0 1",
+    "target": "c2",
+    "solutions": [
+      "c8f5"
+    ]
+  },
+  {
+    "id": "pins-21",
+    "topic": "pins",
+    "kind": "q",
+    "fen": "k7/8/8/n7/2Q5/8/8/7K w - - 0 1",
+    "target": "a5",
+    "solutions": [
+      "c4a2",
+      "c4a4"
+    ]
+  },
+  {
+    "id": "pins-22",
+    "topic": "pins",
+    "kind": "q",
+    "fen": "K7/8/8/8/4n1k1/8/8/5Q2 w - - 0 1",
+    "target": "e4",
+    "solutions": [
+      "f1c4"
+    ]
+  },
+  {
+    "id": "pins-23",
+    "topic": "pins",
+    "kind": "q",
+    "fen": "1k5K/2r5/8/8/8/8/6Q1/8 w - - 0 1",
+    "target": "c7",
+    "solutions": [
+      "g2g3",
+      "g2h2"
+    ]
+  },
+  {
+    "id": "pins-24",
+    "topic": "pins",
+    "kind": "q",
+    "fen": "7K/8/8/2Qr4/8/8/6k1/8 w - - 0 1",
+    "target": "d5",
+    "solutions": [
+      "c5c6"
+    ]
+  },
+  {
+    "id": "pins-25",
+    "topic": "pins",
+    "kind": "q",
+    "fen": "8/8/1Q6/8/4n3/3k4/8/7K w - - 0 1",
+    "target": "e4",
+    "solutions": [
+      "b6g6"
+    ]
+  },
+  {
+    "id": "pins-26",
+    "topic": "pins",
+    "kind": "q",
+    "fen": "7K/8/6Q1/8/8/8/4nk2/8 w - - 0 1",
+    "target": "e2",
+    "solutions": [
+      "g6c2"
+    ]
+  },
+  {
+    "id": "pins-27",
+    "topic": "pins",
+    "kind": "q",
+    "fen": "7K/8/8/8/4Q3/2n5/8/k7 w - - 0 1",
+    "target": "c3",
+    "solutions": [
+      "e4d4",
+      "e4e5"
+    ]
+  },
+  {
+    "id": "pins-28",
+    "topic": "pins",
+    "kind": "q",
+    "fen": "3k4/4r3/8/8/8/8/1Q6/K7 w - - 0 1",
+    "target": "e7",
+    "solutions": [
+      "b2f6"
+    ]
+  },
+  {
+    "id": "pins-29",
+    "topic": "pins",
+    "kind": "q",
+    "fen": "8/8/8/1k6/1b6/8/8/6QK w - - 0 1",
+    "target": "b4",
+    "solutions": [
+      "g1b1"
+    ]
+  },
+  {
+    "id": "pins-30",
+    "topic": "pins",
+    "kind": "q",
+    "fen": "8/3Q4/8/5b2/5k2/8/8/7K w - - 0 1",
+    "target": "f5",
+    "solutions": [
+      "d7f7"
+    ]
+  },
+  {
+    "id": "skewers-21",
+    "topic": "skewers",
+    "kind": "q",
+    "fen": "K6Q/8/8/8/8/1q2k3/8/8 w - - 0 1",
+    "target": "b3",
+    "solutions": [
+      "h8h3"
+    ]
+  },
+  {
+    "id": "skewers-22",
+    "topic": "skewers",
+    "kind": "q",
+    "fen": "8/8/8/4k3/7Q/8/4r3/7K w - - 0 1",
+    "target": "e2",
+    "solutions": [
+      "h4e7"
+    ]
+  },
+  {
+    "id": "skewers-23",
+    "topic": "skewers",
+    "kind": "q",
+    "fen": "7r/8/8/7k/8/8/Q7/7K w - - 0 1",
+    "target": "h8",
+    "solutions": [
+      "a2h2"
+    ]
+  },
+  {
+    "id": "skewers-24",
+    "topic": "skewers",
+    "kind": "q",
+    "fen": "8/3q4/8/8/Q7/3k4/8/7K w - - 0 1",
+    "target": "d7",
+    "solutions": [
+      "a4d1"
+    ]
+  },
+  {
+    "id": "skewers-25",
+    "topic": "skewers",
+    "kind": "q",
+    "fen": "8/8/8/r2k4/6Q1/8/8/7K w - - 0 1",
+    "target": "a5",
+    "solutions": [
+      "g4f5",
+      "g4g5",
+      "g4h5"
+    ]
+  },
+  {
+    "id": "skewers-26",
+    "topic": "skewers",
+    "kind": "q",
+    "fen": "Q6K/8/8/8/2k5/8/8/2q5 w - - 0 1",
+    "target": "c1",
+    "solutions": [
+      "a8c6",
+      "a8c8"
+    ]
+  },
+  {
+    "id": "skewers-27",
+    "topic": "skewers",
+    "kind": "q",
+    "fen": "8/6r1/8/8/3k4/1Q6/8/K7 w - - 0 1",
+    "target": "g7",
+    "solutions": [
+      "b3b2"
+    ]
+  },
+  {
+    "id": "skewers-28",
+    "topic": "skewers",
+    "kind": "q",
+    "fen": "K7/8/8/7k/8/8/7r/Q7 w - - 0 1",
+    "target": "h2",
+    "solutions": [
+      "a1h8"
+    ]
+  },
+  {
+    "id": "skewers-29",
+    "topic": "skewers",
+    "kind": "q",
+    "fen": "8/Q7/8/3k4/8/5r2/8/K7 w - - 0 1",
+    "target": "f3",
+    "solutions": [
+      "a7a8",
+      "a7b7"
+    ]
+  },
+  {
+    "id": "skewers-30",
+    "topic": "skewers",
+    "kind": "q",
+    "fen": "K5Q1/8/8/4k3/8/8/7q/8 w - - 0 1",
+    "target": "h2",
+    "solutions": [
+      "g8b8"
+    ]
+  }
+]
