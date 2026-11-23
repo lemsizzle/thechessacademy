@@ -175,6 +175,7 @@ export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle
   const guidedRequestRef = useRef(0);
   const engine = useAnalysisEngine();
   const mistakeReview = useMistakeReview(originalTreeRef.current, reviewColor, reviewGameId);
+  const activeBrilliant = mistakeReview.activePuzzle ? null : mistakeReview.brilliantMoves.find(move => move.nodeId === activeId);
   const node = tree.nodes[activeId] ?? tree.nodes[tree.rootId];
   const rows = useMemo(() => treeRows(tree), [tree]);
   const moveRows = useMemo(() => mainlineMoveRows(tree), [tree]);
@@ -397,6 +398,9 @@ export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle
     progress={mistakeReview.progress}
     error={mistakeReview.error}
     puzzles={mistakeReview.puzzles}
+    brilliantMoves={mistakeReview.brilliantMoves}
+    scanPhase={mistakeReview.scanPhase}
+    onBrilliant={(nodeId) => { mistakeReview.close(); selectPosition(nodeId); }}
     activeIndex={mistakeReview.activeIndex}
     activePuzzle={mistakeReview.activePuzzle}
     result={mistakeReview.result}
@@ -509,6 +513,10 @@ export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle
         </div>
 
         <aside aria-label="Analysis details and tools" className="analysis-details min-w-0 space-y-3">
+          {activeBrilliant && <div role="status" className="rounded-lg border border-cyan-300/40 bg-cyan-300/10 p-4">
+            <p className="font-black text-cyan-100">!! Brilliant — {activeBrilliant.san}</p>
+            <p className="mt-1 text-sm leading-5 text-slate-200">{activeBrilliant.explanation}</p>
+          </div>}
           <div className="space-y-3 rounded-lg border border-white/10 bg-slate-950/60 p-4">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-wider text-cyan-200">{gameMode ? "Game review" : "Analysis board"}</p>
@@ -595,7 +603,7 @@ export function AnalysisWorkspace({ initialTree, initialPly = 0, title, subtitle
                   if (!id) return <span key={`${row.moveNumber}-${column}`} aria-hidden="true" />;
                   const item = tree.nodes[id];
                   return <button key={id} type="button" ref={activeId === id ? activeButtonRef : undefined} role="treeitem" aria-selected={activeId === id} aria-current={activeId === id ? "step" : undefined} onClick={() => selectPosition(id)} className={`min-w-0 rounded px-2 py-1.5 text-left text-sm font-bold ${activeId === id ? "bg-cyan-300 text-slate-950 ring-2 ring-inset ring-cyan-100 shadow-md shadow-cyan-500/30" : "text-slate-200 hover:bg-white/5"}`}>
-                    {displayPly(item.ply, item.san)} {item.nags.join("")} {item.comment && <span title="Comment" className="ml-1 text-cyan-300">●</span>} {item.referenceEvaluation && <span title="Teacher reference evaluation" className="text-amber-300">★</span>} {item.guidedExercise && <span title="Guided exercise" className="text-violet-300">◆</span>}
+                    {displayPly(item.ply, item.san)} {item.nags.join("")} {mistakeReview.brilliantMoves.some(move => move.nodeId === item.id) && <span title="Brilliant move" aria-label="Brilliant move" className="font-black text-cyan-200">!!</span>} {item.comment && <span title="Comment" className="ml-1 text-cyan-300">●</span>} {item.referenceEvaluation && <span title="Teacher reference evaluation" className="text-amber-300">★</span>} {item.guidedExercise && <span title="Guided exercise" className="text-violet-300">◆</span>}
                   </button>;
                 })}
               </div>)}

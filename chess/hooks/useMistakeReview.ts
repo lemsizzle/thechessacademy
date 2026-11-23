@@ -8,6 +8,7 @@ import type { AnalysisTree } from "@/chess/analysis/types";
 import { AnalysisStockfishService } from "@/chess/engine/AnalysisStockfishService";
 import type { StockfishCandidate } from "@/chess/types";
 import { isGoodReviewMove, reviewHint, scoreReviewMove, type ReviewScore } from "@/chess/analysis/reviewFeedback";
+import { findBrilliantMoves, type BrilliantMove } from "@/chess/analysis/brilliant";
 
 type PuzzleResult = { status: "incorrect" | "correct" | "revealed"; attemptedSan: string; attemptedUci: string } | null;
 
@@ -59,6 +60,8 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState("");
   const [puzzles, setPuzzles] = useState<MistakePuzzle[]>([]);
+  const [brilliantMoves, setBrilliantMoves] = useState<BrilliantMove[]>([]);
+  const [scanPhase, setScanPhase] = useState("Finding your key moments…");
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [result, setResult] = useState<PuzzleResult>(null);
   const [displayFen, setDisplayFen] = useState<string | null>(null);
@@ -93,6 +96,8 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
     setStatus("scanning");
     setError("");
     setPuzzles([]);
+    setBrilliantMoves([]);
+    setScanPhase("Finding your key moments…");
     scoresRef.current.clear();
     setActiveIndex(null);
     setResult(null);
@@ -113,6 +118,11 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
       }
       if (request !== scanRef.current) return;
       const nextPuzzles = buildMistakePuzzles(tree, evaluations, reviewColor);
+      setScanPhase("Checking brilliant sacrifices…");
+      const brilliants = await findBrilliantMoves(tree, reviewColor, (fen, ms) => service.analyze(fen, ms), () => request !== scanRef.current,
+        (current, total) => setProgress({ current, total }), evaluations);
+      if (request !== scanRef.current) return;
+      setBrilliantMoves(brilliants);
       setPuzzles(nextPuzzles);
       setStatus("ready");
       if (reviewGameId) {
@@ -287,7 +297,7 @@ export function useMistakeReview(tree: AnalysisTree, reviewColor?: "white" | "bl
   const lastMoveUci = explorationLine[explorationLine.length - 1]?.lastMoveUci
     ?? (result?.status === "revealed" ? activePuzzle?.bestMoveUci ?? null : null);
   return {
-    status, progress, error, puzzles, activeIndex, activePuzzle, result,
+    status, progress, error, puzzles, brilliantMoves, scanPhase, activeIndex, activePuzzle, result,
     displayFen, lastMoveUci, explorationMoveCount, queueSave,
     checking, checkError, hintLevel,
     hint: activePuzzle && hintLevel ? reviewHint(activePuzzle.fen, activePuzzle.bestMoveUci, hintLevel) : "",

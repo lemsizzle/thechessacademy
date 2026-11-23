@@ -2,12 +2,16 @@
 
 import type { MistakePuzzle } from "@/chess/analysis/mistakes";
 import { Card } from "@/components/Card";
+import type { BrilliantMove } from "@/chess/analysis/brilliant";
 
 type Props = {
   status: "idle" | "scanning" | "ready" | "error";
   progress: { current: number; total: number };
   error: string;
   puzzles: MistakePuzzle[];
+  brilliantMoves?: BrilliantMove[];
+  scanPhase?: string;
+  onBrilliant?: (nodeId: string) => void;
   activeIndex: number | null;
   activePuzzle: MistakePuzzle | null;
   result: { status: "incorrect" | "correct" | "revealed"; attemptedSan: string } | null;
@@ -41,16 +45,16 @@ export function MistakeReviewPanel(props: Props) {
   return <Card className="overflow-hidden border-[#3b3936] bg-[#262522] p-0">
     <div className="border-b border-white/10 bg-[#302e2b] px-4 py-3">
       <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#b3d96c]">Game review</p>
-      <h3 className="mt-0.5 text-lg font-black text-white">Review my three key moments.</h3>
+      <h3 className="mt-0.5 text-lg font-black text-white">Discover your key moments.</h3>
     </div>
     <div className="p-4">
       {props.status === "idle" && <>
-        <p className="text-sm leading-6 text-slate-300">Find up to three turning points, understand what changed, and retry each position yourself.</p>
+        <p className="text-sm leading-6 text-slate-300">Spot brilliant sacrifices and retry up to three turning points. Learn what made each move work.</p>
         <button type="button" onClick={props.onScan} className="mt-4 w-full rounded-md bg-[#7fa650] px-4 py-3 text-sm font-black text-white shadow hover:bg-[#8bb45a]">Find my key moments</button>
       </>}
 
       {props.status === "scanning" && <div aria-live="polite">
-        <div className="flex items-center justify-between text-sm"><span className="font-bold text-white">Finding your key moments…</span><span className="font-mono text-slate-400">{props.progress.current}/{props.progress.total}</span></div>
+        <div className="flex items-center justify-between text-sm"><span className="font-bold text-white">{props.scanPhase ?? "Finding your key moments…"}</span><span className="font-mono text-slate-400">{props.progress.current}/{props.progress.total}</span></div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/30"><div className="h-full rounded-full bg-[#7fa650] transition-[width]" style={{ width: `${percent}%` }} /></div>
         <p className="mt-2 text-xs text-slate-500">This runs locally in your browser. Longer games take a little more time.</p>
         <button type="button" onClick={props.onCancel} className="mt-3 text-xs font-black text-slate-300 hover:text-white">Cancel analysis</button>
@@ -62,6 +66,11 @@ export function MistakeReviewPanel(props: Props) {
       </>}
 
       {props.status === "ready" && props.activeIndex === null && <>
+        {!!props.brilliantMoves?.length && <div className="mb-3 rounded-md border border-cyan-300/40 bg-cyan-300/10 p-3" role="status">
+          <p className="font-black text-cyan-100">!! {props.brilliantMoves.length} brilliant move{props.brilliantMoves.length === 1 ? "" : "s"} found!</p>
+          <p className="mt-1 text-xs text-slate-300">A sound sacrifice worth celebrating. Select a move to explore it.</p>
+          <div className="mt-2 flex flex-wrap gap-2">{props.brilliantMoves.map(move => <button key={move.nodeId} type="button" onClick={() => props.onBrilliant?.(move.nodeId)} className="min-h-11 rounded-md border border-cyan-200/30 px-3 py-2 text-sm font-black text-cyan-100 hover:bg-cyan-200/10">{move.moveLabel} !!</button>)}</div>
+        </div>}
         {props.queueSave?.message && <p className={`mb-3 rounded-md border p-3 text-xs font-bold ${props.queueSave.status === "error" ? "border-rose-300/25 bg-rose-300/10 text-rose-100" : props.queueSave.status === "saved" ? "border-violet-300/25 bg-violet-300/10 text-violet-100" : "border-white/10 bg-white/5 text-slate-300"}`}>{props.queueSave.message}</p>}
         {props.puzzles.length ? <>
           <div className="grid grid-cols-2 gap-2 text-center">
